@@ -1,7 +1,5 @@
-use crate::utils::eth_client::RpcResponse;
 use ethereum_rust_storage::Store;
 use ethereum_rust_vm::execution_db::ExecutionDB;
-use reqwest::Client;
 use serde::{Deserialize, Serialize};
 use std::{
     io::{BufReader, BufWriter},
@@ -26,7 +24,7 @@ use super::errors::ProverServerError;
 
 pub async fn start_prover_server(store: Store) {
     let config = ProverServerConfig::from_env().expect("ProverServerConfig::from_env()");
-    let prover_server = ProverServer::new_from_config(config.clone(), store);
+    let mut prover_server = ProverServer::new_from_config(config.clone(), store);
 
     let (tx, rx) = mpsc::channel();
 
@@ -44,9 +42,11 @@ pub async fn start_prover_server(store: Store) {
 
 #[derive(Debug, Serialize, Deserialize)]
 pub enum ProofData {
-    Request {},
+    Request {
+        block_number: u64,
+    },
     Response {
-        block_number: Option<u64>,
+        block_number: u64,
         input: ProverInputData,
     },
     Submit {
@@ -63,6 +63,7 @@ struct ProverServer {
     ip: IpAddr,
     port: u16,
     store: Store,
+    last_proved_block: u64,
 }
 
 impl ProverServer {
@@ -71,6 +72,7 @@ impl ProverServer {
             ip: config.listen_ip,
             port: config.listen_port,
             store,
+            last_proved_block: 0_u64,
         }
     }
 
@@ -84,10 +86,8 @@ impl ProverServer {
             .expect("TcpStream::shutdown()");
     }
 
-    pub async fn start(&self, rx: Receiver<()>) -> Result<(), ProverServerError> {
+    pub async fn start(&mut self, rx: Receiver<()>) -> Result<(), ProverServerError> {
         let listener = TcpListener::bind(format!("{}:{}", self.ip, self.port))?;
-
-        let mut last_proved_block = 0;
 
         info!("Starting TCP server at {}:{}", self.ip, self.port);
         for stream in listener.incoming() {
@@ -97,19 +97,19 @@ impl ProverServer {
             }
 
             debug!("Connection established!");
-            self.handle_connection(stream?, &mut last_proved_block)
-                .await;
+            self.handle_connection(stream?).await;
         }
         Ok(())
     }
 
-    async fn handle_connection(&self, mut stream: TcpStream, last_proved_block: &mut u64) {
+    async fn handle_connection(&mut self, mut stream: TcpStream) {
         let buf_reader = BufReader::new(&stream);
 
         let data: Result<ProofData, _> = serde_json::de::from_reader(buf_reader);
         match data {
-            Ok(ProofData::Request {}) => {
-                if let Err(e) = self.handle_request(&mut stream, *last_proved_block).await {
+            Ok(ProofData::Request { block_number }) => {
+                assert!(block_number == (self.last_proved_block + 1), "Prover Client requested an invalid block_number: {block_number}. The last_proved_block is: {}", self.last_proved_block);
+                if let Err(e) = self.handle_request(&mut stream, block_number).await {
                     warn!("Failed to handle request: {e}");
                 }
             }
@@ -120,7 +120,8 @@ impl ProverServer {
                 if let Err(e) = self.handle_submit(&mut stream, block_number, receipt) {
                     warn!("Failed to handle submit: {e}");
                 }
-                *last_proved_block += 1;
+                assert!(block_number == (self.last_proved_block + 1), "Prover Client submitted an invalid block_number: {block_number}. The last_proved_block is: {}", self.last_proved_block);
+                self.last_proved_block = block_number;
             }
             Err(e) => {
                 warn!("Failed to parse request: {e}");
@@ -133,64 +134,18 @@ impl ProverServer {
         debug!("Connection closed");
     }
 
-    async fn _get_last_block_number() -> Result<u64, String> {
-        let response = Client::new()
-            .post("http://localhost:8551")
-            .header("content-type", "application/json")
-            .body(
-                r#"{
-                    "jsonrpc": "2.0",
-                    "method": "eth_blockNumber",
-                    "params": [],
-                    "id": 1
-                }"#,
-            )
-            .send()
-            .await
-            .map_err(|e| e.to_string())?
-            .json::<RpcResponse>()
-            .await
-            .map_err(|e| e.to_string())?;
-
-        if let RpcResponse::Success(r) = response {
-            u64::from_str_radix(
-                r.result
-                    .as_str()
-                    .ok_or("Response format error".to_string())?
-                    .strip_prefix("0x")
-                    .ok_or("Response format error".to_string())?,
-                16,
-            )
-            .map_err(|e| e.to_string())
-        } else {
-            Err("Failed to get last block number".to_string())
-        }
-    }
-
     async fn handle_request(
         &self,
         stream: &mut TcpStream,
-        last_proved_block: u64,
+        block_number: u64,
     ) -> Result<(), String> {
         debug!("Request received");
 
-        let last_block_number = self
-            .store
-            .get_latest_block_number()
-            .map_err(|e| e.to_string())?
-            .ok_or("missing latest block number".to_string())?;
-        let input = self.create_prover_input(last_block_number)?;
+        let input = self.create_prover_input(block_number)?;
 
-        let response = if last_block_number > last_proved_block {
-            ProofData::Response {
-                block_number: Some(last_block_number),
-                input,
-            }
-        } else {
-            ProofData::Response {
-                block_number: None,
-                input,
-            }
+        let response = ProofData::Response {
+            block_number,
+            input,
         };
         let writer = BufWriter::new(stream);
         serde_json::to_writer(writer, &response).map_err(|e| e.to_string())
@@ -202,7 +157,10 @@ impl ProverServer {
         block_number: u64,
         receipt: Box<risc0_zkvm::Receipt>,
     ) -> Result<(), String> {
-        debug!("Submit received. ID: {block_number}, proof: {:?}", receipt);
+        debug!(
+            "Submit received. Block Number: {block_number}, proof: {:?}",
+            receipt
+        );
 
         let response = ProofData::SubmitAck { block_number };
         let writer = BufWriter::new(stream);
