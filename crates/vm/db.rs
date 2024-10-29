@@ -1,3 +1,4 @@
+use bytes::Bytes;
 use ethereum_rust_core::{types::BlockHash, Address as CoreAddress, H256 as CoreH256, U256};
 use ethereum_rust_storage::{error::StoreError, Store};
 use revm::primitives::{
@@ -13,7 +14,19 @@ pub struct StoreWrapper {
 
 impl LevmDatabase for StoreWrapper {
     fn get_account_info(&self, address: CoreAddress) -> ethereum_rust_levm::vm::AccountInfo {
-        todo!()
+        let acc_info = self
+            .store
+            .get_account_info_by_hash(self.block_hash, address)
+            .unwrap()
+            .unwrap();
+
+        let acc_code = self.store.get_account_code(acc_info.code_hash).unwrap().unwrap();
+
+        ethereum_rust_levm::vm::AccountInfo {
+            balance: acc_info.balance,
+            nonce: acc_info.nonce,
+            bytecode: acc_code,
+        }
     }
 
     fn get_storage_slot(&self, address: CoreAddress, key: U256) -> U256 {
