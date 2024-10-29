@@ -29,25 +29,27 @@ pub fn new_vm_with_ops_db(operations: &[Operation], db: Db) -> VM {
 }
 
 /// This function is for testing purposes only.
-pub fn new_vm_with_ops_addr_bal_db(bytecode: Bytes, address: Address, balance: U256, mut db: Db, mut cache: Cache) -> VM {
+pub fn new_vm_with_ops_addr_bal_db(contract_bytecode: Bytes, sender_address: Address, sender_balance: U256, mut db: Db, mut cache: Cache) -> VM {
     let accounts = [
+        // This is the contract account that is going to be executed
         (
             Address::from_low_u64_be(42),
             Account {
                 info: AccountInfo {
                     nonce: 0,
                     balance: U256::MAX,
-                    bytecode
+                    bytecode: contract_bytecode
                 },
                 storage: HashMap::new(),
             },
         ),
         (
-            address,
+            // This is the sender account
+            sender_address,
             Account {
                 info: AccountInfo {
                     nonce: 0,
-                    balance,
+                    balance: sender_balance,
                     bytecode: Bytes::default(),
                 },                
                 storage: HashMap::new(),
@@ -61,13 +63,9 @@ pub fn new_vm_with_ops_addr_bal_db(bytecode: Bytes, address: Address, balance: U
     cache.add_account(&accounts[0].0, &accounts[0].1);
     cache.add_account(&accounts[1].0, &accounts[1].1);
 
-    // add the account with code to call
-
-    // add the account passed by parameter
-
     VM::new(
         Address::from_low_u64_be(42),
-        address,
+        sender_address,
         Default::default(),
         Default::default(),
         U256::MAX, // arbitrary gas limit for now...
