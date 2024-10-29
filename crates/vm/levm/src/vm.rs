@@ -201,7 +201,7 @@ pub fn word_to_address(word: U256) -> Address {
 }
 
 #[allow(clippy::too_many_arguments)]
-fn create_transaction(
+fn call_type_transaction(
     to: Address,
     msg_sender: Address,
     value: U256,
@@ -261,7 +261,7 @@ fn create_transaction(
 }
 
 #[allow(clippy::too_many_arguments)]
-fn create_contract(
+fn create_type_transaction(
     sender: Address,
     secret_key: H256,
     db: &mut Db,
@@ -415,8 +415,8 @@ impl VM {
     ) -> Result<Self, VMError> {
         // Maybe this desicion should be made in an upper layer
         match to {
-            Some(add) => create_transaction(
-                add,
+            Some(address) => call_type_transaction(
+                address,
                 msg_sender,
                 value,
                 calldata,
@@ -433,7 +433,7 @@ impl VM {
                 block_excess_blob_gas,
                 tx_blob_hashes,
             ),
-            None => create_contract(
+            None => create_type_transaction(
                 msg_sender,
                 secret_key,
                 db,
@@ -597,7 +597,6 @@ impl VM {
         }
     }
 
-    // let account = self.db.accounts.get(&self.env.origin).unwrap();
     /// Based on Ethereum yellow paper's initial tests of intrinsic validity (Section 6). The last version is
     /// Shanghai, so there are probably missing Cancun validations. The intrinsic validations are:
     ///
