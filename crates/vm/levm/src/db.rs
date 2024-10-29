@@ -5,7 +5,7 @@ use std::collections::HashMap;
 
 pub trait Database {
     fn get_account_info(&self, address: Address) -> AccountInfo;
-    fn get_storage_slot(&self, address: Address, key: U256) -> U256;
+    fn get_storage_slot(&self, address: Address, key: H256) -> U256;
     fn get_block_hash(&self, block_number: U256) -> Option<H256>;
 }
 
@@ -56,7 +56,7 @@ impl Database for Db {
             .clone()
     }
 
-    fn get_storage_slot(&self, address: Address, key: U256) -> U256 {
+    fn get_storage_slot(&self, address: Address, key: H256) -> U256 {
         // both `original_value` and `current_value` should work here because they have the same values on Db
         self.accounts
             .get(&address)
@@ -86,7 +86,7 @@ impl Cache {
         self.accounts.get_mut(&address)
     }
 
-    pub fn get_storage_slot(&self, address: Address, key: U256) -> Option<StorageSlot> {
+    pub fn get_storage_slot(&self, address: Address, key: H256) -> Option<StorageSlot> {
         self.get_account(address)
             .expect("Account should have been cached")
             .storage
@@ -98,7 +98,7 @@ impl Cache {
         self.accounts.insert(*address, account.clone());
     }
 
-    pub fn write_account_storage(&mut self, address: &Address, key: U256, slot: StorageSlot) {
+    pub fn write_account_storage(&mut self, address: &Address, key: H256, slot: StorageSlot) {
         self.accounts
             .get_mut(address)
             .expect("Account should have been cached")
@@ -116,7 +116,7 @@ impl Cache {
         self.accounts.contains_key(address)
     }
 
-    pub fn is_slot_cached(&self, address: &Address, key: U256) -> bool {
+    pub fn is_slot_cached(&self, address: &Address, key: H256) -> bool {
         self.is_account_cached(address)
             && self
                 .get_account(*address)

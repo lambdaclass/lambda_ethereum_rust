@@ -23,7 +23,7 @@ pub struct AccountInfo {
 #[derive(Clone, Default, Debug, PartialEq, Eq)]
 pub struct Account {
     pub info: AccountInfo,
-    pub storage: HashMap<U256, StorageSlot>,
+    pub storage: HashMap<H256, StorageSlot>,
 }
 
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
@@ -37,7 +37,7 @@ impl Account {
         balance: U256,
         bytecode: Bytes,
         nonce: u64,
-        storage: HashMap<U256, StorageSlot>,
+        storage: HashMap<H256, StorageSlot>,
     ) -> Self {
         Self {
             info: AccountInfo {
@@ -72,7 +72,7 @@ impl Account {
         self
     }
 
-    pub fn with_storage(mut self, storage: HashMap<U256, StorageSlot>) -> Self {
+    pub fn with_storage(mut self, storage: HashMap<H256, StorageSlot>) -> Self {
         self.storage = storage;
         self
     }
