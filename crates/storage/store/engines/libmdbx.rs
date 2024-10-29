@@ -394,10 +394,10 @@ impl StoreEngine for Store {
         }
     }
 
-    fn open_storage_trie(&self, address: Address, storage_root: H256) -> Trie {
-        let db = Box::new(LibmdbxDupsortTrieDB::<StorageTriesNodes, [u8; 20]>::new(
+    fn open_storage_trie(&self, hashed_address: [u8; 32], storage_root: H256) -> Trie {
+        let db = Box::new(LibmdbxDupsortTrieDB::<StorageTriesNodes, [u8; 32]>::new(
             self.db.clone(),
-            address.0,
+            hashed_address,
         ));
         Trie::open(db, storage_root)
     }
@@ -523,8 +523,8 @@ dupsort!(
 
 dupsort!(
     /// Table containing all storage trie's nodes
-    /// Each node is stored by address and node hash in order to keep different storage trie's nodes separate
-    ( StorageTriesNodes ) ([u8;20], [u8;33])[[u8;20]] => Vec<u8>
+    /// Each node is stored by hashed account address and node hash in order to keep different storage trie's nodes separate
+    ( StorageTriesNodes ) ([u8;32], [u8;33])[[u8;32]] => Vec<u8>
 );
 
 dupsort!(
