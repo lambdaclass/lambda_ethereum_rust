@@ -16,6 +16,7 @@ members = [
     "crates/vm/levm/bench/revm_comparison",
     "crates/l2/",
     "crates/l2/prover",
+    "crates/l2/contracts",
 ]
 resolver = "2"
 

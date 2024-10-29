@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::collections::{BTreeMap, HashMap};
 
 use crate::{
     constants::{
@@ -15,7 +15,7 @@ use ethereum_rust_core::{
     },
     Address, H256, U256,
 };
-use ethereum_rust_storage::{error::StoreError, Store};
+use ethereum_rust_storage::Store;
 
 /// Add a blob transaction and its blobs bundle to the mempool
 pub fn add_blob_transaction(
@@ -32,7 +32,7 @@ pub fn add_blob_transaction(
 
     // Add transaction and blobs bundle to storage
     let hash = transaction.compute_hash();
-    store.add_transaction_to_pool(hash, MempoolTransaction::new(transaction))?;
+    store.add_transaction_to_pool(MempoolTransaction::new(transaction));
     store.add_blobs_bundle_to_pool(hash, blobs_bundle)?;
     Ok(hash)
 }
@@ -49,7 +49,7 @@ pub fn add_transaction(transaction: Transaction, store: Store) -> Result<H256, M
     let hash = transaction.compute_hash();
 
     // Add transaction to storage
-    store.add_transaction_to_pool(hash, MempoolTransaction::new(transaction))?;
+    store.add_transaction_to_pool(MempoolTransaction::new(transaction));
 
     Ok(hash)
 }
@@ -72,13 +72,14 @@ pub fn get_blobs_bundle(tx_hash: H256, store: Store) -> Result<Option<BlobsBundl
 pub fn filter_transactions(
     filter: &PendingTxFilter,
     store: &Store,
-) -> Result<HashMap<Address, Vec<MempoolTransaction>>, StoreError> {
+) -> HashMap<Address, BTreeMap<u64, MempoolTransaction>> {
     let filter_tx = |tx: &Transaction| -> bool {
         // Filter by tx type
         let is_blob_tx = matches!(tx, Transaction::EIP4844Transaction(_));
         if filter.only_plain_txs && is_blob_tx || filter.only_blob_txs && !is_blob_tx {
             return false;
         }
+
         // Filter by tip & base_fee
         if let Some(min_tip) = filter.min_tip {
             if !tx
@@ -88,6 +89,7 @@ pub fn filter_transactions(
                 return false;
             }
         }
+
         // Filter by blob gas fee
         if let (true, Some(blob_fee)) = (is_blob_tx, filter.blob_fee) {
             if !tx.max_fee_per_blob_gas().is_some_and(|fee| fee >= blob_fee) {
@@ -100,8 +102,8 @@ pub fn filter_transactions(
 }
 
 /// Remove a transaction from the mempool
-pub fn remove_transaction(hash: H256, store: &Store) -> Result<(), StoreError> {
-    store.remove_transaction_from_pool(hash)
+pub fn remove_transaction(address: Address, nonce: u64, store: &Store) {
+    store.remove_transaction_from_pool(address, nonce)
 }
 
 #[derive(Debug, Default)]

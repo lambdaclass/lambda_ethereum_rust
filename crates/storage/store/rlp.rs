@@ -34,7 +34,7 @@ pub type BlobsBubdleRLP = Rlp<BlobsBundle>;
 // Wrapper for tuples. Used mostly for indexed keys.
 pub type TupleRLP<A, B> = Rlp<(A, B)>;
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct Rlp<T>(Vec<u8>, PhantomData<T>);
 
 impl<T: RLPEncode> From<T> for Rlp<T> {

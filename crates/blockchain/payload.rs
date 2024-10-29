@@ -1,6 +1,6 @@
 use std::{
     cmp::{min, Ordering},
-    collections::HashMap,
+    collections::{BTreeMap, HashMap},
 };
 
 use ethereum_rust_core::{
@@ -233,15 +233,16 @@ fn fetch_mempool_transactions(
         only_blob_txs: true,
         ..tx_filter
     };
+
     Ok((
         // Plain txs
         TransactionQueue::new(
-            mempool::filter_transactions(&plain_tx_filter, context.store())?,
+            mempool::filter_transactions(&plain_tx_filter, context.store()),
             context.base_fee_per_gas(),
         ),
         // Blob txs
         TransactionQueue::new(
-            mempool::filter_transactions(&blob_tx_filter, context.store())?,
+            mempool::filter_transactions(&blob_tx_filter, context.store()),
             context.base_fee_per_gas(),
         ),
     ))
@@ -302,7 +303,7 @@ pub fn fill_transactions(context: &mut PayloadBuildContext) -> Result<(), ChainE
             // Pull transaction from the mempool
             debug!("Ignoring replay-protected transaction: {}", tx_hash);
             txs.pop();
-            mempool::remove_transaction(tx_hash, context.store())?;
+            mempool::remove_transaction(head_tx.sender, head_tx.tx.nonce(), context.store());
             continue;
         }
         // Execute tx
@@ -310,7 +311,7 @@ pub fn fill_transactions(context: &mut PayloadBuildContext) -> Result<(), ChainE
             Ok(receipt) => {
                 txs.shift();
                 // Pull transaction from the mempool
-                mempool::remove_transaction(tx_hash, context.store())?;
+                mempool::remove_transaction(head_tx.sender, head_tx.tx.nonce(), context.store());
                 receipt
             }
             // Ignore following txs from sender
@@ -411,7 +412,7 @@ struct TransactionQueue {
     // The first transaction for each account along with its tip, sorted by highest tip
     heads: Vec<HeadTransaction>,
     // The remaining txs grouped by account and sorted by nonce
-    txs: HashMap<Address, Vec<MempoolTransaction>>,
+    txs: HashMap<Address, BTreeMap<u64, MempoolTransaction>>,
     // Base Fee stored for tip calculations
     base_fee: Option<u64>,
 }
@@ -439,16 +440,19 @@ impl From<HeadTransaction> for Transaction {
 
 impl TransactionQueue {
     /// Creates a new TransactionQueue from a set of transactions grouped by sender and sorted by nonce
-    fn new(mut txs: HashMap<Address, Vec<MempoolTransaction>>, base_fee: Option<u64>) -> Self {
+    fn new(
+        mut txs: HashMap<Address, BTreeMap<u64, MempoolTransaction>>,
+        base_fee: Option<u64>,
+    ) -> Self {
         let mut heads = Vec::new();
         for (address, txs) in txs.iter_mut() {
             // Pull the first tx from each list and add it to the heads list
             // This should be a newly filtered tx list so we are guaranteed to have a first element
-            let head_tx = txs.remove(0);
+            let (_, head_tx) = txs.pop_first().unwrap();
             heads.push(HeadTransaction {
                 // We already ran this method when filtering the transactions from the mempool so it shouldn't fail
                 tip: head_tx.effective_gas_tip(base_fee).unwrap(),
-                tx: head_tx,
+                tx: head_tx.clone(),
                 sender: *address,
             });
         }
@@ -493,7 +497,7 @@ impl TransactionQueue {
         if let Some(txs) = self.txs.get_mut(&tx.sender) {
             // Fetch next head
             if !txs.is_empty() {
-                let head_tx = txs.remove(0);
+                let (_, head_tx) = txs.pop_first().unwrap();
                 let head = HeadTransaction {
                     // We already ran this method when filtering the transactions from the mempool so it shouldn't fail
                     tip: head_tx.effective_gas_tip(self.base_fee).unwrap(),

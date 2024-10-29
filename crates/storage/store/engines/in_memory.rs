@@ -2,7 +2,7 @@ use crate::error::StoreError;
 use bytes::Bytes;
 use ethereum_rust_core::types::{
     BlobsBundle, Block, BlockBody, BlockHash, BlockHeader, BlockNumber, ChainConfig, Index,
-    MempoolTransaction, Receipt, Transaction,
+    MempoolTransaction, Receipt,
 };
 use ethereum_rust_trie::{InMemoryTrieDB, Trie};
 use ethereum_types::{Address, H256, U256};
@@ -166,15 +166,6 @@ impl StoreEngine for Store {
             }))
     }
 
-    fn add_transaction_to_pool(
-        &self,
-        hash: H256,
-        transaction: MempoolTransaction,
-    ) -> Result<(), StoreError> {
-        self.inner().transaction_pool.insert(hash, transaction);
-        Ok(())
-    }
-
     fn get_transaction_from_pool(
         &self,
         hash: H256,
@@ -193,28 +184,6 @@ impl StoreEngine for Store {
 
     fn get_blobs_bundle_from_pool(&self, tx_hash: H256) -> Result<Option<BlobsBundle>, StoreError> {
         Ok(self.inner().blobs_bundle_pool.get(&tx_hash).cloned())
-    }
-
-    fn remove_transaction_from_pool(&self, hash: H256) -> Result<(), StoreError> {
-        self.inner().transaction_pool.remove(&hash);
-        Ok(())
-    }
-
-    fn filter_pool_transactions(
-        &self,
-        filter: &dyn Fn(&Transaction) -> bool,
-    ) -> Result<HashMap<Address, Vec<MempoolTransaction>>, StoreError> {
-        let mut txs_by_sender: HashMap<Address, Vec<MempoolTransaction>> = HashMap::new();
-        for (_, tx) in self.inner().transaction_pool.iter() {
-            if filter(tx) {
-                txs_by_sender
-                    .entry(tx.sender())
-                    .or_default()
-                    .push(tx.clone())
-            }
-        }
-        txs_by_sender.iter_mut().for_each(|(_, txs)| txs.sort());
-        Ok(txs_by_sender)
     }
 
     fn add_receipt(

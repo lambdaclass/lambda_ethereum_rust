@@ -16,17 +16,20 @@ use ethereum_types::{Address, H256, U256};
 use sha3::{Digest as _, Keccak256};
 use std::collections::HashMap;
 use std::fmt::Debug;
-use std::sync::Arc;
+use std::sync::{Arc, Mutex};
 use tracing::info;
 
 mod engines;
 pub mod error;
 mod rlp;
+use std::collections::BTreeMap;
 
 #[derive(Debug, Clone)]
 pub struct Store {
     // TODO: Check if we can remove this mutex and move it to the in_memory::Store struct
     engine: Arc<dyn StoreEngine>,
+    // Address -> (nonce -> Transaction)
+    pub mempool: Arc<Mutex<HashMap<Address, BTreeMap<u64, MempoolTransaction>>>>,
 }
 
 #[allow(dead_code)]
@@ -74,9 +77,11 @@ impl Store {
             #[cfg(feature = "libmdbx")]
             EngineType::Libmdbx => Self {
                 engine: Arc::new(LibmdbxStore::new(path)?),
+                mempool: Arc::new(Mutex::new(HashMap::new())),
             },
             EngineType::InMemory => Self {
                 engine: Arc::new(InMemoryStore::new()),
+                mempool: Arc::new(Mutex::new(HashMap::new())),
             },
         };
         info!("Started store engine");
@@ -210,12 +215,21 @@ impl Store {
     }
 
     /// Add transaction to the pool
-    pub fn add_transaction_to_pool(
-        &self,
-        hash: H256,
-        transaction: MempoolTransaction,
-    ) -> Result<(), StoreError> {
-        self.engine.add_transaction_to_pool(hash, transaction)
+    pub fn add_transaction_to_pool(&self, transaction: MempoolTransaction) {
+        let mut mempool = self.mempool.lock().unwrap();
+        let maybe_old_value = mempool.get_mut(&transaction.sender());
+        let sender = transaction.sender();
+
+        match maybe_old_value {
+            Some(old_value) => {
+                old_value.insert(transaction.nonce(), transaction.into());
+            }
+            None => {
+                let mut new_value = BTreeMap::new();
+                new_value.insert(transaction.nonce(), transaction.into());
+                mempool.insert(sender, new_value);
+            }
+        }
     }
 
     /// Get a transaction from the pool
@@ -244,8 +258,13 @@ impl Store {
     }
 
     /// Remove a transaction from the pool
-    pub fn remove_transaction_from_pool(&self, hash: H256) -> Result<(), StoreError> {
-        self.engine.remove_transaction_from_pool(hash)
+    pub fn remove_transaction_from_pool(&self, address: Address, nonce: u64) {
+        match self.mempool.lock().unwrap().get_mut(&address) {
+            Some(old_value) => {
+                old_value.remove(&nonce);
+            }
+            None => {}
+        };
     }
 
     /// Applies the filter and returns a set of suitable transactions from the mempool.
@@ -253,8 +272,32 @@ impl Store {
     pub fn filter_pool_transactions(
         &self,
         filter: &dyn Fn(&Transaction) -> bool,
-    ) -> Result<HashMap<Address, Vec<MempoolTransaction>>, StoreError> {
-        self.engine.filter_pool_transactions(filter)
+    ) -> HashMap<Address, BTreeMap<u64, MempoolTransaction>> {
+        // Go through every address, iterate over every tx in nonce order,
+        // then remove any transaction and its following ones that do not satisfy the filter.
+
+        let mut ret: HashMap<Address, BTreeMap<u64, MempoolTransaction>> = HashMap::new();
+        let mempool = self.mempool.lock().unwrap();
+
+        for (address, txs_by_nonce) in mempool.iter() {
+            let mut account_txs = BTreeMap::new();
+            for (nonce, tx) in txs_by_nonce.iter() {
+                if filter(tx) {
+                    account_txs.insert(*nonce, tx.clone());
+                } else {
+                    // If the tx does not pass the filter then stop right away;
+                    // There's no point in including subsequent transactions since the nonce is
+                    // already going to be invalid for them (a transaction with a lower nonce was rejected).
+                    break;
+                }
+            }
+
+            if !account_txs.is_empty() {
+                ret.insert(address.clone(), account_txs);
+            }
+        }
+
+        ret
     }
 
     fn add_account_code(&self, code_hash: H256, code: Bytes) -> Result<(), StoreError> {
@@ -1006,13 +1049,9 @@ mod tests {
         let blob_tx_hash = blob_tx.compute_hash();
         let filter =
             |tx: &Transaction| -> bool { matches!(tx, Transaction::EIP4844Transaction(_)) };
-        store
-            .add_transaction_to_pool(blob_tx_hash, blob_tx.clone())
-            .unwrap();
-        store
-            .add_transaction_to_pool(plain_tx_hash, plain_tx)
-            .unwrap();
-        let txs = store.filter_pool_transactions(&filter).unwrap();
+        store.add_transaction_to_pool(blob_tx.clone());
+        store.add_transaction_to_pool(plain_tx);
+        let txs = store.filter_pool_transactions(&filter);
         assert_eq!(txs, HashMap::from([(blob_tx.sender(), vec![blob_tx])]));
     }
 

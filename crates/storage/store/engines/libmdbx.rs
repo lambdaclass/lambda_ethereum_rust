@@ -23,7 +23,6 @@ use libmdbx::{
 };
 use libmdbx::{DatabaseOptions, Mode, ReadWriteOptions};
 use serde_json;
-use std::collections::HashMap;
 use std::fmt::{Debug, Formatter};
 use std::path::Path;
 use std::sync::Arc;
@@ -53,17 +52,6 @@ impl Store {
     fn read<T: Table>(&self, key: T::Key) -> Result<Option<T::Value>, StoreError> {
         let txn = self.db.begin_read().map_err(StoreError::LibmdbxError)?;
         txn.get::<T>(key).map_err(StoreError::LibmdbxError)
-    }
-
-    // Helper method to remove from a libmdbx table
-    fn remove<T: Table>(&self, key: T::Key) -> Result<(), StoreError> {
-        let txn = self
-            .db
-            .begin_readwrite()
-            .map_err(StoreError::LibmdbxError)?;
-        txn.delete::<T>(key, None)
-            .map_err(StoreError::LibmdbxError)?;
-        txn.commit().map_err(StoreError::LibmdbxError)
     }
 
     fn get_block_hash_by_block_number(
@@ -217,15 +205,6 @@ impl StoreEngine for Store {
             }))
     }
 
-    fn add_transaction_to_pool(
-        &self,
-        hash: H256,
-        transaction: MempoolTransaction,
-    ) -> Result<(), StoreError> {
-        self.write::<TransactionPool>(hash.into(), transaction.into())?;
-        Ok(())
-    }
-
     fn get_transaction_from_pool(
         &self,
         hash: H256,
@@ -246,31 +225,6 @@ impl StoreEngine for Store {
         Ok(self
             .read::<BlobsBundlePool>(tx_hash.into())?
             .map(|bb| bb.to()))
-    }
-
-    fn remove_transaction_from_pool(&self, hash: H256) -> Result<(), StoreError> {
-        self.remove::<TransactionPool>(hash.into())
-    }
-
-    fn filter_pool_transactions(
-        &self,
-        filter: &dyn Fn(&Transaction) -> bool,
-    ) -> Result<HashMap<Address, Vec<MempoolTransaction>>, StoreError> {
-        let txn = self.db.begin_read().map_err(StoreError::LibmdbxError)?;
-        let cursor = txn
-            .cursor::<TransactionPool>()
-            .map_err(StoreError::LibmdbxError)?;
-        let tx_iter = cursor
-            .walk(None)
-            .map_while(|res| res.ok().map(|(_, tx)| tx.to()));
-        let mut txs_by_sender: HashMap<Address, Vec<MempoolTransaction>> = HashMap::new();
-        for tx in tx_iter {
-            if filter(&tx) {
-                txs_by_sender.entry(tx.sender()).or_default().push(tx)
-            }
-        }
-        txs_by_sender.iter_mut().for_each(|(_, txs)| txs.sort());
-        Ok(txs_by_sender)
     }
 
     /// Stores the chain config serialized as json

@@ -105,9 +105,9 @@ async fn deploy_contracts(
     deployer_private_key: SecretKey,
     eth_client: &EthClient,
 ) -> (Address, Address) {
-    if std::fs::exists("contracts/solc_out").expect("Could not determine if solc_out exists") {
-        std::fs::remove_dir_all("contracts/solc_out").expect("Failed to remove solc_out");
-    }
+    // if std::fs::exists("contracts/solc_out").expect("Could not determine if solc_out exists") {
+    //     std::fs::remove_dir_all("contracts/solc_out").expect("Failed to remove solc_out");
+    // }
 
     let overrides = Overrides {
         gas_limit: Some(GAS_LIMIT_MINIMUM * GAS_LIMIT_ADJUSTMENT_FACTOR),
