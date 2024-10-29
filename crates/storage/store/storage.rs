@@ -1051,14 +1051,12 @@ mod tests {
         store.add_transaction_to_pool(blob_tx.clone());
         store.add_transaction_to_pool(plain_tx);
         let txs = store.filter_pool_transactions(&filter);
-        // assert_eq!(txs, HashMap::from([(blob_tx.sender(), vec![blob_tx])]));
         let mut expected_result: HashMap<H160, BTreeMap<u64, MempoolTransaction>> = HashMap::new();
         expected_result.insert(
             blob_tx.sender(),
             BTreeMap::from([(blob_tx.nonce(), blob_tx)]),
         );
         assert_eq!(txs, expected_result);
-        // assert_eq!(txs, HashMap::from([(blob_tx.sender(), vec![blob_tx])]));
     }
 
     fn blobs_bundle_loadtest(store: Store) {
