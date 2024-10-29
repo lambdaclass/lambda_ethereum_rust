@@ -62,9 +62,13 @@ pub struct CallFrame {
     pub gas_limit: U256,
     pub gas_used: U256,
     pub pc: usize,
-    pub msg_sender: Address, // Origin address?
+    /// Address of the account that sent the message
+    pub msg_sender: Address,
+    /// Address of the recipient of the message
     pub to: Address,
+    /// Address of the code to execute. Usually the same as `to`, but can be different
     pub code_address: Address,
+    /// Bytecode to execute
     pub bytecode: Bytes,
     pub msg_value: U256,
     pub stack: Stack, // max 1024 in the future
