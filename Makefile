@@ -94,10 +94,10 @@ TEST_PATTERN ?= /
 # The endpoints tested may be limited by supplying a test pattern in the form "/endpoint_1|enpoint_2|..|enpoint_n"
 # For example, to run the rpc-compat suites for eth_chainId & eth_blockNumber you should run:
 # `make run-hive SIMULATION=ethereum/rpc-compat TEST_PATTERN="/eth_chainId|eth_blockNumber"`
-run-hive: build-image ## 🧪 Run Hive testing suite
+run-hive: build-image setup-hive ## 🧪 Run Hive testing suite
 	cd hive && ./hive --sim $(SIMULATION) --client ethereumrust --sim.limit "$(TEST_PATTERN)"
 
-run-hive-debug: build-image ## 🐞 Run Hive testing suite in debug mode
+run-hive-debug: build-image setup-hive ## 🐞 Run Hive testing suite in debug mode
 	cd hive && ./hive --sim $(SIMULATION) --client ethereumrust --sim.limit "$(TEST_PATTERN)" --docker.output
 
 clean-hive-logs: ## 🧹 Clean Hive logs
