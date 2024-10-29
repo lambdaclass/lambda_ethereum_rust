@@ -6,6 +6,7 @@ edition = "2021"
 [dependencies]
 ethereum_rust-core = { path = "../common", default-features = false }
 ethereum_rust-storage = { path = "../storage/store", default-features = false }
+ethereum_rust-trie = { path = "../storage/trie", default-features = false }
 revm = { version = "14.0.3", features = [
     "serde",
     "std",
@@ -27,6 +28,8 @@ cfg-if.workspace = true
 
 serde.workspace = true
 bincode = "1"
+
+ethereum-types = "0.14.1"
 
 [lib]
 path = "./vm.rs"

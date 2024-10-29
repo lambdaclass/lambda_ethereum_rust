@@ -356,14 +356,16 @@ impl Store {
 
     /// Returns a state trie after applying accound updates without committing the changes to the
     /// database.
+    #[allow(clippy::type_complexity)]
     pub fn simulate_account_updates(
         &self,
         block_hash: BlockHash,
         account_updates: &[AccountUpdate],
-    ) -> Result<Option<Trie>, StoreError> {
+    ) -> Result<Option<(Trie, HashMap<Address, Trie>)>, StoreError> {
         let Some(mut state_trie) = self.state_trie(block_hash)? else {
             return Ok(None);
         };
+        let mut storage_tries = HashMap::new();
         for update in account_updates.iter() {
             let hashed_address = hash_address(&update.address);
             if update.removed {
@@ -395,11 +397,12 @@ impl Store {
                         }
                     }
                     account_state.storage_root = storage_trie.hash_no_commit()?;
+                    storage_tries.insert(update.address, storage_trie);
                 }
                 state_trie.insert(hashed_address, account_state.encode_to_vec())?;
             }
         }
-        Ok(Some(state_trie))
+        Ok(Some((state_trie, storage_tries)))
     }
 
     /// Adds all genesis accounts and returns the genesis block's state_root
@@ -655,7 +658,7 @@ impl Store {
     }
 
     // Obtain the storage trie for the given block
-    fn state_trie(&self, block_hash: BlockHash) -> Result<Option<Trie>, StoreError> {
+    pub fn state_trie(&self, block_hash: BlockHash) -> Result<Option<Trie>, StoreError> {
         let Some(header) = self.get_block_header_by_hash(block_hash)? else {
             return Ok(None);
         };
@@ -663,7 +666,7 @@ impl Store {
     }
 
     // Obtain the storage trie for the given account on the given block
-    fn storage_trie(
+    pub fn storage_trie(
         &self,
         block_hash: BlockHash,
         address: Address,
@@ -734,13 +737,13 @@ impl Store {
     }
 }
 
-fn hash_address(address: &Address) -> Vec<u8> {
+pub fn hash_address(address: &Address) -> Vec<u8> {
     Keccak256::new_with_prefix(address.to_fixed_bytes())
         .finalize()
         .to_vec()
 }
 
-fn hash_key(key: &H256) -> Vec<u8> {
+pub fn hash_key(key: &H256) -> Vec<u8> {
     Keccak256::new_with_prefix(key.to_fixed_bytes())
         .finalize()
         .to_vec()
