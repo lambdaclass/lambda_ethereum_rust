@@ -97,7 +97,6 @@ impl<S: AsyncWrite + AsyncRead + std::marker::Unpin> RLPxConnection<S> {
         info!("Completed handshake!");
 
         self.exchange_hello_messages().await?;
-        info!("Completed Hello roundtrip!");
         Ok(())
     }
 
@@ -108,12 +107,10 @@ impl<S: AsyncWrite + AsyncRead + std::marker::Unpin> RLPxConnection<S> {
         ));
 
         self.send(hello_msg).await;
-        info!("Hello message sent!");
 
         // Receive Hello message
         match self.receive().await {
             Message::Hello(hello_message) => {
-                info!("Hello message received {hello_message:?}");
                 self.capabilities = hello_message.capabilities;
 
                 // Check if we have any capability in common
@@ -176,7 +173,6 @@ impl<S: AsyncWrite + AsyncRead + std::marker::Unpin> RLPxConnection<S> {
         // Sending eth Status if peer supports it
         if self.capabilities.contains(&CAP_ETH) {
             let status = backend::get_status(&self.storage).unwrap();
-            info!("Status message sent: {status:?}");
             self.send(Message::Status(status)).await;
         }
         // TODO: add new capabilities startup when required (eg. snap)
@@ -199,7 +195,6 @@ impl<S: AsyncWrite + AsyncRead + std::marker::Unpin> RLPxConnection<S> {
 
                 auth_message.put_slice(&msg);
                 self.stream.write_all(&auth_message).await.unwrap();
-                info!("Sent auth message correctly!");
 
                 self.state = RLPxConnectionState::InitiatedAuth(InitiatedAuth::new(
                     initiator_state,
@@ -225,7 +220,6 @@ impl<S: AsyncWrite + AsyncRead + std::marker::Unpin> RLPxConnection<S> {
 
                 ack_message.put_slice(&msg);
                 self.stream.write_all(&ack_message).await.unwrap();
-                info!("Sent ack message correctly!");
 
                 self.state = RLPxConnectionState::Established(Box::new(Established::for_receiver(
                     received_auth_state,
@@ -256,7 +250,6 @@ impl<S: AsyncWrite + AsyncRead + std::marker::Unpin> RLPxConnection<S> {
                 let auth_bytes = &buf[..msg_size + 2];
                 let msg = &buf[2..msg_size + 2];
                 let (auth, remote_ephemeral_key) = decode_auth_message(&secret_key, msg, auth_data);
-                info!("Received auth message correctly!");
 
                 // Build next state
                 self.state = RLPxConnectionState::ReceivedAuth(ReceivedAuth::new(
@@ -292,7 +285,6 @@ impl<S: AsyncWrite + AsyncRead + std::marker::Unpin> RLPxConnection<S> {
                 let msg = &buf[2..msg_size + 2];
                 let ack = decode_ack_message(&secret_key, msg, ack_data);
                 let remote_ephemeral_key = ack.get_ephemeral_pubkey().unwrap();
-                info!("Received ack message correctly!");
 
                 // Build next state
                 self.state = RLPxConnectionState::Established(Box::new(Established::for_initiator(
