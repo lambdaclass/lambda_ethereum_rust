@@ -367,11 +367,12 @@ impl VM {
         if contract_code.len() > MAX_CODE_SIZE {
             return Err(VMError::ContractOutputTooBig);
         }
-        // Supposing contract code has contents
-        if contract_code[0] == INVALID_CONTRACT_PREFIX {
-            return Err(VMError::InvalidInitialByte);
+        
+        if !contract_code.is_empty() {
+            if contract_code[0] == INVALID_CONTRACT_PREFIX {
+                return Err(VMError::InvalidInitialByte);
+            }
         }
-
         // If the initialization code completes successfully, a final contract-creation cost is paid,
         // the code-deposit cost, c, proportional to the size of the created contract’s code
         let creation_cost = 200 * contract_code.len();
