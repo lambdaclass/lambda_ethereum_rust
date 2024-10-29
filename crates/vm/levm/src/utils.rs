@@ -88,7 +88,7 @@ pub fn new_vm_with_ops_addr_bal_db(
     cache.add_account(&accounts[1].0, &accounts[1].1);
 
     VM::new(
-        Address::from_low_u64_be(42),
+        Some(Address::from_low_u64_be(42)),
         sender_address,
         Default::default(),
         Default::default(),
@@ -105,5 +105,7 @@ pub fn new_vm_with_ops_addr_bal_db(
         Default::default(),
         Default::default(),
         Default::default(),
+        None,
     )
+    .unwrap()
 }

@@ -1,4 +1,4 @@
-.DEFAULT_GOAL := init
+.DEFAULT_GOAL := help
 
 .PHONY: help init down clean init-local-l1 down-local-l1 clean-local-l1 init-l2 down-l2 deploy-l1 deploy-block-executor deploy-inbox setup-prover
 
@@ -13,14 +13,14 @@ down: down-local-l1 down-l2 ## 🛑 Shuts down the localnet
 
 clean: clean-contract-deps ## 🧹 Cleans the localnet
 
-restart: restart-local-l1 restart-contract-deps deploy-l1 restart-l2 ## 🔄 Restarts the localnet
+restart: restart-local-l1 deploy-l1 restart-l2 ## 🔄 Restarts the localnet
 
-cli: ## 🛠️ Builds the L2 Lambda Ethereum Rust CLI
-	cargo build --release --manifest-path ${ETHEREUM_RUST_PATH}/cmd/ethereum_rust/Cargo.toml
+cli: ## 🛠️ Installs the L2 Lambda Ethereum Rust CLI
+	cargo install --path ${ETHEREUM_RUST_PATH}/cmd/ethereum_rust_l2/ --force
 
 # Variables
 
-ETHEREUM_RUST_PATH=$(shell pwd)/../../
+ETHEREUM_RUST_PATH=$(shell pwd)/../..
 ETHEREUM_RUST_BIN_PATH=$(ETHEREUM_RUST_PATH)/target/release/ethereum_rust
 ETHEREUM_RUST_DEV_DOCKER_COMPOSE_PATH=$(ETHEREUM_RUST_PATH)/crates/blockchain/dev/docker-compose-dev.yaml
 
@@ -40,10 +40,9 @@ restart-local-l1: down-local-l1 init-local-l1 ## 🔄 Restarts the L1 Lambda Eth
 
 # Contracts
 
-# contract-deps: ## 📦 Installs the dependencies for the L1 contracts
-
 clean-contract-deps: ## 🧹 Cleans the dependencies for the L1 contracts.
 	rm -rf contracts/solc_out
+	rm -rf contracts/lib
 
 restart-contract-deps: clean-contract-deps ## 🔄 Restarts the dependencies for the L1 contracts.
 
