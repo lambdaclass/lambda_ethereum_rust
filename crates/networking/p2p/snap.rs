@@ -2,7 +2,10 @@ use bytes::Bytes;
 use ethereum_rust_rlp::encode::RLPEncode;
 use ethereum_rust_storage::{error::StoreError, Store};
 
-use crate::rlpx::snap::{AccountRange, AccountRangeUnit, AccountStateSlim, GetAccountRange};
+use crate::rlpx::snap::{
+    AccountRange, AccountRangeUnit, AccountStateSlim, GetAccountRange, GetStorageRanges,
+    StorageRanges, StorageSlot,
+};
 
 pub fn process_account_range_request(
     request: GetAccountRange,
@@ -32,6 +35,39 @@ pub fn process_account_range_request(
     Ok(AccountRange {
         id: request.id,
         accounts,
+        proof,
+    })
+}
+
+pub fn process_storage_ranges_request(
+    request: GetStorageRanges,
+    store: Store,
+) -> Result<StorageRanges, StoreError> {
+    let mut slots = vec![];
+    let mut bytes_used = 0;
+    for hashed_address in request.account_hashes {
+        let mut account_slots = vec![];
+        if let Some(storage_iter) = store.iter_storage(request.root_hash, hashed_address)? {
+            for (hash, data) in storage_iter {
+                if hash >= request.starting_hash {
+                    bytes_used += 64_u64; // slot size
+                    account_slots.push(StorageSlot {hash, data});
+                }
+                if hash >= request.limit_hash || bytes_used >= request.response_bytes {
+                    break;
+                }
+            }
+        }
+        slots.push(account_slots);
+        // TODO: check if this break is consistent with spec
+        if bytes_used >= request.response_bytes {
+            break;
+        }
+    }
+    let proof = vec![];
+    Ok(StorageRanges {
+        id: request.id,
+        slots,
         proof,
     })
 }

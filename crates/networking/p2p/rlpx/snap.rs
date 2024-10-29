@@ -46,7 +46,7 @@ pub(crate) struct GetStorageRanges {
 #[derive(Debug)]
 pub(crate) struct StorageRanges {
     pub id: u64,
-    pub slots: Vec<StorageSlot>,
+    pub slots: Vec<Vec<StorageSlot>>,
     pub proof: Vec<Bytes>,
 }
 
@@ -211,8 +211,8 @@ pub struct AccountStateSlim {
 
 #[derive(Debug)]
 pub struct StorageSlot {
-    hash: H256,
-    data: U256,
+    pub hash: H256,
+    pub data: U256,
 }
 
 impl RLPEncode for AccountRangeUnit {
