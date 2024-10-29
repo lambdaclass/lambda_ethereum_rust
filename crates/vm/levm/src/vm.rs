@@ -413,10 +413,8 @@ impl VM {
                         current_call_frame.gas_used += left_gas;
                         self.env.consumed_gas += left_gas;
                     }
-
-                    // Restore previous state
-                    (self.accrued_substate, self.db, self.env.refunded_gas) =
-                        (backup_substate, backup_db, backup_refunded_gas);
+                    
+                    self.restore_state(backup_db, backup_substate, backup_refunded_gas);
 
                     return TransactionReport {
                         result: TxResult::Revert(error),
@@ -430,6 +428,12 @@ impl VM {
                 }
             }
         }
+    }
+
+    fn restore_state(&mut self, backup_db: Db, backup_substate: Substate, backup_refunded_gas: U256) {
+        self.db = backup_db;
+        self.accrued_substate = backup_substate;
+        self.env.refunded_gas = backup_refunded_gas;
     }
 
     // let account = self.db.accounts.get(&self.env.origin).unwrap();
