@@ -6,13 +6,13 @@ use std::collections::HashMap;
 pub trait Database {
     fn get_account_info(&self, address: Address) -> AccountInfo;
     fn get_storage_slot(&self, address: Address, key: H256) -> U256;
-    fn get_block_hash(&self, block_number: U256) -> Option<H256>;
+    fn get_block_hash(&self, block_number: u64) -> Option<H256>;
 }
 
 #[derive(Debug, Default)]
 pub struct Db {
     pub accounts: HashMap<Address, Account>,
-    pub block_hashes: HashMap<U256, H256>,
+    pub block_hashes: HashMap<u64, H256>,
 }
 
 // Methods here are for testing purposes only, for initializing the Db with some values
@@ -30,7 +30,7 @@ impl Db {
     }
 
     /// Add block hashes to database
-    pub fn add_block_hashes(&mut self, block_hashes: Vec<(U256, H256)>) {
+    pub fn add_block_hashes(&mut self, block_hashes: Vec<(u64, H256)>) {
         self.block_hashes.extend(block_hashes);
     }
 
@@ -41,7 +41,7 @@ impl Db {
     }
 
     /// Builder method with block hashes [for testing only]
-    pub fn with_block_hashes(mut self, block_hashes: HashMap<U256, H256>) -> Self {
+    pub fn with_block_hashes(mut self, block_hashes: HashMap<u64, H256>) -> Self {
         self.block_hashes = block_hashes;
         self
     }
@@ -67,7 +67,7 @@ impl Database for Db {
             .original_value
     }
 
-    fn get_block_hash(&self, block_number: U256) -> Option<H256> {
+    fn get_block_hash(&self, block_number: u64) -> Option<H256> {
         self.block_hashes.get(&block_number).cloned()
     }
 }

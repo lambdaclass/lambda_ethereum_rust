@@ -2492,13 +2492,13 @@ fn returndatacopy_being_set_by_parent() {
 
 #[test]
 fn blockhash_op() {
-    let block_number = U256::one();
+    let block_number = 1;
     let block_hash = H256::from_low_u64_be(12345678);
     let current_block_number = U256::from(3);
     let expected_block_hash = U256::from_big_endian(&block_hash.0);
 
     let operations = [
-        Operation::Push((1, block_number)),
+        Operation::Push((1, U256::from(block_number))),
         Operation::BlockHash,
         Operation::Stop,
     ];
@@ -2560,13 +2560,13 @@ fn blockhash_same_block_number() {
 
 #[test]
 fn blockhash_block_number_not_from_recent_256() {
-    let block_number = U256::one();
+    let block_number = 1;
     let block_hash = H256::from_low_u64_be(12345678);
     let current_block_number = U256::from(258);
     let expected_block_hash = U256::zero();
 
     let operations = [
-        Operation::Push((1, block_number)),
+        Operation::Push((1, U256::from(block_number))),
         Operation::BlockHash,
         Operation::Stop,
     ];
