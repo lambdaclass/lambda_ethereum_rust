@@ -117,7 +117,6 @@ pub struct Environment {
     pub tx_blob_hashes: Option<Vec<H256>>,
 }
 
-#[derive(Debug)]
 pub struct VM {
     pub call_frames: Vec<CallFrame>,
     pub env: Environment,

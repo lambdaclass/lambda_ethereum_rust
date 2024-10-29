@@ -3,7 +3,7 @@ use ethereum_types::{Address, U256};
 use keccak_hash::H256;
 use std::collections::HashMap;
 
-pub trait Database: std::fmt::Debug {
+pub trait Database {
     fn get_account_info(&self, address: Address) -> AccountInfo;
     fn get_storage_slot(&self, address: Address, key: U256) -> U256;
     fn get_block_hash(&self, block_number: U256) -> Option<H256>;
