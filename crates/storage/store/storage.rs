@@ -171,20 +171,6 @@ impl Store {
         self.engine.get_pending_block(block_hash)
     }
 
-    pub fn add_invalid_block(&self, block: Block) -> Result<(), StoreError> {
-        info!(
-            "Adding block to invalid: {}",
-            block.header.compute_block_hash()
-        );
-
-        self.engine.add_invalid_block(block)
-    }
-
-    pub fn get_invalid_block(&self, block_hash: BlockHash) -> Result<Option<Block>, StoreError> {
-        info!("get invalid: {}", block_hash);
-        self.engine.get_invalid_block(block_hash)
-    }
-
     pub fn add_block_number(
         &self,
         block_hash: BlockHash,

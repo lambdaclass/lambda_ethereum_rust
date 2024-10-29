@@ -91,8 +91,8 @@ mod blockchain_integration_test {
         let fc_result = apply_fork_choice(&store, hash_2, H256::zero(), H256::zero());
         assert!(matches!(fc_result, Err(InvalidForkChoice::Syncing)));
 
-        // block 2 should now be invalid. This is provisional until we implement syncing.
-        assert!(store.get_invalid_block(hash_2).unwrap().is_some());
+        // block 2 should still be pending.
+        assert!(store.get_pending_block(hash_2).unwrap().is_some());
     }
 
     #[test]

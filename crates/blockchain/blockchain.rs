@@ -30,10 +30,6 @@ use ethereum_rust_vm::{
 pub fn add_block(block: &Block, storage: &Store) -> Result<(), ChainError> {
     let block_hash = block.header.compute_block_hash();
 
-    if storage.get_invalid_block(block_hash)?.is_some() {
-        return Err(ChainError::InvalidBlock(InvalidBlockError::AlreadyInvalid));
-    }
-
     // Validate if it can be the new head and find the parent
     let Ok(parent_header) = find_parent_header(&block.header, storage) else {
         // If the parent is not present, we store it as pending.

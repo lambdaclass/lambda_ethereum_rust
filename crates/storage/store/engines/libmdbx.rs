@@ -490,19 +490,6 @@ impl StoreEngine for Store {
             .read::<PendingBlocks>(block_hash.into())?
             .map(|b| b.to()))
     }
-
-    fn add_invalid_block(&self, block: Block) -> std::result::Result<(), StoreError> {
-        self.write::<InvalidBlocks>(block.header.compute_block_hash().into(), block.into())
-    }
-
-    fn get_invalid_block(
-        &self,
-        block_hash: BlockHash,
-    ) -> std::result::Result<Option<Block>, StoreError> {
-        Ok(self
-            .read::<InvalidBlocks>(block_hash.into())?
-            .map(|b| b.to()))
-    }
 }
 
 impl Debug for Store {
@@ -591,11 +578,6 @@ table!(
 table!(
     /// Stores blocks that are pending validation.
     ( PendingBlocks ) BlockHashRLP => BlockRLP
-);
-
-table!(
-    /// Stores blocks that are declared invalid.
-    ( InvalidBlocks ) BlockHashRLP => BlockRLP
 );
 
 // Storage values are stored as bytes instead of using their rlp encoding
@@ -698,7 +680,6 @@ pub fn init_db(path: Option<impl AsRef<Path>>) -> Database {
         table_info!(CanonicalBlockHashes),
         table_info!(Payloads),
         table_info!(PendingBlocks),
-        table_info!(InvalidBlocks),
     ]
     .into_iter()
     .collect();

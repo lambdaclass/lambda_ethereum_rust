@@ -34,8 +34,6 @@ pub enum InvalidBlockError {
     GasUsedMismatch,
     #[error("Blob gas used doesn't match value in header")]
     BlobGasUsedMismatch,
-    #[error("Block marked as invalid")]
-    AlreadyInvalid,
 }
 
 #[derive(Debug, Error)]
