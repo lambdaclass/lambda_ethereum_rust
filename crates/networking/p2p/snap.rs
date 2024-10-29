@@ -12,12 +12,9 @@ pub fn process_account_range_request(
     let mut bytes_used = 0;
     for (hash, account) in store.iter_accounts(request.root_hash) {
         if hash >= request.starting_hash {
-            let account = AccountRangeUnit {
-                hash,
-                account: AccountStateSlim::from(account),
-            };
-            bytes_used += account.length() as u64;
-            accounts.push(account);
+            let account = AccountStateSlim::from(account);
+            bytes_used += 32 + account.length() as u64;
+            accounts.push(AccountRangeUnit { hash, account });
         }
         if hash >= request.limit_hash || bytes_used >= request.response_bytes {
             break;
