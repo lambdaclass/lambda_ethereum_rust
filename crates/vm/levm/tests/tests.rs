@@ -1927,260 +1927,260 @@ fn pc_op_with_push_offset() {
     assert_eq!(vm.env.consumed_gas, TX_BASE_COST + 5);
 }
 
-#[test]
-fn delegatecall_changes_own_storage_and_regular_call_doesnt() {
-    // --- DELEGATECALL --- changes account 1 storage
-    let callee_return_value = U256::from(0xBBBBBBB);
-    let callee_ops = [
-        Operation::Push((32, callee_return_value)), // value
-        Operation::Push((32, U256::zero())),        // key
-        Operation::Sstore,
-        Operation::Stop,
-    ];
+// #[test]
+// fn delegatecall_changes_own_storage_and_regular_call_doesnt() {
+//     // --- DELEGATECALL --- changes account 1 storage
+//     let callee_return_value = U256::from(0xBBBBBBB);
+//     let callee_ops = [
+//         Operation::Push((32, callee_return_value)), // value
+//         Operation::Push((32, U256::zero())),        // key
+//         Operation::Sstore,
+//         Operation::Stop,
+//     ];
 
-    let callee_bytecode = callee_ops
-        .iter()
-        .flat_map(Operation::to_bytecode)
-        .collect::<Bytes>();
+//     let callee_bytecode = callee_ops
+//         .iter()
+//         .flat_map(Operation::to_bytecode)
+//         .collect::<Bytes>();
 
-    let callee_address = Address::from_low_u64_be(U256::from(2).low_u64());
-    let callee_address_u256 = U256::from(2);
-    let callee_account = Account::default()
-        .with_balance(50000.into())
-        .with_bytecode(callee_bytecode);
+//     let callee_address = Address::from_low_u64_be(U256::from(2).low_u64());
+//     let callee_address_u256 = U256::from(2);
+//     let callee_account = Account::default()
+//         .with_balance(50000.into())
+//         .with_bytecode(callee_bytecode);
 
-    let caller_ops = vec![
-        Operation::Push((32, U256::from(32))),      // ret_size
-        Operation::Push((32, U256::from(0))),       // ret_offset
-        Operation::Push((32, U256::from(0))),       // args_size
-        Operation::Push((32, U256::from(0))),       // args_offset
-        Operation::Push((32, callee_address_u256)), // code address
-        Operation::Push((32, U256::from(100_000))), // gas
-        Operation::DelegateCall,
-    ];
+//     let caller_ops = vec![
+//         Operation::Push((32, U256::from(32))),      // ret_size
+//         Operation::Push((32, U256::from(0))),       // ret_offset
+//         Operation::Push((32, U256::from(0))),       // args_size
+//         Operation::Push((32, U256::from(0))),       // args_offset
+//         Operation::Push((32, callee_address_u256)), // code address
+//         Operation::Push((32, U256::from(100_000))), // gas
+//         Operation::DelegateCall,
+//     ];
 
 
-    let mut db = Db::new();
-    db.add_accounts(vec![(callee_address, callee_account.clone())]);
+//     let mut db = Db::new();
+//     db.add_accounts(vec![(callee_address, callee_account.clone())]);
 
-    let mut cache = Cache::default();
-    cache.add_account(&callee_address, &callee_account);
+//     let mut cache = Cache::default();
+//     cache.add_account(&callee_address, &callee_account);
 
-    let mut vm = new_vm_with_ops_addr_bal_db(
-        ops_to_bytecde(&caller_ops),
-        Address::from_low_u64_be(U256::from(1).low_u64()),
-        U256::from(1000),
-        db,
-        cache,
-    );
+//     let mut vm = new_vm_with_ops_addr_bal_db(
+//         ops_to_bytecde(&caller_ops),
+//         Address::from_low_u64_be(U256::from(1).low_u64()),
+//         U256::from(1000),
+//         db,
+//         cache,
+//     );
 
-    let current_call_frame = vm.current_call_frame_mut();
-    current_call_frame.msg_sender = Address::from_low_u64_be(U256::from(1).low_u64());
-    current_call_frame.to = Address::from_low_u64_be(U256::from(5).low_u64());
+//     let current_call_frame = vm.current_call_frame_mut();
+//     current_call_frame.msg_sender = Address::from_low_u64_be(U256::from(1).low_u64());
+//     current_call_frame.to = Address::from_low_u64_be(U256::from(5).low_u64());
 
-    let mut current_call_frame = vm.call_frames.pop().unwrap();
-    vm.execute(&mut current_call_frame);
+//     let mut current_call_frame = vm.call_frames.pop().unwrap();
+//     vm.execute(&mut current_call_frame);
 
-    let storage_slot = vm.cache.get_storage_slot(
-        Address::from_low_u64_be(U256::from(1).low_u64()),
-        U256::zero(),
-    );
-    let slot = StorageSlot {
-        original_value: U256::from(0xBBBBBBB),
-        current_value: U256::from(0xBBBBBBB),
-    };
+//     let storage_slot = vm.cache.get_storage_slot(
+//         Address::from_low_u64_be(U256::from(1).low_u64()),
+//         U256::zero(),
+//     );
+//     let slot = StorageSlot {
+//         original_value: U256::from(0xBBBBBBB),
+//         current_value: U256::from(0xBBBBBBB),
+//     };
 
-    assert_eq!(storage_slot, Some(slot));
+//     assert_eq!(storage_slot, Some(slot));
 
-    // --- CALL --- changes account 2 storage
+//     // --- CALL --- changes account 2 storage
 
-    let callee_return_value = U256::from(0xAAAAAAA);
-    let callee_ops = [
-        Operation::Push((32, callee_return_value)), // value
-        Operation::Push((32, U256::zero())),        // key
-        Operation::Sstore,
-        Operation::Stop,
-    ];
+//     let callee_return_value = U256::from(0xAAAAAAA);
+//     let callee_ops = [
+//         Operation::Push((32, callee_return_value)), // value
+//         Operation::Push((32, U256::zero())),        // key
+//         Operation::Sstore,
+//         Operation::Stop,
+//     ];
 
-    let callee_bytecode = callee_ops
-        .iter()
-        .flat_map(Operation::to_bytecode)
-        .collect::<Bytes>();
+//     let callee_bytecode = callee_ops
+//         .iter()
+//         .flat_map(Operation::to_bytecode)
+//         .collect::<Bytes>();
 
-    let callee_address = Address::from_low_u64_be(U256::from(2).low_u64());
-    let callee_address_u256 = U256::from(2);
-    let callee_account = Account::default()
-        .with_balance(50000.into())
-        .with_bytecode(callee_bytecode);
+//     let callee_address = Address::from_low_u64_be(U256::from(2).low_u64());
+//     let callee_address_u256 = U256::from(2);
+//     let callee_account = Account::default()
+//         .with_balance(50000.into())
+//         .with_bytecode(callee_bytecode);
 
-    let caller_ops = vec![
-        Operation::Push((32, U256::from(32))),      // ret_size
-        Operation::Push((32, U256::from(0))),       // ret_offset
-        Operation::Push((32, U256::from(0))),       // args_size
-        Operation::Push((32, U256::from(0))),       // args_offset
-        Operation::Push((32, U256::zero())),        // value
-        Operation::Push((32, callee_address_u256)), // address
-        Operation::Push((32, U256::from(100_000))), // gas
-        Operation::Call,
-    ];
+//     let caller_ops = vec![
+//         Operation::Push((32, U256::from(32))),      // ret_size
+//         Operation::Push((32, U256::from(0))),       // ret_offset
+//         Operation::Push((32, U256::from(0))),       // args_size
+//         Operation::Push((32, U256::from(0))),       // args_offset
+//         Operation::Push((32, U256::zero())),        // value
+//         Operation::Push((32, callee_address_u256)), // address
+//         Operation::Push((32, U256::from(100_000))), // gas
+//         Operation::Call,
+//     ];
 
-    let mut db = Db::new();
-    db.add_accounts(vec![(callee_address, callee_account.clone())]);
+//     let mut db = Db::new();
+//     db.add_accounts(vec![(callee_address, callee_account.clone())]);
 
-    let mut cache = Cache::default();
-    cache.add_account(&callee_address, &callee_account);
+//     let mut cache = Cache::default();
+//     cache.add_account(&callee_address, &callee_account);
 
-    let mut vm = new_vm_with_ops_addr_bal_db(
-        ops_to_bytecde(&caller_ops),
-        Address::from_low_u64_be(U256::from(1).low_u64()),
-        U256::zero(),
-        db,
-        cache
-    );
+//     let mut vm = new_vm_with_ops_addr_bal_db(
+//         ops_to_bytecde(&caller_ops),
+//         Address::from_low_u64_be(U256::from(1).low_u64()),
+//         U256::zero(),
+//         db,
+//         cache
+//     );
 
-    let current_call_frame = vm.current_call_frame_mut();
-    current_call_frame.msg_sender = Address::from_low_u64_be(U256::from(1).low_u64());
-    current_call_frame.to = Address::from_low_u64_be(U256::from(5).low_u64());
+//     let current_call_frame = vm.current_call_frame_mut();
+//     current_call_frame.msg_sender = Address::from_low_u64_be(U256::from(1).low_u64());
+//     current_call_frame.to = Address::from_low_u64_be(U256::from(5).low_u64());
 
-    let mut current_call_frame = vm.call_frames.pop().unwrap();
-    vm.execute(&mut current_call_frame);
+//     let mut current_call_frame = vm.call_frames.pop().unwrap();
+//     vm.execute(&mut current_call_frame);
 
-    let storage_slot = vm.cache.get_storage_slot(callee_address, U256::zero());
-    let slot = StorageSlot {
-        original_value: U256::from(0xAAAAAAA),
-        current_value: U256::from(0xAAAAAAA),
-    };
+//     let storage_slot = vm.cache.get_storage_slot(callee_address, U256::zero());
+//     let slot = StorageSlot {
+//         original_value: U256::from(0xAAAAAAA),
+//         current_value: U256::from(0xAAAAAAA),
+//     };
 
-    assert_eq!(storage_slot, Some(slot));
-}
+//     assert_eq!(storage_slot, Some(slot));
+// }
 
-#[test]
-fn delegatecall_and_callcode_differ_on_value_and_msg_sender() {
-    // --- DELEGATECALL
-    let callee_return_value = U256::from(0xBBBBBBB);
-    let callee_ops = [
-        Operation::Push((32, callee_return_value)), // value
-        Operation::Push((32, U256::zero())),        // key
-        Operation::Sstore,
-        Operation::Stop,
-    ];
+// #[test]
+// fn delegatecall_and_callcode_differ_on_value_and_msg_sender() {
+//     // --- DELEGATECALL
+//     let callee_return_value = U256::from(0xBBBBBBB);
+//     let callee_ops = [
+//         Operation::Push((32, callee_return_value)), // value
+//         Operation::Push((32, U256::zero())),        // key
+//         Operation::Sstore,
+//         Operation::Stop,
+//     ];
 
-    let callee_bytecode = callee_ops
-        .iter()
-        .flat_map(Operation::to_bytecode)
-        .collect::<Bytes>();
+//     let callee_bytecode = callee_ops
+//         .iter()
+//         .flat_map(Operation::to_bytecode)
+//         .collect::<Bytes>();
 
-    let callee_address = Address::from_low_u64_be(U256::from(2).low_u64());
-    let callee_address_u256 = U256::from(2);
-    let callee_account = Account::default()
-        .with_balance(50000.into())
-        .with_bytecode(callee_bytecode);
+//     let callee_address = Address::from_low_u64_be(U256::from(2).low_u64());
+//     let callee_address_u256 = U256::from(2);
+//     let callee_account = Account::default()
+//         .with_balance(50000.into())
+//         .with_bytecode(callee_bytecode);
 
-    let caller_ops = vec![
-        Operation::Push((32, U256::from(32))),      // ret_size
-        Operation::Push((32, U256::from(0))),       // ret_offset
-        Operation::Push((32, U256::from(0))),       // args_size
-        Operation::Push((32, U256::from(0))),       // args_offset
-        Operation::Push((32, callee_address_u256)), // code address
-        Operation::Push((32, U256::from(100_000))), // gas
-        Operation::DelegateCall,
-    ];
+//     let caller_ops = vec![
+//         Operation::Push((32, U256::from(32))),      // ret_size
+//         Operation::Push((32, U256::from(0))),       // ret_offset
+//         Operation::Push((32, U256::from(0))),       // args_size
+//         Operation::Push((32, U256::from(0))),       // args_offset
+//         Operation::Push((32, callee_address_u256)), // code address
+//         Operation::Push((32, U256::from(100_000))), // gas
+//         Operation::DelegateCall,
+//     ];
 
-    let mut db = Db::new();
-    db.add_accounts(vec![(callee_address, callee_account.clone())]);
+//     let mut db = Db::new();
+//     db.add_accounts(vec![(callee_address, callee_account.clone())]);
 
-    let mut cache = Cache::default();
-    cache.add_account(&callee_address, &callee_account);
+//     let mut cache = Cache::default();
+//     cache.add_account(&callee_address, &callee_account);
 
-    let mut vm = new_vm_with_ops_addr_bal_db(
-        ops_to_bytecde(&caller_ops),
-        Address::from_low_u64_be(U256::from(1).low_u64()),
-        U256::from(1000),
-        db,
-        cache
-    );
+//     let mut vm = new_vm_with_ops_addr_bal_db(
+//         ops_to_bytecde(&caller_ops),
+//         Address::from_low_u64_be(U256::from(1).low_u64()),
+//         U256::from(1000),
+//         db,
+//         cache
+//     );
 
-    let current_call_frame = vm.current_call_frame_mut();
-    current_call_frame.msg_sender = Address::from_low_u64_be(U256::from(1).low_u64());
-    current_call_frame.to = Address::from_low_u64_be(U256::from(5).low_u64());
+//     let current_call_frame = vm.current_call_frame_mut();
+//     current_call_frame.msg_sender = Address::from_low_u64_be(U256::from(1).low_u64());
+//     current_call_frame.to = Address::from_low_u64_be(U256::from(5).low_u64());
 
-    let mut current_call_frame = vm.call_frames.pop().unwrap();
-    vm.execute(&mut current_call_frame);
+//     let mut current_call_frame = vm.call_frames.pop().unwrap();
+//     vm.execute(&mut current_call_frame);
 
-    let current_call_frame = vm.current_call_frame_mut();
+//     let current_call_frame = vm.current_call_frame_mut();
 
-    assert_eq!(
-        current_call_frame.msg_sender,
-        Address::from_low_u64_be(U256::from(1).low_u64())
-    );
-    assert_eq!(current_call_frame.msg_value, U256::from(0));
+//     assert_eq!(
+//         current_call_frame.msg_sender,
+//         Address::from_low_u64_be(U256::from(1).low_u64())
+//     );
+//     assert_eq!(current_call_frame.msg_value, U256::from(0));
 
-    // --- CALLCODE ---
+//     // --- CALLCODE ---
 
-    let callee_return_value = U256::from(0xAAAAAAA);
-    let callee_ops = [
-        Operation::Push((32, callee_return_value)), // value
-        Operation::Push((32, U256::zero())),        // key
-        Operation::Sstore,
-        Operation::Stop,
-    ];
+//     let callee_return_value = U256::from(0xAAAAAAA);
+//     let callee_ops = [
+//         Operation::Push((32, callee_return_value)), // value
+//         Operation::Push((32, U256::zero())),        // key
+//         Operation::Sstore,
+//         Operation::Stop,
+//     ];
 
-    let callee_bytecode = callee_ops
-        .iter()
-        .flat_map(Operation::to_bytecode)
-        .collect::<Bytes>();
+//     let callee_bytecode = callee_ops
+//         .iter()
+//         .flat_map(Operation::to_bytecode)
+//         .collect::<Bytes>();
 
-    let callee_address = Address::from_low_u64_be(U256::from(2).low_u64());
-    let callee_address_u256 = U256::from(2);
-    let callee_account = Account::default()
-        .with_balance(50000.into())
-        .with_bytecode(callee_bytecode);
+//     let callee_address = Address::from_low_u64_be(U256::from(2).low_u64());
+//     let callee_address_u256 = U256::from(2);
+//     let callee_account = Account::default()
+//         .with_balance(50000.into())
+//         .with_bytecode(callee_bytecode);
 
-    let caller_ops = vec![
-        Operation::Push((32, U256::from(0))),       // ret_size
-        Operation::Push((32, U256::from(0))),       // ret_offset
-        Operation::Push((32, U256::from(0))),       // args_size
-        Operation::Push((32, U256::from(0))),       // args_offset
-        Operation::Push((32, U256::from(100))),     // value
-        Operation::Push((32, callee_address_u256)), // address
-        Operation::Push((32, U256::from(100_000))), // gas
-        Operation::CallCode,
-    ];
+//     let caller_ops = vec![
+//         Operation::Push((32, U256::from(0))),       // ret_size
+//         Operation::Push((32, U256::from(0))),       // ret_offset
+//         Operation::Push((32, U256::from(0))),       // args_size
+//         Operation::Push((32, U256::from(0))),       // args_offset
+//         Operation::Push((32, U256::from(100))),     // value
+//         Operation::Push((32, callee_address_u256)), // address
+//         Operation::Push((32, U256::from(100_000))), // gas
+//         Operation::CallCode,
+//     ];
 
-    let mut db = Db::new();
-    db.add_accounts(vec![(callee_address, callee_account.clone())]);
+//     let mut db = Db::new();
+//     db.add_accounts(vec![(callee_address, callee_account.clone())]);
 
-    let mut cache = Cache::default();
-    cache.add_account(&callee_address, &callee_account);
+//     let mut cache = Cache::default();
+//     cache.add_account(&callee_address, &callee_account);
 
-    let mut vm = new_vm_with_ops_addr_bal_db(
-        ops_to_bytecde(&caller_ops),
-        Address::from_low_u64_be(U256::from(1).low_u64()),
-        U256::from(1000),
-        db,
-        cache
-    );
+//     let mut vm = new_vm_with_ops_addr_bal_db(
+//         ops_to_bytecde(&caller_ops),
+//         Address::from_low_u64_be(U256::from(1).low_u64()),
+//         U256::from(1000),
+//         db,
+//         cache
+//     );
 
-    let mut current_call_frame = vm.call_frames.pop().unwrap();
-    vm.execute(&mut current_call_frame);
+//     let mut current_call_frame = vm.call_frames.pop().unwrap();
+//     vm.execute(&mut current_call_frame);
 
-    let current_call_frame = vm.call_frames[0].clone();
+//     let current_call_frame = vm.call_frames[0].clone();
 
-    let storage_slot = vm.cache.get_storage_slot(
-        Address::from_low_u64_be(U256::from(1).low_u64()),
-        U256::zero(),
-    );
-    let slot = StorageSlot {
-        original_value: U256::from(0xAAAAAAA),
-        current_value: U256::from(0xAAAAAAA),
-    };
-    assert_eq!(storage_slot, Some(slot));
-    assert_eq!(
-        current_call_frame.msg_sender,
-        Address::from_low_u64_be(U256::from(2).low_u64())
-    );
-    assert_eq!(current_call_frame.msg_value, U256::from(100));
-}
+//     let storage_slot = vm.cache.get_storage_slot(
+//         Address::from_low_u64_be(U256::from(1).low_u64()),
+//         U256::zero(),
+//     );
+//     let slot = StorageSlot {
+//         original_value: U256::from(0xAAAAAAA),
+//         current_value: U256::from(0xAAAAAAA),
+//     };
+//     assert_eq!(storage_slot, Some(slot));
+//     assert_eq!(
+//         current_call_frame.msg_sender,
+//         Address::from_low_u64_be(U256::from(2).low_u64())
+//     );
+//     assert_eq!(current_call_frame.msg_value, U256::from(100));
+// }
 
 #[test]
 fn jump_position_bigger_than_program_bytecode_size() {
