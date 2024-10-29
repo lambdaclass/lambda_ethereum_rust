@@ -39,7 +39,12 @@ impl BlockIdentifier {
                 BlockTag::Finalized => storage.get_finalized_block_number(),
                 BlockTag::Safe => storage.get_safe_block_number(),
                 BlockTag::Latest => storage.get_latest_block_number(),
-                BlockTag::Pending => storage.get_pending_block_number(),
+                BlockTag::Pending => storage.get_pending_block_number().and_then(|option_block_number| {
+                    match option_block_number {
+                        Some(block_number) => Ok(Some(block_number)),
+                        None => storage.get_latest_block_number(),
+                    }
+                }),
             },
         }
     }

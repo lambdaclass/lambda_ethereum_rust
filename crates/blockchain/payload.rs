@@ -445,9 +445,11 @@ impl TransactionQueue {
             // Pull the first tx from each list and add it to the heads list
             // This should be a newly filtered tx list so we are guaranteed to have a first element
             let head_tx = txs.remove(0);
+            use tracing::info;
+            info!("head_tx: {:?}", head_tx);
             heads.push(HeadTransaction {
                 // We already ran this method when filtering the transactions from the mempool so it shouldn't fail
-                tip: head_tx.effective_gas_tip(base_fee).unwrap(),
+                tip: head_tx.effective_gas_tip(base_fee).unwrap_or_else(|| 0),
                 tx: head_tx,
                 sender: *address,
             });
