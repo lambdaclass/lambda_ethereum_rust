@@ -1,6 +1,7 @@
 use crate::{
     call_frame::CallFrame,
     constants::*,
+    db::{Cache, Database},
     errors::{OpcodeSuccess, ResultReason, TransactionReport, TxResult, VMError},
     opcodes::Opcode,
     primitives::{Address, Bytes, H256, U256},
@@ -10,169 +11,90 @@ use ethereum_rust_rlp::encode::RLPEncode;
 use ethereum_types::H160;
 use keccak_hash::keccak;
 use sha3::{Digest, Keccak256};
-use std::{
-    collections::{HashMap, HashSet},
-    str::FromStr,
-};
+use std::{collections::HashMap, str::FromStr};
+
+#[derive(Clone, Default, Debug, PartialEq, Eq)]
+pub struct AccountInfo {
+    pub balance: U256,
+    pub bytecode: Bytes,
+    pub nonce: u64,
+}
 
 #[derive(Clone, Default, Debug, PartialEq, Eq)]
 pub struct Account {
-    pub address: Address,
-    pub balance: U256,
-    pub bytecode: Bytes,
-    pub storage: HashMap<U256, StorageSlot>,
-    pub nonce: u64,
+    pub info: AccountInfo,
+    pub storage: HashMap<H256, StorageSlot>,
 }
 
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct StorageSlot {
     pub original_value: U256,
     pub current_value: U256,
-    pub is_cold: bool,
 }
 
 impl Account {
     pub fn new(
-        address: Address,
         balance: U256,
         bytecode: Bytes,
         nonce: u64,
-        storage: HashMap<U256, StorageSlot>,
+        storage: HashMap<H256, StorageSlot>,
     ) -> Self {
         Self {
-            address,
-            balance,
-            bytecode,
+            info: AccountInfo {
+                balance,
+                bytecode,
+                nonce,
+            },
             storage,
-            nonce,
         }
     }
 
     pub fn has_code(&self) -> bool {
-        !(self.bytecode.is_empty()
+        !(self.info.bytecode.is_empty()
             || self.bytecode_hash() == H256::from_str(EMPTY_CODE_HASH_STR).unwrap())
     }
 
     pub fn bytecode_hash(&self) -> H256 {
-        keccak(self.bytecode.as_ref())
+        keccak(self.info.bytecode.as_ref())
     }
 
     pub fn is_empty(&self) -> bool {
-        self.balance.is_zero() && self.nonce == 0 && self.bytecode.is_empty()
+        self.info.balance.is_zero() && self.info.nonce == 0 && self.info.bytecode.is_empty()
     }
 
     pub fn with_balance(mut self, balance: U256) -> Self {
-        self.balance = balance;
+        self.info.balance = balance;
         self
     }
 
     pub fn with_bytecode(mut self, bytecode: Bytes) -> Self {
-        self.bytecode = bytecode;
+        self.info.bytecode = bytecode;
         self
     }
 
-    pub fn with_storage(mut self, storage: HashMap<U256, StorageSlot>) -> Self {
+    pub fn with_storage(mut self, storage: HashMap<H256, StorageSlot>) -> Self {
         self.storage = storage;
         self
     }
 
     pub fn with_nonce(mut self, nonce: u64) -> Self {
-        self.nonce = nonce;
+        self.info.nonce = nonce;
         self
     }
 
     pub fn increment_nonce(&mut self) {
-        self.nonce += 1;
+        self.info.nonce += 1;
     }
 }
 
 pub type Storage = HashMap<U256, H256>;
 
-pub trait Db {
-    fn read_account_storage(&self, address: &Address, key: &U256) -> Option<StorageSlot>;
-
-    fn write_account_storage(&mut self, address: &Address, key: U256, slot: StorageSlot);
-
-    fn get_account_bytecode(&self, address: &Address) -> Bytes;
-
-    fn balance(&mut self, address: &Address) -> U256;
-
-    fn add_account(&mut self, address: Address, account: Account);
-
-    fn increment_account_nonce(&mut self, address: &Address);
-
-    /// Returns the account associated with the given address.
-    /// If the account does not exist in the Db, it creates a new one with the given address.
-    fn get_account(&mut self, address: &Address) -> Result<&Account, VMError>;
-}
-
-#[derive(Clone, Debug, Default)]
-pub struct LevmDb {
-    pub accounts: HashMap<Address, Account>,
-    // contracts: HashMap<B256, Bytecode>,
-    pub block_hashes: HashMap<U256, H256>,
-}
-
-impl Db for LevmDb {
-    fn read_account_storage(&self, address: &Address, key: &U256) -> Option<StorageSlot> {
-        self.accounts
-            .get(address)
-            .and_then(|account| account.storage.get(key))
-            .cloned()
-    }
-
-    fn write_account_storage(&mut self, address: &Address, key: U256, slot: StorageSlot) {
-        self.accounts
-            .entry(*address)
-            .or_default()
-            .storage
-            .insert(key, slot);
-    }
-
-    fn get_account_bytecode(&self, address: &Address) -> Bytes {
-        self.accounts
-            .get(address)
-            .map_or(Bytes::new(), |acc| acc.bytecode.clone())
-    }
-
-    fn balance(&mut self, address: &Address) -> U256 {
-        self.accounts
-            .get(address)
-            .map_or(U256::zero(), |acc| acc.balance)
-    }
-
-    fn add_account(&mut self, address: Address, account: Account) {
-        self.accounts.insert(address, account);
-    }
-
-    fn increment_account_nonce(&mut self, address: &Address) {
-        if let Some(acc) = self.accounts.get_mut(address) {
-            acc.increment_nonce()
-        }
-    }
-
-    /// Returns the account associated with the given address.
-    /// If the account does not exist in the Db, it creates a new one with the given address.
-    fn get_account(&mut self, address: &Address) -> Result<&Account, VMError> {
-        if self.accounts.contains_key(address) {
-            return Ok(self.accounts.get(address).unwrap());
-        }
-
-        let new_account = Account {
-            address: *address,
-            ..Default::default()
-        };
-
-        self.accounts.insert(*address, new_account);
-
-        Ok(self.accounts.get(address).unwrap())
-    }
-}
-
 #[derive(Debug, Clone, Default)]
 // TODO: https://github.com/lambdaclass/ethereum_rust/issues/604
 pub struct Substate {
-    pub warm_addresses: HashSet<Address>,
+    // accessed addresses and storage keys are considered WARM
+    // pub accessed_addresses: HashSet<Address>,
+    // pub accessed_storage_keys: HashSet<(Address, U256)>,
 }
 
 #[derive(Debug, Default, Clone)]
@@ -197,7 +119,6 @@ pub struct Environment {
     pub refunded_gas: U256,
 }
 
-#[derive(Debug, Clone, Default)]
 pub struct VM {
     pub call_frames: Vec<CallFrame>,
     pub env: Environment,
@@ -206,7 +127,8 @@ pub struct VM {
     pub accrued_substate: Substate,
     /// Mapping between addresses (160-bit identifiers) and account
     /// states.
-    pub db: LevmDb,
+    pub db: Box<dyn Database>,
+    pub cache: Cache,
 }
 
 fn address_to_word(address: Address) -> U256 {
@@ -237,13 +159,14 @@ impl VM {
         tx_chain_id: U256,
         block_base_fee_per_gas: U256,
         tx_gas_price: U256,
-        db: LevmDb,
+        db: Box<dyn Database>,
+        cache: Cache,
         block_blob_gas_used: Option<U256>,
         block_excess_blob_gas: Option<U256>,
         tx_blob_hashes: Option<Vec<H256>>,
     ) -> Self {
         // TODO: This handles only CALL transactions.
-        let bytecode = db.get_account_bytecode(&to);
+        let bytecode = db.get_account_info(to).bytecode.clone();
 
         // TODO: This handles only CALL transactions.
         // TODO: Remove this allow when CREATE is implemented.
@@ -258,7 +181,6 @@ impl VM {
             msg_sender,
             to,
             code_addr,
-            None,
             bytecode,
             value,
             calldata.clone(),
@@ -291,7 +213,9 @@ impl VM {
             db,
             env,
             accrued_substate: Substate::default(),
+            cache,
         }
+        // TODO: Substate and Cache should be initialized with the right values.
     }
 
     pub fn execute(&mut self, current_call_frame: &mut CallFrame) -> TransactionReport {
@@ -405,7 +329,7 @@ impl VM {
                     self.call_frames.push(current_call_frame.clone());
                     return TransactionReport {
                         result: TxResult::Success,
-                        new_state: self.db.accounts.clone(),
+                        new_state: self.cache.accounts.clone(),
                         gas_used: current_call_frame.gas_used.low_u64(),
                         gas_refunded: self.env.refunded_gas.low_u64(),
                         output: current_call_frame.return_data.clone(),
@@ -425,7 +349,7 @@ impl VM {
 
                     return TransactionReport {
                         result: TxResult::Revert(error),
-                        new_state: self.db.accounts.clone(),
+                        new_state: self.cache.accounts.clone(),
                         gas_used: current_call_frame.gas_used.low_u64(),
                         gas_refunded: self.env.refunded_gas.low_u64(),
                         output: current_call_frame.return_data.clone(),
@@ -455,9 +379,9 @@ impl VM {
     /// the block’s base fee;
     /// (8) For type 2 transactions, max priority fee per fas, must be no larger
     /// than max fee per fas.
-    fn _validate_transaction(&self) -> Result<(), VMError> {
+    fn validate_transaction(&mut self) -> Result<(), VMError> {
         // Validations (1), (2), (3), (5), and (8) are assumed done in upper layers.
-        let sender_account = match self.db.accounts.get(&self.env.tx_origin) {
+        let sender_account = match self.cache.get_account(self.env.origin) {
             Some(acc) => acc,
             None => return Err(VMError::SenderAccountDoesNotExist),
         };
@@ -466,7 +390,7 @@ impl VM {
             return Err(VMError::SenderAccountShouldNotHaveBytecode);
         }
         // (6)
-        if sender_account.balance < self.call_frames[0].msg_value {
+        if sender_account.info.balance < self.call_frames[0].msg_value {
             return Err(VMError::SenderBalanceShouldContainTransferValue);
         }
         // (7)
@@ -500,7 +424,6 @@ impl VM {
         msg_sender: Address,
         to: Address,
         code_address: Address,
-        delegate: Option<Address>,
         _should_transfer_value: bool,
         is_static: bool,
         args_offset: usize,
@@ -509,7 +432,18 @@ impl VM {
         ret_size: usize,
     ) -> Result<OpcodeSuccess, VMError> {
         // check balance
-        if self.db.balance(&current_call_frame.msg_sender) < value {
+        if !self.cache.is_account_cached(&current_call_frame.msg_sender) {
+            self.cache_from_db(&current_call_frame.msg_sender);
+        }
+
+        if self
+            .cache
+            .get_account(current_call_frame.msg_sender)
+            .unwrap()
+            .info
+            .balance
+            < value
+        {
             current_call_frame.stack.push(U256::from(REVERT_FOR_CALL))?;
             return Ok(OpcodeSuccess::Continue);
         }
@@ -517,7 +451,13 @@ impl VM {
         // transfer value
         // transfer(&current_call_frame.msg_sender, &address, value);
 
-        let code_address_bytecode = self.db.get_account_bytecode(&code_address);
+        let code_address_bytecode = self
+            .cache
+            .get_account(code_address)
+            .unwrap()
+            .info
+            .bytecode
+            .clone();
         if code_address_bytecode.is_empty() {
             // should stop
             current_call_frame
@@ -526,7 +466,7 @@ impl VM {
             return Ok(OpcodeSuccess::Result(ResultReason::Stop));
         }
 
-        self.db.increment_account_nonce(&code_address);
+        self.cache.increment_account_nonce(&code_address);
 
         let calldata = current_call_frame
             .memory
@@ -542,7 +482,6 @@ impl VM {
             msg_sender,
             to,
             code_address,
-            delegate,
             code_address_bytecode,
             value,
             calldata,
@@ -642,27 +581,30 @@ impl VM {
             return Ok(OpcodeSuccess::Result(ResultReason::Revert));
         }
 
+        if !self.cache.is_account_cached(&current_call_frame.msg_sender) {
+            self.cache_from_db(&current_call_frame.msg_sender);
+        };
+
         let sender_account = self
-            .db
-            .accounts
-            .get_mut(&current_call_frame.msg_sender)
+            .cache
+            .get_mut_account(current_call_frame.msg_sender)
             .unwrap();
 
-        if sender_account.balance < value_in_wei_to_send {
+        if sender_account.info.balance < value_in_wei_to_send {
             current_call_frame
                 .stack
                 .push(U256::from(REVERT_FOR_CREATE))?;
             return Ok(OpcodeSuccess::Result(ResultReason::Revert));
         }
 
-        let Some(new_nonce) = sender_account.nonce.checked_add(1) else {
+        let Some(new_nonce) = sender_account.info.nonce.checked_add(1) else {
             current_call_frame
                 .stack
                 .push(U256::from(REVERT_FOR_CREATE))?;
             return Ok(OpcodeSuccess::Result(ResultReason::Revert));
         };
-        sender_account.nonce = new_nonce;
-        sender_account.balance -= value_in_wei_to_send;
+        sender_account.info.nonce = new_nonce;
+        sender_account.info.balance -= value_in_wei_to_send;
         let code = Bytes::from(
             current_call_frame
                 .memory
@@ -673,26 +615,21 @@ impl VM {
             Some(salt) => {
                 Self::calculate_create2_address(current_call_frame.msg_sender, &code, salt)
             }
-            None => {
-                Self::calculate_create_address(current_call_frame.msg_sender, sender_account.nonce)
-            }
+            None => Self::calculate_create_address(
+                current_call_frame.msg_sender,
+                sender_account.info.nonce,
+            ),
         };
 
-        if self.db.accounts.contains_key(&new_address) {
+        if self.cache.accounts.contains_key(&new_address) {
             current_call_frame
                 .stack
                 .push(U256::from(REVERT_FOR_CREATE))?;
             return Ok(OpcodeSuccess::Result(ResultReason::Revert));
         }
 
-        let new_account = Account::new(
-            new_address,
-            value_in_wei_to_send,
-            code.clone(),
-            0,
-            Default::default(),
-        );
-        self.db.add_account(new_address, new_account);
+        let new_account = Account::new(value_in_wei_to_send, code.clone(), 0, Default::default());
+        self.cache.add_account(&new_address, &new_account);
 
         current_call_frame
             .stack
@@ -705,7 +642,6 @@ impl VM {
             current_call_frame.msg_sender,
             new_address,
             new_address,
-            None,
             true,
             false,
             code_offset_in_memory,
@@ -727,5 +663,16 @@ impl VM {
         current_call_frame.gas_used += gas;
         self.env.consumed_gas += gas;
         Ok(())
+    }
+
+    pub fn cache_from_db(&mut self, address: &Address) {
+        let acc_info = self.db.get_account_info(*address);
+        self.cache.add_account(
+            address,
+            &Account {
+                info: acc_info.clone(),
+                storage: HashMap::new(),
+            },
+        );
     }
 }
