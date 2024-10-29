@@ -50,22 +50,54 @@ impl ProverClient {
                     };
                 }
                 Err(e) => {
-                    sleep(Duration::from_secs(10)).await;
-                    warn!("Failed to request new data: {e}");
+                    sleep(Duration::from_secs(5)).await;
+                    warn!(
+                        "Failed to request new data, block_number_to_request: {}. Error: {e}",
+                        self.block_number_to_request
+                    );
                 }
             }
         }
     }
 
     fn request_new_input(&mut self) -> Result<(u64, ProverInputData), String> {
-        warn!("endpoint {}", &self.prover_server_endpoint);
-
         let stream = TcpStream::connect(&self.prover_server_endpoint)
             .map_err(|e| format!("Failed to connect to Prover Server: {e}"))?;
         let buf_writer = BufWriter::new(&stream);
 
         debug!("Connection established!");
 
+        let request_check = ProofData::RequestCheck {};
+        serde_json::ser::to_writer(buf_writer, &request_check).map_err(|e| e.to_string())?;
+
+        stream
+            .shutdown(std::net::Shutdown::Write)
+            .map_err(|e| e.to_string())?;
+
+        let buf_reader = BufReader::new(&stream);
+        let request_ack: ProofData = serde_json::de::from_reader(buf_reader)
+            .map_err(|e| format!("Invalid response format: {e}"))?;
+
+        // Check if the last_proven_block + 1 matches block_number_to_request.
+        // If it matches, continue with the response
+        match request_ack {
+            ProofData::RequestAck { last_proven_block } => {
+                if self.block_number_to_request != last_proven_block + 1 {
+                    // In the next Request the prover_client has to ask for the correct block.
+                    self.block_number_to_request = last_proven_block + 1;
+                    Err(format!("Wrong block_number_to_request {}, and last_proven_block is: {last_proven_block}", self.block_number_to_request))
+                } else {
+                    Ok(())
+                }
+            }
+            _ => Err(format!("Expecting ProofData::RequestAck {request_ack:?}")),
+        }?;
+
+        let stream = TcpStream::connect(&self.prover_server_endpoint)
+            .map_err(|e| format!("Failed to connect to Prover Server: {e}"))?;
+        let buf_writer = BufWriter::new(&stream);
+
+        // Request the input with the correct block_number
         let request = ProofData::Request {
             block_number: self.block_number_to_request,
         };
@@ -83,6 +115,8 @@ impl ProverClient {
                 block_number,
                 input,
             } => {
+                info!("Received Response for block_number: {block_number}");
+
                 self.block_number_to_request = block_number;
                 Ok((block_number, input))
             }
