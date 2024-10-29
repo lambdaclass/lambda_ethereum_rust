@@ -38,4 +38,4 @@ jobs:
       - name: Test Prover Execution
         run: |
           cd crates/l2/prover
-          RISC0_DEV_MODE=1 make perf_test_proving
+          RUST_LOG=info make perf_test_proving
