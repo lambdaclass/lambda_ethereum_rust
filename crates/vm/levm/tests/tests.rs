@@ -2842,10 +2842,9 @@ fn sstore_op() {
     let mut current_call_frame = vm.call_frames.pop().unwrap();
     vm.execute(&mut current_call_frame);
 
-
     // Convert key in U256 to H256
     let mut bytes = [0u8; 32];
-    key.to_big_endian(&mut bytes);        
+    key.to_big_endian(&mut bytes);
     let key = H256::from(bytes);
 
     let stored_value = vm.cache.get_storage_slot(sender_address, key).unwrap();

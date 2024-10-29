@@ -31,7 +31,7 @@ impl VM {
         }
 
         let block_number = block_number.as_u64();
-        
+
         if let Some(block_hash) = self.db.get_block_hash(block_number) {
             current_call_frame
                 .stack
