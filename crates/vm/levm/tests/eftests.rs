@@ -31,6 +31,7 @@ pub struct Env {
 #[derive(Debug, PartialEq, Eq, Serialize, Deserialize, Clone)]
 pub struct ReadedAccount {
     pub balance: U256,
+    #[serde(rename = "code", with = "ethereum_rust_core::serde_utils::bytes")]
     pub code: Bytes,
     pub nonce: U256,
     pub storage: HashMap<U256, U256>,
@@ -39,6 +40,7 @@ pub struct ReadedAccount {
 #[derive(Debug, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 struct Transaction {
+    #[serde(rename = "data", with = "ethereum_rust_core::serde_utils::bytes::vec")]
     data: Vec<Bytes>,
     gas_limit: Vec<U256>,
     gas_price: Option<U256>,
@@ -46,7 +48,7 @@ struct Transaction {
     secret_key: H256,
     sender: Address,
     to: TxDestination,
-    value: Vec<U256>, // Using serde_json::Value does not rise an error, but, works?
+    value: Vec<U256>, // Using serde_json::Value would not rise an error, but, works?
     access_lists: Option<Vec<Option<Vec<AccesList>>>>,
     blob_versioned_hashes: Option<Vec<H256>>,
     max_fee_per_blob_gas: Option<U256>,
@@ -114,6 +116,7 @@ struct TransactionResults {
     /// log hash of the transaction logs
     logs: H256,
     /// the transaction bytes of the generated transaction
+    #[serde(rename = "txbytes", with = "ethereum_rust_core::serde_utils::bytes")]
     txbytes: Bytes,
     /// For a transaction that is supposed to fail, the exception
     expect_exception: Option<String>,
