@@ -222,11 +222,11 @@ impl Store {
 
         match maybe_old_value {
             Some(old_value) => {
-                old_value.insert(transaction.nonce(), transaction.into());
+                old_value.insert(transaction.nonce(), transaction);
             }
             None => {
                 let mut new_value = BTreeMap::new();
-                new_value.insert(transaction.nonce(), transaction.into());
+                new_value.insert(transaction.nonce(), transaction);
                 mempool.insert(sender, new_value);
             }
         }
@@ -259,11 +259,8 @@ impl Store {
 
     /// Remove a transaction from the pool
     pub fn remove_transaction_from_pool(&self, address: Address, nonce: u64) {
-        match self.mempool.lock().unwrap().get_mut(&address) {
-            Some(old_value) => {
-                old_value.remove(&nonce);
-            }
-            None => {}
+        if let Some(old_value) = self.mempool.lock().unwrap().get_mut(&address) {
+            old_value.remove(&nonce);
         };
     }
 
@@ -293,7 +290,7 @@ impl Store {
             }
 
             if !account_txs.is_empty() {
-                ret.insert(address.clone(), account_txs);
+                ret.insert(*address, account_txs);
             }
         }
 
@@ -751,7 +748,7 @@ mod tests {
         Bloom,
     };
     use ethereum_rust_rlp::decode::RLPDecode;
-    use ethereum_types::{H256, U256};
+    use ethereum_types::{H160, H256, U256};
 
     use super::*;
 
@@ -1045,14 +1042,19 @@ mod tests {
     fn test_filter_mempool_transactions(store: Store) {
         let plain_tx = MempoolTransaction::new(Transaction::decode_canonical(&hex!("f86d80843baa0c4082f618946177843db3138ae69679a54b95cf345ed759450d870aa87bee538000808360306ba0151ccc02146b9b11adf516e6787b59acae3e76544fdcd75e77e67c6b598ce65da064c5dd5aae2fbb535830ebbdad0234975cd7ece3562013b63ea18cc0df6c97d4")).unwrap());
         let blob_tx = MempoolTransaction::new(Transaction::decode_canonical(&hex!("03f88f0780843b9aca008506fc23ac00830186a09400000000000000000000000000000000000001008080c001e1a0010657f37554c781402a22917dee2f75def7ab966d7b770905398eba3c44401401a0840650aa8f74d2b07f40067dc33b715078d73422f01da17abdbd11e02bbdfda9a04b2260f6022bf53eadb337b3e59514936f7317d872defb891a708ee279bdca90")).unwrap());
-        let plain_tx_hash = plain_tx.compute_hash();
-        let blob_tx_hash = blob_tx.compute_hash();
         let filter =
             |tx: &Transaction| -> bool { matches!(tx, Transaction::EIP4844Transaction(_)) };
         store.add_transaction_to_pool(blob_tx.clone());
         store.add_transaction_to_pool(plain_tx);
         let txs = store.filter_pool_transactions(&filter);
-        assert_eq!(txs, HashMap::from([(blob_tx.sender(), vec![blob_tx])]));
+        // assert_eq!(txs, HashMap::from([(blob_tx.sender(), vec![blob_tx])]));
+        let mut expected_result: HashMap<H160, BTreeMap<u64, MempoolTransaction>> = HashMap::new();
+        expected_result.insert(
+            blob_tx.sender(),
+            BTreeMap::from([(blob_tx.nonce(), blob_tx)]),
+        );
+        assert_eq!(txs, expected_result);
+        // assert_eq!(txs, HashMap::from([(blob_tx.sender(), vec![blob_tx])]));
     }
 
     fn blobs_bundle_loadtest(store: Store) {
