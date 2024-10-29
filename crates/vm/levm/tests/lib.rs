@@ -1,3 +1,3 @@
 pub mod tests;
 
-pub use ethereum_types::*; 
+pub use ethereum_types::*;
