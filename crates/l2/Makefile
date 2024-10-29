@@ -23,6 +23,7 @@ cli: ## 🛠️ Installs the L2 Lambda Ethereum Rust CLI
 ETHEREUM_RUST_PATH=$(shell pwd)/../..
 ETHEREUM_RUST_BIN_PATH=$(ETHEREUM_RUST_PATH)/target/release/ethereum_rust
 ETHEREUM_RUST_DEV_DOCKER_COMPOSE_PATH=$(ETHEREUM_RUST_PATH)/crates/blockchain/dev/docker-compose-dev.yaml
+ETHEREUM_RUST_L2_DOCKER_COMPOSE_PATH=./docker-compose-l2.yaml
 
 ETHEREUM_RUST_L2_CONTRACTS_PATH=./contracts
 L1_RPC_URL=http://localhost:8545
@@ -61,3 +62,14 @@ restart-l2: down-l2 init-l2 ## 🔄 Restarts the L2 Lambda Ethereum Rust Client
 
 init-l2-prover: ## 🚀 Initializes the Prover
 	cargo run --release --features build_zkvm --manifest-path ../../Cargo.toml --bin ethereum_rust_prover
+
+# CI Testing Environment
+
+test:
+	cargo test --release testito
+
+set-test-environment:
+	docker network create shared_network || exit 0
+	docker compose -f ${ETHEREUM_RUST_DEV_DOCKER_COMPOSE_PATH} up -d
+	cargo run --release --bin ethereum_rust_l2_l1_deployer --manifest-path ${ETHEREUM_RUST_L2_CONTRACTS_PATH}/Cargo.toml
+	docker compose -f ${ETHEREUM_RUST_L2_DOCKER_COMPOSE_PATH} up -d
