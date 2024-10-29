@@ -2,14 +2,13 @@ use super::api::StoreEngine;
 use crate::error::StoreError;
 use crate::rlp::{
     AccountCodeHashRLP, AccountCodeRLP, BlobsBubdleRLP, BlockBodyRLP, BlockHashRLP, BlockHeaderRLP,
-    BlockRLP, BlockTotalDifficultyRLP, MempoolTransactionRLP, ReceiptRLP, Rlp, TransactionHashRLP,
-    TupleRLP,
+    BlockRLP, BlockTotalDifficultyRLP, ReceiptRLP, Rlp, TransactionHashRLP, TupleRLP,
 };
 use anyhow::Result;
 use bytes::Bytes;
 use ethereum_rust_core::types::{
     BlobsBundle, Block, BlockBody, BlockHash, BlockHeader, BlockNumber, ChainConfig, Index,
-    MempoolTransaction, Receipt, Transaction,
+    Receipt, Transaction,
 };
 use ethereum_rust_rlp::decode::RLPDecode;
 use ethereum_rust_rlp::encode::RLPEncode;
@@ -203,13 +202,6 @@ impl StoreEngine for Store {
                 self.get_block_hash_by_block_number(*number)
                     .is_ok_and(|o| o == Some(*hash))
             }))
-    }
-
-    fn get_transaction_from_pool(
-        &self,
-        hash: H256,
-    ) -> Result<Option<MempoolTransaction>, StoreError> {
-        Ok(self.read::<TransactionPool>(hash.into())?.map(|t| t.to()))
     }
 
     fn add_blobs_bundle_to_pool(
@@ -487,11 +479,6 @@ dupsort!(
 );
 
 table!(
-    /// Transaction pool table.
-    ( TransactionPool ) TransactionHashRLP => MempoolTransactionRLP
-);
-
-table!(
     /// BlobsBundle pool table, contains the corresponding blobs bundle for each blob transaction in the TransactionPool table
     ( BlobsBundlePool ) TransactionHashRLP => BlobsBubdleRLP
 );
@@ -608,7 +595,6 @@ pub fn init_db(path: Option<impl AsRef<Path>>) -> Database {
         table_info!(AccountCodes),
         table_info!(Receipts),
         table_info!(TransactionLocations),
-        table_info!(TransactionPool),
         table_info!(BlobsBundlePool),
         table_info!(ChainData),
         table_info!(StateTrieNodes),

@@ -232,14 +232,6 @@ impl Store {
         }
     }
 
-    /// Get a transaction from the pool
-    pub fn get_transaction_from_pool(
-        &self,
-        hash: H256,
-    ) -> Result<Option<MempoolTransaction>, StoreError> {
-        self.engine.get_transaction_from_pool(hash)
-    }
-
     /// Add a blobs bundle to the pool by its blob transaction hash
     pub fn add_blobs_bundle_to_pool(
         &self,

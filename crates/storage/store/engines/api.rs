@@ -1,7 +1,7 @@
 use bytes::Bytes;
 use ethereum_rust_core::types::{
     BlobsBundle, Block, BlockBody, BlockHash, BlockHeader, BlockNumber, ChainConfig, Index,
-    MempoolTransaction, Receipt, Transaction,
+    Receipt, Transaction,
 };
 use ethereum_types::{Address, H256, U256};
 use std::{fmt::Debug, panic::RefUnwindSafe};
@@ -81,12 +81,6 @@ pub trait StoreEngine: Debug + Send + Sync + RefUnwindSafe {
         &self,
         transaction_hash: H256,
     ) -> Result<Option<(BlockNumber, BlockHash, Index)>, StoreError>;
-
-    /// Get a transaction from the pool
-    fn get_transaction_from_pool(
-        &self,
-        hash: H256,
-    ) -> Result<Option<MempoolTransaction>, StoreError>;
 
     /// Store blobs bundle into the pool table by its blob transaction's hash
     fn add_blobs_bundle_to_pool(
