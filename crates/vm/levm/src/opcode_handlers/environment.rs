@@ -19,11 +19,7 @@ impl VM {
     ) -> Result<OpcodeSuccess, VMError> {
         self.increase_consumed_gas(current_call_frame, gas_cost::ADDRESS)?;
 
-        let addr = if current_call_frame.delegate.is_some() {
-            current_call_frame.msg_sender
-        } else {
-            current_call_frame.code_address
-        };
+        let addr = current_call_frame.to; // The recipient of the current call.
 
         current_call_frame.stack.push(U256::from(addr.as_bytes()))?;
 

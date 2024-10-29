@@ -65,7 +65,6 @@ pub struct CallFrame {
     pub msg_sender: Address, // Origin address?
     pub to: Address,
     pub code_address: Address,
-    pub delegate: Option<Address>,
     pub bytecode: Bytes,
     pub msg_value: U256,
     pub stack: Stack, // max 1024 in the future
@@ -98,7 +97,6 @@ impl CallFrame {
         msg_sender: Address,
         to: Address,
         code_address: Address,
-        delegate: Option<Address>,
         bytecode: Bytes,
         msg_value: U256,
         calldata: Bytes,
@@ -112,7 +110,6 @@ impl CallFrame {
             msg_sender,
             to,
             code_address,
-            delegate,
             bytecode,
             msg_value,
             calldata,

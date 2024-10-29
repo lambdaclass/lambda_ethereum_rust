@@ -2820,10 +2820,10 @@ fn sstore_op() {
         Operation::Stop,
     ];
     
-    let mut db = Db::new();
-    db.add_accounts(vec![(sender_address, Account::default())]);
+    // We don't need to add address to database because if it doesn't exist it returns and empty account, so no problem there.
 
     let mut vm = new_vm_with_ops(&operations);
+    vm.current_call_frame_mut().to = sender_address;
     vm.current_call_frame_mut().code_address = sender_address;
 
     let mut current_call_frame = vm.call_frames.pop().unwrap();
