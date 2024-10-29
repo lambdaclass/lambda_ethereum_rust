@@ -240,24 +240,17 @@ fn init_environment(test_args: &TestArgs) -> Result<VM, VMError> {
     // Note: here TxDestination should be matched to an Address Option (when creating is Null)
     // but Vm does not support an option in address, so create is not supported currently
 
-    // Convertir U256 a un array de bytes
-    let mut bytes = [0u8; 32];
-    test_args.env.current_difficulty.to_big_endian(&mut bytes);
-
-    // Crear H256 a partir del array de bytes
-    let randao = H256::from_slice(&bytes);
-
     VM::new(
         destination,
         test_args.transaction.sender,
         test_args.transaction.value[0], // Maybe there's more than one value, see GeneralStateTests/stTransactionTest/NoSrcAccount.json
         test_args.transaction.data[0].clone(), // There's more than one values in vector, see GeneralStateTests/Cancun/stEIP1153-transientStorage/transStorageOK.json
-        test_args.transaction.gas_limit[0],    // currentGasLimit or gasLimit?
+        test_args.transaction.gas_limit[0],    // Same as above comments
         test_args.env.current_number,
         test_args.env.current_coinbase,
         test_args.env.current_timestamp,
-        Some(randao), // Conversions problem
-        U256::one(),  // What if dont want to use mainnet?
+        Some(H256::zero()),
+        U256::one(),
         test_args.env.current_base_fee.unwrap(),
         test_args
             .transaction
