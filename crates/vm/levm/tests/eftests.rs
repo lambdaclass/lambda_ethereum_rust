@@ -6,7 +6,10 @@ use std::{
 };
 
 use bytes::Bytes;
-use ethereum_rust_levm::vm::{Account, Db, StorageSlot, VM};
+use ethereum_rust_levm::{
+    errors::VMError,
+    vm::{Account, Db, StorageSlot, VM},
+};
 use ethereum_types::{Address, H256, U256};
 use serde::{Deserialize, Serialize};
 
@@ -195,7 +198,7 @@ fn parse_contents(json_contents: Vec<String>) -> Vec<HashMap<String, TestArgs>> 
         .collect()
 }
 
-fn init_environment(test_args: &TestArgs) -> VM {
+fn init_environment(test_args: &TestArgs) -> Result<VM, VMError> {
     // Be careful with clone (performance)
     let accounts = test_args
         .pre
@@ -225,14 +228,14 @@ fn init_environment(test_args: &TestArgs) -> VM {
         })
         .collect();
 
-    let db = Db {
+    let mut db = Db {
         accounts,
         block_hashes: Default::default(), // Dont know where is set
     };
 
-    let destination = match test_args.transaction.to {
-        TxDestination::Some(address) => address,
-        TxDestination::None => panic!("EIP4844Transaction cannot be contract creation"),
+    let destination: Option<Address> = match test_args.transaction.to {
+        TxDestination::Some(address) => Some(address),
+        TxDestination::None => None,
     };
     // Note: here TxDestination should be matched to an Address Option (when creating is Null)
     // but Vm does not support an option in address, so create is not supported currently
@@ -260,9 +263,12 @@ fn init_environment(test_args: &TestArgs) -> VM {
             .transaction
             .gas_price
             .unwrap_or(test_args.transaction.max_fee_per_gas.unwrap_or_default()),
-        db,
+        &mut db,
         Default::default(), // Dont know where is set
         test_args.env.current_excess_blob_gas,
+        Default::default(),               // Dont know where is set
+        test_args.transaction.secret_key, // Dont know where is set
+        None,
     )
 }
 
@@ -283,7 +289,7 @@ fn ethereum_foundation_general_state_tests() {
         for (test_name, test_args) in test_case {
             // Initialize
             println!("Parseando el test {:?}", test_name);
-            let mut vm = init_environment(test_args);
+            let mut vm = init_environment(test_args).expect("An error happened at init of test.");
 
             // Execute
             println!("Executing testcase {test_name}");
