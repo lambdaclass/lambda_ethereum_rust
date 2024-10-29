@@ -7,7 +7,7 @@ use engines::api::StoreEngine;
 use ethereum_rust_core::types::{
     code_hash, AccountInfo, AccountState, BlobsBundle, Block, BlockBody, BlockHash, BlockHeader,
     BlockNumber, ChainConfig, Genesis, GenesisAccount, Index, MempoolTransaction, Receipt,
-    Transaction, EMPTY_TRIE_HASH,
+    Transaction, TxType, EMPTY_TRIE_HASH,
 };
 use ethereum_rust_rlp::decode::RLPDecode;
 use ethereum_rust_rlp::encode::RLPEncode;
@@ -30,6 +30,7 @@ pub struct Store {
     engine: Arc<dyn StoreEngine>,
     // Address -> (nonce -> Transaction)
     pub mempool: Arc<Mutex<HashMap<Address, BTreeMap<u64, MempoolTransaction>>>>,
+    pub blobs_bundle_pool: Arc<Mutex<HashMap<H256, BlobsBundle>>>,
 }
 
 #[allow(dead_code)]
@@ -78,10 +79,12 @@ impl Store {
             EngineType::Libmdbx => Self {
                 engine: Arc::new(LibmdbxStore::new(path)?),
                 mempool: Arc::new(Mutex::new(HashMap::new())),
+                blobs_bundle_pool: Arc::new(Mutex::new(HashMap::new())),
             },
             EngineType::InMemory => Self {
                 engine: Arc::new(InMemoryStore::new()),
                 mempool: Arc::new(Mutex::new(HashMap::new())),
+                blobs_bundle_pool: Arc::new(Mutex::new(HashMap::new())),
             },
         };
         info!("Started store engine");
@@ -233,25 +236,34 @@ impl Store {
     }
 
     /// Add a blobs bundle to the pool by its blob transaction hash
-    pub fn add_blobs_bundle_to_pool(
-        &self,
-        tx_hash: H256,
-        blobs_bundle: BlobsBundle,
-    ) -> Result<(), StoreError> {
-        self.engine.add_blobs_bundle_to_pool(tx_hash, blobs_bundle)
+    pub fn add_blobs_bundle_to_pool(&self, tx_hash: H256, blobs_bundle: BlobsBundle) {
+        self.blobs_bundle_pool
+            .lock()
+            .unwrap()
+            .insert(tx_hash, blobs_bundle);
     }
 
     /// Get a blobs bundle to the pool given its blob transaction hash
-    pub fn get_blobs_bundle_from_pool(
-        &self,
-        tx_hash: H256,
-    ) -> Result<Option<BlobsBundle>, StoreError> {
-        self.engine.get_blobs_bundle_from_pool(tx_hash)
+    pub fn get_blobs_bundle_from_pool(&self, tx_hash: H256) -> Option<BlobsBundle> {
+        self.blobs_bundle_pool
+            .lock()
+            .unwrap()
+            .get(&tx_hash)
+            .cloned()
     }
 
     /// Remove a transaction from the pool
     pub fn remove_transaction_from_pool(&self, address: Address, nonce: u64) {
         if let Some(old_value) = self.mempool.lock().unwrap().get_mut(&address) {
+            let tx = old_value.get(&nonce).unwrap();
+
+            if matches!(tx.tx_type(), TxType::EIP4844) {
+                self.blobs_bundle_pool
+                    .lock()
+                    .unwrap()
+                    .remove(&tx.compute_hash());
+            }
+
             old_value.remove(&nonce);
         };
     }
@@ -1061,9 +1073,7 @@ mod tests {
                 commitments: commitments.to_vec(),
                 proofs: proofs.to_vec(),
             };
-            store
-                .add_blobs_bundle_to_pool(H256::random(), bundle)
-                .unwrap();
+            store.add_blobs_bundle_to_pool(H256::random(), bundle);
         }
     }
 }

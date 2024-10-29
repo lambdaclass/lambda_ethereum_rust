@@ -1,7 +1,7 @@
 use crate::error::StoreError;
 use bytes::Bytes;
 use ethereum_rust_core::types::{
-    BlobsBundle, Block, BlockBody, BlockHash, BlockHeader, BlockNumber, ChainConfig, Index, Receipt,
+    Block, BlockBody, BlockHash, BlockHeader, BlockNumber, ChainConfig, Index, Receipt,
 };
 use ethereum_rust_trie::{InMemoryTrieDB, Trie};
 use ethereum_types::{Address, H256, U256};
@@ -29,8 +29,6 @@ struct StoreInner {
     account_codes: HashMap<H256, Bytes>,
     // Maps transaction hashes to their blocks (height+hash) and index within the blocks.
     transaction_locations: HashMap<H256, Vec<(BlockNumber, BlockHash, Index)>>,
-    // Stores the blobs_bundle for each blob transaction in the transaction_pool
-    blobs_bundle_pool: HashMap<H256, BlobsBundle>,
     receipts: HashMap<BlockHash, HashMap<Index, Receipt>>,
     state_trie_nodes: NodeMap,
     storage_trie_nodes: HashMap<Address, NodeMap>,
@@ -161,19 +159,6 @@ impl StoreEngine for Store {
                     .find(|(number, hash, _index)| store.canonical_hashes.get(number) == Some(hash))
                     .copied()
             }))
-    }
-
-    fn add_blobs_bundle_to_pool(
-        &self,
-        tx_hash: H256,
-        blobs_bundle: BlobsBundle,
-    ) -> Result<(), StoreError> {
-        self.inner().blobs_bundle_pool.insert(tx_hash, blobs_bundle);
-        Ok(())
-    }
-
-    fn get_blobs_bundle_from_pool(&self, tx_hash: H256) -> Result<Option<BlobsBundle>, StoreError> {
-        Ok(self.inner().blobs_bundle_pool.get(&tx_hash).cloned())
     }
 
     fn add_receipt(

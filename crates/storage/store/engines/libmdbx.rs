@@ -1,14 +1,13 @@
 use super::api::StoreEngine;
 use crate::error::StoreError;
 use crate::rlp::{
-    AccountCodeHashRLP, AccountCodeRLP, BlobsBubdleRLP, BlockBodyRLP, BlockHashRLP, BlockHeaderRLP,
-    BlockRLP, BlockTotalDifficultyRLP, ReceiptRLP, Rlp, TransactionHashRLP, TupleRLP,
+    AccountCodeHashRLP, AccountCodeRLP, BlockBodyRLP, BlockHashRLP, BlockHeaderRLP, BlockRLP,
+    BlockTotalDifficultyRLP, ReceiptRLP, Rlp, TransactionHashRLP, TupleRLP,
 };
 use anyhow::Result;
 use bytes::Bytes;
 use ethereum_rust_core::types::{
-    BlobsBundle, Block, BlockBody, BlockHash, BlockHeader, BlockNumber, ChainConfig, Index,
-    Receipt, Transaction,
+    Block, BlockBody, BlockHash, BlockHeader, BlockNumber, ChainConfig, Index, Receipt, Transaction,
 };
 use ethereum_rust_rlp::decode::RLPDecode;
 use ethereum_rust_rlp::encode::RLPEncode;
@@ -202,21 +201,6 @@ impl StoreEngine for Store {
                 self.get_block_hash_by_block_number(*number)
                     .is_ok_and(|o| o == Some(*hash))
             }))
-    }
-
-    fn add_blobs_bundle_to_pool(
-        &self,
-        tx_hash: H256,
-        blobs_bundle: BlobsBundle,
-    ) -> Result<(), StoreError> {
-        self.write::<BlobsBundlePool>(tx_hash.into(), blobs_bundle.into())?;
-        Ok(())
-    }
-
-    fn get_blobs_bundle_from_pool(&self, tx_hash: H256) -> Result<Option<BlobsBundle>, StoreError> {
-        Ok(self
-            .read::<BlobsBundlePool>(tx_hash.into())?
-            .map(|bb| bb.to()))
     }
 
     /// Stores the chain config serialized as json
@@ -479,11 +463,6 @@ dupsort!(
 );
 
 table!(
-    /// BlobsBundle pool table, contains the corresponding blobs bundle for each blob transaction in the TransactionPool table
-    ( BlobsBundlePool ) TransactionHashRLP => BlobsBubdleRLP
-);
-
-table!(
     /// Stores chain data, each value is unique and stored as its rlp encoding
     /// See [ChainDataIndex] for available chain values
     ( ChainData ) ChainDataIndex => Vec<u8>
@@ -595,7 +574,6 @@ pub fn init_db(path: Option<impl AsRef<Path>>) -> Database {
         table_info!(AccountCodes),
         table_info!(Receipts),
         table_info!(TransactionLocations),
-        table_info!(BlobsBundlePool),
         table_info!(ChainData),
         table_info!(StateTrieNodes),
         table_info!(StorageTriesNodes),

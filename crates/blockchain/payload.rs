@@ -349,7 +349,7 @@ fn apply_blob_transaction(
 ) -> Result<Receipt, ChainError> {
     // Fetch blobs bundle
     let tx_hash = head.tx.compute_hash();
-    let Some(blobs_bundle) = context.store().get_blobs_bundle_from_pool(tx_hash)? else {
+    let Some(blobs_bundle) = context.store().get_blobs_bundle_from_pool(tx_hash) else {
         // No blob tx should enter the mempool without its blobs bundle so this is an internal error
         return Err(
             StoreError::Custom(format!("No blobs bundle found for blob tx {tx_hash}")).into(),
