@@ -2,7 +2,6 @@ use super::*;
 use crate::{
     constants::{call_opcode, SUCCESS_FOR_RETURN},
     errors::ResultReason,
-    vm::Db,
 };
 
 // System Operations (10)

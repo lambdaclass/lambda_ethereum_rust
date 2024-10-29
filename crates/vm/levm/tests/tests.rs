@@ -2844,10 +2844,9 @@ fn sstore_op() {
     let mut current_call_frame = vm.call_frames.pop().unwrap();
     vm.execute(&mut current_call_frame);
 
-
     // Convert key in U256 to H256
     let mut bytes = [0u8; 32];
-    key.to_big_endian(&mut bytes);        
+    key.to_big_endian(&mut bytes);
     let key = H256::from(bytes);
 
     let stored_value = vm.cache.get_storage_slot(sender_address, key).unwrap();
@@ -4191,7 +4190,7 @@ fn callvalue_op() {
 
     let operations = [Operation::Callvalue, Operation::Stop];
 
-    let mut db = LevmDb::default();
+    let mut db = Db::default();
 
     db.add_accounts(vec![(
         address_that_has_the_code,
@@ -4238,7 +4237,7 @@ fn codesize_op() {
 
     let operations = [Operation::Codesize, Operation::Stop];
 
-    let mut db = LevmDb::default();
+    let mut db = Db::default();
 
     db.add_accounts(vec![(
         address_that_has_the_code,
@@ -4287,7 +4286,7 @@ fn gasprice_op() {
     let address_that_has_the_code = Address::from_low_u64_be(0x42);
     let operations = [Operation::Gasprice, Operation::Stop];
 
-    let mut db = LevmDb::default();
+    let mut db = Db::default();
 
     db.add_accounts(vec![(
         address_that_has_the_code,
@@ -4353,7 +4352,7 @@ fn codecopy_op() {
 
     let expected_memory = U256::from_big_endian(&expected_memory_bytes);
 
-    let mut db = LevmDb::default();
+    let mut db = Db::default();
 
     db.add_accounts(vec![(
         address_that_has_the_code,

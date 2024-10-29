@@ -379,9 +379,9 @@ impl VM {
     /// the block’s base fee;
     /// (8) For type 2 transactions, max priority fee per fas, must be no larger
     /// than max fee per fas.
-    fn validate_transaction(&mut self) -> Result<(), VMError> {
+    fn _validate_transaction(&mut self) -> Result<(), VMError> {
         // Validations (1), (2), (3), (5), and (8) are assumed done in upper layers.
-        let sender_account = match self.cache.get_account(self.env.origin) {
+        let sender_account = match self.cache.get_account(self.env.tx_origin) {
             Some(acc) => acc,
             None => return Err(VMError::SenderAccountDoesNotExist),
         };

@@ -1,7 +1,6 @@
 use crate::{
     block::LAST_AVAILABLE_BLOCK_LIMIT,
     constants::{BLOB_BASE_FEE_UPDATE_FRACTION, MIN_BASE_FEE_PER_BLOB_GAS},
-    vm::Db,
 };
 use keccak_hash::H256;
 
@@ -32,7 +31,7 @@ impl VM {
         }
 
         let block_number = block_number.as_u64();
-        
+
         if let Some(block_hash) = self.db.get_block_hash(block_number) {
             current_call_frame
                 .stack

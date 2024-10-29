@@ -21,7 +21,6 @@ impl Db for StoreWrapper {
         let storage_slot = StorageSlot {
             original_value: value,
             current_value: value,
-            is_cold: false,
         };
         Some(storage_slot)
     }
