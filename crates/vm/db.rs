@@ -5,7 +5,7 @@ use revm::primitives::{
     AccountInfo as RevmAccountInfo, Address as RevmAddress, Bytecode as RevmBytecode,
     Bytes as RevmBytes, B256 as RevmB256, U256 as RevmU256,
 };
-use ethereum_rust_levm::db::Database as LevmDatabase;
+use ethereum_rust_levm::{block, db::Database as LevmDatabase};
 
 pub struct StoreWrapper {
     pub store: Store,
@@ -29,12 +29,20 @@ impl LevmDatabase for StoreWrapper {
         }
     }
 
-    fn get_storage_slot(&self, address: CoreAddress, key: U256) -> U256 {
-        todo!()
+    fn get_storage_slot(&self, address: CoreAddress, key: CoreH256) -> U256 {
+        self.store
+            .get_storage_at_hash(self.block_hash, address, key)
+            .unwrap()
+            .unwrap()
     }
 
     fn get_block_hash(&self, block_number: U256) -> Option<CoreH256> {
-        todo!()
+        // let a = self.store
+        //     .get_block_header(block_number)
+        //     .unwrap().unwrap();
+
+        // Some(CoreH256::from(a.compute_block_hash().0))
+        
     }
 }
 
