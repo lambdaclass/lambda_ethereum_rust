@@ -267,17 +267,15 @@ impl VM {
         //      The reversion of changes is made in the generic_call().
         //      Changes are not "reverted" if it is the first callframe, they are just not commited.
 
-        let offset = current_call_frame
-            .stack
-            .pop()?
-            .try_into()
-            .map_err(|_| VMError::VeryLargeNumber)?;
+        let offset = current_call_frame  
+            .stack  
+            .pop()?  
+            .as_usize();  
 
-        let size = current_call_frame
-            .stack
-            .pop()?
-            .try_into()
-            .map_err(|_| VMError::VeryLargeNumber)?;
+        let size = current_call_frame  
+            .stack  
+            .pop()?  
+            .as_usize();
 
         let gas_cost = current_call_frame.memory.expansion_cost(offset + size)?;
 
