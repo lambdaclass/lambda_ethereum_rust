@@ -70,53 +70,6 @@ impl Database for Db {
     fn get_block_hash(&self, block_number: U256) -> Option<H256> {
         self.block_hashes.get(&block_number).cloned()
     }
-
-    // fn read_account_storage(&self, address: &Address, key: &U256) -> Option<StorageSlot> {
-    //     self.accounts
-    //         .get(address)
-    //         .and_then(|account| account.storage.get(key))
-    //         .cloned()
-    // }
-
-    // fn write_account_storage(&mut self, address: &Address, key: U256, slot: StorageSlot) {
-    //     self.accounts
-    //         .entry(*address)
-    //         .or_default()
-    //         .storage
-    //         .insert(key, slot);
-    // }
-
-    // fn get_account_bytecode(&self, address: &Address) -> Bytes {
-    //     self.accounts
-    //         .get(address)
-    //         .map_or(Bytes::new(), |acc| acc.bytecode.clone())
-    // }
-
-    // fn balance(&mut self, address: &Address) -> U256 {
-    //     self.accounts
-    //         .get(address).unwrap().balance
-    // }
-
-    // /// Returns the account associated with the given address.
-    // /// If the account does not exist in the Db, it creates a new one with the given address.
-    // fn get_account(&mut self, address: &Address) -> Result<Account, VMError> {
-    //     if self.accounts.contains_key(address) {
-    //         return Ok(self.accounts.get(address).unwrap().clone());
-    //     }
-
-    //     let new_account = Account {
-    //         address: *address,
-    //         ..Default::default()
-    //     };
-
-    //     self.accounts.insert(*address, new_account);
-
-    //     Ok(self.accounts.get(address).unwrap().clone())
-    // }
-
-    // fn get_block_hash(&self, block_number: U256) -> Option<H256> {
-    //     self.block_hashes.get(&block_number).cloned()
-    // }
 }
 
 #[derive(Debug, Default, Clone)]
