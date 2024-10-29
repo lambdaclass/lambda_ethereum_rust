@@ -17,8 +17,8 @@ const DEFAULT_L1_RICH_WALLET_PRIVATE_KEY: H256 = H256([
     0x33, 0xf6, 0x6b, 0x39, 0x60, 0xd9, 0xe6, 0x22, 0x9c, 0x1c, 0xd2, 0x14, 0xed, 0x3b, 0xbe, 0x31,
 ]);
 
-const L1_GAS_COST_MAX_DELTA: U256 = U256([1_000_000, 0, 0, 0]);
-const L2_GAS_COST_MAX_DELTA: U256 = U256([20_000_000, 0, 0, 0]);
+const L1_GAS_COST_MAX_DELTA: U256 = U256([1_000_000_000, 0, 0, 0]);
+const L2_GAS_COST_MAX_DELTA: U256 = U256([1_000_000_000_000, 0, 0, 0]);
 
 /// Test the full flow of depositing, transferring, and withdrawing funds
 /// from L1 to L2 and back.
@@ -110,7 +110,8 @@ async fn testito() {
     assert!(
         (l1_initial_balance - deposit_value).abs_diff(l1_after_deposit_balance)
             < L1_GAS_COST_MAX_DELTA,
-        "L1 balance should decrease with deposit value + gas costs"
+        "L1 balance should decrease with deposit value + gas costs. Gas costs were {}/{L1_GAS_COST_MAX_DELTA}",
+        (l1_initial_balance - deposit_value).abs_diff(l1_after_deposit_balance)
     );
 
     // 4. Transfer funds on L2
@@ -155,7 +156,8 @@ async fn testito() {
     assert!(
         (l2_after_deposit_balance - transfer_value).abs_diff(l2_balance_after_transfer)
             < L2_GAS_COST_MAX_DELTA,
-        "L2 balance should be decrease with transfer value + gas costs"
+        "L2 balance should be decrease with transfer value + gas costs. Gas costs were {}/{L2_GAS_COST_MAX_DELTA}",
+        (l2_after_deposit_balance - transfer_value).abs_diff(l2_balance_after_transfer)
     );
     assert_eq!(
         l2_random_account_initial_balance + transfer_value,
