@@ -123,7 +123,7 @@ impl ExecutionDB {
             .into_iter();
         block_hashes.extend(numbers.zip(hashes));
 
-        // Compute Merkle proofs for the current state values
+        // Compute Merkle proofs for the current and next state values
         let curr_state_trie = store.state_trie(block.header.parent_hash)?.ok_or(
             ExecutionDBError::NewMissingStateTrie(block.header.parent_hash),
         )?;
