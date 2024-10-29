@@ -20,7 +20,6 @@ members = [
 ]
 resolver = "2"
 
-exclude = ["crates/l2/contracts"]
 default-members = [
     "cmd/ethereum_rust",
     "cmd/ethereum_rust_l2",
