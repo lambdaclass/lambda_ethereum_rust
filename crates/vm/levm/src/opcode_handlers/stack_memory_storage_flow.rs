@@ -1,3 +1,5 @@
+use keccak_hash::H256;
+
 use crate::{constants::WORD_SIZE, vm::StorageSlot};
 
 use super::*;
@@ -124,6 +126,10 @@ impl VM {
 
         let address = current_call_frame.to;
 
+        let mut bytes = [0u8; 32];
+        key.to_big_endian(&mut bytes);
+        let key = H256::from(bytes);
+
         let current_value = if self.cache.is_slot_cached(&address, key) {
             self.cache
                 .get_storage_slot(address, key)
@@ -149,6 +155,10 @@ impl VM {
 
         let key = current_call_frame.stack.pop()?;
         let value = current_call_frame.stack.pop()?;
+
+        let mut bytes = [0u8; 32];
+        key.to_big_endian(&mut bytes);
+        let key = H256::from(bytes);
 
         let address = current_call_frame.to;
 
