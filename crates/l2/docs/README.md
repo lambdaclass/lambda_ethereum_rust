@@ -1,9 +1,12 @@
 # Ethereum Rust L2 Docs
 
-Ethereum Rust L2 is composed of three main parts:
+For a high level overview of the L2:
 
 - [General Overview](./overview.md)
-- [Operator](./operator.md)
+
+For more detailed documentation on each part of the system:
+
+- [Proposer](./proposer.md)
 - [Prover](./prover.md)
 - [Contracts](./contracts.md)
 
