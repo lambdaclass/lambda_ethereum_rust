@@ -78,12 +78,14 @@ HIVE_REVISION := 448926bb93f6c025236a3b81c08d7c437d64852 #TODO: move to main bra
 HIVE_SHALLOW_SINCE := 2024-09-02
 hive:
 	git clone --single-branch --branch master --shallow-since=$(HIVE_SHALLOW_SINCE) https://github.com/lambdaclass/hive
+	cd hive && git checkout --detach $(HIVE_REVISION) && go build .
 
 setup-hive: hive ## 🐝 Set up Hive testing framework
 	if [ "$$(cd hive && git rev-parse HEAD)" != "$(HIVE_REVISION)" ]; then \
 		cd hive && \
+		git checkout master && \
 		git fetch --shallow-since=$(HIVE_SHALLOW_SINCE) && \
-		git checkout $(HIVE_REVISION) && go build . ;\
+		git checkout --detach $(HIVE_REVISION) && go build . ;\
 	fi
 
 TEST_PATTERN ?= /

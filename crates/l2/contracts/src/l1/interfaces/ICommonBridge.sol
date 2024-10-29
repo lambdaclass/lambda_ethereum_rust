@@ -41,9 +41,6 @@ interface ICommonBridge {
         uint256 indexed claimedAmount
     );
 
-    /// @notice Error for when the deposit amount is 0.
-    error AmountToDepositIsZero();
-
     /// @notice Initializes the contract.
     /// @dev This method is called only once after the contract is deployed.
     /// @dev It sets the OnChainProposer address.
@@ -56,6 +53,14 @@ interface ICommonBridge {
     /// finalize the deposit.
     /// @param to, the address in L2 to which the tokens will be minted to.
     function deposit(address to) external payable;
+
+    /// @notice Remove deposit from depositLogs queue.
+    /// @dev This method is used by the L2 OnChainOperator to remove the deposit
+    /// logs from the queue after the deposit is verified.
+    /// @param number of deposit logs to remove.
+    /// As deposits are processed in order, we don't need to specify
+    /// the deposit logs to remove, only the number of them.
+    function removeDepositLogs(uint number) external;
 
     /// @notice Publishes the L2 withdrawals on L1.
     /// @dev This method is used by the L2 OnChainOperator to publish the L2
