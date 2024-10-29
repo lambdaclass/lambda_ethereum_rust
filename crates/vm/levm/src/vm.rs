@@ -303,8 +303,10 @@ fn create_type_transaction(
         return Err(VMError::OutOfGas); // Maybe a more personalized error
     }
 
-    db_copy.increment_account_nonce(&sender);
-    // Check for nonce errors?
+    sender_account.nonce = sender_account
+        .nonce
+        .checked_add(1)
+        .ok_or(VMError::NonceOverflow)?;
 
     // (2)
     let new_contract_address = match salt {
@@ -374,7 +376,7 @@ fn create_type_transaction(
     // the code-deposit cost, c, proportional to the size of the created contract’s code
     let creation_cost = 200 * contract_code.len();
 
-    sender_account
+    sender_account.balance = sender_account
         .balance
         .checked_sub(U256::from(creation_cost))
         .ok_or(VMError::OutOfGas)?;

@@ -29,6 +29,7 @@ pub enum VMError {
     AddressAlreadyOccupied,
     ContractOutputTooBig,
     InvalidInitialByte,
+    NonceOverflow,
 }
 
 pub enum OpcodeSuccess {
