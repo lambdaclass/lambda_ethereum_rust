@@ -288,8 +288,8 @@ fn ethereum_foundation_general_state_tests() {
             let mut vm = init_environment(test_args).expect("An error happened at init of test.");
 
             // Execute
-            println!("Executing testcase {test_name}");
-            let _result = vm.transact();
+            //println!("Executing testcase {test_name}");
+            //let _result = vm.transact();
 
             // Verify
             /*
