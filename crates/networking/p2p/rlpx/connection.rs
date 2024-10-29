@@ -1,5 +1,5 @@
 use crate::{
-    rlpx::{eth::backend, handshake::encode_ack_message, message::Message, p2p, utils::id2pubkey},
+    rlpx::{eth::{backend, blocks::{BlockHeaders, GetBlockHeaders, HashOrNumber}}, handshake::encode_ack_message, message::Message, p2p, utils::id2pubkey},
     MAX_DISC_PACKET_SIZE,
 };
 
@@ -149,6 +149,37 @@ impl<S: AsyncWrite + AsyncRead + std::marker::Unpin> RLPxConnection<S> {
                         Message::Pong(_) => info!("Received Pong"),
                         Message::Status(_) => info!("Received Status"),
                         // TODO: Add new message types and handlers as they are implemented
+                        // FIXME: Maybe separate this into a function
+                        Message::GetBlockHeaders(msg_data) => {
+                            // FIXME: Handle skip case when > 0
+                            let GetBlockHeaders { startblock, limit, skip, id, reverse }  = msg_data;
+                            match startblock {
+                                HashOrNumber::Hash(block_hash) => {
+                                    // FIXME: Remove these unwraps.
+                                    let startblock = self.storage.get_block_number(block_hash).unwrap().unwrap();
+                                    let mut headers = vec![];
+                                    for block_number in startblock..startblock+limit {
+                                        // FIXME: Remove these unwraps.
+                                        let block = self.storage.get_block_header(block_number).unwrap().unwrap();
+                                        headers.push(block);
+                                    }
+                                    let response = BlockHeaders {
+                                        id,
+                                        block_headers: headers
+                                    };
+
+                                    println!("THE RESPONSE = {response:?}");
+
+                                    self.send(Message::BlockHeaders(response)).await;
+                                }
+                                HashOrNumber::Number(block_num) => {
+                                    // FIXME: Implement this
+                                    todo!("Only implemented for block hash");
+
+                                    // self.storage.
+                                }
+                            }
+                        },
                         message => return Err(RLPxError::UnexpectedMessage(message)),
                     };
                 }
@@ -313,6 +344,7 @@ impl<S: AsyncWrite + AsyncRead + std::marker::Unpin> RLPxConnection<S> {
                         error!("Failed to encode message: {:?}", e);
                     }
                 };
+                println!("THE FRAME BUFFER = {frame_buffer:?}");
                 frame::write(frame_buffer, state, &mut self.stream).await;
             }
             // TODO proper error

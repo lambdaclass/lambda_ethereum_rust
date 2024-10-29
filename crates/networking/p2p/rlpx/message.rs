@@ -3,7 +3,7 @@ use ethereum_rust_core::types::BlockNumber;
 use ethereum_rust_rlp::error::{RLPDecodeError, RLPEncodeError};
 use std::fmt::Display;
 
-use super::eth::blocks::GetBlockHeaders;
+use super::eth::blocks::{BlockHeaders, GetBlockHeaders};
 use super::eth::status::StatusMessage;
 use super::p2p::{DisconnectMessage, HelloMessage, PingMessage, PongMessage};
 
@@ -23,6 +23,7 @@ pub(crate) enum Message {
     // FIXME: Choose a better name, or use
     // a flat struct.
     GetBlockHeaders(GetBlockHeaders),
+    BlockHeaders(BlockHeaders),
 }
 
 impl Message {
@@ -44,6 +45,7 @@ impl Message {
             // - https://github.com/ethereum/devp2p/blob/master/caps/eth.md#status-0x00
             0x10 => Ok(Message::Status(StatusMessage::decode(msg_data)?)),
             0x13 => Ok(Message::GetBlockHeaders(GetBlockHeaders::decode(msg_data)?)),
+            0x14 => Ok(Message::BlockHeaders(BlockHeaders::decode(msg_data)?)),
             _ => Err(RLPDecodeError::MalformedData),
         }
     }
@@ -56,6 +58,7 @@ impl Message {
             Message::Pong(msg) => msg.encode(buf),
             Message::Status(msg) => msg.encode(buf),
             Message::GetBlockHeaders(msg) => msg.encode(buf),
+            Message::BlockHeaders(msg) => msg.encode(buf),
         }
     }
 }
@@ -69,6 +72,7 @@ impl Display for Message {
             Message::Pong(_) => "p2p:Pong".fmt(f),
             Message::Status(_) => "eth:Status".fmt(f),
             Message::GetBlockHeaders(_) => "eth.getBlockHeaders".fmt(f),
+            Message::BlockHeaders(_) => "eth.BlockHeaders".fmt(f),
         }
     }
 }

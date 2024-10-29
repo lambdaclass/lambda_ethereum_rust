@@ -55,11 +55,12 @@ impl RLPDecode for HashOrNumber {
 pub(crate) struct GetBlockHeaders {
     // id is a u64 chosen by the requesting peer, the responding peer must mirror the value for the response
     // https://github.com/ethereum/devp2p/blob/master/caps/eth.md#protocol-messages
-    id: u64,
-    startblock: HashOrNumber,
-    limit: u64,
-    skip: u64,
-    reverse: bool,
+    // FIXME: Maybe make these private again?
+    pub id: u64,
+    pub startblock: HashOrNumber,
+    pub limit: u64,
+    pub skip: u64,
+    pub reverse: bool,
 }
 
 impl GetBlockHeaders {
@@ -84,7 +85,6 @@ impl RLPxMessage for GetBlockHeaders {
             .encode_field(&self.skip)
             .encode_field(&self.reverse)
             .finish();
-
         let msg_data = snappy_encode(encoded_data)?;
         buf.put_slice(&msg_data);
         Ok(())
@@ -104,11 +104,12 @@ impl RLPxMessage for GetBlockHeaders {
 }
 
 // https://github.com/ethereum/devp2p/blob/master/caps/eth.md#blockheaders-0x04
+#[derive(Debug)]
 pub(crate) struct BlockHeaders {
     // id is a u64 chosen by the requesting peer, the responding peer must mirror the value for the response
     // https://github.com/ethereum/devp2p/blob/master/caps/eth.md#protocol-messages
-    id: u64,
-    block_headers: Vec<BlockHeader>,
+    pub id: u64,
+    pub block_headers: Vec<BlockHeader>,
 }
 
 impl BlockHeaders {
@@ -119,6 +120,7 @@ impl BlockHeaders {
 
 impl RLPxMessage for BlockHeaders {
     fn encode(&self, buf: &mut dyn BufMut) -> Result<(), RLPEncodeError> {
+        println!("THE HEADERS = {0:X?}", self.block_headers);
         let mut encoded_data = vec![];
         Encoder::new(&mut encoded_data)
             .encode_field(&self.id)
