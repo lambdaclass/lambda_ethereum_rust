@@ -1,11 +1,10 @@
-use bytes::Bytes;
 use ethereum_rust_core::{types::BlockHash, Address as CoreAddress, H256 as CoreH256, U256};
 use ethereum_rust_storage::{error::StoreError, Store};
 use revm::primitives::{
     AccountInfo as RevmAccountInfo, Address as RevmAddress, Bytecode as RevmBytecode,
     Bytes as RevmBytes, B256 as RevmB256, U256 as RevmU256,
 };
-use ethereum_rust_levm::{block, db::Database as LevmDatabase};
+use ethereum_rust_levm::db::Database as LevmDatabase;
 
 pub struct StoreWrapper {
     pub store: Store,
@@ -36,13 +35,13 @@ impl LevmDatabase for StoreWrapper {
             .unwrap()
     }
 
-    fn get_block_hash(&self, block_number: U256) -> Option<CoreH256> {
-        // let a = self.store
-        //     .get_block_header(block_number)
-        //     .unwrap().unwrap();
+    fn get_block_hash(&self, block_number: u64) -> Option<CoreH256> {
+        let a = self.store
+            .get_block_header(block_number)
+            .unwrap()
+            .unwrap();
 
-        // Some(CoreH256::from(a.compute_block_hash().0))
-        
+        Some(CoreH256::from(a.compute_block_hash().0))
     }
 }
 
