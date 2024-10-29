@@ -121,13 +121,15 @@ impl VM {
         current_call_frame: &mut CallFrame,
     ) -> Result<OpcodeSuccess, VMError> {
         let key = current_call_frame.stack.pop()?;
-        
+
         let address = current_call_frame.to;
 
         let current_value = if self.cache.is_slot_cached(&address, key) {
-            self.cache.get_storage_slot(address, key).unwrap_or_default().current_value
-        }
-        else {
+            self.cache
+                .get_storage_slot(address, key)
+                .unwrap_or_default()
+                .current_value
+        } else {
             self.db.get_storage_slot(address, key)
         };
 
@@ -147,13 +149,15 @@ impl VM {
 
         let key = current_call_frame.stack.pop()?;
         let value = current_call_frame.stack.pop()?;
-        
+
         let address = current_call_frame.to;
 
         let original_value = if self.cache.is_slot_cached(&address, key) {
-            self.cache.get_storage_slot(address, key).expect("Storage slot should have been cached").original_value
-        }
-        else {
+            self.cache
+                .get_storage_slot(address, key)
+                .expect("Storage slot should have been cached")
+                .original_value
+        } else {
             self.cache_from_db(&address);
             self.db.get_storage_slot(address, key)
         };

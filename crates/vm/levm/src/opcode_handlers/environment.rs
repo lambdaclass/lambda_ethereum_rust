@@ -34,7 +34,7 @@ impl VM {
         let address = &word_to_address(current_call_frame.stack.pop()?);
 
         if self.cache.is_account_cached(address) {
-            self.increase_consumed_gas(current_call_frame, WARM_ADDRESS_ACCESS_COST)?;    
+            self.increase_consumed_gas(current_call_frame, WARM_ADDRESS_ACCESS_COST)?;
         } else {
             self.increase_consumed_gas(current_call_frame, COLD_ADDRESS_ACCESS_COST)?;
             self.cache_from_db(address);
@@ -249,7 +249,13 @@ impl VM {
             self.cache_from_db(&address);
         };
 
-        let bytecode = self.cache.get_account(address).unwrap().info.bytecode.clone();
+        let bytecode = self
+            .cache
+            .get_account(address)
+            .unwrap()
+            .info
+            .bytecode
+            .clone();
 
         current_call_frame.stack.push(bytecode.len().into())?;
         Ok(OpcodeSuccess::Continue)
@@ -281,8 +287,8 @@ impl VM {
         let memory_expansion_cost = current_call_frame
             .memory
             .expansion_cost(dest_offset + size)?;
-        let gas_cost = gas_cost::EXTCODECOPY_DYNAMIC_BASE * minimum_word_size
-            + memory_expansion_cost;
+        let gas_cost =
+            gas_cost::EXTCODECOPY_DYNAMIC_BASE * minimum_word_size + memory_expansion_cost;
 
         if self.cache.is_account_cached(&address) {
             self.increase_consumed_gas(current_call_frame, gas_cost + WARM_ADDRESS_ACCESS_COST)?;
@@ -290,8 +296,14 @@ impl VM {
             self.increase_consumed_gas(current_call_frame, gas_cost + COLD_ADDRESS_ACCESS_COST)?;
             self.cache_from_db(&address);
         };
-        
-        let mut bytecode = self.cache.get_account(address).unwrap().info.bytecode.clone();
+
+        let mut bytecode = self
+            .cache
+            .get_account(address)
+            .unwrap()
+            .info
+            .bytecode
+            .clone();
 
         if bytecode.len() < offset + size {
             let mut extended_code = bytecode.to_vec();
@@ -376,7 +388,13 @@ impl VM {
             self.cache_from_db(&address);
         };
 
-        let bytecode = self.cache.get_account(address).unwrap().info.bytecode.clone();
+        let bytecode = self
+            .cache
+            .get_account(address)
+            .unwrap()
+            .info
+            .bytecode
+            .clone();
 
         let mut hasher = Keccak256::new();
         hasher.update(bytecode);

@@ -70,7 +70,7 @@ impl Database for Db {
     fn get_block_hash(&self, block_number: U256) -> Option<H256> {
         self.block_hashes.get(&block_number).cloned()
     }
-    
+
     // fn read_account_storage(&self, address: &Address, key: &U256) -> Option<StorageSlot> {
     //     self.accounts
     //         .get(address)
@@ -134,7 +134,11 @@ impl Cache {
     }
 
     pub fn get_storage_slot(&self, address: Address, key: U256) -> Option<StorageSlot> {
-        self.get_account(address).expect("Account should have been cached").storage.get(&key).cloned()
+        self.get_account(address)
+            .expect("Account should have been cached")
+            .storage
+            .get(&key)
+            .cloned()
     }
 
     pub fn add_account(&mut self, address: &Address, account: &Account) {
@@ -142,7 +146,11 @@ impl Cache {
     }
 
     pub fn write_account_storage(&mut self, address: &Address, key: U256, slot: StorageSlot) {
-        self.accounts.get_mut(address).expect("Account should have been cached").storage.insert(key, slot);
+        self.accounts
+            .get_mut(address)
+            .expect("Account should have been cached")
+            .storage
+            .insert(key, slot);
     }
 
     pub fn increment_account_nonce(&mut self, address: &Address) {

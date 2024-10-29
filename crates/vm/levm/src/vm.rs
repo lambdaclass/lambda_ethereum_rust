@@ -11,10 +11,7 @@ use ethereum_rust_rlp::encode::RLPEncode;
 use ethereum_types::H160;
 use keccak_hash::keccak;
 use sha3::{Digest, Keccak256};
-use std::{
-    collections::HashMap,
-    str::FromStr,
-};
+use std::{collections::HashMap, str::FromStr};
 
 #[derive(Clone, Default, Debug, PartialEq, Eq)]
 pub struct AccountInfo {
@@ -435,8 +432,15 @@ impl VM {
         if !self.cache.is_account_cached(&current_call_frame.msg_sender) {
             self.cache_from_db(&current_call_frame.msg_sender);
         }
-        
-        if self.cache.get_account(current_call_frame.msg_sender).unwrap().info.balance < value {
+
+        if self
+            .cache
+            .get_account(current_call_frame.msg_sender)
+            .unwrap()
+            .info
+            .balance
+            < value
+        {
             current_call_frame.stack.push(U256::from(REVERT_FOR_CALL))?;
             return Ok(OpcodeSuccess::Continue);
         }
@@ -444,7 +448,13 @@ impl VM {
         // transfer value
         // transfer(&current_call_frame.msg_sender, &address, value);
 
-        let code_address_bytecode = self.cache.get_account(code_address).unwrap().info.bytecode.clone();
+        let code_address_bytecode = self
+            .cache
+            .get_account(code_address)
+            .unwrap()
+            .info
+            .bytecode
+            .clone();
         if code_address_bytecode.is_empty() {
             // should stop
             current_call_frame
@@ -568,11 +578,14 @@ impl VM {
             return Ok(OpcodeSuccess::Result(ResultReason::Revert));
         }
 
-        if !self.cache.is_account_cached(&current_call_frame.msg_sender){
+        if !self.cache.is_account_cached(&current_call_frame.msg_sender) {
             self.cache_from_db(&current_call_frame.msg_sender);
         };
 
-        let sender_account = self.cache.get_mut_account(current_call_frame.msg_sender).unwrap();
+        let sender_account = self
+            .cache
+            .get_mut_account(current_call_frame.msg_sender)
+            .unwrap();
 
         if sender_account.info.balance < value_in_wei_to_send {
             current_call_frame
@@ -599,9 +612,10 @@ impl VM {
             Some(salt) => {
                 Self::calculate_create2_address(current_call_frame.msg_sender, &code, salt)
             }
-            None => {
-                Self::calculate_create_address(current_call_frame.msg_sender, sender_account.info.nonce)
-            }
+            None => Self::calculate_create_address(
+                current_call_frame.msg_sender,
+                sender_account.info.nonce,
+            ),
         };
 
         if self.cache.accounts.contains_key(&new_address) {
@@ -611,12 +625,7 @@ impl VM {
             return Ok(OpcodeSuccess::Result(ResultReason::Revert));
         }
 
-        let new_account = Account::new(
-            value_in_wei_to_send,
-            code.clone(),
-            0,
-            Default::default(),
-        );
+        let new_account = Account::new(value_in_wei_to_send, code.clone(), 0, Default::default());
         self.cache.add_account(&new_address, &new_account);
 
         current_call_frame

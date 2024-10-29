@@ -1,8 +1,8 @@
+use super::*;
 use crate::{
     constants::{call_opcode, SUCCESS_FOR_RETURN},
     errors::ResultReason,
 };
-use super::*;
 
 // System Operations (10)
 // Opcodes: CREATE, CALL, CALLCODE, RETURN, DELEGATECALL, CREATE2, STATICCALL, REVERT, INVALID, SELFDESTRUCT
@@ -45,16 +45,14 @@ impl VM {
         } else {
             U256::zero()
         };
-       
-        let address_access_cost = if !self.cache.is_account_cached(&code_address){
+
+        let address_access_cost = if !self.cache.is_account_cached(&code_address) {
             self.cache_from_db(&code_address);
             call_opcode::COLD_ADDRESS_ACCESS_COST
-        }
-        else {
+        } else {
             call_opcode::WARM_ADDRESS_ACCESS_COST
         };
         let account = self.cache.get_account(code_address).unwrap().clone();
-
 
         let value_to_empty_account_cost = if !value.is_zero() && account.is_empty() {
             call_opcode::VALUE_TO_EMPTY_ACCOUNT_COST

@@ -15,21 +15,45 @@ pub fn ops_to_bytecde(operations: &[Operation]) -> Bytes {
 }
 
 pub fn new_vm_with_bytecode(bytecode: Bytes) -> VM {
-    new_vm_with_ops_addr_bal_db(bytecode, Address::from_low_u64_be(100), U256::MAX, Db::new(), Cache::default())
+    new_vm_with_ops_addr_bal_db(
+        bytecode,
+        Address::from_low_u64_be(100),
+        U256::MAX,
+        Db::new(),
+        Cache::default(),
+    )
 }
 
 pub fn new_vm_with_ops(operations: &[Operation]) -> VM {
     let bytecode = ops_to_bytecde(operations);
-    new_vm_with_ops_addr_bal_db(bytecode, Address::from_low_u64_be(100), U256::MAX, Db::new(), Cache::default())
+    new_vm_with_ops_addr_bal_db(
+        bytecode,
+        Address::from_low_u64_be(100),
+        U256::MAX,
+        Db::new(),
+        Cache::default(),
+    )
 }
 
 pub fn new_vm_with_ops_db(operations: &[Operation], db: Db) -> VM {
     let bytecode = ops_to_bytecde(operations);
-    new_vm_with_ops_addr_bal_db(bytecode, Address::from_low_u64_be(100), U256::MAX, db, Cache::default())
+    new_vm_with_ops_addr_bal_db(
+        bytecode,
+        Address::from_low_u64_be(100),
+        U256::MAX,
+        db,
+        Cache::default(),
+    )
 }
 
 /// This function is for testing purposes only.
-pub fn new_vm_with_ops_addr_bal_db(contract_bytecode: Bytes, sender_address: Address, sender_balance: U256, mut db: Db, mut cache: Cache) -> VM {
+pub fn new_vm_with_ops_addr_bal_db(
+    contract_bytecode: Bytes,
+    sender_address: Address,
+    sender_balance: U256,
+    mut db: Db,
+    mut cache: Cache,
+) -> VM {
     let accounts = [
         // This is the contract account that is going to be executed
         (
@@ -38,7 +62,7 @@ pub fn new_vm_with_ops_addr_bal_db(contract_bytecode: Bytes, sender_address: Add
                 info: AccountInfo {
                     nonce: 0,
                     balance: U256::MAX,
-                    bytecode: contract_bytecode
+                    bytecode: contract_bytecode,
                 },
                 storage: HashMap::new(),
             },
@@ -51,14 +75,14 @@ pub fn new_vm_with_ops_addr_bal_db(contract_bytecode: Bytes, sender_address: Add
                     nonce: 0,
                     balance: sender_balance,
                     bytecode: Bytes::default(),
-                },                
+                },
                 storage: HashMap::new(),
             },
         ),
     ];
 
     db.add_accounts(accounts.to_vec());
-    
+
     // add to cache accounts from list accounts
     cache.add_account(&accounts[0].0, &accounts[0].1);
     cache.add_account(&accounts[1].0, &accounts[1].1);
