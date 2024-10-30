@@ -80,7 +80,20 @@ impl RpcHandler for GasPrice {
         }
         results.sort();
 
-        let sample_gas = results.get(results.len() / 2).unwrap_or(&MIN_GAS_LIMIT);
+        let Some(Some(latest_block_base_fee)) = storage
+            .get_block_header(latest_block_number)?
+            .map(|header| header.base_fee_per_gas.map(|base_fee| base_fee * 2))
+        else {
+            error!("FATAL: LATEST BLOCK BASE FEE IS MISSING");
+            return Err(RpcErr::Internal(
+                "Error calculating gas price: could not find block base fee in latest block"
+                    .to_owned(),
+            ));
+        };
+
+        let sample_gas = results
+            .get(results.len() / 2)
+            .unwrap_or(&latest_block_base_fee);
 
         let gas_as_hex = format!("0x{:x}", sample_gas);
         Ok(serde_json::Value::String(gas_as_hex))
