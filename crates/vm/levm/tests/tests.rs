@@ -4013,7 +4013,7 @@ fn origin_op() {
         &Account::default().with_bytecode(ops_to_bytecde(&operations)),
     );
 
-    let mut env = Environment::default_from_address(msg_sender);
+    let env = Environment::default_from_address(msg_sender);
 
     let mut vm = VM::new(
         Some(address_that_has_the_code),
