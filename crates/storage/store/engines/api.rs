@@ -232,7 +232,7 @@ pub trait StoreEngine: Debug + Send + Sync + RefUnwindSafe {
     // Obtain a storage trie from the given address and storage_root
     // Doesn't check if the account is stored
     // Used for internal store operations
-    fn open_storage_trie(&self, hashed_address: [u8; 32], storage_root: H256) -> Trie;
+    fn open_storage_trie(&self, hashed_address: H256, storage_root: H256) -> Trie;
 
     // Obtain a state trie from the given state root
     // Doesn't check if the state root is valid

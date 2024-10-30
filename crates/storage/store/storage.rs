@@ -336,7 +336,7 @@ impl Store {
                 // Store the added storage in the account's storage trie and compute its new root
                 if !update.added_storage.is_empty() {
                     let mut storage_trie = self.engine.open_storage_trie(
-                        hashed_address.clone().try_into().unwrap(),
+                        H256::from_slice(&hashed_address),
                         account_state.storage_root,
                     );
                     for (storage_key, storage_value) in &update.added_storage {
@@ -369,7 +369,7 @@ impl Store {
             // Store the account's storage in a clean storage trie and compute its root
             let mut storage_trie = self
                 .engine
-                .open_storage_trie(hashed_address.clone().try_into().unwrap(), *EMPTY_TRIE_HASH);
+                .open_storage_trie(H256::from_slice(&hashed_address), *EMPTY_TRIE_HASH);
             for (storage_key, storage_value) in account.storage {
                 if !storage_value.is_zero() {
                     let hashed_key = hash_key(&storage_key);
@@ -635,7 +635,7 @@ impl Store {
         // Open storage_trie
         let storage_root = account.storage_root;
         Ok(Some(self.engine.open_storage_trie(
-            hashed_address.try_into().unwrap(),
+            H256::from_slice(&hashed_address),
             storage_root,
         )))
     }
@@ -711,7 +711,7 @@ impl Store {
         let storage_root = AccountState::decode(&account_rlp)?.storage_root;
         Ok(Some(
             self.engine
-                .open_storage_trie(hashed_address.0, storage_root)
+                .open_storage_trie(hashed_address, storage_root)
                 .into_iter()
                 .content()
                 .map_while(|(path, value)| {
@@ -746,9 +746,7 @@ impl Store {
             return Ok(None);
         };
         let storage_root = AccountState::decode(&account_rlp)?.storage_root;
-        let storage_trie = self
-            .engine
-            .open_storage_trie(hashed_address.0, storage_root);
+        let storage_trie = self.engine.open_storage_trie(hashed_address, storage_root);
         let mut proof = storage_trie.get_proof(&starting_hash.as_bytes().to_vec())?;
         if let Some(last_hash) = last_hash {
             proof.extend_from_slice(&storage_trie.get_proof(&last_hash.as_bytes().to_vec())?);
@@ -775,10 +773,12 @@ fn hash_address(address: &Address) -> Vec<u8> {
         .finalize()
         .to_vec()
 }
-fn hash_address_fixed(address: &Address) -> [u8; 32] {
-    Keccak256::new_with_prefix(address.to_fixed_bytes())
-        .finalize()
-        .into()
+fn hash_address_fixed(address: &Address) -> H256 {
+    H256(
+        Keccak256::new_with_prefix(address.to_fixed_bytes())
+            .finalize()
+            .into(),
+    )
 }
 
 fn hash_key(key: &H256) -> Vec<u8> {

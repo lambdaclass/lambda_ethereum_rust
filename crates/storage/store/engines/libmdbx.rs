@@ -394,10 +394,10 @@ impl StoreEngine for Store {
         }
     }
 
-    fn open_storage_trie(&self, hashed_address: [u8; 32], storage_root: H256) -> Trie {
+    fn open_storage_trie(&self, hashed_address: H256, storage_root: H256) -> Trie {
         let db = Box::new(LibmdbxDupsortTrieDB::<StorageTriesNodes, [u8; 32]>::new(
             self.db.clone(),
-            hashed_address,
+            hashed_address.0,
         ));
         Trie::open(db, storage_root)
     }
