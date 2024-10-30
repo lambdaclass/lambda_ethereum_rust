@@ -446,8 +446,7 @@ impl TransactionQueue {
             // This should be a newly filtered tx list so we are guaranteed to have a first element
             let head_tx = txs.remove(0);
             heads.push(HeadTransaction {
-                // We already ran this method when filtering the transactions from the mempool so it shouldn't fail
-                tip: head_tx.effective_gas_tip(base_fee).unwrap(),
+                tip: head_tx.effective_gas_tip(base_fee),
                 tx: head_tx,
                 sender: *address,
             });
@@ -495,8 +494,7 @@ impl TransactionQueue {
             if !txs.is_empty() {
                 let head_tx = txs.remove(0);
                 let head = HeadTransaction {
-                    // We already ran this method when filtering the transactions from the mempool so it shouldn't fail
-                    tip: head_tx.effective_gas_tip(self.base_fee).unwrap(),
+                    tip: head_tx.effective_gas_tip(self.base_fee),
                     tx: head_tx,
                     sender: tx.sender,
                 };

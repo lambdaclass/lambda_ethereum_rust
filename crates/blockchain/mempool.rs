@@ -81,10 +81,7 @@ pub fn filter_transactions(
         }
         // Filter by tip & base_fee
         if let Some(min_tip) = filter.min_tip {
-            if !tx
-                .effective_gas_tip(filter.base_fee)
-                .is_some_and(|tip| tip >= min_tip)
-            {
+            if !tx.effective_gas_tip(filter.base_fee) >= min_tip {
                 return false;
             }
         }
