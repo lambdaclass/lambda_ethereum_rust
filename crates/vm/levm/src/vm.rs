@@ -137,7 +137,7 @@ pub struct VM {
 
 enum TxType {
     CALL,
-    CREATE
+    CREATE,
 }
 
 fn address_to_word(address: Address) -> U256 {
@@ -152,185 +152,185 @@ pub fn word_to_address(word: U256) -> Address {
 }
 
 impl VM {
-/*     #[allow(clippy::too_many_arguments)]
-    fn call_type_transaction(
-        &self,
-        to: Address,
-        msg_sender: Address,
-        value: U256,
-        calldata: Bytes,
-        gas_limit: U256,
-        block_number: U256,
-        coinbase: Address,
-        timestamp: U256,
-        prev_randao: Option<H256>,
-        chain_id: U256,
-        base_fee_per_gas: U256,
-        gas_price: U256,
-        db: Box<dyn Database>,
-        cache: Cache,
-        block_blob_gas_used: Option<U256>,
-        block_excess_blob_gas: Option<U256>,
-        tx_blob_hashes: Option<Vec<H256>>,
-    ) -> Result<VM, VMError> {
-        let bytecode = db.get_account_info(to).bytecode.clone();
+    /*     #[allow(clippy::too_many_arguments)]
+       fn call_type_transaction(
+           &self,
+           to: Address,
+           msg_sender: Address,
+           value: U256,
+           calldata: Bytes,
+           gas_limit: U256,
+           block_number: U256,
+           coinbase: Address,
+           timestamp: U256,
+           prev_randao: Option<H256>,
+           chain_id: U256,
+           base_fee_per_gas: U256,
+           gas_price: U256,
+           db: Box<dyn Database>,
+           cache: Cache,
+           block_blob_gas_used: Option<U256>,
+           block_excess_blob_gas: Option<U256>,
+           tx_blob_hashes: Option<Vec<H256>>,
+       ) -> Result<VM, VMError> {
+           let bytecode = db.get_account_info(to).bytecode.clone();
 
-        let initial_call_frame = CallFrame::new(
-            msg_sender,
-            to,
-            to,
-            bytecode,
-            value,
-            calldata.clone(),
-            false,
-            gas_limit,
-            TX_BASE_COST,
-            0,
-        );
+           let initial_call_frame = CallFrame::new(
+               msg_sender,
+               to,
+               to,
+               bytecode,
+               value,
+               calldata.clone(),
+               false,
+               gas_limit,
+               TX_BASE_COST,
+               0,
+           );
 
-        let env = Environment {
-            consumed_gas: TX_BASE_COST,
-            origin: msg_sender,
-            refunded_gas: U256::zero(),
-            gas_limit,
-            block_number,
-            coinbase,
-            timestamp,
-            prev_randao,
-            chain_id,
-            base_fee_per_gas,
-            gas_price,
-            block_blob_gas_used,
-            block_excess_blob_gas,
-            tx_blob_hashes,
-        };
+           let env = Environment {
+               consumed_gas: TX_BASE_COST,
+               origin: msg_sender,
+               refunded_gas: U256::zero(),
+               gas_limit,
+               block_number,
+               coinbase,
+               timestamp,
+               prev_randao,
+               chain_id,
+               base_fee_per_gas,
+               gas_price,
+               block_blob_gas_used,
+               block_excess_blob_gas,
+               tx_blob_hashes,
+           };
 
-        Ok(VM {
-            call_frames: vec![initial_call_frame],
-            db,
-            env,
-            accrued_substate: Substate::default(),
-            cache,
-        })
-    }
- */
-/*     
-    // Functionality should be:
-    // (1) Check whether caller has enough balance to make a transfer
-    // (2) Derive the new contract’s address from the caller’s address (passing in the creator account’s nonce)
-    // (3) Create the new contract account using the derived contract address (changing the “world state” StateDB)
-    // (4) Transfer the initial Ether endowment from caller to the new contract
-    // (5) Set input data as contract’s deploy code, then execute it with EVM. The ret variable is the returned contract code
-    // (6) Check for error. Or if the contract code is too big, fail. Charge the user gas then set the contract code
-    // Source: https://medium.com/@hayeah/diving-into-the-ethereum-vm-part-5-the-smart-contract-creation-process-cb7b6133b855
-    #[allow(clippy::too_many_arguments)]
-    fn create_type_transaction(
-        &mut self,
-        sender: Address,
-        secret_key: H256,
-        db: Box<dyn Database>,
-        value: U256,
-        calldata: Bytes,
-        block_number: U256,
-        coinbase: Address,
-        timestamp: U256,
-        prev_randao: Option<H256>,
-        chain_id: U256,
-        base_fee_per_gas: U256,
-        gas_price: U256,
-        block_blob_gas_used: Option<U256>,
-        block_excess_blob_gas: Option<U256>,
-        tx_blob_hashes: Option<Vec<H256>>,
-        salt: Option<U256>,
-    ) -> Result<VM, VMError> {
-        let mut sender_account = self.get_account(&sender);
+           Ok(VM {
+               call_frames: vec![initial_call_frame],
+               db,
+               env,
+               accrued_substate: Substate::default(),
+               cache,
+           })
+       }
+    */
+    /*
+       // Functionality should be:
+       // (1) Check whether caller has enough balance to make a transfer
+       // (2) Derive the new contract’s address from the caller’s address (passing in the creator account’s nonce)
+       // (3) Create the new contract account using the derived contract address (changing the “world state” StateDB)
+       // (4) Transfer the initial Ether endowment from caller to the new contract
+       // (5) Set input data as contract’s deploy code, then execute it with EVM. The ret variable is the returned contract code
+       // (6) Check for error. Or if the contract code is too big, fail. Charge the user gas then set the contract code
+       // Source: https://medium.com/@hayeah/diving-into-the-ethereum-vm-part-5-the-smart-contract-creation-process-cb7b6133b855
+       #[allow(clippy::too_many_arguments)]
+       fn create_type_transaction(
+           &mut self,
+           sender: Address,
+           secret_key: H256,
+           db: Box<dyn Database>,
+           value: U256,
+           calldata: Bytes,
+           block_number: U256,
+           coinbase: Address,
+           timestamp: U256,
+           prev_randao: Option<H256>,
+           chain_id: U256,
+           base_fee_per_gas: U256,
+           gas_price: U256,
+           block_blob_gas_used: Option<U256>,
+           block_excess_blob_gas: Option<U256>,
+           tx_blob_hashes: Option<Vec<H256>>,
+           salt: Option<U256>,
+       ) -> Result<VM, VMError> {
+           let mut sender_account = self.get_account(&sender);
 
-        sender_account.info.nonce = sender_account
-            .info
-            .nonce
-            .checked_add(1)
-            .ok_or(VMError::NonceOverflow)?;
+           sender_account.info.nonce = sender_account
+               .info
+               .nonce
+               .checked_add(1)
+               .ok_or(VMError::NonceOverflow)?;
 
-        // (2)
-        let new_contract_address = match salt {
-            Some(salt) => VM::calculate_create2_address(sender, &calldata, salt),
-            None => VM::calculate_create_address(sender, sender_account.info.nonce),
-        };
+           // (2)
+           let new_contract_address = match salt {
+               Some(salt) => VM::calculate_create2_address(sender, &calldata, salt),
+               None => VM::calculate_create_address(sender, sender_account.info.nonce),
+           };
 
-        // If address is already in db, there's an error
-        let acc = self.get_account(&new_contract_address);
-        if !acc.is_empty() {
-            return Err(VMError::AddressAlreadyOccupied);
-        }
+           // If address is already in db, there's an error
+           let acc = self.get_account(&new_contract_address);
+           if !acc.is_empty() {
+               return Err(VMError::AddressAlreadyOccupied);
+           }
 
-        // (3)
-        let mut created_contract = Account::new(value, calldata.clone(), 1, HashMap::new());
-        self.cache
-            .add_account(&new_contract_address, &created_contract);
+           // (3)
+           let mut created_contract = Account::new(value, calldata.clone(), 1, HashMap::new());
+           self.cache
+               .add_account(&new_contract_address, &created_contract);
 
-        // (4)
-        sender_account.info.balance -= value;
-        created_contract.info.balance += value;
+           // (4)
+           sender_account.info.balance -= value;
+           created_contract.info.balance += value;
 
-        // (5)
-        let code: Bytes = calldata.clone();
+           // (5)
+           let code: Bytes = calldata.clone();
 
-        // Call the contract
-        let mut vm = VM::new(
-            Some(new_contract_address),
-            sender,
-            value,
-            code,
-            sender_account.info.balance,
-            block_number,
-            coinbase,
-            timestamp,
-            prev_randao,
-            chain_id,
-            base_fee_per_gas,
-            gas_price,
-            db,
-            self.cache,
-            block_blob_gas_used,
-            block_excess_blob_gas,
-            tx_blob_hashes,
-            secret_key,
-            None,
-        );
+           // Call the contract
+           let mut vm = VM::new(
+               Some(new_contract_address),
+               sender,
+               value,
+               code,
+               sender_account.info.balance,
+               block_number,
+               coinbase,
+               timestamp,
+               prev_randao,
+               chain_id,
+               base_fee_per_gas,
+               gas_price,
+               db,
+               self.cache,
+               block_blob_gas_used,
+               block_excess_blob_gas,
+               tx_blob_hashes,
+               secret_key,
+               None,
+           );
 
-        let res = vm.transact()?;
-        // Don't use a revert bc work with clones, so don't have to save previous state
+           let res = vm.transact()?;
+           // Don't use a revert bc work with clones, so don't have to save previous state
 
-        let contract_code = res.output;
+           let contract_code = res.output;
 
-        // (6)
-        if contract_code.len() > MAX_CODE_SIZE {
-            return Err(VMError::ContractOutputTooBig);
-        }
-        // Supposing contract code has contents
-        if contract_code[0] == INVALID_CONTRACT_PREFIX {
-            return Err(VMError::InvalidInitialByte);
-        }
+           // (6)
+           if contract_code.len() > MAX_CODE_SIZE {
+               return Err(VMError::ContractOutputTooBig);
+           }
+           // Supposing contract code has contents
+           if contract_code[0] == INVALID_CONTRACT_PREFIX {
+               return Err(VMError::InvalidInitialByte);
+           }
 
-        // If the initialization code completes successfully, a final contract-creation cost is paid,
-        // the code-deposit cost, c, proportional to the size of the created contract’s code
-        let creation_cost = 200 * contract_code.len();
+           // If the initialization code completes successfully, a final contract-creation cost is paid,
+           // the code-deposit cost, c, proportional to the size of the created contract’s code
+           let creation_cost = 200 * contract_code.len();
 
-        sender_account.info.balance = sender_account
-            .info
-            .balance
-            .checked_sub(U256::from(creation_cost))
-            .ok_or(VMError::OutOfGas)?;
+           sender_account.info.balance = sender_account
+               .info
+               .balance
+               .checked_sub(U256::from(creation_cost))
+               .ok_or(VMError::OutOfGas)?;
 
-        created_contract.info.bytecode = contract_code;
+           created_contract.info.bytecode = contract_code;
 
-        self.cache.add_account(&sender, &sender_account);
-        self.cache
-            .add_account(&new_contract_address, &created_contract);
+           self.cache.add_account(&sender, &sender_account);
+           self.cache
+               .add_account(&new_contract_address, &created_contract);
 
-        Ok(vm)
-    }
- */
+           Ok(vm)
+       }
+    */
     // TODO: Refactor this.
     #[allow(clippy::too_many_arguments)]
     pub fn new(
@@ -355,20 +355,6 @@ impl VM {
         salt: Option<U256>,
     ) -> Self {
         // Maybe this decision should be made in an upper layer
-
-        let mut sender_account_info = db.get_account_info(msg_sender);
-        if sender_account_info.balance < value {
-            //return Err(VMError::OutOfGas); // Maybe a more personalized error
-            println!("VM error: Out of gas");
-        }
-        sender_account_info.balance -= value;
-
-        // See if it's raised in upper layers
-        sender_account_info.nonce = sender_account_info
-        .nonce
-        .checked_add(1)
-        .ok_or(VMError::NonceOverflow).unwrap(); // Should check this error
-
 
         match to {
             Some(address_to) => {
@@ -407,7 +393,7 @@ impl VM {
                     db,
                     env,
                     accrued_substate: Substate::default(),
-                    cache: Cache::default(),
+                    cache,
                     tx_type: TxType::CALL,
                 }
             }
@@ -432,7 +418,7 @@ impl VM {
                 // (3)
                 let created_contract = Account::new(value, calldata.clone(), 1, HashMap::new());
                 cache.add_account(&new_contract_address, &created_contract);
-       
+
                 // (5)
                 let code: Bytes = calldata.clone();
 
@@ -640,12 +626,21 @@ impl VM {
     /// than max fee per fas.
     fn validate_transaction(&mut self) -> Result<(), VMError> {
         // Validations (1), (2), (3), (5), and (8) are assumed done in upper layers.
-        let sender_account = match self.cache.get_account(self.env.origin) {
+        let sender_account = match self.cache.get_mut_account(self.env.origin) {
             Some(acc) => acc,
             None => return Err(VMError::AddressDoesNotMatchAnAccount),
             // This is a check for completeness. However if it were a none and
             // it was not caught it would be caught in clause 6.
         };
+
+        // See if it's raised in upper layers
+        sender_account.info.nonce = sender_account
+            .info
+            .nonce
+            .checked_add(1)
+            .ok_or(VMError::NonceOverflow)
+            .unwrap(); // Should check this error
+
         // (4)
         if sender_account.has_code() {
             return Err(VMError::SenderAccountShouldNotHaveBytecode);
@@ -654,6 +649,8 @@ impl VM {
         if sender_account.info.balance < self.call_frames[0].msg_value {
             return Err(VMError::SenderBalanceShouldContainTransferValue);
         }
+        sender_account.info.balance -= self.call_frames[0].msg_value;
+
         // (7)
         if self.env.gas_price < self.env.base_fee_per_gas {
             return Err(VMError::GasPriceIsLowerThanBaseFee);
@@ -662,10 +659,10 @@ impl VM {
     }
 
     fn is_create(&self) -> bool {
-       matches!(self.tx_type, TxType::CREATE)
+        matches!(self.tx_type, TxType::CREATE)
     }
 
-    fn revert_create(&mut self) -> Result<(), VMError>{
+    fn revert_create(&mut self) -> Result<(), VMError> {
         // Note: currently working with copies
         let sender = self.call_frames.get(0).unwrap().msg_sender;
         let mut sender_account = self.get_account(&sender);
@@ -673,7 +670,7 @@ impl VM {
         sender_account.info.nonce -= 1;
 
         let new_contract_address = self.call_frames.get(0).unwrap().to;
-        
+
         if let None = self.cache.accounts.remove(&new_contract_address) {
             return Err(VMError::AddressDoesNotMatchAnAccount); // Should not be this error
         }
@@ -692,11 +689,11 @@ impl VM {
         self.env.consumed_gas = initial_gas;
 
         let mut current_call_frame = self.call_frames.pop().unwrap();
-        
+
         let mut report = self.execute(&mut current_call_frame);
 
         if self.is_create() {
-        // If create should check if transaction failed. If failed should revert (delete created contract, )
+            // If create should check if transaction failed. If failed should revert (delete created contract, )
             if let TxResult::Revert(error) = report.result {
                 self.revert_create()?;
                 return Err(error);
@@ -711,7 +708,7 @@ impl VM {
             if contract_code[0] == INVALID_CONTRACT_PREFIX {
                 return Err(VMError::InvalidInitialByte);
             }
-    
+
             // If the initialization code completes successfully, a final contract-creation cost is paid,
             // the code-deposit cost, c, proportional to the size of the created contract’s code
             let creation_cost = 200 * contract_code.len();
@@ -724,15 +721,14 @@ impl VM {
                 .balance
                 .checked_sub(U256::from(creation_cost))
                 .ok_or(VMError::OutOfGas)?;
-    
+
             let contract_address = self.call_frames.get(0).unwrap().to;
             let mut created_contract = self.get_account(&contract_address);
 
             created_contract.info.bytecode = contract_code;
-    
+
             self.cache.add_account(&sender, &sender_account);
-            self.cache
-                .add_account(&contract_address, &created_contract);
+            self.cache.add_account(&contract_address, &created_contract);
 
             report.new_state = self.cache.accounts.clone();
         }
