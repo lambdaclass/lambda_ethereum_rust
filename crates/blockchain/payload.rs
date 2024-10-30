@@ -25,7 +25,7 @@ use crate::{
         GAS_LIMIT_BOUND_DIVISOR, GAS_PER_BLOB, MAX_BLOB_GAS_PER_BLOCK, MIN_GAS_LIMIT,
         TARGET_BLOB_GAS_PER_BLOCK, TX_GAS_COST,
     },
-    error::ChainError,
+    error::{ChainError, InvalidBlockError},
     mempool::{self, PendingTxFilter},
 };
 
@@ -450,7 +450,11 @@ impl TransactionQueue {
             let head_tx = txs.remove(0);
             heads.push(HeadTransaction {
                 // We already ran this method when filtering the transactions from the mempool so it shouldn't fail
-                tip: head_tx.effective_gas_tip(base_fee).ok_or(ChainError::Custom("Attempted to add and invalid transaction to the block. The transaction filter must have been failed.".to_owned()))?,
+                tip: head_tx
+                    .effective_gas_tip(base_fee)
+                    .ok_or(ChainError::InvalidBlock(
+                        InvalidBlockError::AttemptedToAddInvalidTransaction,
+                    ))?,
                 tx: head_tx,
                 sender: *address,
             });
@@ -499,7 +503,11 @@ impl TransactionQueue {
                 let head_tx = txs.remove(0);
                 let head = HeadTransaction {
                     // We already ran this method when filtering the transactions from the mempool so it shouldn't fail
-                    tip: head_tx.effective_gas_tip(self.base_fee).ok_or(ChainError::Custom("Attempted to add and invalid transaction to the block. The transaction filter must have been failed.".to_owned()))?,
+                    tip: head_tx.effective_gas_tip(self.base_fee).ok_or(
+                        ChainError::InvalidBlock(
+                            InvalidBlockError::AttemptedToAddInvalidTransaction,
+                        ),
+                    )?,
                     tx: head_tx,
                     sender: tx.sender,
                 };

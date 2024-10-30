@@ -16,8 +16,6 @@ pub enum ChainError {
     StoreError(#[from] StoreError),
     #[error("EVM error: {0}")]
     EvmError(#[from] EvmError),
-    #[error("Chain error: {0}")]
-    Custom(String),
 }
 
 #[derive(Debug, thiserror::Error)]
@@ -34,6 +32,10 @@ pub enum InvalidBlockError {
     GasUsedMismatch,
     #[error("Blob gas used doesn't match value in header")]
     BlobGasUsedMismatch,
+    #[error(
+        "Attempted to add and invalid transaction to the block. The transaction filter must have been failed."
+    )]
+    AttemptedToAddInvalidTransaction,
 }
 
 #[derive(Debug, thiserror::Error)]
