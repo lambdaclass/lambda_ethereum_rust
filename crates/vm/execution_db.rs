@@ -78,23 +78,6 @@ impl ExecutionDB {
             storage.insert(address, account_storage);
         }
 
-        let earliest_number = store_wrapper
-            .store
-            .get_earliest_block_number()?
-            .ok_or(ExecutionDBError::NewMissingBlockNumber())?;
-        let latest_number = store_wrapper
-            .store
-            .get_latest_block_number()?
-            .ok_or(ExecutionDBError::NewMissingBlockNumber())?;
-
-        let numbers = earliest_number..=latest_number;
-        let hashes = numbers
-            .clone()
-            .map(|number| store_wrapper.block_hash(number))
-            .collect::<Result<Vec<_>, _>>()?
-            .into_iter();
-        block_hashes.extend(numbers.zip(hashes));
-
         Ok(Self {
             accounts,
             code,
