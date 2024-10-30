@@ -120,13 +120,13 @@ impl BlockHeaders {
 
 impl RLPxMessage for BlockHeaders {
     fn encode(&self, buf: &mut dyn BufMut) -> Result<(), RLPEncodeError> {
-        println!("THE HEADERS = {0:X?}", self.block_headers);
         let mut encoded_data = vec![];
+        // FIXME: Document properly this
+        0x14_u8.encode(buf);
         Encoder::new(&mut encoded_data)
             .encode_field(&self.id)
             .encode_field(&self.block_headers)
             .finish();
-
         let msg_data = snappy_encode(encoded_data)?;
         buf.put_slice(&msg_data);
         Ok(())
