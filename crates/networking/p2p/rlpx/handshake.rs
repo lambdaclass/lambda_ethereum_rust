@@ -48,7 +48,7 @@ pub fn encode_auth_message(
 pub(crate) fn decode_auth_message(
     static_key: &SecretKey,
     msg: &[u8],
-    auth_data: [u8; 2],
+    auth_data: &[u8],
 ) -> (AuthMessage, PublicKey) {
     let payload = decrypt_message(static_key, msg, auth_data);
 
@@ -82,7 +82,7 @@ pub fn encode_ack_message(
 pub(crate) fn decode_ack_message(
     static_key: &SecretKey,
     msg: &[u8],
-    auth_data: [u8; 2],
+    auth_data: &[u8],
 ) -> AckMessage {
     let payload = decrypt_message(static_key, msg, auth_data);
 
@@ -92,7 +92,7 @@ pub(crate) fn decode_ack_message(
     ack
 }
 
-fn decrypt_message(static_key: &SecretKey, msg: &[u8], auth_data: [u8; 2]) -> Vec<u8> {
+fn decrypt_message(static_key: &SecretKey, msg: &[u8], size_data: &[u8]) -> Vec<u8> {
     // Split the message into its components. General layout is:
     // public-key (65) || iv (16) || ciphertext || mac (32)
     let (pk, rest) = msg.split_at(65);
@@ -109,7 +109,7 @@ fn decrypt_message(static_key: &SecretKey, msg: &[u8], auth_data: [u8; 2]) -> Ve
     let mac_key = sha256(&buf[16..]);
 
     // Verify the MAC.
-    let expected_d = sha256_hmac(&mac_key, &[iv, c], &auth_data);
+    let expected_d = sha256_hmac(&mac_key, &[iv, c], size_data);
     assert_eq!(d, expected_d);
 
     // Decrypt the message with the AES key.

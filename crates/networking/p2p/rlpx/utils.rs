@@ -11,7 +11,7 @@ pub fn sha256(data: &[u8]) -> [u8; 32] {
     k256::sha2::Sha256::digest(data).into()
 }
 
-pub fn sha256_hmac(key: &[u8], inputs: &[&[u8]], auth_data: &[u8]) -> [u8; 32] {
+pub fn sha256_hmac(key: &[u8], inputs: &[&[u8]], size_data: &[u8]) -> [u8; 32] {
     use hmac::Mac;
     use k256::sha2::Sha256;
 
@@ -19,7 +19,7 @@ pub fn sha256_hmac(key: &[u8], inputs: &[&[u8]], auth_data: &[u8]) -> [u8; 32] {
     for input in inputs {
         hasher.update(input);
     }
-    hasher.update(auth_data);
+    hasher.update(size_data);
     hasher.finalize().into_bytes().into()
 }
 
