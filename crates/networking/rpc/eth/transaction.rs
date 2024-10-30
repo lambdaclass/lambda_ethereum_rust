@@ -460,14 +460,14 @@ impl RpcHandler for EstimateGasRequest {
             None => block_header.gas_limit,
         };
 
-        // if self.transaction.gas_price != 0 {
-        //     highest_gas_limit = recap_with_account_balances(
-        //         highest_gas_limit,
-        //         &self.transaction,
-        //         &storage,
-        //         block_header.number,
-        //     )?;
-        // }
+        if self.transaction.gas_price != 0 {
+            highest_gas_limit = recap_with_account_balances(
+                highest_gas_limit,
+                &self.transaction,
+                &storage,
+                block_header.number,
+            )?;
+        }
 
         // Check whether the execution is possible
         let mut transaction = self.transaction.clone();

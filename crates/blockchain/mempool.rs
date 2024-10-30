@@ -84,7 +84,6 @@ pub fn filter_transactions(
         // This should be removed once https://github.com/lambdaclass/ethereum_rust/issues/680
         // is addressed.
         if tx.effective_gas_tip(filter.base_fee).is_none() {
-            println!("Transaction with invalid tip: {:?}", tx.effective_gas_tip(filter.base_fee));
             return false;
         }
         // Filter by tip & base_fee
