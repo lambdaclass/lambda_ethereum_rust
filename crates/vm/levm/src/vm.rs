@@ -11,7 +11,7 @@ use ethereum_rust_rlp::encode::RLPEncode;
 use ethereum_types::H160;
 use keccak_hash::keccak;
 use sha3::{digest::consts::U2, Digest, Keccak256};
-use std::{collections::HashMap, str::FromStr};
+use std::{collections::HashMap, str::FromStr, sync::Arc};
 
 #[derive(Clone, Default, Debug, PartialEq, Eq)]
 pub struct AccountInfo {
@@ -151,7 +151,7 @@ pub struct VM {
     pub accrued_substate: Substate,
     /// Mapping between addresses (160-bit identifiers) and account
     /// states.
-    pub db: Box<dyn Database>,
+    pub db: Arc<dyn Database>,
     pub cache: Cache,
     pub tx_type: TxType,
 }
@@ -180,10 +180,8 @@ impl VM {
         env: Environment,
         value: U256,
         calldata: Bytes,
-        db: Box<dyn Database>,
+        db: Arc<dyn Database>,
         mut cache: Cache,
-        _secret_key: H256,
-        salt: Option<U256>,
     ) -> Self {
         // Maybe this decision should be made in an upper layer
 
@@ -218,10 +216,8 @@ impl VM {
                 // Note that this is a copy of account, not the real one
 
                 // (2)
-                let new_contract_address = match salt {
-                    Some(salt) => VM::calculate_create2_address(env.origin, &calldata, salt),
-                    None => VM::calculate_create_address(env.origin, sender_account_info.nonce),
-                };
+                let new_contract_address =
+                    VM::calculate_create_address(env.origin, sender_account_info.nonce);
 
                 // (3)
                 let created_contract = Account::new(value, calldata.clone(), 1, HashMap::new());
@@ -429,11 +425,13 @@ impl VM {
             }
         }
 
-        let sender_account = match self.cache.get_mut_account(self.env.origin) {
-            Some(acc) => acc,
-            None => return Err(VMError::AddressDoesNotMatchAnAccount),
-            // This is a check for completeness. However if it were a none and
-            // it was not caught it would be caught in clause 6.
+        let origin = self.env.origin;
+        let to = self.call_frames[0].to;
+
+        let mut sender_account = self.get_account(&origin);
+        let mut receiver_account = self.get_account(&to);
+        if sender_account.is_empty() {
+            return Err(VMError::AddressDoesNotMatchAnAccount);
         };
 
         // See if it's raised in upper layers
@@ -452,7 +450,12 @@ impl VM {
         if sender_account.info.balance < self.call_frames[0].msg_value {
             return Err(VMError::SenderBalanceShouldContainTransferValue);
         }
+        // TODO: This belongs elsewhere.
         sender_account.info.balance -= self.call_frames[0].msg_value;
+        receiver_account.info.balance += self.call_frames[0].msg_value;
+
+        self.cache.add_account(&origin, &sender_account);
+        self.cache.add_account(&to, &receiver_account);
 
         // (7)
         if self.env.gas_price < self.env.base_fee_per_gas {

@@ -1,16 +1,21 @@
-mod db;
+pub mod db;
 mod errors;
 mod execution_result;
 #[cfg(feature = "l2")]
 mod mods;
 
 use db::StoreWrapper;
-use std::cmp::min;
+use ethereum_rust_levm::{
+    db::{Cache, Database as LevmDatabase},
+    errors::{TransactionReport, TxResult, VMError},
+    vm::{Environment, VM},
+};
+use std::{cmp::min, collections::HashMap, sync::Arc};
 
 use ethereum_rust_core::{
     types::{
-        AccountInfo, Block, BlockHash, BlockHeader, Fork, GenericTransaction, PrivilegedTxType,
-        Receipt, Transaction, TxKind, Withdrawal, GWEI_TO_WEI, INITIAL_BASE_FEE,
+        code_hash, AccountInfo, Block, BlockHash, BlockHeader, Fork, GenericTransaction,
+        PrivilegedTxType, Receipt, Transaction, TxKind, Withdrawal, GWEI_TO_WEI, INITIAL_BASE_FEE,
     },
     Address, BigEndianHash, H256, U256,
 };
@@ -27,7 +32,7 @@ use revm::{
 use revm_inspectors::access_list::AccessListInspector;
 // Rename imported types for clarity
 use revm_primitives::{
-    ruint::Uint, AccessList as RevmAccessList, AccessListItem, Bytes, FixedBytes,
+    ruint::Uint, AccessList as RevmAccessList, AccessListItem, Bytes, Env, FixedBytes,
     TxKind as RevmTxKind,
 };
 // Export needed types
@@ -52,7 +57,10 @@ impl EvmState {
 }
 
 /// Executes all transactions in a block and returns their receipts.
-pub fn execute_block(block: &Block, state: &mut EvmState) -> Result<Vec<Receipt>, EvmError> {
+pub fn execute_block(
+    block: &Block,
+    state: &mut EvmState,
+) -> Result<(Vec<Receipt>, Vec<AccountUpdate>), EvmError> {
     let block_header = &block.header;
     let spec_id = spec_id(state.database(), block_header.timestamp)?;
     //eip 4788: execute beacon_root_contract_call before block transactions
@@ -62,23 +70,63 @@ pub fn execute_block(block: &Block, state: &mut EvmState) -> Result<Vec<Receipt>
     let mut receipts = Vec::new();
     let mut cumulative_gas_used = 0;
 
+    let store_wrapper = Arc::new(StoreWrapper {
+        store: state.database().clone(),
+        block_hash: block.header.parent_hash,
+    });
+
+    let mut account_updates: Vec<AccountUpdate> = vec![];
+
     for transaction in block.body.transactions.iter() {
-        let result = execute_tx(transaction, block_header, state, spec_id)?;
-        cumulative_gas_used += result.gas_used();
+        // let result = execute_tx(transaction, block_header, state, spec_id)?;
+        println!("BEFORE EXECUTE LEVM");
+        let result = execute_tx_levm(transaction, block_header, store_wrapper.clone()).unwrap();
+        println!("AFTER EXECUTE LEVM");
+        cumulative_gas_used += result.gas_used;
         let receipt = Receipt::new(
             transaction.tx_type(),
-            result.is_success(),
+            matches!(result.result, TxResult::Success),
             cumulative_gas_used,
-            result.logs(),
+            // TODO: map our logs to the logs expected by ethereum_rust
+            vec![],
         );
+        dbg!(&result.new_state);
         receipts.push(receipt);
+
+        for (address, account) in result.new_state {
+            let mut added_storage = HashMap::new();
+
+            for (key, value) in account.storage {
+                added_storage.insert(key, value.current_value);
+            }
+
+            let code = if account.info.bytecode.is_empty() {
+                None
+            } else {
+                Some(account.info.bytecode.clone())
+            };
+
+            let account_update = AccountUpdate {
+                address,
+                removed: false,
+                info: Some(AccountInfo {
+                    code_hash: code_hash(&account.info.bytecode),
+                    balance: account.info.balance,
+                    nonce: account.info.nonce,
+                }),
+                code,
+                added_storage,
+            };
+
+            account_updates.push(account_update);
+        }
     }
 
     if let Some(withdrawals) = &block.body.withdrawals {
         process_withdrawals(state, withdrawals)?;
     }
 
-    Ok(receipts)
+    Ok((receipts, account_updates))
 }
 
 // Executes a single tx, doesn't perform state transitions
@@ -91,6 +139,37 @@ pub fn execute_tx(
     let block_env = block_env(header);
     let tx_env = tx_env(tx);
     run_evm(tx_env, block_env, state, spec_id)
+}
+
+pub fn execute_tx_levm(
+    tx: &Transaction,
+    block_header: &BlockHeader,
+    db: Arc<dyn LevmDatabase>,
+) -> Result<TransactionReport, VMError> {
+    let to = match tx.to() {
+        TxKind::Call(address) => Some(address),
+        TxKind::Create => None,
+    };
+    let env = Environment {
+        origin: tx.sender(),
+        consumed_gas: U256::zero(),
+        refunded_gas: U256::zero(),
+        gas_limit: tx.gas_limit().into(),
+        block_number: block_header.number.into(),
+        coinbase: block_header.coinbase,
+        timestamp: block_header.timestamp.into(),
+        prev_randao: Some(block_header.prev_randao),
+        chain_id: tx.chain_id().unwrap().into(),
+        base_fee_per_gas: block_header.base_fee_per_gas.unwrap_or_default().into(),
+        gas_price: tx.gas_price().into(),
+        block_excess_blob_gas: block_header.excess_blob_gas.map(U256::from),
+        block_blob_gas_used: block_header.blob_gas_used.map(U256::from),
+        tx_blob_hashes: None,
+    };
+
+    let mut vm = VM::new(to, env, tx.value(), tx.data().clone(), db, Cache::default());
+
+    vm.transact()
 }
 
 // Executes a single GenericTransaction, doesn't commit the result or perform state transitions

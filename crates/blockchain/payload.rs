@@ -447,7 +447,7 @@ impl TransactionQueue {
             let head_tx = txs.remove(0);
             heads.push(HeadTransaction {
                 // We already ran this method when filtering the transactions from the mempool so it shouldn't fail
-                tip: head_tx.effective_gas_tip(base_fee).unwrap(),
+                tip: head_tx.effective_gas_tip(base_fee).unwrap_or(0),
                 tx: head_tx,
                 sender: *address,
             });
