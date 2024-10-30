@@ -734,6 +734,28 @@ impl Store {
         Ok(proof)
     }
 
+    pub fn get_storage_range_proof(
+        &self,
+        state_root: H256,
+        hashed_address: H256,
+        starting_hash: H256,
+        last_hash: Option<H256>,
+    ) -> Result<Option<Vec<Vec<u8>>>, StoreError> {
+        let state_trie = self.engine.open_state_trie(state_root);
+        let Some(account_rlp) = state_trie.get(&hashed_address.as_bytes().to_vec())? else {
+            return Ok(None);
+        };
+        let storage_root = AccountState::decode(&account_rlp)?.storage_root;
+        let storage_trie = self
+            .engine
+            .open_storage_trie(hashed_address.0, storage_root);
+        let mut proof = storage_trie.get_proof(&starting_hash.as_bytes().to_vec())?;
+        if let Some(last_hash) = last_hash {
+            proof.extend_from_slice(&storage_trie.get_proof(&last_hash.as_bytes().to_vec())?);
+        }
+        Ok(Some(proof))
+    }
+
     pub fn add_payload(&self, payload_id: u64, block: Block) -> Result<(), StoreError> {
         self.engine.add_payload(payload_id, block)
     }
