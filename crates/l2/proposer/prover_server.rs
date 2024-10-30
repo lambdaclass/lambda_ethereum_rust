@@ -23,7 +23,11 @@ pub struct ProverInputData {
 use crate::utils::config::prover_server::ProverServerConfig;
 
 use super::errors::ProverServerError;
+use super::errors::ProverServerError;
 
+pub async fn start_prover_server(store: Store) {
+    let config = ProverServerConfig::from_env().expect("ProverServerConfig::from_env()");
+    let prover_server = ProverServer::new_from_config(config.clone(), store);
 pub async fn start_prover_server(store: Store) {
     let config = ProverServerConfig::from_env().expect("ProverServerConfig::from_env()");
     let prover_server = ProverServer::new_from_config(config.clone(), store);
@@ -38,6 +42,7 @@ pub async fn start_prover_server(store: Store) {
     });
 
     ProverServer::handle_sigint(tx, config).await;
+    ProverServer::handle_sigint(tx, config).await;
 
     tokio::try_join!(server).expect("tokio::try_join!()");
 }
@@ -48,28 +53,39 @@ pub enum ProofData {
     Response {
         block_number: Option<u64>,
         input: ProverInputData,
+        block_number: Option<u64>,
+        input: ProverInputData,
     },
     Submit {
+        block_number: u64,
+        // zk Proof
+        receipt: Box<risc0_zkvm::Receipt>,
         block_number: u64,
         // zk Proof
         receipt: Box<risc0_zkvm::Receipt>,
     },
     SubmitAck {
         block_number: u64,
+        block_number: u64,
     },
 }
 
 struct ProverServer {
+struct ProverServer {
     ip: IpAddr,
     port: u16,
+    store: Store,
     store: Store,
 }
 
 impl ProverServer {
     pub fn new_from_config(config: ProverServerConfig, store: Store) -> Self {
+impl ProverServer {
+    pub fn new_from_config(config: ProverServerConfig, store: Store) -> Self {
         Self {
             ip: config.listen_ip,
             port: config.listen_port,
+            store,
             store,
         }
     }
@@ -85,6 +101,7 @@ impl ProverServer {
     }
 
     pub async fn start(&self, rx: Receiver<()>) -> Result<(), ProverServerError> {
+    pub async fn start(&self, rx: Receiver<()>) -> Result<(), ProverServerError> {
         let listener = TcpListener::bind(format!("{}:{}", self.ip, self.port))?;
 
         let mut last_proved_block = 0;
@@ -92,6 +109,7 @@ impl ProverServer {
         info!("Starting TCP server at {}:{}", self.ip, self.port);
         for stream in listener.incoming() {
             if let Ok(()) = rx.try_recv() {
+                info!("Shutting down Prover Server");
                 info!("Shutting down Prover Server");
                 break;
             }
@@ -118,6 +136,11 @@ impl ProverServer {
                 receipt,
             }) => {
                 if let Err(e) = self.handle_submit(&mut stream, block_number, receipt) {
+            Ok(ProofData::Submit {
+                block_number,
+                receipt,
+            }) => {
+                if let Err(e) = self.handle_submit(&mut stream, block_number, receipt) {
                     warn!("Failed to handle submit: {e}");
                 }
                 *last_proved_block += 1;
@@ -133,6 +156,7 @@ impl ProverServer {
         debug!("Connection closed");
     }
 
+    async fn _get_last_block_number() -> Result<u64, String> {
     async fn _get_last_block_number() -> Result<u64, String> {
         let response = Client::new()
             .post("http://localhost:8551")
@@ -201,9 +225,13 @@ impl ProverServer {
         stream: &mut TcpStream,
         block_number: u64,
         receipt: Box<risc0_zkvm::Receipt>,
+        block_number: u64,
+        receipt: Box<risc0_zkvm::Receipt>,
     ) -> Result<(), String> {
         debug!("Submit received. ID: {block_number}, proof: {:?}", receipt);
+        debug!("Submit received. ID: {block_number}, proof: {:?}", receipt);
 
+        let response = ProofData::SubmitAck { block_number };
         let response = ProofData::SubmitAck { block_number };
         let writer = BufWriter::new(stream);
         serde_json::to_writer(writer, &response).map_err(|e| e.to_string())
