@@ -33,7 +33,7 @@ pub enum InvalidBlockError {
     #[error("Blob gas used doesn't match value in header")]
     BlobGasUsedMismatch,
     #[error(
-        "Attempted to add and invalid transaction to the block. The transaction filter must have been failed."
+        "Attempted to add an invalid transaction to the block. The transaction filter must have failed."
     )]
     AttemptedToAddInvalidTransaction,
 }
