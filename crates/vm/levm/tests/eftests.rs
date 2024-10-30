@@ -285,7 +285,21 @@ fn ethereum_foundation_general_state_tests() {
         for (test_name, test_args) in test_case {
             // Initialize
             println!("Parseando el test {:?}", test_name);
-            let mut vm = init_environment(test_args).expect("An error happened at init of test.");
+
+            match test_args.transaction.to {
+                TxDestination::Some(_) => {
+                    let mut vm =
+                        init_environment(test_args).expect("An error happened at init of test.");
+
+                    // Execute
+                    vm.transact()
+                        .expect("An error happened while executing the transaction.");
+                }
+                TxDestination::None => {
+                    init_environment(test_args)
+                        .expect("An error happened while executing the transaction.");
+                }
+            };
 
             // Execute
             //println!("Executing testcase {test_name}");
@@ -313,8 +327,6 @@ fn ethereum_foundation_general_state_tests() {
                    assert_eq!(test_args.post.get("Cancun").unwrap().get(i).unwrap().log, from(vm.call_frames[0].logs[i].data));
                }
             */
-
-            println!("Test name: {}", test_name);
         }
     }
 
