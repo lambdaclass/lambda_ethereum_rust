@@ -8,7 +8,7 @@ use ethereum_rust_levm::{
     vm::{word_to_address, Account, Environment, Storage, VM},
 };
 use ethereum_types::H32;
-use std::collections::HashMap;
+use std::{collections::HashMap, sync::Arc};
 
 fn create_opcodes(size: usize, offset: usize, value_to_transfer: usize) -> Vec<Operation> {
     vec![
@@ -3978,10 +3978,8 @@ fn caller_op() {
         env,
         Default::default(),
         Default::default(),
-        Box::new(db),
+        Arc::new(db),
         cache,
-        Default::default(),
-        None,
     );
 
     let mut current_call_frame = vm.call_frames.pop().unwrap();
@@ -4020,10 +4018,8 @@ fn origin_op() {
         env,
         Default::default(),
         Default::default(),
-        Box::new(db),
+        Arc::new(db),
         cache,
-        Default::default(),
-        None,
     );
 
     let mut current_call_frame = vm.call_frames.pop().unwrap();
@@ -4088,10 +4084,8 @@ fn address_op() {
         env,
         Default::default(),
         Default::default(),
-        Box::new(db),
+        Arc::new(db),
         cache,
-        Default::default(),
-        None,
     );
 
     let mut current_call_frame = vm.call_frames.pop().unwrap();
@@ -4134,10 +4128,8 @@ fn selfbalance_op() {
         env,
         Default::default(),
         Default::default(),
-        Box::new(db),
+        Arc::new(db),
         cache,
-        Default::default(),
-        None,
     );
 
     let mut current_call_frame = vm.call_frames.pop().unwrap();
@@ -4174,10 +4166,8 @@ fn callvalue_op() {
         env,
         value,
         Default::default(),
-        Box::new(db),
+        Arc::new(db),
         cache,
-        Default::default(),
-        None,
     );
 
     let mut current_call_frame = vm.call_frames.pop().unwrap();
@@ -4213,10 +4203,8 @@ fn codesize_op() {
         env,
         Default::default(),
         Default::default(),
-        Box::new(db),
+        Arc::new(db),
         cache,
-        Default::default(),
-        None,
     );
 
     let mut current_call_frame = vm.call_frames.pop().unwrap();
@@ -4255,10 +4243,8 @@ fn gasprice_op() {
         env,
         Default::default(),
         Default::default(),
-        Box::new(db),
+        Arc::new(db),
         cache,
-        Default::default(),
-        None,
     );
 
     let mut current_call_frame = vm.call_frames.pop().unwrap();
@@ -4313,10 +4299,8 @@ fn codecopy_op() {
         env,
         Default::default(),
         Default::default(),
-        Box::new(db),
+        Arc::new(db),
         cache,
-        Default::default(),
-        None,
     );
 
     let mut current_call_frame = vm.call_frames.pop().unwrap();

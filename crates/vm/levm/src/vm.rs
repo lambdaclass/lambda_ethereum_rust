@@ -10,7 +10,7 @@ use ethereum_rust_rlp;
 use ethereum_rust_rlp::encode::RLPEncode;
 use ethereum_types::H160;
 use keccak_hash::keccak;
-use sha3::{digest::consts::U2, Digest, Keccak256};
+use sha3::{Digest, Keccak256};
 use std::{collections::HashMap, str::FromStr, sync::Arc};
 
 #[derive(Clone, Default, Debug, PartialEq, Eq)]
