@@ -153,15 +153,20 @@ impl<S: AsyncWrite + AsyncRead + std::marker::Unpin> RLPxConnection<S> {
                         Message::GetBlockHeaders(msg_data) => {
                             // FIXME: Handle skip case when > 0
                             let GetBlockHeaders { startblock, limit, skip, id, reverse }  = msg_data;
+
                             match startblock {
                                 HashOrNumber::Hash(block_hash) => {
                                     // FIXME: Remove these unwraps.
-                                    let startblock = self.storage.get_block_number(block_hash).unwrap().unwrap();
+                                    let mut current_block = self.storage.get_block_number(block_hash).unwrap().unwrap();
+                                    // FIXME: Check if limit is too big for the query.
+                                    // FIXME: Implement reverse.
+                                    // let block_range = (startblock..).skip((skip + 1) as usize).take(limit as usize);
                                     let mut headers = vec![];
-                                    for block_number in startblock..startblock+limit {
-                                        // FIXME: Remove these unwraps.
-                                        let block = self.storage.get_block_header(block_number).unwrap().unwrap();
-                                        headers.push(block);
+                                    for block_count in 0..limit  {
+                                        // FIXME: Remove these unwraps
+                                        let header = self.storage.get_block_header(current_block).unwrap().unwrap();
+                                        headers.push(header);
+                                        current_block += (skip + 1);
                                     }
                                     let response = BlockHeaders {
                                         id,
@@ -344,7 +349,6 @@ impl<S: AsyncWrite + AsyncRead + std::marker::Unpin> RLPxConnection<S> {
                         error!("Failed to encode message: {:?}", e);
                     }
                 };
-                println!("THE FRAME BUFFER = {frame_buffer:?}");
                 frame::write(frame_buffer, state, &mut self.stream).await;
             }
             // TODO proper error
