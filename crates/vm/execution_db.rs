@@ -53,7 +53,7 @@ impl ExecutionDB {
         let mut accounts = HashMap::new();
         let code = HashMap::new(); // TODO: `code` remains empty for now
         let mut storage = HashMap::new();
-        let mut block_hashes = HashMap::new();
+        let block_hashes = HashMap::new(); // TODO: `block_hashes` remains empty for now
 
         for account_update in account_updates {
             let address = RevmAddress::from_slice(account_update.address.as_bytes());
