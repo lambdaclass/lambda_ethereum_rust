@@ -71,9 +71,12 @@ pub enum ProofData {
     /// 4.
     /// The Server responds with a Response containing the ProverInputData
     /// for the requested block.
+    /// If the block_number requested > latest_block_number from [ProverServer::store]
+    /// the Response will be ProofData::Response{None, None}.
+    /// So that the Client knows that the Request couldn't be performed.
     Response {
-        block_number: u64,
-        input: ProverInputData,
+        block_number: Option<u64>,
+        input: Option<ProverInputData>,
     },
 
     /// 5.
@@ -188,11 +191,23 @@ impl ProverServer {
     ) -> Result<(), String> {
         debug!("Request received");
 
-        let input = self.create_prover_input(block_number)?;
+        let latest_block_number = self
+            .store
+            .get_latest_block_number()
+            .map_err(|e| e.to_string())?
+            .unwrap();
 
-        let response = ProofData::Response {
-            block_number,
-            input,
+        let response = if block_number > latest_block_number {
+            ProofData::Response {
+                block_number: None,
+                input: None,
+            }
+        } else {
+            let input = self.create_prover_input(block_number)?;
+            ProofData::Response {
+                block_number: Some(block_number),
+                input: Some(input),
+            }
         };
 
         info!("Sent Response for block_number: {block_number}");

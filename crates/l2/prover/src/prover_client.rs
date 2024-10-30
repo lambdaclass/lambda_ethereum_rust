@@ -61,22 +61,9 @@ impl ProverClient {
     }
 
     fn request_new_input(&mut self) -> Result<(u64, ProverInputData), String> {
-        let stream = TcpStream::connect(&self.prover_server_endpoint)
-            .map_err(|e| format!("Failed to connect to Prover Server: {e}"))?;
-        let buf_writer = BufWriter::new(&stream);
-
-        debug!("Connection established!");
-
-        let request_check = ProofData::RequestCheck {};
-        serde_json::ser::to_writer(buf_writer, &request_check).map_err(|e| e.to_string())?;
-
-        stream
-            .shutdown(std::net::Shutdown::Write)
-            .map_err(|e| e.to_string())?;
-
-        let buf_reader = BufReader::new(&stream);
-        let request_ack: ProofData = serde_json::de::from_reader(buf_reader)
-            .map_err(|e| format!("Invalid response format: {e}"))?;
+        let request_ack =
+            connect_to_prover_server_wr(&self.prover_server_endpoint, &ProofData::RequestCheck)
+                .map_err(|e| format!("Failed to get RequestAck: {e}"))?;
 
         // Check if the last_proven_block + 1 matches block_number_to_request.
         // If it matches, continue with the response
@@ -93,34 +80,29 @@ impl ProverClient {
             _ => Err(format!("Expecting ProofData::RequestAck {request_ack:?}")),
         }?;
 
-        let stream = TcpStream::connect(&self.prover_server_endpoint)
-            .map_err(|e| format!("Failed to connect to Prover Server: {e}"))?;
-        let buf_writer = BufWriter::new(&stream);
-
         // Request the input with the correct block_number
         let request = ProofData::Request {
             block_number: self.block_number_to_request,
         };
-        serde_json::ser::to_writer(buf_writer, &request).map_err(|e| e.to_string())?;
-        stream
-            .shutdown(std::net::Shutdown::Write)
-            .map_err(|e| e.to_string())?;
-
-        let buf_reader = BufReader::new(&stream);
-        let response: ProofData = serde_json::de::from_reader(buf_reader)
-            .map_err(|e| format!("Invalid response format: {e}"))?;
+        let response = connect_to_prover_server_wr(&self.prover_server_endpoint, &request)
+            .map_err(|e| format!("Failed to get Response: {e}"))?;
 
         match response {
             ProofData::Response {
                 block_number,
                 input,
-            } => {
-                info!("Received Response for block_number: {block_number}");
-
-                self.block_number_to_request = block_number;
-                Ok((block_number, input))
-            }
-            _ => Err(format!("Unexpected response {response:?}")),
+            } => match (block_number, input) {
+                (Some(n), Some(i)) => {
+                    info!("Received Response for block_number: {n}");
+                    self.block_number_to_request = n;
+                    Ok((n, i))
+                }
+                _ => Err(
+                    "Received Empty Response, meaning that the block requested isn't stored in the ProverServer"
+                        .to_owned(),
+                ),
+            },
+            _ => Err(format!("Expecting ProofData::Response  {response:?}")),
         }
     }
 
@@ -129,30 +111,36 @@ impl ProverClient {
         block_number: u64,
         receipt: risc0_zkvm::Receipt,
     ) -> Result<(), String> {
-        let stream = TcpStream::connect(&self.prover_server_endpoint)
-            .map_err(|e| format!("Failed to connect to Prover Server: {e}"))?;
-        let buf_writer = BufWriter::new(&stream);
-
         let submit = ProofData::Submit {
             block_number,
             receipt: Box::new(receipt),
         };
-        serde_json::ser::to_writer(buf_writer, &submit).map_err(|e| e.to_string())?;
-        stream
-            .shutdown(std::net::Shutdown::Write)
-            .map_err(|e| e.to_string())?;
+        let submit_ack = connect_to_prover_server_wr(&self.prover_server_endpoint, &submit)
+            .map_err(|e| format!("Failed to get SubmitAck: {e}"))?;
 
-        let buf_reader = BufReader::new(&stream);
-        let response: ProofData = serde_json::de::from_reader(buf_reader)
-            .map_err(|e| format!("Invalid response format: {e}"))?;
-        match response {
+        match submit_ack {
             ProofData::SubmitAck { block_number } => {
                 info!("Received submit ack for block_number: {block_number}");
                 // After submission, add 1 so that in the next request, the prover_client receives the subsequent block.
                 self.block_number_to_request += 1;
                 Ok(())
             }
-            _ => Err(format!("Unexpected response {response:?}")),
+            _ => Err(format!("Expecting ProofData::SubmitAck {submit_ack:?}")),
         }
     }
+}
+
+fn connect_to_prover_server_wr(
+    addr: &str,
+    write: &ProofData,
+) -> Result<ProofData, Box<dyn std::error::Error>> {
+    let stream = TcpStream::connect(addr)?;
+    let buf_writer = BufWriter::new(&stream);
+    debug!("Connection established!");
+    serde_json::ser::to_writer(buf_writer, write)?;
+    stream.shutdown(std::net::Shutdown::Write)?;
+
+    let buf_reader = BufReader::new(&stream);
+    let response: ProofData = serde_json::de::from_reader(buf_reader)?;
+    Ok(response)
 }

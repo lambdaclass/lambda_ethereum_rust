@@ -28,13 +28,15 @@ The `Prover Server` monitors requests for new jobs from the `Prover Client`, whi
 
 ```mermaid
 sequenceDiagram
-    participant Prover
+    participant zkVM
     participant ProverClient
     participant ProverServer
-    ProverClient->>+ProverServer: ProofData::Request
+    ProverClient->>+ProverServer: ProofData::RequestCheck
+    ProverServer-->>-ProverClient: ProofData::RequestAck(block_number)
+    ProverClient->>+ProverServer: ProofData::Request(block_number)
     ProverServer-->>-ProverClient: ProofData::Response(block_number, ProverInputs)
-    ProverClient->>+Prover: Prove(block_number, ProverInputs)
-    Prover-->>-ProverClient: Creates zkProof
+    ProverClient->>+zkVM: Prove(ProverInputs)
+    zkVM-->>-ProverClient: Creates zkProof
     ProverClient->>+ProverServer: ProofData::Submit(block_number, zkProof)
     ProverServer-->>-ProverClient: ProofData::SubmitAck(block_number)
 ```
