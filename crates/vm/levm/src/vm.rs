@@ -135,7 +135,7 @@ pub struct VM {
     pub tx_type: TxType,
 }
 
-enum TxType {
+pub enum TxType {
     CALL,
     CREATE,
 }
@@ -156,22 +156,11 @@ impl VM {
     #[allow(clippy::too_many_arguments)]
     pub fn new(
         to: Option<Address>,
-        msg_sender: Address,
+        env: Environment,
         value: U256,
         calldata: Bytes,
-        gas_limit: U256,
-        block_number: U256,
-        coinbase: Address,
-        timestamp: U256,
-        prev_randao: Option<H256>,
-        chain_id: U256,
-        base_fee_per_gas: U256,
-        gas_price: U256,
         db: Box<dyn Database>,
         mut cache: Cache,
-        block_blob_gas_used: Option<U256>,
-        block_excess_blob_gas: Option<U256>,
-        tx_blob_hashes: Option<Vec<H256>>,
         _secret_key: H256,
         salt: Option<U256>,
     ) -> Self {
@@ -181,34 +170,18 @@ impl VM {
             Some(address_to) => {
                 // CALL tx
                 let initial_call_frame = CallFrame::new(
-                    msg_sender,
+                    msg_sender: env.origin,
                     address_to,
                     address_to,
                     db.get_account_info(address_to).bytecode,
                     value,
                     calldata.clone(),
                     false,
-                    gas_limit,
+                    env.gas_limit,
                     TX_BASE_COST,
                     0,
                 );
 
-                let env = Environment {
-                    consumed_gas: TX_BASE_COST,
-                    origin: msg_sender,
-                    refunded_gas: U256::zero(),
-                    gas_limit,
-                    block_number,
-                    coinbase,
-                    timestamp,
-                    prev_randao,
-                    chain_id,
-                    base_fee_per_gas,
-                    gas_price,
-                    block_blob_gas_used,
-                    block_excess_blob_gas,
-                    tx_blob_hashes,
-                };
                 Self {
                     call_frames: vec![initial_call_frame],
                     db,
@@ -220,7 +193,7 @@ impl VM {
             }
             None => {
                 // CREATE tx
-                let mut sender_account_info = db.get_account_info(msg_sender);
+                let sender_account_info = db.get_account_info(msg_sender);
                 // Note that this is a copy of account, not the real one
 
                 // (2)
@@ -228,13 +201,6 @@ impl VM {
                     Some(salt) => VM::calculate_create2_address(msg_sender, &calldata, salt),
                     None => VM::calculate_create_address(msg_sender, sender_account_info.nonce),
                 };
-
-                // If address is already in db, there's an error
-                let new_address_acc = db.get_account_info(new_contract_address);
-                if !new_address_acc.is_empty() {
-                    //return Err(VMError::AddressAlreadyOccupied);
-                    println!("VM error: Address Already Occupied");
-                }
 
                 // (3)
                 let created_contract = Account::new(value, calldata.clone(), 1, HashMap::new());
@@ -447,6 +413,15 @@ impl VM {
     /// than max fee per fas.
     fn validate_transaction(&mut self) -> Result<(), VMError> {
         // Validations (1), (2), (3), (5), and (8) are assumed done in upper layers.
+
+        if self.is_create() {
+            // If address is already in db, there's an error
+            let new_address_acc = self.db.get_account_info(self.call_frames.first().unwrap().to);
+            if !new_address_acc.is_empty() {
+                return Err(VMError::AddressAlreadyOccupied);
+            }            
+        }
+        
         let sender_account = match self.cache.get_mut_account(self.env.origin) {
             Some(acc) => acc,
             None => return Err(VMError::AddressDoesNotMatchAnAccount),
@@ -485,19 +460,19 @@ impl VM {
 
     fn revert_create(&mut self) -> Result<(), VMError> {
         // Note: currently working with copies
-        let sender = self.call_frames.get(0).unwrap().msg_sender;
+        let sender = self.call_frames.first().unwrap().msg_sender;
         let mut sender_account = self.get_account(&sender);
 
         sender_account.info.nonce -= 1;
 
-        let new_contract_address = self.call_frames.get(0).unwrap().to;
+        let new_contract_address = self.call_frames.first().unwrap().to;
 
-        if let None = self.cache.accounts.remove(&new_contract_address) {
+        if self.cache.accounts.remove(&new_contract_address).is_none() {
             return Err(VMError::AddressDoesNotMatchAnAccount); // Should not be this error
         }
 
         // Should revert this?
-        // sender_account.info.balance -= self.call_frames.get(0).unwrap().msg_value;
+        // sender_account.info.balance -= self.call_frames.first().unwrap().msg_value;
 
         Ok(())
     }
@@ -534,7 +509,7 @@ impl VM {
             // the code-deposit cost, c, proportional to the size of the created contract’s code
             let creation_cost = 200 * contract_code.len();
 
-            let sender = self.call_frames.get(0).unwrap().msg_sender;
+            let sender = self.call_frames.first().unwrap().msg_sender;
             let mut sender_account = self.get_account(&sender);
 
             sender_account.info.balance = sender_account
@@ -543,7 +518,7 @@ impl VM {
                 .checked_sub(U256::from(creation_cost))
                 .ok_or(VMError::OutOfGas)?;
 
-            let contract_address = self.call_frames.get(0).unwrap().to;
+            let contract_address = self.call_frames.first().unwrap().to;
             let mut created_contract = self.get_account(&contract_address);
 
             created_contract.info.bytecode = contract_code;
@@ -551,7 +526,7 @@ impl VM {
             self.cache.add_account(&sender, &sender_account);
             self.cache.add_account(&contract_address, &created_contract);
 
-            report.new_state = self.cache.accounts.clone();
+            report.new_state.clone_from(&self.cache.accounts);
         }
         Ok(report)
     }
