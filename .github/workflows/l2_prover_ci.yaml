@@ -1,4 +1,4 @@
-name: L2_PROVER_CI
+name: L2 Prover CI
 on:
   push:
     branches:
@@ -17,8 +17,26 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  prover:
-    name: Build RISC-V zkVM program
+  lint:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: true
+      matrix:
+        action:
+          - command: check
+            args: -p ethereum_rust-prover
+          - command: clippy
+            args: clippy -p ethereum_rust-prover --all-targets --no-default-features
+    steps:
+      - name: Checkout sources
+        uses: actions/checkout@v4
+      - name: Add Rust Cache
+        uses: Swatinem/rust-cache@v2
+      - name: Check Command
+        run: cargo ${{ matrix.action.command }} ${{ matrix.action.args }}
+
+  build_and_test:
+    name: Build and Test RISC-V zkVM program
     runs-on: ubuntu-latest
     steps:
       - name: Checkout sources
