@@ -105,7 +105,7 @@ pub fn new_vm_with_ops_addr_bal_db(
         Default::default(),
         Default::default(),
         Default::default(),
+        Default::default(),
         None,
     )
-    .unwrap()
 }

@@ -1,7 +1,7 @@
 use crate::{
     call_frame::CallFrame,
     constants::*,
-    db::{Cache, Database, Db},
+    db::{Cache, Database},
     errors::{OpcodeSuccess, ResultReason, TransactionReport, TxResult, VMError},
     opcodes::Opcode,
     primitives::{Address, Bytes, H256, U256},
@@ -283,12 +283,13 @@ impl VM {
             base_fee_per_gas,
             gas_price,
             db,
+            self.cache,
             block_blob_gas_used,
             block_excess_blob_gas,
             tx_blob_hashes,
             secret_key,
             None,
-        )?;
+        );
 
         let res = vm.transact()?;
         // Don't use a revert bc work with clones, so don't have to save previous state
@@ -339,10 +340,11 @@ impl VM {
         base_fee_per_gas: U256,
         gas_price: U256,
         db: Box<dyn Database>,
+        mut cache: Cache,
         block_blob_gas_used: Option<U256>,
         block_excess_blob_gas: Option<U256>,
         tx_blob_hashes: Option<Vec<H256>>,
-        secret_key: H256,
+        _secret_key: H256,
         salt: Option<U256>,
     ) -> Self {
         // Maybe this decision should be made in an upper layer
@@ -403,7 +405,6 @@ impl VM {
 
                 // (3)
                 let created_contract = Account::new(value, calldata.clone(), 1, HashMap::new());
-                let mut cache = Cache::default();
                 cache.add_account(&new_contract_address, &created_contract);
 
                 // (5)
@@ -641,7 +642,12 @@ impl VM {
         self.env.consumed_gas = initial_gas;
 
         let mut current_call_frame = self.call_frames.pop().unwrap();
-        Ok(self.execute(&mut current_call_frame))
+        
+        let report = self.execute(&mut current_call_frame);
+        if self.is_create {
+            
+        }
+        Ok(report)
     }
 
     pub fn current_call_frame_mut(&mut self) -> &mut CallFrame {
@@ -898,16 +904,16 @@ impl VM {
         Ok(())
     }
 
-    // pub fn cache_from_db(&mut self, address: &Address) {
-    //     let acc_info = self.db.get_account_info(*address);
-    //     self.cache.add_account(
-    //         address,
-    //         &Account {
-    //             info: acc_info.clone(),
-    //             storage: HashMap::new(),
-    //         },
-    //     );
-    // }
+    pub fn cache_from_db(&mut self, address: &Address) {
+        let acc_info = self.db.get_account_info(*address);
+        self.cache.add_account(
+            address,
+            &Account {
+                info: acc_info.clone(),
+                storage: HashMap::new(),
+            },
+        );
+    }
 
     pub fn get_account(&mut self, address: &Address) -> Account {
         match self.cache.get_account(*address) {
