@@ -68,7 +68,7 @@ pub fn process_storage_ranges_request(
 
         // Generate proofs only if the response doesn't contain the full storage range for the account
         // Aka if the starting hash is not zero or if the response was capped due to byte limit
-        if !request.starting_hash.is_zero() || res_capped && !!account_slots.is_empty() {
+        if !request.starting_hash.is_zero() || res_capped && !account_slots.is_empty() {
             proof.extend(
                 store
                     .get_storage_range_proof(

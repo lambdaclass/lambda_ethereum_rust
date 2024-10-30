@@ -778,8 +778,7 @@ fn hash_address(address: &Address) -> Vec<u8> {
 fn hash_address_fixed(address: &Address) -> [u8; 32] {
     Keccak256::new_with_prefix(address.to_fixed_bytes())
         .finalize()
-        .try_into()
-        .unwrap()
+        .into()
 }
 
 fn hash_key(key: &H256) -> Vec<u8> {
