@@ -231,11 +231,7 @@ impl RLPxMessage for GetByteCodes {
         let (bytes, decoder) = decoder.decode_field("bytes")?;
         decoder.finish()?;
 
-        Ok(Self {
-            id,
-            hashes,
-            bytes,
-        })
+        Ok(Self { id, hashes, bytes })
     }
 }
 
@@ -262,10 +258,7 @@ impl RLPxMessage for ByteCodes {
         let (codes, decoder) = decoder.decode_field("codes")?;
         decoder.finish()?;
 
-        Ok(Self {
-            id,
-            codes,
-        })
+        Ok(Self { id, codes })
     }
 }
 

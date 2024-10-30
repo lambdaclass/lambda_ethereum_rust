@@ -4,7 +4,9 @@ use std::fmt::Display;
 
 use super::eth::status::StatusMessage;
 use super::p2p::{DisconnectMessage, HelloMessage, PingMessage, PongMessage};
-use super::snap::{AccountRange, ByteCodes, GetAccountRange, GetByteCodes, GetStorageRanges, StorageRanges};
+use super::snap::{
+    AccountRange, ByteCodes, GetAccountRange, GetByteCodes, GetStorageRanges, StorageRanges,
+};
 
 use ethereum_rust_rlp::encode::RLPEncode;
 
@@ -71,7 +73,7 @@ impl Message {
             Message::StorageRanges(msg) => {
                 0x24_u8.encode(buf);
                 msg.encode(buf)
-            },
+            }
             Message::GetByteCodes(msg) => {
                 0x25_u8.encode(buf);
                 msg.encode(buf)
