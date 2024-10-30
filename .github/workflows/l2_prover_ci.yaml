@@ -26,7 +26,7 @@ jobs:
           - command: check
             args: -p ethereum_rust-prover
           - command: clippy
-            args: clippy -p ethereum_rust-prover --all-targets --no-default-features
+            args: -p ethereum_rust-prover --all-targets --no-default-features
     steps:
       - name: Checkout sources
         uses: actions/checkout@v4
