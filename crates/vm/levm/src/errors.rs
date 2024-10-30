@@ -32,6 +32,7 @@ pub enum VMError {
     NonceOverflow,
 }
 
+#[derive(Debug, Clone)]
 pub enum OpcodeSuccess {
     Continue,
     Result(ResultReason),
