@@ -16,7 +16,6 @@ use ethereum_rust_core::{
     Address, H256, U256,
 };
 use ethereum_rust_storage::{error::StoreError, Store};
-use tracing::warn;
 
 /// Add a blob transaction and its blobs bundle to the mempool
 pub fn add_blob_transaction(
