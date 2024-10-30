@@ -49,7 +49,7 @@ contract OnChainProposer is IOnChainProposer, ReentrancyGuard {
     /// @inheritdoc IOnChainProposer
     function commit(
         uint256 blockNumber,
-        bytes32 newL2StateRoot,
+        bytes32 commitment,
         bytes32 withdrawalsLogsMerkleRoot,
         bytes32 depositLogs
     ) external override {
@@ -61,25 +61,30 @@ contract OnChainProposer is IOnChainProposer, ReentrancyGuard {
             blockCommitments[blockNumber].commitmentHash == bytes32(0),
             "OnChainProposer: block already committed"
         );
-        bytes32 blockCommitment = keccak256(
-            abi.encode(
-                blockNumber,
-                newL2StateRoot,
-                withdrawalsLogsMerkleRoot,
-                depositLogs
-            )
-        );
-        blockCommitments[blockNumber] = BlockCommitmentInfo(
-            blockCommitment,
-            depositLogs
-        );
+        // Check if commitment is equivalent to blob's KZG commitment.
+
+        if (depositLogs != bytes32(0)) {
+            bytes32 savedDepositLogs = ICommonBridge(BRIDGE)
+                .getDepositLogsVersionedHash(uint16(bytes2(depositLogs)));
+            require(
+                savedDepositLogs == depositLogs,
+                "OnChainProposer: invalid deposit logs"
+            );
+            ICommonBridge(BRIDGE).removeDepositLogs(
+                uint16(bytes2(depositLogs))
+            );
+        }
         if (withdrawalsLogsMerkleRoot != bytes32(0)) {
             ICommonBridge(BRIDGE).publishWithdrawals(
                 blockNumber,
                 withdrawalsLogsMerkleRoot
             );
         }
-        emit BlockCommitted(blockCommitment);
+        blockCommitments[blockNumber] = BlockCommitmentInfo(
+            commitment,
+            depositLogs
+        );
+        emit BlockCommitted(commitment);
     }
 
     /// @inheritdoc IOnChainProposer

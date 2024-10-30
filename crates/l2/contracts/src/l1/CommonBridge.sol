@@ -70,7 +70,27 @@ contract CommonBridge is ICommonBridge, Ownable, ReentrancyGuard {
     }
 
     /// @inheritdoc ICommonBridge
-    function removeDepositLogs(uint number) public onlyOnChainProposer {
+    function getDepositLogsVersionedHash(
+        uint16 number
+    ) public view returns (bytes32) {
+        require(
+            number < depositLogs.length,
+            "CommonBridge: number is greater than the length of depositLogs"
+        );
+
+        bytes memory logs;
+        for (uint i = 0; i < number; i++) {
+            logs = abi.encodePacked(logs, depositLogs[i]);
+        }
+
+        return
+            (keccak256(logs) &
+                0x0000ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff) |
+            bytes32(uint256(0x01 << 240));
+    }
+
+    /// @inheritdoc ICommonBridge
+    function removeDepositLogs(uint16 number) public onlyOnChainProposer {
         require(
             number <= depositLogs.length,
             "CommonBridge: number is greater than the length of depositLogs"
