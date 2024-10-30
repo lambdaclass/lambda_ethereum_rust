@@ -1,7 +1,5 @@
 use crate::{
-    db::{Cache, Db},
-    operations::Operation,
-    vm::{Account, AccountInfo, VM},
+    constants::TX_BASE_COST, db::{Cache, Db}, operations::Operation, vm::{Account, AccountInfo, Environment, VM}
 };
 use bytes::Bytes;
 use ethereum_types::{Address, U256};
@@ -87,24 +85,15 @@ pub fn new_vm_with_ops_addr_bal_db(
     cache.add_account(&accounts[0].0, &accounts[0].1);
     cache.add_account(&accounts[1].0, &accounts[1].1);
 
+    let env = Environment::default_from_address(sender_address);
+
     VM::new(
         Some(Address::from_low_u64_be(42)),
-        sender_address,
-        Default::default(),
-        Default::default(),
-        U256::MAX, // arbitrary gas limit for now...
-        Default::default(),
-        Default::default(),
-        Default::default(),
-        Default::default(),
-        U256::one(),
+        env,
         Default::default(),
         Default::default(),
         Box::new(db),
         cache,
-        Default::default(),
-        Default::default(),
-        Default::default(),
         Default::default(),
         None,
     )

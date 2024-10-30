@@ -5,7 +5,7 @@ use ethereum_rust_levm::{
     operations::Operation,
     primitives::{Address, Bytes, H256, U256},
     utils::{new_vm_with_ops, new_vm_with_ops_addr_bal_db, new_vm_with_ops_db},
-    vm::{word_to_address, Account, Storage, VM},
+    vm::{word_to_address, Account, Environment, Storage, VM},
 };
 use ethereum_types::H32;
 use std::collections::HashMap;
@@ -3971,24 +3971,15 @@ fn caller_op() {
         &Account::default().with_bytecode(ops_to_bytecde(&operations)),
     );
 
+    let env = Environment::default_from_address(caller);
+
     let mut vm = VM::new(
         Some(address_that_has_the_code),
-        caller,
-        Default::default(),
-        Default::default(),
-        U256::MAX,
-        Default::default(),
-        Default::default(),
-        Default::default(),
-        Default::default(),
-        Default::default(),
+        env,
         Default::default(),
         Default::default(),
         Box::new(db),
         cache,
-        Default::default(),
-        Default::default(),
-        Default::default(),
         Default::default(),
         None,
     );
@@ -4022,27 +4013,19 @@ fn origin_op() {
         &Account::default().with_bytecode(ops_to_bytecde(&operations)),
     );
 
+    let env = Environment::default_from_address(address_that_has_the_code);
+
     let mut vm = VM::new(
-        Some(address_that_has_the_code),
-        msg_sender,
-        Default::default(),
-        Default::default(),
-        U256::MAX,
-        Default::default(),
-        Default::default(),
-        Default::default(),
-        Default::default(),
-        Default::default(),
+        Some(Address::from_low_u64_be(42)),
+        env,
         Default::default(),
         Default::default(),
         Box::new(db),
         cache,
         Default::default(),
-        Default::default(),
-        Default::default(),
-        Default::default(),
         None,
     );
+
 
     let mut current_call_frame = vm.call_frames.pop().unwrap();
     vm.execute(&mut current_call_frame);
@@ -4099,24 +4082,15 @@ fn address_op() {
         &Account::default().with_bytecode(ops_to_bytecde(&operations)),
     );
 
+    let env = Environment::default_from_address(address_that_has_the_code);
+
     let mut vm = VM::new(
-        Some(address_that_has_the_code),
-        Default::default(),
-        Default::default(),
-        Default::default(),
-        U256::MAX,
-        Default::default(),
-        Default::default(),
-        Default::default(),
-        Default::default(),
-        Default::default(),
+        Some(Address::from_low_u64_be(42)),
+        env,
         Default::default(),
         Default::default(),
         Box::new(db),
         cache,
-        Default::default(),
-        Default::default(),
-        Default::default(),
         Default::default(),
         None,
     );
@@ -4154,26 +4128,15 @@ fn selfbalance_op() {
             .with_balance(balance),
     );
 
-    dbg!(&cache);
+    let env = Environment::default_from_address(address_that_has_the_code);
 
     let mut vm = VM::new(
-        Some(address_that_has_the_code),
-        Default::default(),
-        Default::default(),
-        Default::default(),
-        U256::MAX,
-        Default::default(),
-        Default::default(),
-        Default::default(),
-        Default::default(),
-        Default::default(),
+        Some(Address::from_low_u64_be(42)),
+        env,
         Default::default(),
         Default::default(),
         Box::new(db),
         cache,
-        Default::default(),
-        Default::default(),
-        Default::default(),
         Default::default(),
         None,
     );
@@ -4205,24 +4168,15 @@ fn callvalue_op() {
         &Account::default().with_bytecode(ops_to_bytecde(&operations)),
     );
 
+    let env = Environment::default_from_address(address_that_has_the_code);
+
     let mut vm = VM::new(
-        Some(address_that_has_the_code),
-        Default::default(),
-        value,
-        Default::default(),
-        U256::MAX,
-        Default::default(),
-        Default::default(),
-        Default::default(),
-        Default::default(),
-        Default::default(),
+        Some(Address::from_low_u64_be(42)),
+        env,
         Default::default(),
         Default::default(),
         Box::new(db),
         cache,
-        Default::default(),
-        Default::default(),
-        Default::default(),
         Default::default(),
         None,
     );
@@ -4253,24 +4207,15 @@ fn codesize_op() {
         &Account::default().with_bytecode(ops_to_bytecde(&operations)),
     );
 
+    let env = Environment::default_from_address(address_that_has_the_code);
+
     let mut vm = VM::new(
-        Some(address_that_has_the_code),
-        Default::default(),
-        Default::default(),
-        Default::default(),
-        U256::MAX,
-        Default::default(),
-        Default::default(),
-        Default::default(),
-        Default::default(),
-        Default::default(),
+        Some(Address::from_low_u64_be(42)),
+        env,
         Default::default(),
         Default::default(),
         Box::new(db),
         cache,
-        Default::default(),
-        Default::default(),
-        Default::default(),
         Default::default(),
         None,
     );
@@ -4303,24 +4248,15 @@ fn gasprice_op() {
         &Account::default().with_bytecode(ops_to_bytecde(&operations)),
     );
 
+    let env = Environment::default_from_address(address_that_has_the_code);
+
     let mut vm = VM::new(
-        Some(address_that_has_the_code),
+        Some(Address::from_low_u64_be(42)),
+        env,
         Default::default(),
         Default::default(),
-        Default::default(),
-        U256::MAX,
-        Default::default(),
-        Default::default(),
-        Default::default(),
-        Default::default(),
-        Default::default(),
-        Default::default(),
-        U256::from(0x9876),
         Box::new(db),
         cache,
-        Default::default(),
-        Default::default(),
-        Default::default(),
         Default::default(),
         None,
     );
@@ -4370,24 +4306,15 @@ fn codecopy_op() {
         &Account::default().with_bytecode(ops_to_bytecde(&operations)),
     );
 
+    let env = Environment::default_from_address(address_that_has_the_code);
+
     let mut vm = VM::new(
-        Some(address_that_has_the_code),
-        Default::default(),
-        Default::default(),
-        Default::default(),
-        U256::MAX,
-        Default::default(),
-        Default::default(),
-        Default::default(),
-        Default::default(),
-        Default::default(),
+        Some(Address::from_low_u64_be(42)),
+        env,
         Default::default(),
         Default::default(),
         Box::new(db),
         cache,
-        Default::default(),
-        Default::default(),
-        Default::default(),
         Default::default(),
         None,
     );

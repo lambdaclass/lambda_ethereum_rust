@@ -10,7 +10,7 @@ use ethereum_rust_rlp;
 use ethereum_rust_rlp::encode::RLPEncode;
 use ethereum_types::H160;
 use keccak_hash::keccak;
-use sha3::{Digest, Keccak256};
+use sha3::{digest::consts::U2, Digest, Keccak256};
 use std::{collections::HashMap, str::FromStr};
 
 #[derive(Clone, Default, Debug, PartialEq, Eq)]
@@ -122,6 +122,27 @@ pub struct Environment {
     pub tx_blob_hashes: Option<Vec<H256>>,
 }
 
+impl Environment {
+    pub fn default_from_address(origin: Address) -> Self {
+        Self {
+            origin,
+            consumed_gas: TX_BASE_COST,
+            refunded_gas: U256::zero(),
+            gas_limit: U256::MAX,
+            block_number: Default::default(),
+            coinbase: Default::default(),
+            timestamp: Default::default(),
+            prev_randao: Default::default(),
+            chain_id: U256::one(),
+            base_fee_per_gas: Default::default(),
+            gas_price: Default::default(),
+            block_excess_blob_gas: Default::default(),
+            block_blob_gas_used: Default::default(),
+            tx_blob_hashes: Default::default(),
+        }
+    }
+}
+
 pub struct VM {
     pub call_frames: Vec<CallFrame>,
     pub env: Environment,
@@ -170,7 +191,7 @@ impl VM {
             Some(address_to) => {
                 // CALL tx
                 let initial_call_frame = CallFrame::new(
-                    msg_sender: env.origin,
+                    env.origin,
                     address_to,
                     address_to,
                     db.get_account_info(address_to).bytecode,
@@ -193,13 +214,13 @@ impl VM {
             }
             None => {
                 // CREATE tx
-                let sender_account_info = db.get_account_info(msg_sender);
+                let sender_account_info = db.get_account_info(env.origin);
                 // Note that this is a copy of account, not the real one
 
                 // (2)
                 let new_contract_address = match salt {
-                    Some(salt) => VM::calculate_create2_address(msg_sender, &calldata, salt),
-                    None => VM::calculate_create_address(msg_sender, sender_account_info.nonce),
+                    Some(salt) => VM::calculate_create2_address(env.origin, &calldata, salt),
+                    None => VM::calculate_create_address(env.origin, sender_account_info.nonce),
                 };
 
                 // (3)
@@ -210,34 +231,18 @@ impl VM {
                 let code: Bytes = calldata.clone();
 
                 let initial_call_frame = CallFrame::new(
-                    msg_sender,
+                    env.origin,
                     new_contract_address,
                     new_contract_address,
                     code,
                     value,
                     calldata.clone(),
                     false,
-                    gas_limit,
+                    env.gas_limit,
                     TX_BASE_COST,
                     0,
                 );
 
-                let env = Environment {
-                    consumed_gas: TX_BASE_COST,
-                    origin: msg_sender,
-                    refunded_gas: U256::zero(),
-                    gas_limit,
-                    block_number,
-                    coinbase,
-                    timestamp,
-                    prev_randao,
-                    chain_id,
-                    base_fee_per_gas,
-                    gas_price,
-                    block_blob_gas_used,
-                    block_excess_blob_gas,
-                    tx_blob_hashes,
-                };
                 Self {
                     call_frames: vec![initial_call_frame],
                     db,
