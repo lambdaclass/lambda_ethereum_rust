@@ -52,7 +52,7 @@ pub fn add_block(block: &Block, storage: &Store) -> Result<(), ChainError> {
     // Check state root matches the one in block header after execution
     validate_state_root(&block.header, new_state_root)?;
 
-    let block_hash = block.header.compute_block_hash();
+    let block_hash = block.hash();
     store_block(storage, block.clone())?;
     store_receipts(storage, receipts, block_hash)?;
 
