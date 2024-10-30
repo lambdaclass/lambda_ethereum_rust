@@ -79,6 +79,14 @@ pub fn filter_transactions(
         if filter.only_plain_txs && is_blob_tx || filter.only_blob_txs && !is_blob_tx {
             return false;
         }
+
+        // This is a temporary fix to avoid invalid transactions to be included.
+        // This should be removed once https://github.com/lambdaclass/ethereum_rust/issues/680
+        // is addressed.
+        if tx.effective_gas_tip(filter.base_fee).is_none() {
+            println!("Transaction with invalid tip: {:?}", tx.effective_gas_tip(filter.base_fee));
+            return false;
+        }
         // Filter by tip & base_fee
         if let Some(min_tip) = filter.min_tip {
             if !tx
