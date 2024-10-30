@@ -1,5 +1,4 @@
 use crate::{
-    constants::TX_BASE_COST,
     db::{Cache, Db},
     operations::Operation,
     vm::{Account, AccountInfo, Environment, VM},
