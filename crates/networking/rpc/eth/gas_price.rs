@@ -1,4 +1,3 @@
-use ethereum_rust_blockchain::constants::MIN_GAS_LIMIT;
 use ethereum_rust_storage::Store;
 use tracing::error;
 
