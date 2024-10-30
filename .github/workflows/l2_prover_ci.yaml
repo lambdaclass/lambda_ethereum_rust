@@ -3,8 +3,6 @@ on:
   push:
     branches:
       - main
-      - l2**
-      - prover**
     paths:
       - "crates/l2/prover/**"
   pull_request:
