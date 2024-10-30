@@ -714,7 +714,7 @@ impl Store {
         let Some(state_trie) = self.state_trie(block_hash)? else {
             return Ok(None);
         };
-        Ok(Some(state_trie.get_proof(&hash_address(address))).transpose()?)
+        Ok(Some(state_trie.get_encoded_proof(&hash_address(address))).transpose()?)
     }
 
     /// Constructs a merkle proof for the given storage_key in a storage_trie with a known root
@@ -725,7 +725,7 @@ impl Store {
         storage_key: &H256,
     ) -> Result<Vec<Vec<u8>>, StoreError> {
         let trie = self.engine.open_storage_trie(address, storage_root);
-        Ok(trie.get_proof(&hash_key(storage_key))?)
+        Ok(trie.get_encoded_proof(&hash_key(storage_key))?)
     }
 
     pub fn add_payload(&self, payload_id: u64, block: Block) -> Result<(), StoreError> {

@@ -186,13 +186,13 @@ impl StateProofs {
                 .get(address)
                 .ok_or(StateProofsError::StorageTrieNotFound(*address))?;
 
-            let proof = state_trie.get_proof(&hash_address(address))?;
+            let proof = state_trie.get_encoded_proof(&hash_address(address))?;
             let address = RevmAddress::from_slice(address.as_bytes());
             account.insert(address, proof);
 
             let mut storage_proofs = HashMap::new();
             for key in storage_keys {
-                let proof = storage_trie.get_proof(&hash_key(key))?;
+                let proof = storage_trie.get_encoded_proof(&hash_key(key))?;
                 let key = RevmU256::from_be_bytes(key.to_fixed_bytes());
                 storage_proofs.insert(key, proof);
             }
