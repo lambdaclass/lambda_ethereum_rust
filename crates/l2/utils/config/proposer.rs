@@ -12,6 +12,8 @@ pub struct ProposerConfig {
     #[serde(deserialize_with = "secret_key_deserializer")]
     pub l1_private_key: SecretKey,
     pub interval_ms: u64,
+    pub g1_points_path: String,
+    pub g2_points_path: String,
 }
 
 impl ProposerConfig {
