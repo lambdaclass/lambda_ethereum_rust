@@ -35,4 +35,24 @@ pub enum ProposerError {
     FailedToGetSystemTime(#[from] std::time::SystemTimeError),
     #[error("Proposer failed to serialize block: {0}")]
     FailedToRetrieveBlockFromStorage(String),
+    #[error("Proposer failed to encode state diff: {0}")]
+    FailedToEncodeStateDiff(#[from] StateDiffError),
+}
+
+#[derive(Debug, thiserror::Error)]
+pub enum StateDiffError {
+    #[error("StateDiff failed to deserialize: {0}")]
+    FailedToDeserializeStateDiff(String),
+    #[error("StateDiff failed to serialize: {0}")]
+    FailedToSerializeStateDiff(String),
+    #[error("StateDiff failed to get config: {0}")]
+    FailedToGetConfig(#[from] ConfigError),
+    #[error("StateDiff invalid account state diff type: {0}")]
+    InvalidAccountStateDiffType(u8),
+    #[error("StateDiff unsupported version: {0}")]
+    UnsupportedVersion(u8),
+    #[error("Both bytecode and bytecode hash are set")]
+    BytecodeAndBytecodeHashSet,
+    #[error("Empty account diff")]
+    EmptyAccountDiff,
 }
