@@ -1,7 +1,7 @@
 use crate::{
     call_frame::CallFrame,
     constants::*,
-    errors::{OpcodeSuccess, ResultReason, VMError},
+    errors::{OpcodeSuccess, ResultReason, TransactionReport, TxResult, VMError},
     opcodes::Opcode,
     primitives::{Address, Bytes, H256, U256},
 };
@@ -163,7 +163,7 @@ pub struct Environment {
     /// this execution.
     pub origin: Address,
     pub consumed_gas: U256,
-    refunded_gas: U256,
+    pub refunded_gas: U256,
     pub gas_limit: U256,
     pub block_number: U256,
     pub coinbase: Address,
@@ -174,6 +174,7 @@ pub struct Environment {
     pub gas_price: U256,
     pub block_excess_blob_gas: Option<U256>,
     pub block_blob_gas_used: Option<U256>,
+    pub tx_blob_hashes: Option<Vec<H256>>,
 }
 
 #[derive(Debug, Clone, Default)]
@@ -200,9 +201,8 @@ pub fn word_to_address(word: U256) -> Address {
 }
 
 impl VM {
-    // TODO: Refactor this.
     #[allow(clippy::too_many_arguments)]
-    pub fn new(
+    fn call_type_transaction(
         to: Address,
         msg_sender: Address,
         value: U256,
@@ -218,29 +218,21 @@ impl VM {
         db: Db,
         block_blob_gas_used: Option<U256>,
         block_excess_blob_gas: Option<U256>,
-    ) -> Self {
-        // TODO: This handles only CALL transactions.
+        tx_blob_hashes: Option<Vec<H256>>,
+    ) -> Result<VM, VMError> {
         let bytecode = db.get_account_bytecode(&to);
 
-        // TODO: This handles only CALL transactions.
-        // TODO: Remove this allow when CREATE is implemented.
-        #[allow(clippy::redundant_locals)]
-        let to = to;
-
-        // TODO: In CALL this is the `to`, in CREATE it is not.
-        let code_addr = to;
-
-        // TODO: this is mostly placeholder
         let initial_call_frame = CallFrame::new(
             msg_sender,
             to,
-            code_addr,
+            to,
             None,
             bytecode,
             value,
             calldata.clone(),
             false,
             gas_limit,
+            TX_BASE_COST,
             0,
         );
 
@@ -258,20 +250,211 @@ impl VM {
             gas_price,
             block_blob_gas_used,
             block_excess_blob_gas,
+            tx_blob_hashes,
         };
 
-        Self {
+        Ok(VM {
             call_frames: vec![initial_call_frame],
             db,
             env,
             accrued_substate: Substate::default(),
+        })
+    }
+
+    // Functionality should be:
+    // (1) Check whether caller has enough balance to make a transfer
+    // (2) Derive the new contract’s address from the caller’s address (passing in the creator account’s nonce)
+    // (3) Create the new contract account using the derived contract address (changing the “world state” StateDB)
+    // (4) Transfer the initial Ether endowment from caller to the new contract
+    // (5) Set input data as contract’s deploy code, then execute it with EVM. The ret variable is the returned contract code
+    // (6) Check for error. Or if the contract code is too big, fail. Charge the user gas then set the contract code
+    // Source: https://medium.com/@hayeah/diving-into-the-ethereum-vm-part-5-the-smart-contract-creation-process-cb7b6133b855
+    #[allow(clippy::too_many_arguments)]
+    fn create_type_transaction(
+        sender: Address,
+        secret_key: H256,
+        db: &mut Db,
+        value: U256,
+        calldata: Bytes,
+        block_number: U256,
+        coinbase: Address,
+        timestamp: U256,
+        prev_randao: Option<H256>,
+        chain_id: U256,
+        base_fee_per_gas: U256,
+        gas_price: U256,
+        block_blob_gas_used: Option<U256>,
+        block_excess_blob_gas: Option<U256>,
+        tx_blob_hashes: Option<Vec<H256>>,
+        salt: Option<U256>,
+    ) -> Result<VM, VMError> {
+        let mut db_copy = db.clone();
+        let mut sender_account = match db_copy.accounts.get(&sender) {
+            Some(acc) => acc,
+            None => {
+                return Err(VMError::OutOfGas);
+            }
+        }
+        .clone();
+
+        // (1)
+        if sender_account.balance < value {
+            return Err(VMError::OutOfGas); // Maybe a more personalized error
+        }
+
+        sender_account.nonce = sender_account
+            .nonce
+            .checked_add(1)
+            .ok_or(VMError::NonceOverflow)?;
+
+        // (2)
+        let new_contract_address = match salt {
+            Some(salt) => VM::calculate_create2_address(sender, &calldata, salt),
+            None => VM::calculate_create_address(sender, sender_account.nonce),
+        };
+
+        // If address is already in db, there's an error
+        if db_copy.accounts.contains_key(&new_contract_address) {
+            return Err(VMError::AddressAlreadyOccupied);
+        }
+
+        // (3)
+        let mut created_contract = Account::new(
+            new_contract_address,
+            value,
+            calldata.clone(),
+            1,
+            Default::default(),
+        );
+        db_copy.add_account(new_contract_address, created_contract.clone());
+
+        // (4)
+        sender_account.balance -= value;
+        created_contract.balance += value;
+
+        // (5)
+        let code: Bytes = calldata.clone();
+
+        // Call the contract
+        let mut vm = VM::new(
+            Some(created_contract.address),
+            sender,
+            value,
+            code,
+            sender_account.balance,
+            block_number,
+            coinbase,
+            timestamp,
+            prev_randao,
+            chain_id,
+            base_fee_per_gas,
+            gas_price,
+            &mut db_copy,
+            block_blob_gas_used,
+            block_excess_blob_gas,
+            tx_blob_hashes,
+            secret_key,
+            None,
+        )?;
+
+        let res = vm.transact()?;
+        // Don't use a revert bc work with clones, so don't have to save previous state
+
+        let contract_code = res.output;
+
+        // (6)
+        if contract_code.len() > MAX_CODE_SIZE {
+            return Err(VMError::ContractOutputTooBig);
+        }
+        // Supposing contract code has contents
+        if contract_code[0] == INVALID_CONTRACT_PREFIX {
+            return Err(VMError::InvalidInitialByte);
+        }
+
+        // If the initialization code completes successfully, a final contract-creation cost is paid,
+        // the code-deposit cost, c, proportional to the size of the created contract’s code
+        let creation_cost = 200 * contract_code.len();
+
+        sender_account.balance = sender_account
+            .balance
+            .checked_sub(U256::from(creation_cost))
+            .ok_or(VMError::OutOfGas)?;
+
+        created_contract.bytecode = contract_code;
+
+        let mut acc = db_copy.accounts.get_mut(&sender).unwrap();
+        *acc = sender_account;
+        acc = db_copy.accounts.get_mut(&new_contract_address).unwrap();
+        *acc = created_contract;
+
+        *db = db_copy;
+        Ok(vm)
+    }
+
+    // TODO: Refactor this.
+    #[allow(clippy::too_many_arguments)]
+    pub fn new(
+        to: Option<Address>,
+        msg_sender: Address,
+        value: U256,
+        calldata: Bytes,
+        gas_limit: U256,
+        block_number: U256,
+        coinbase: Address,
+        timestamp: U256,
+        prev_randao: Option<H256>,
+        chain_id: U256,
+        base_fee_per_gas: U256,
+        gas_price: U256,
+        db: &mut Db,
+        block_blob_gas_used: Option<U256>,
+        block_excess_blob_gas: Option<U256>,
+        tx_blob_hashes: Option<Vec<H256>>,
+        secret_key: H256,
+        salt: Option<U256>,
+    ) -> Result<Self, VMError> {
+        // Maybe this desicion should be made in an upper layer
+        match to {
+            Some(address) => VM::call_type_transaction(
+                address,
+                msg_sender,
+                value,
+                calldata,
+                gas_limit,
+                block_number,
+                coinbase,
+                timestamp,
+                prev_randao,
+                chain_id,
+                base_fee_per_gas,
+                gas_price,
+                db.clone(),
+                block_blob_gas_used,
+                block_excess_blob_gas,
+                tx_blob_hashes,
+            ),
+            None => VM::create_type_transaction(
+                msg_sender,
+                secret_key,
+                db,
+                value,
+                calldata,
+                block_number,
+                coinbase,
+                timestamp,
+                prev_randao,
+                chain_id,
+                base_fee_per_gas,
+                gas_price,
+                block_blob_gas_used,
+                block_excess_blob_gas,
+                tx_blob_hashes,
+                salt,
+            ),
         }
     }
 
-    pub fn execute(
-        &mut self,
-        current_call_frame: &mut CallFrame,
-    ) -> Result<OpcodeSuccess, VMError> {
+    pub fn execute(&mut self, current_call_frame: &mut CallFrame) -> TransactionReport {
         // let mut current_call_frame = self
         //     .call_frames
         //     .pop()
@@ -374,11 +557,41 @@ impl VM {
                 _ => Err(VMError::OpcodeNotFound),
             };
 
+            // Gas refunds are applied at the end of a transaction. Should it be implemented here?
+
             match op_result {
                 Ok(OpcodeSuccess::Continue) => {}
-                Ok(OpcodeSuccess::Result(_)) | Err(_) => {
+                Ok(OpcodeSuccess::Result(_)) => {
                     self.call_frames.push(current_call_frame.clone());
-                    return op_result;
+                    return TransactionReport {
+                        result: TxResult::Success,
+                        new_state: self.db.accounts.clone(),
+                        gas_used: current_call_frame.gas_used.low_u64(),
+                        gas_refunded: self.env.refunded_gas.low_u64(),
+                        output: current_call_frame.returndata.clone(),
+                        logs: current_call_frame.logs.clone(),
+                        created_address: None,
+                    };
+                }
+                Err(error) => {
+                    self.call_frames.push(current_call_frame.clone());
+
+                    // CONSUME ALL GAS UNLESS THE ERROR IS FROM REVERT OPCODE
+                    if error != VMError::RevertOpcode {
+                        let left_gas = current_call_frame.gas_limit - current_call_frame.gas_used;
+                        current_call_frame.gas_used += left_gas;
+                        self.env.consumed_gas += left_gas;
+                    }
+
+                    return TransactionReport {
+                        result: TxResult::Revert(error),
+                        new_state: self.db.accounts.clone(),
+                        gas_used: current_call_frame.gas_used.low_u64(),
+                        gas_refunded: self.env.refunded_gas.low_u64(),
+                        output: current_call_frame.returndata.clone(),
+                        logs: current_call_frame.logs.clone(),
+                        created_address: None,
+                    };
                 }
             }
         }
@@ -405,7 +618,9 @@ impl VM {
         // Validations (1), (2), (3), (5), and (8) are assumed done in upper layers.
         let sender_account = match self.db.accounts.get(&self.env.origin) {
             Some(acc) => acc,
-            None => return Err(VMError::SenderAccountDoesNotExist),
+            None => return Err(VMError::AddressDoesNotMatchAnAccount),
+            // This is a check for completeness. However if it were a none and
+            // it was not caught it would be caught in clause 6.
         };
         // (4)
         if sender_account.has_code() {
@@ -422,7 +637,7 @@ impl VM {
         Ok(())
     }
 
-    pub fn transact(&mut self) -> Result<OpcodeSuccess, VMError> {
+    pub fn transact(&mut self) -> Result<TransactionReport, VMError> {
         self.validate_transaction()?;
 
         let initial_gas = Default::default();
@@ -430,7 +645,7 @@ impl VM {
         self.env.consumed_gas = initial_gas;
 
         let mut current_call_frame = self.call_frames.pop().unwrap();
-        self.execute(&mut current_call_frame)
+        Ok(self.execute(&mut current_call_frame))
     }
 
     pub fn current_call_frame_mut(&mut self) -> &mut CallFrame {
@@ -494,52 +709,39 @@ impl VM {
             calldata,
             is_static,
             gas_limit,
+            U256::zero(),
             current_call_frame.depth + 1,
         );
 
-        current_call_frame.return_data_offset = Some(ret_offset);
-        current_call_frame.return_data_size = Some(ret_size);
+        current_call_frame.sub_return_data_offset = ret_offset;
+        current_call_frame.sub_return_data_size = ret_size;
 
         // self.call_frames.push(new_call_frame.clone());
-        let result = self.execute(&mut new_call_frame);
+        let tx_report = self.execute(&mut new_call_frame);
 
-        // After this we should do current_call_frame.gas_used += new_call_frame.gas_used. Instead of consuming all gas and then returning unused gas, we just consume all gas the sub-context used. If an error happened then we consume all gas.
+        current_call_frame.gas_used += tx_report.gas_used.into(); // We add the gas used by the sub-context to the current one after it's execution.
+        current_call_frame.logs.extend(tx_report.logs);
+        current_call_frame
+            .memory
+            .store_n_bytes(ret_offset, &tx_report.output, ret_size);
+        current_call_frame.sub_return_data = tx_report.output;
 
-        match result {
-            Ok(OpcodeSuccess::Result(reason)) => match reason {
-                ResultReason::Stop | ResultReason::Return => {
-                    let logs = new_call_frame.logs.clone();
-                    let return_data = new_call_frame.returndata.clone();
-
-                    current_call_frame.logs.extend(logs);
-                    current_call_frame
-                        .memory
-                        .store_bytes(ret_offset, &return_data);
-                    current_call_frame.returndata = return_data;
-                    current_call_frame
-                        .stack
-                        .push(U256::from(SUCCESS_FOR_CALL))?;
-                    Ok(OpcodeSuccess::Continue)
-                }
-                ResultReason::Revert => {
-                    let output = new_call_frame.returndata.clone();
-
-                    current_call_frame.memory.store_bytes(ret_offset, &output);
-                    current_call_frame.returndata = output;
-                    current_call_frame.stack.push(U256::from(REVERT_FOR_CALL))?;
-                    // current_call_frame.gas -= self.env.consumed_gas;
-                    self.env.refunded_gas += self.env.consumed_gas;
-                    Ok(OpcodeSuccess::Continue)
-                }
-            },
-            Ok(OpcodeSuccess::Continue) => Ok(OpcodeSuccess::Continue),
-            Err(error) => {
+        // What to do, depending on TxResult
+        match tx_report.result {
+            TxResult::Success => {
                 current_call_frame
                     .stack
-                    .push(U256::from(error.clone() as u8))?;
-                Err(error)
+                    .push(U256::from(SUCCESS_FOR_CALL))?;
+            }
+            TxResult::Revert(_error) => {
+                // Behavior for revert between contexts goes here if necessary
+                // It is also possible to differentiate between RevertOpcode error and other kinds of revert.
+
+                current_call_frame.stack.push(U256::from(REVERT_FOR_CALL))?;
             }
         }
+
+        Ok(OpcodeSuccess::Continue)
     }
 
     /// Calculates the address of a new conctract using the CREATE opcode as follow

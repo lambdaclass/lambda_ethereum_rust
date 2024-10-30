@@ -53,7 +53,7 @@ impl ExecutionDB {
         let mut accounts = HashMap::new();
         let code = HashMap::new(); // TODO: `code` remains empty for now
         let mut storage = HashMap::new();
-        let mut block_hashes = HashMap::new();
+        let block_hashes = HashMap::new(); // TODO: `block_hashes` remains empty for now
 
         for account_update in account_updates {
             let address = RevmAddress::from_slice(account_update.address.as_bytes());
@@ -77,23 +77,6 @@ impl ExecutionDB {
 
             storage.insert(address, account_storage);
         }
-
-        let earliest_number = store_wrapper
-            .store
-            .get_earliest_block_number()?
-            .ok_or(ExecutionDBError::NewMissingBlockNumber())?;
-        let latest_number = store_wrapper
-            .store
-            .get_latest_block_number()?
-            .ok_or(ExecutionDBError::NewMissingBlockNumber())?;
-
-        let numbers = earliest_number..=latest_number;
-        let hashes = numbers
-            .clone()
-            .map(|number| store_wrapper.block_hash(number))
-            .collect::<Result<Vec<_>, _>>()?
-            .into_iter();
-        block_hashes.extend(numbers.zip(hashes));
 
         Ok(Self {
             accounts,
