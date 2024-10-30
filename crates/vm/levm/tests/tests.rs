@@ -4013,10 +4013,10 @@ fn origin_op() {
         &Account::default().with_bytecode(ops_to_bytecde(&operations)),
     );
 
-    let env = Environment::default_from_address(address_that_has_the_code);
+    let mut env = Environment::default_from_address(msg_sender);
 
     let mut vm = VM::new(
-        Some(Address::from_low_u64_be(42)),
+        Some(address_that_has_the_code),
         env,
         Default::default(),
         Default::default(),
@@ -4025,7 +4025,6 @@ fn origin_op() {
         Default::default(),
         None,
     );
-
 
     let mut current_call_frame = vm.call_frames.pop().unwrap();
     vm.execute(&mut current_call_frame);
@@ -4082,10 +4081,10 @@ fn address_op() {
         &Account::default().with_bytecode(ops_to_bytecde(&operations)),
     );
 
-    let env = Environment::default_from_address(address_that_has_the_code);
+    let env = Environment::default_from_address(Address::from_low_u64_be(42));
 
     let mut vm = VM::new(
-        Some(Address::from_low_u64_be(42)),
+        Some(address_that_has_the_code),
         env,
         Default::default(),
         Default::default(),
@@ -4128,10 +4127,10 @@ fn selfbalance_op() {
             .with_balance(balance),
     );
 
-    let env = Environment::default_from_address(address_that_has_the_code);
+    let env = Environment::default_from_address(Address::from_low_u64_be(42));
 
     let mut vm = VM::new(
-        Some(Address::from_low_u64_be(42)),
+        Some(address_that_has_the_code),
         env,
         Default::default(),
         Default::default(),
@@ -4168,12 +4167,12 @@ fn callvalue_op() {
         &Account::default().with_bytecode(ops_to_bytecde(&operations)),
     );
 
-    let env = Environment::default_from_address(address_that_has_the_code);
+    let env = Environment::default_from_address(Address::from_low_u64_be(42));
 
     let mut vm = VM::new(
-        Some(Address::from_low_u64_be(42)),
+        Some(address_that_has_the_code),
         env,
-        Default::default(),
+        value,
         Default::default(),
         Box::new(db),
         cache,
@@ -4207,10 +4206,10 @@ fn codesize_op() {
         &Account::default().with_bytecode(ops_to_bytecde(&operations)),
     );
 
-    let env = Environment::default_from_address(address_that_has_the_code);
+    let env = Environment::default_from_address(Address::from_low_u64_be(42));
 
     let mut vm = VM::new(
-        Some(Address::from_low_u64_be(42)),
+        Some(address_that_has_the_code),
         env,
         Default::default(),
         Default::default(),
@@ -4248,10 +4247,11 @@ fn gasprice_op() {
         &Account::default().with_bytecode(ops_to_bytecde(&operations)),
     );
 
-    let env = Environment::default_from_address(address_that_has_the_code);
+    let mut env = Environment::default_from_address(Address::from_low_u64_be(42));
+    env.gas_price = U256::from_str_radix("9876", 16).unwrap();
 
     let mut vm = VM::new(
-        Some(Address::from_low_u64_be(42)),
+        Some(address_that_has_the_code),
         env,
         Default::default(),
         Default::default(),
@@ -4306,10 +4306,10 @@ fn codecopy_op() {
         &Account::default().with_bytecode(ops_to_bytecde(&operations)),
     );
 
-    let env = Environment::default_from_address(address_that_has_the_code);
+    let env = Environment::default_from_address(Address::from_low_u64_be(42));
 
     let mut vm = VM::new(
-        Some(Address::from_low_u64_be(42)),
+        Some(address_that_has_the_code),
         env,
         Default::default(),
         Default::default(),

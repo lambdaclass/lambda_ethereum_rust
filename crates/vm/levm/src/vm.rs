@@ -421,12 +421,14 @@ impl VM {
 
         if self.is_create() {
             // If address is already in db, there's an error
-            let new_address_acc = self.db.get_account_info(self.call_frames.first().unwrap().to);
+            let new_address_acc = self
+                .db
+                .get_account_info(self.call_frames.first().unwrap().to);
             if !new_address_acc.is_empty() {
                 return Err(VMError::AddressAlreadyOccupied);
-            }            
+            }
         }
-        
+
         let sender_account = match self.cache.get_mut_account(self.env.origin) {
             Some(acc) => acc,
             None => return Err(VMError::AddressDoesNotMatchAnAccount),

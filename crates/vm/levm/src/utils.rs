@@ -1,5 +1,8 @@
 use crate::{
-    constants::TX_BASE_COST, db::{Cache, Db}, operations::Operation, vm::{Account, AccountInfo, Environment, VM}
+    constants::TX_BASE_COST,
+    db::{Cache, Db},
+    operations::Operation,
+    vm::{Account, AccountInfo, Environment, VM},
 };
 use bytes::Bytes;
 use ethereum_types::{Address, U256};
