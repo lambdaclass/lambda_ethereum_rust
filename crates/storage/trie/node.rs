@@ -77,16 +77,16 @@ impl Node {
     /// Traverses own subtrie until reaching the node containing `path`
     /// Appends all encoded nodes traversed to `node_path` (including self)
     /// Only nodes with encoded len over or equal to 32 bytes are included
-    pub fn get_path(
+    pub fn get_encoded_path(
         &self,
         state: &TrieState,
         path: NibbleSlice,
         node_path: &mut Vec<Vec<u8>>,
     ) -> Result<(), TrieError> {
         match self {
-            Node::Branch(n) => n.get_path(state, path, node_path),
-            Node::Extension(n) => n.get_path(state, path, node_path),
-            Node::Leaf(n) => n.get_path(path, node_path),
+            Node::Branch(n) => n.get_encoded_path(state, path, node_path),
+            Node::Extension(n) => n.get_encoded_path(state, path, node_path),
+            Node::Leaf(n) => n.get_encoded_path(path, node_path),
         }
     }
 

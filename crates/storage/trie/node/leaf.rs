@@ -155,7 +155,7 @@ impl LeafNode {
     }
 
     /// Encodes the node and appends it to `node_path` if the encoded node is 32 or more bytes long
-    pub fn get_path(
+    pub fn get_encoded_path(
         &self,
         path: NibbleSlice,
         node_path: &mut Vec<Vec<u8>>,

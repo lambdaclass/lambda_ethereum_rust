@@ -161,7 +161,7 @@ impl Trie {
             .state
             .get_node(root.clone())?
             .expect("inconsistent tree structure");
-        root_node.get_path(&self.state, NibbleSlice::new(path), &mut node_path)?;
+        root_node.get_encoded_path(&self.state, NibbleSlice::new(path), &mut node_path)?;
         Ok(node_path)
     }
 
