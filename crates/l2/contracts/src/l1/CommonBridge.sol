@@ -61,7 +61,9 @@ contract CommonBridge is ICommonBridge, Ownable, ReentrancyGuard {
 
         // TODO: Build the tx.
         bytes32 l2MintTxHash = keccak256(abi.encodePacked("dummyl2MintTxHash"));
-        depositLogs.push(keccak256(abi.encodePacked(to, msg.value)));
+        depositLogs.push(
+            keccak256(bytes.concat(bytes20(to), bytes32(msg.value)))
+        );
         emit DepositInitiated(msg.value, to, l2MintTxHash);
     }
 
@@ -73,27 +75,27 @@ contract CommonBridge is ICommonBridge, Ownable, ReentrancyGuard {
     function getDepositLogsVersionedHash(
         uint16 number
     ) public view returns (bytes32) {
+        require(number > 0, "CommonBridge: number is zero (get)");
         require(
-            number < depositLogs.length,
-            "CommonBridge: number is greater than the length of depositLogs"
+            uint256(number) <= depositLogs.length,
+            "CommonBridge: number is greater than the length of depositLogs (get)"
         );
 
         bytes memory logs;
         for (uint i = 0; i < number; i++) {
-            logs = abi.encodePacked(logs, depositLogs[i]);
+            logs = bytes.concat(logs, depositLogs[i]);
         }
 
         return
-            (keccak256(logs) &
-                0x0000ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff) |
-            bytes32(uint256(0x01 << 240));
+            bytes32(bytes2(number)) |
+            bytes32(uint256(uint240(uint256(keccak256(logs)))));
     }
 
     /// @inheritdoc ICommonBridge
     function removeDepositLogs(uint16 number) public onlyOnChainProposer {
         require(
             number <= depositLogs.length,
-            "CommonBridge: number is greater than the length of depositLogs"
+            "CommonBridge: number is greater than the length of depositLogs (remove)"
         );
 
         for (uint i = 0; i < depositLogs.length - number; i++) {

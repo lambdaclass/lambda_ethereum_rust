@@ -70,9 +70,6 @@ contract OnChainProposer is IOnChainProposer, ReentrancyGuard {
                 savedDepositLogs == depositLogs,
                 "OnChainProposer: invalid deposit logs"
             );
-            ICommonBridge(BRIDGE).removeDepositLogs(
-                uint16(bytes2(depositLogs))
-            );
         }
         if (withdrawalsLogsMerkleRoot != bytes32(0)) {
             ICommonBridge(BRIDGE).publishWithdrawals(
@@ -104,7 +101,7 @@ contract OnChainProposer is IOnChainProposer, ReentrancyGuard {
         verifiedBlocks[blockNumber] = true;
         ICommonBridge(BRIDGE).removeDepositLogs(
             // The first 2 bytes are the number of deposits.
-            uint16(uint256(blockCommitments[blockNumber].depositLogs >> 240))
+            uint16(bytes2(blockCommitments[blockNumber].depositLogs))
         );
 
         // Remove previous block commitment as it is no longer needed.
