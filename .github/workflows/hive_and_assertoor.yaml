@@ -1,20 +1,21 @@
-name: Hive & Assertoor
+name: "Hive & Assertoor"
 on:
   merge_group:
   push:
     branches: [main]
   pull_request:
-    branches: ["**"]
-    paths-ignore:
-      - "README.md"
-      - "LICENSE"
+    branches: ["*"]
+    paths-ignore: 
+      - "crates/l2/**"
+      - 'README.md'
+      - 'LICENSE'
       - "**/README.md"
       - "**/docs/**"
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.head_ref || github.run_id }}
   cancel-in-progress: true
- 
+
 env:
   RUST_VERSION: 1.80.1
 
@@ -42,7 +43,7 @@ jobs:
 
   hive-run:
     name: Hive - ${{ matrix.name }}
-    needs: docker-build
+    needs: [docker-build]
     runs-on: ubuntu-latest
     strategy:
       matrix:
@@ -96,6 +97,7 @@ jobs:
 assertoor-run:
     name: Assertoor - Stability Check
     runs-on: ubuntu-latest
+    needs: [docker-build]
     steps:
       - name: Download artifacts
         uses: actions/download-artifact@v4
