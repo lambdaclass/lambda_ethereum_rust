@@ -101,4 +101,17 @@ impl Node {
             Node::Leaf(n) => n.insert_self(path_offset, state),
         }
     }
+
+    /// Obtain the encoded node given its path.
+    pub fn get_node(
+        &self,
+        state: &TrieState,
+        path: NibbleSlice,
+    ) -> Result<Option<Vec<u8>>, TrieError> {
+        match self {
+            Node::Branch(n) => n.get_node(state, path),
+            Node::Extension(n) => n.get_node(state, path),
+            Node::Leaf(n) => n.get_node(path),
+        }
+    }
 }

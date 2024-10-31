@@ -341,6 +341,31 @@ impl BranchNode {
         }
         Ok(())
     }
+
+    /// Obtain the encoded node given its path.
+    pub fn get_node(
+        &self,
+        state: &TrieState,
+        mut path: NibbleSlice,
+    ) -> Result<Option<Vec<u8>>, TrieError> {
+        // If path is at the end, then path must be at self or not exist in the trie.
+        // Otherwise, check the corresponding choice and delegate accordingly if present.
+        if let Some(choice) = path.next().map(usize::from) {
+            // Delegate to children if present
+            let child_hash = &self.choices[choice];
+            if child_hash.is_valid() {
+                let child_node = state
+                    .get_node(child_hash.clone())?
+                    .expect("inconsistent internal tree structure");
+                child_node.get_node(state, path)
+            } else {
+                Ok(None)
+            }
+        } else {
+            // If self is not devoid of path then it must be the node we are looking for
+            Ok((!self.path.is_empty()).then_some(self.encode_raw()))
+        }
+    }
 }
 
 #[cfg(test)]

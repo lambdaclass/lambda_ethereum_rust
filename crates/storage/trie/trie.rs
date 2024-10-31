@@ -182,6 +182,21 @@ impl Trie {
             .unwrap_or(*EMPTY_TRIE_HASH)
     }
 
+    /// Obtain the encoded node given its path.
+    pub fn get_node(&self, path: &PathRLP) -> Result<Option<Vec<u8>>, TrieError> {
+        if let Some(root_node) = self
+            .root
+            .as_ref()
+            .map(|root| self.state.get_node(root.clone()))
+            .transpose()?
+            .flatten()
+        {
+            root_node.get_node(&self.state, NibbleSlice::new(path))
+        } else {
+            Ok(None)
+        }
+    }
+
     #[cfg(all(test, feature = "libmdbx"))]
     /// Creates a new Trie based on a temporary Libmdbx DB
     fn new_temp() -> Self {

@@ -215,6 +215,25 @@ impl ExtensionNode {
         }
         Ok(())
     }
+
+    /// Obtain the encoded node given its path.
+    pub fn get_node(
+        &self,
+        state: &TrieState,
+        mut path: NibbleSlice,
+    ) -> Result<Option<Vec<u8>>, TrieError> {
+        // If the path is prefixed by this node's prefix, delegate to its child.
+        // Otherwise, the path doesn't belong to the trie.
+        if path.skip_prefix(&self.prefix) {
+            let child_node = state
+                .get_node(self.child.clone())?
+                .expect("inconsistent internal tree structure");
+
+            child_node.get_node(state, path)
+        } else {
+            Ok(None)
+        }
+    }
 }
 
 #[cfg(test)]
