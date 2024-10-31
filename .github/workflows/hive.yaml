@@ -1,31 +1,17 @@
 # Runs the specified hive testing suites
 name: Hive
 on:
-  merge_group:
-  push:
-    branches: [main]
-  pull_request:
-    branches: ["*"]
-    paths-ignore: 
-      - "crates/l2/**"
-      - 'README.md'
-      - 'LICENSE'
-      - "**/README.md"
-      - "**/docs/**"
   workflow_run:
     workflows: [Docker]
     types: 
       - completed
-
-concurrency:
-  group: ${{ github.workflow }}-${{ github.head_ref || github.run_id }}
-  cancel-in-progress: true
-
+ 
 env:
   RUST_VERSION: 1.80.1
 
 jobs:
   run-hive:
+    if: ${{ github.event.workflow_run.conclusion == 'success' }}
     name: ${{ matrix.name }}
     runs-on: ubuntu-latest
     strategy:
@@ -46,7 +32,6 @@ jobs:
           - simulation: engine-cancun
             name: "Cancun Engine tests"
             run_command:  make run-hive SIMULATION=ethereum/engine TEST_PATTERN="cancun/Unique Payload ID|ParentHash equals BlockHash on NewPayload|Re-Execute Payload|Payload Build after New Invalid Payload|RPC|Build Payload with Invalid ChainID|Invalid PayloadAttributes, Zero timestamp, Syncing=False|Invalid PayloadAttributes, Parent timestamp, Syncing=False|Invalid PayloadAttributes, Missing BeaconRoot, Syncing=False|Suggested Fee Recipient Test|PrevRandao Opcode Transactions Test|Invalid Missing Ancestor ReOrg, StateRoot"
-    if: ${{ github.event.workflow_run.conclusion == 'success' }}
     steps:
       - name: Download artifacts
         uses: actions/download-artifact@v4
