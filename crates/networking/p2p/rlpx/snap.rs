@@ -63,6 +63,21 @@ pub(crate) struct ByteCodes {
     pub codes: Vec<Bytes>,
 }
 
+#[derive(Debug)]
+pub(crate) struct GetTrieNodes {
+    pub id: u64,
+    pub root_hash: H256,
+    // [[acc_path, slot_path_1, slot_path_2,...]...]
+    pub paths: Vec<Vec<H256>>,
+    pub bytes: u64,
+}
+
+#[derive(Debug)]
+pub(crate) struct TrieNodes {
+    pub id: u64,
+    pub nodes: Vec<Bytes>,
+}
+
 impl RLPxMessage for GetAccountRange {
     fn encode(&self, buf: &mut dyn BufMut) -> Result<(), RLPEncodeError> {
         let mut encoded_data = vec![];
@@ -259,6 +274,69 @@ impl RLPxMessage for ByteCodes {
         decoder.finish()?;
 
         Ok(Self { id, codes })
+    }
+}
+
+impl RLPxMessage for GetTrieNodes {
+    fn encode(&self, buf: &mut dyn BufMut) -> Result<(), RLPEncodeError> {
+        let mut encoded_data = vec![];
+        Encoder::new(&mut encoded_data)
+            .encode_field(&self.id)
+            .encode_field(&self.root_hash)
+            .encode_field(&self.paths)
+            .encode_field(&self.bytes)
+            .finish();
+
+        let msg_data = snappy_encode(encoded_data)?;
+        buf.put_slice(&msg_data);
+        Ok(())
+    }
+
+    fn decode(msg_data: &[u8]) -> Result<Self, RLPDecodeError> {
+        let mut snappy_decoder = SnappyDecoder::new();
+        let decompressed_data = snappy_decoder
+            .decompress_vec(msg_data)
+            .map_err(|e| RLPDecodeError::Custom(e.to_string()))?;
+        let decoder = Decoder::new(&decompressed_data)?;
+        let (id, decoder) = decoder.decode_field("request-id")?;
+        let (root_hash, decoder) = decoder.decode_field("root_hash")?;
+        let (paths, decoder) = decoder.decode_field("paths")?;
+        let (bytes, decoder) = decoder.decode_field("bytes")?;
+        decoder.finish()?;
+
+        Ok(Self {
+            id,
+            root_hash,
+            paths,
+            bytes,
+        })
+    }
+}
+
+impl RLPxMessage for TrieNodes {
+    fn encode(&self, buf: &mut dyn BufMut) -> Result<(), RLPEncodeError> {
+        let mut encoded_data = vec![];
+        Encoder::new(&mut encoded_data)
+            .encode_field(&self.id)
+            .encode_field(&self.nodes)
+            .finish();
+
+        let msg_data = snappy_encode(encoded_data)?;
+        buf.put_slice(&msg_data);
+        Ok(())
+    }
+
+    fn decode(msg_data: &[u8]) -> Result<Self, RLPDecodeError> {
+        let mut snappy_decoder = SnappyDecoder::new();
+        let decompressed_data = snappy_decoder
+            .decompress_vec(msg_data)
+            .map_err(|e| RLPDecodeError::Custom(e.to_string()))?;
+        let decoder = Decoder::new(&decompressed_data)?;
+        let (id, decoder) = decoder.decode_field("request-id")?;
+        let (nodes, decoder) = decoder.decode_field("nodes")?;
+        decoder.finish()?;
+
+        Ok(Self { id, nodes })
     }
 }
 
