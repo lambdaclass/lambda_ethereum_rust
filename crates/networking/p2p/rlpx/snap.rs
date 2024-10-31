@@ -68,7 +68,8 @@ pub(crate) struct GetTrieNodes {
     pub id: u64,
     pub root_hash: H256,
     // [[acc_path, slot_path_1, slot_path_2,...]...]
-    pub paths: Vec<Vec<H256>>,
+    // The paths can be either full paths (hash) or only the partial path (bytes)
+    pub paths: Vec<Vec<Bytes>>,
     pub bytes: u64,
 }
 

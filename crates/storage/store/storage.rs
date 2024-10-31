@@ -756,13 +756,15 @@ impl Store {
 
     /// Receives the root of the state trie and a list of paths where the first path will correspond to a path in the state trie
     /// (aka a hashed account address) and the following paths will be paths in the accoun's storage trie (aka hashed storage keys)
-    /// Returns a list of encoded nodes where the first one will be the state trie's node where the account is stored and the following
-    /// ones will be the nodes of the storage trie where each storage key is stored. Missing nodes will be skipped.
+    /// If only one hash (account) is received, then the state trie node containing the account will be returned.
+    /// If more than one hash is received, then the storage trie nodes where each storage key is stored will be returned
+    /// Missing nodes will be skipped.
     /// For more information check out snap capability message [`GetTrieNodes`](https://github.com/ethereum/devp2p/blob/master/caps/snap.md#gettrienodes-0x06)
+    /// The paths can be either full paths (hash) or partial paths (bytes), if a partial path is given for the account this method will not return storage nodes for it (TODO: FIX)
     pub fn get_trie_nodes(
         &self,
         state_root: H256,
-        paths: Vec<H256>,
+        paths: Vec<Vec<u8>>,
         byte_limit: u64,
     ) -> Result<Vec<Vec<u8>>, StoreError> {
         let Some(account_path) = paths.first() else {
@@ -770,30 +772,36 @@ impl Store {
         };
         let mut bytes_used = 0;
         let state_trie = self.engine.open_state_trie(state_root);
-        // Fetch state trie node
-        let Some(node) = state_trie.get_node(&account_path.0.to_vec())? else {
-            return Ok(vec![]);
-        };
-        bytes_used += node.len() as u64;
-        let mut nodes = vec![node];
-
+        // State Trie Nodes Request
+        if paths.len() == 1 {
+            // Fetch state trie node
+            let Some(node) = state_trie.get_node(&account_path)? else {
+                return Ok(vec![]);
+            };
+            return Ok(vec![node]);
+        }
+        // Storage Trie Nodes Request
+        let mut nodes = vec![];
         let Some(account_state) = state_trie
-            .get(&account_path.0.to_vec())?
+            .get(&account_path)?
             .map(|ref rlp| AccountState::decode(rlp))
             .transpose()?
         else {
-            // We already fetched the node containing the account so we should be able to fetch the account
             return Ok(vec![]);
+        };
+        // We can't access the storage trie without the account's address hash (TODO: FIX THIS)
+        let Ok(hashed_address) = account_path.clone().try_into().map(H256) else {
+            return Ok(nodes);
         };
         let storage_trie = self
             .engine
-            .open_storage_trie(*account_path, account_state.storage_root);
+            .open_storage_trie(hashed_address, account_state.storage_root);
         // Fetch storage trie nodes
         for path in paths.iter().skip(1) {
             if bytes_used >= byte_limit {
                 break;
             }
-            if let Some(node) = storage_trie.get_node(&path.0.to_vec())? {
+            if let Some(node) = storage_trie.get_node(path)? {
                 bytes_used += node.len() as u64;
                 nodes.push(node);
             }

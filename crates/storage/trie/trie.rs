@@ -183,7 +183,17 @@ impl Trie {
     }
 
     /// Obtain the encoded node given its path.
+    /// Allows usage of partial paths
     pub fn get_node(&self, path: &PathRLP) -> Result<Option<Vec<u8>>, TrieError> {
+        if path.is_empty() {
+            return Ok(None);
+        }
+        println!("Getting node with path: {:?}", path);
+        let path = if path == &vec![0] {
+            NibbleSlice::new(&[])
+        } else {
+            NibbleSlice::new(path)
+        };
         if let Some(root_node) = self
             .root
             .as_ref()
@@ -191,7 +201,10 @@ impl Trie {
             .transpose()?
             .flatten()
         {
-            root_node.get_node(&self.state, NibbleSlice::new(path))
+            println!("Node: {:?}", root_node);
+            let res = root_node.get_node(&self.state, path)?;
+            println!("Node: {:?}", res);
+            Ok(res)
         } else {
             Ok(None)
         }

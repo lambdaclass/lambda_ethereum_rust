@@ -126,10 +126,10 @@ async fn main() {
         let size = blocks.len();
         for block in &blocks {
             let hash = block.header.compute_block_hash();
-            info!(
-                "Adding block {} with hash {:#x}.",
-                block.header.number, hash
-            );
+            // info!(
+            //     "Adding block {} with hash {:#x}.",
+            //     block.header.number, hash
+            // );
             let result = add_block(block, &store);
             if let Some(error) = result.err() {
                 warn!(

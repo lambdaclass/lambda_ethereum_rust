@@ -362,8 +362,11 @@ impl BranchNode {
                 Ok(None)
             }
         } else {
-            // If self is not devoid of path then it must be the node we are looking for
-            Ok((!self.path.is_empty()).then_some(self.encode_raw()))
+            if path.len() == 0 || self.path == path.data() {
+                Ok(Some(self.encode_raw()))
+            } else {
+                Ok(None)
+            }
         }
     }
 }
