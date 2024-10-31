@@ -198,7 +198,7 @@ impl RpcHandler for GetProofRequest {
             "Requested proof for account {} at block {} with storage keys: {:?}",
             self.address, self.block, self.storage_keys
         );
-        let Some(block_number) = self.block.resolve_block_number(&storage)? else {
+        let Some(block_number) = self.block.resolve_block_number(storage)? else {
             return Ok(Value::Null);
         };
         // Create account proof

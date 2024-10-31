@@ -80,7 +80,7 @@ impl RpcHandler for FeeHistoryRequest {
         }
 
         let (start_block, end_block) =
-            Self::get_range(&storage, self.block_count, &self.newest_block)?;
+            Self::get_range(storage, self.block_count, &self.newest_block)?;
         let oldest_block = start_block;
         let block_count = (end_block - start_block) as usize;
         let mut base_fee_per_gas = Vec::<u64>::with_capacity(block_count + 1);

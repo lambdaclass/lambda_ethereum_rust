@@ -115,7 +115,7 @@ impl RpcHandler for NewPayloadV3Request {
 
         // Execute and store the block
         info!("Executing payload with block hash: {block_hash:#x}");
-        let payload_status = match add_block(&block, &storage) {
+        let payload_status = match add_block(&block, storage) {
             Err(ChainError::ParentNotFound) => Ok(PayloadStatus::syncing()),
             // Under the current implementation this is not possible: we always calculate the state
             // transition of any new payload as long as the parent is present. If we received the

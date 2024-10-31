@@ -276,7 +276,7 @@ impl RpcHandler for GetTransactionReceiptRequest {
             None => return Ok(Value::Null),
         };
         let receipts =
-            block::get_all_block_rpc_receipts(block_number, block.header, block.body, &storage)?;
+            block::get_all_block_rpc_receipts(block_number, block.header, block.body, storage)?;
         serde_json::to_value(receipts.get(index as usize))
             .map_err(|error| RpcErr::Internal(error.to_string()))
     }
@@ -469,7 +469,7 @@ impl RpcHandler for EstimateGasRequest {
             highest_gas_limit = recap_with_account_balances(
                 highest_gas_limit,
                 &self.transaction,
-                &storage,
+                storage,
                 block_header.number,
             )?;
         }
