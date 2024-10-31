@@ -27,7 +27,6 @@ use lambdaworks_math::{
     },
     msm::pippenger::msm,
     traits::ByteConversion,
-    unsigned_integer::element::UnsignedInteger,
 };
 use libsecp256k1::SecretKey;
 use state_diff::{AccountStateDiff, DepositLog, StateDiff, WithdrawalLog};
@@ -98,12 +97,12 @@ pub async fn start_proposer(store: Store) {
 fn load_g1_points(
     path: &str,
 ) -> Result<Vec<ShortWeierstrassProjectivePoint<BLS12381Curve>>, ProposerError> {
-    let file = File::open(path).unwrap();
+    let file = File::open(path).map_err(ProposerError::from)?;
     let mut reader = BufReader::new(file);
     let mut g1_points = vec![];
     let mut buf = [0u8; 48];
     while reader.read_exact(&mut buf).is_ok() {
-        g1_points.push(BLS12381Curve::decompress_g1_point(&mut buf).unwrap());
+        g1_points.push(BLS12381Curve::decompress_g1_point(&mut buf).map_err(ProposerError::from)?);
     }
 
     Ok(g1_points)
@@ -112,12 +111,12 @@ fn load_g1_points(
 fn load_g2_points(
     path: &str,
 ) -> Result<Vec<ShortWeierstrassProjectivePoint<BLS12381TwistCurve>>, ProposerError> {
-    let file = File::open(path).unwrap();
+    let file = File::open(path).map_err(ProposerError::from)?;
     let mut reader = BufReader::new(file);
     let mut buf = [0u8; 96];
     let mut g2_points = vec![];
     while reader.read_exact(&mut buf).is_ok() {
-        g2_points.push(BLS12381Curve::decompress_g2_point(&mut buf).unwrap());
+        g2_points.push(BLS12381Curve::decompress_g2_point(&mut buf).map_err(ProposerError::from)?);
     }
 
     Ok(g2_points)
@@ -176,7 +175,7 @@ impl Proposer {
             let deposit_logs_hash = self.get_deposit_hash(
                 deposits
                     .iter()
-                    .map(|tx| tx.get_deposit_hash().unwrap())
+                    .filter_map(|tx| tx.get_deposit_hash())
                     .collect(),
             );
 
@@ -375,7 +374,7 @@ impl Proposer {
         info!("Preparing state diff for block {}", block.header.number);
 
         let mut state = evm_state(store.clone(), block.header.parent_hash);
-        execute_block(block, &mut state).unwrap();
+        execute_block(block, &mut state).map_err(ProposerError::from)?;
         let account_updates = get_state_transitions(&mut state);
 
         let mut modified_accounts = HashMap::new();
@@ -431,30 +430,34 @@ impl Proposer {
     ) -> Result<[u8; 48], ProposerError> {
         let blob_data = state_diff.encode().map_err(ProposerError::from)?;
 
-        let field_elements = blob_data
+        let mut field_elements = vec![];
+        blob_data
             .chunks(32)
-            .map(|x| {
-                if x.len() < 32 {
-                    let mut y = [0u8; 32];
-                    y[..x.len()].copy_from_slice(x);
-                    FrElement::from_bytes_be(&y).unwrap().representative()
+            .try_for_each::<_, Result<(), ProposerError>>(|chunk| {
+                let x = if chunk.len() < 32 {
+                    let mut padded = [0u8; 32];
+                    padded[..chunk.len()].copy_from_slice(chunk);
+                    &padded.clone()
                 } else {
-                    FrElement::from_bytes_be(x).unwrap().representative()
-                }
-            })
-            .collect::<Vec<UnsignedInteger<4>>>();
+                    chunk
+                };
+                field_elements.push(
+                    FrElement::from_bytes_be(x)
+                        .map_err(ProposerError::from)?
+                        .representative(),
+                );
+                Ok(())
+            })?;
+
         if field_elements.len() > 4096 {
-            return Err(ProposerError::FailedToProduceBlock(
-                "field_elements length is greater than 4096".to_string(),
-            ));
+            return Err(ProposerError::BlobTooLong);
         }
 
         let commitment = BLS12381Curve::compress_g1_point(
             &msm(
                 field_elements.iter().as_slice(),
                 &self.srs.powers_main_group[..field_elements.len()],
-            )
-            .expect("`points` is sliced by `cs`'s length")
+            )?
             .to_affine(),
         );
 
