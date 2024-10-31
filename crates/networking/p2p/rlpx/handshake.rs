@@ -306,8 +306,6 @@ impl RLPDecode for AckMessage {
     }
 }
 
-// TODO fix this test now that RLPxClient does no longer exist
-// https://github.com/lambdaclass/lambda_ethereum_rust/issues/843
 #[cfg(test)]
 mod tests {
     use std::str::FromStr;
