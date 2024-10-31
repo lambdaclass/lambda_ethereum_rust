@@ -12,23 +12,35 @@ use ethereum_rust_l2::{
     utils::config::prover_client::ProverClientConfig,
 };
 
+use crate::utils::prover_state::{self, persist_block_in_prover_state, read_block_in_prover_state};
+
 use super::prover::Prover;
 
 pub async fn start_proof_data_client(config: ProverClientConfig) {
-    let mut proof_data_client = ProverClient::new(config.prover_server_endpoint.clone());
+    let mut proof_data_client = ProverClient::new(config);
     proof_data_client.start().await;
 }
 
 struct ProverClient {
     prover_server_endpoint: String,
+    prover_state_file_path: String,
     block_number_to_request: u64,
 }
 
 impl ProverClient {
-    pub fn new(prover_server_endpoint: String) -> Self {
-        let block_number_to_request: u64 = 1;
+    pub fn new(config: ProverClientConfig) -> Self {
+        let prover_state_file_path = config
+            .prover_state_file_path
+            // TODO: rm unwrap
+            .unwrap_or_else(|| prover_state::get_default_prover_state_file_path().unwrap());
+
+        let block_number_to_request = match read_block_in_prover_state(&prover_state_file_path) {
+            Ok(ps) => ps.block_header.number,
+            Err(_) => 1,
+        };
         Self {
-            prover_server_endpoint,
+            prover_server_endpoint: config.prover_server_endpoint,
+            prover_state_file_path,
             block_number_to_request,
         }
     }
@@ -100,10 +112,16 @@ impl ProverClient {
             .map_err(|e| format!("Failed to get SubmitAck: {e}"))?;
 
         match submit_ack {
-            ProofData::SubmitAck { block_number } => {
-                info!("Received submit ack for block_number: {block_number}");
+            ProofData::SubmitAck { block_header } => {
+                info!(
+                    "Received submit ack for block_number: {}",
+                    block_header.number
+                );
                 // After submission, add 1 so that in the next request, the prover_client receives the subsequent block.
                 self.block_number_to_request += 1;
+                // Persist the State
+                persist_block_in_prover_state(&self.prover_state_file_path, block_header)
+                    .map_err(|e| format!("Error while persisting state: {e}"))?;
                 Ok(())
             }
             _ => Err(format!("Expecting ProofData::SubmitAck {submit_ack:?}")),

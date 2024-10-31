@@ -71,7 +71,7 @@ pub enum ProofData {
     /// 4.
     /// The Server acknowledges the receipt of the proof and updates its state,
     /// enabling the Client to also update its state and request the next block.
-    SubmitAck { block_number: u64 },
+    SubmitAck { block_header: BlockHeader },
 }
 
 struct ProverServer {
@@ -192,6 +192,9 @@ impl ProverServer {
             receipt
         );
 
+        // TODO: remove unwrap
+        let block_header = self.store.get_block_header(block_number).unwrap().unwrap();
+
         // TODO: Verify the groth16 proof on chain.
         // helpful links:
         // https://docs.rs/risc0-zkvm/1.1.2/risc0_zkvm/struct.Groth16Receipt.html
@@ -201,7 +204,7 @@ impl ProverServer {
         // receipt.inner.groth16().unwrap();
         // Many implementations make use of Bonsai, check if it is strictly necessary.
 
-        let response = ProofData::SubmitAck { block_number };
+        let response = ProofData::SubmitAck { block_header };
         let writer = BufWriter::new(stream);
         serde_json::to_writer(writer, &response).map_err(|e| e.to_string())
     }
