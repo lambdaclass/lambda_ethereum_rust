@@ -4,9 +4,9 @@ use ethereum_rust_blockchain::{
     latest_canonical_block_hash,
     payload::{create_payload, BuildPayloadArgs},
 };
-use ethereum_rust_core::types::BlockHash;
 use serde_json::Value;
-use tracing::{info, warn};
+use tokio::sync::mpsc::error::SendError;
+use tracing::{error, info, warn};
 
 use crate::{
     types::{
@@ -92,7 +92,10 @@ impl RpcHandler for ForkChoiceUpdatedV3 {
             Ok(head) => head,
             Err(error) => {
                 if let InvalidForkChoice::SyncingFromHead(hash) = error {
-                    trigger_sync(hash);
+                    if let Err(SendError(_)) = context.sync_client.send(hash) {
+                        let e = format!("Error starting sync process {}", hash);
+                        error!(e);
+                    }
                 }
                 return fork_choice_error_to_response(error);
             }
@@ -144,15 +147,4 @@ impl RpcHandler for ForkChoiceUpdatedV3 {
 
         serde_json::to_value(response).map_err(|error| RpcErr::Internal(error.to_string()))
     }
-}
-
-// Trigger a backfill sync from the block until we find a valid block that we're familiar with or
-// something goes wrong.
-fn trigger_sync(head_block: BlockHash) {
-    // TODO(#438): add immediate reorg if all needed blocks are pending.
-
-    info!(
-        "A sync for block {} should be triggered but it's not yet supported.",
-        head_block
-    );
 }

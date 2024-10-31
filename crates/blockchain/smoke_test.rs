@@ -89,7 +89,10 @@ mod blockchain_integration_test {
         assert!(store.get_pending_block(hash_2).unwrap().is_some());
 
         let fc_result = apply_fork_choice(&store, hash_2, H256::zero(), H256::zero());
-        assert!(matches!(fc_result, Err(InvalidForkChoice::Syncing)));
+        assert!(matches!(
+            fc_result,
+            Err(InvalidForkChoice::SyncingFromHead(_))
+        ));
 
         // block 2 should still be pending.
         assert!(store.get_pending_block(hash_2).unwrap().is_some());

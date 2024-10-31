@@ -272,7 +272,7 @@ mod tests {
         types::block_identifier::BlockIdentifier,
         utils::{test_utils::example_p2p_node, RpcRequest},
     };
-    use ethereum_rust_core::types::Genesis;
+    use ethereum_rust_core::types::{BlockHash, Genesis};
     use ethereum_rust_storage::{EngineType, Store};
 
     use serde_json::{json, Value};
@@ -436,12 +436,15 @@ mod tests {
         json_req: serde_json::Value,
         filters_pointer: ActiveFilters,
     ) -> u64 {
+        let (sync_client, _) = tokio::sync::mpsc::unbounded_channel::<BlockHash>();
+
         let context = RpcApiContext {
             storage: Store::new("in-mem", EngineType::InMemory)
                 .expect("Fatal: could not create in memory test db"),
             jwt_secret: Default::default(),
             local_p2p_node: example_p2p_node(),
             active_filters: filters_pointer.clone(),
+            sync_client,
         };
         let request: RpcRequest = serde_json::from_value(json_req).expect("Test json is incorrect");
         let genesis_config: Genesis =
@@ -488,12 +491,15 @@ mod tests {
                 },
             ),
         );
+        let (sync_client, _) = tokio::sync::mpsc::unbounded_channel::<BlockHash>();
+
         let active_filters = Arc::new(Mutex::new(HashMap::from([filter])));
         let context = RpcApiContext {
             storage: Store::new("in-mem", EngineType::InMemory).unwrap(),
             local_p2p_node: example_p2p_node(),
             jwt_secret: Default::default(),
             active_filters: active_filters.clone(),
+            sync_client,
         };
 
         map_http_requests(&uninstall_filter_req, context).unwrap();
@@ -508,11 +514,14 @@ mod tests {
     fn removing_non_existing_filter_returns_false() {
         let active_filters = Arc::new(Mutex::new(HashMap::new()));
 
+        let (sync_client, _) = tokio::sync::mpsc::unbounded_channel::<BlockHash>();
+
         let context = RpcApiContext {
             storage: Store::new("in-mem", EngineType::InMemory).unwrap(),
             local_p2p_node: example_p2p_node(),
             active_filters: active_filters.clone(),
             jwt_secret: Default::default(),
+            sync_client,
         };
         let uninstall_filter_req: RpcRequest = serde_json::from_value(json!(
         {

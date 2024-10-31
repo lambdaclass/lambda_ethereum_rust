@@ -1,7 +1,4 @@
-use ethereum_rust_core::{
-    types::{BlockHash, InvalidBlockHeaderError},
-    H256,
-};
+use ethereum_rust_core::types::{BlockHash, InvalidBlockHeaderError};
 use ethereum_rust_storage::error::StoreError;
 use ethereum_rust_vm::EvmError;
 

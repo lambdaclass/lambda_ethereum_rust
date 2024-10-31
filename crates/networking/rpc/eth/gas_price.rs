@@ -98,8 +98,8 @@ mod tests {
     use ethereum_rust_blockchain::constants::MIN_GAS_LIMIT;
     use ethereum_rust_core::{
         types::{
-            Block, BlockBody, BlockHeader, EIP1559Transaction, Genesis, LegacyTransaction,
-            Transaction, TxKind,
+            Block, BlockBody, BlockHash, BlockHeader, EIP1559Transaction, Genesis,
+            LegacyTransaction, Transaction, TxKind,
         },
         Address, Bloom, H256, U256,
     };
@@ -363,6 +363,8 @@ mod tests {
     }
 
     fn default_context() -> RpcApiContext {
+        let (sync_client, _) = tokio::sync::mpsc::unbounded_channel::<BlockHash>();
+
         RpcApiContext {
             storage: setup_store(),
             jwt_secret: Default::default(),
@@ -373,6 +375,7 @@ mod tests {
                 node_id: Default::default(),
             },
             active_filters: Default::default(),
+            sync_client,
         }
     }
 }

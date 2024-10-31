@@ -330,12 +330,14 @@ mod tests {
         let storage =
             Store::new("temp.db", EngineType::InMemory).expect("Failed to create test DB");
         storage.set_chain_config(&example_chain_config()).unwrap();
+        let (sync_client, _) = tokio::sync::mpsc::unbounded_channel::<BlockHash>();
+
         let context = RpcApiContext {
             local_p2p_node,
             storage,
             jwt_secret: Default::default(),
             active_filters: Default::default(),
-            sync_client: Default::default(),
+            sync_client,
         };
         let result = map_http_requests(&request, context);
         let rpc_response = rpc_response(request.id, result);
@@ -368,11 +370,14 @@ mod tests {
             .expect("Failed to add genesis block to DB");
         let local_p2p_node = example_p2p_node();
         // Process request
+        let (sync_client, _) = tokio::sync::mpsc::unbounded_channel::<BlockHash>();
+
         let context = RpcApiContext {
             local_p2p_node,
             storage,
             jwt_secret: Default::default(),
             active_filters: Default::default(),
+            sync_client,
         };
         let result = map_http_requests(&request, context);
         let response = rpc_response(request.id, result);
@@ -397,11 +402,14 @@ mod tests {
             .expect("Failed to add genesis block to DB");
         let local_p2p_node = example_p2p_node();
         // Process request
+        let (sync_client, _) = tokio::sync::mpsc::unbounded_channel::<BlockHash>();
+
         let context = RpcApiContext {
             local_p2p_node,
             storage,
             jwt_secret: Default::default(),
             active_filters: Default::default(),
+            sync_client,
         };
         let result = map_http_requests(&request, context);
         let response =

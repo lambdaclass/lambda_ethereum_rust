@@ -8,7 +8,6 @@ use crate::{
     error::{self, InvalidForkChoice},
     is_canonical,
 };
-use tracing::error;
 
 /// Applies new fork choice data to the current blockchain. It performs validity checks:
 /// - The finalized, safe and head hashes must correspond to already saved blocks.
