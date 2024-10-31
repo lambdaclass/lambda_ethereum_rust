@@ -25,9 +25,6 @@ env:
   RUST_VERSION: 1.80.1
 
 jobs:
-  docker-build:
-    uses: ./.github/workflows/build.yaml
-
   run-hive:
     name: ${{ matrix.name }}
     needs: [docker-build]
