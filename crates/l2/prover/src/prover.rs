@@ -5,7 +5,6 @@ use tracing::info;
 use zkvm_interface::methods::{ZKVM_PROGRAM_ELF, ZKVM_PROGRAM_ID};
 
 use risc0_zkvm::{default_prover, ExecutorEnv, ExecutorEnvBuilder, ProverOpts};
-use risc0_zkvm::{default_prover, ExecutorEnv, ExecutorEnvBuilder, ProverOpts};
 
 use ethereum_rust_core::types::Receipt;
 use ethereum_rust_l2::{
@@ -51,12 +50,10 @@ impl<'a> Prover<'a> {
     pub fn set_input(&mut self, input: ProverInputData) -> &mut Self {
         let head_block_rlp = input.block.encode_to_vec();
         let parent_header_rlp = input.parent_header.encode_to_vec();
-        let parent_header_rlp = input.parent_header.encode_to_vec();
 
         // We should pass the inputs as a whole struct
         self.env_builder.write(&head_block_rlp).unwrap();
         self.env_builder.write(&input.db).unwrap();
-        self.env_builder.write(&parent_header_rlp).unwrap();
         self.env_builder.write(&parent_header_rlp).unwrap();
 
         self
