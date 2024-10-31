@@ -19,8 +19,6 @@ pub(crate) enum Message {
     Pong(PongMessage),
     Status(StatusMessage),
     // https://github.com/ethereum/devp2p/blob/5713591d0366da78a913a811c7502d9ca91d29a8/caps/eth.md#getblockheaders-0x03
-    // FIXME: Choose a better name, or use
-    // a flat struct.
     GetBlockHeaders(GetBlockHeaders),
     BlockHeaders(BlockHeaders),
 }
@@ -32,7 +30,7 @@ impl Message {
             0x01 => Ok(Message::Disconnect(DisconnectMessage::decode(msg_data)?)),
             0x02 => Ok(Message::Ping(PingMessage::decode(msg_data)?)),
             0x03 => Ok(Message::Pong(PongMessage::decode(msg_data)?)),
-            // Subprotocols like eth use offsets to identify
+            // Subprotocols like 'eth' use offsets to identify
             // themselves, the eth capability starts
             // at 0x10 (16), the status message
             // has offset 0, so a message with id 0x10
@@ -70,8 +68,8 @@ impl Display for Message {
             Message::Ping(_) => "p2p:Ping".fmt(f),
             Message::Pong(_) => "p2p:Pong".fmt(f),
             Message::Status(_) => "eth:Status".fmt(f),
-            Message::GetBlockHeaders(_) => "eth.getBlockHeaders".fmt(f),
-            Message::BlockHeaders(_) => "eth.BlockHeaders".fmt(f),
+            Message::GetBlockHeaders(_) => "eth:getBlockHeaders".fmt(f),
+            Message::BlockHeaders(_) => "eth:BlockHeaders".fmt(f),
         }
     }
 }

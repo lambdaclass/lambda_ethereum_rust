@@ -56,7 +56,6 @@ impl RLPDecode for HashOrNumber {
 pub(crate) struct GetBlockHeaders {
     // id is a u64 chosen by the requesting peer, the responding peer must mirror the value for the response
     // https://github.com/ethereum/devp2p/blob/master/caps/eth.md#protocol-messages
-    // FIXME: Maybe make these private again?
     pub id: u64,
     pub startblock: HashOrNumber,
     pub limit: u64,
@@ -106,7 +105,7 @@ impl GetBlockHeaders {
                 current_block += block_skip
             }
         }
-        return headers;
+        headers
     }
 }
 

@@ -1,9 +1,6 @@
 use crate::{
     rlpx::{
-        eth::{
-            backend,
-            blocks::BlockHeaders,
-        },
+        eth::{backend, blocks::BlockHeaders},
         handshake::encode_ack_message,
         message::Message,
         p2p,

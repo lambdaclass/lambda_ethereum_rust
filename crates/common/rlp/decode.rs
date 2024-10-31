@@ -45,7 +45,7 @@ impl RLPDecode for bool {
 
 impl RLPDecode for u8 {
     fn decode_unfinished(rlp: &[u8]) -> Result<(Self, &[u8]), RLPDecodeError> {
-        let first_byte = rlp.get(0).ok_or(RLPDecodeError::InvalidLength)?;
+        let first_byte = rlp.first().ok_or(RLPDecodeError::InvalidLength)?;
         match first_byte {
             // Single byte in the range [0x00, 0x7f]
             0..=0x7f => {
@@ -353,7 +353,6 @@ impl<
         if !is_list {
             return Err(RLPDecodeError::MalformedData);
         }
-        // FIXME: Remove the prints
         let (first, first_rest) = T1::decode_unfinished(payload)?;
         let (second, second_rest) = T2::decode_unfinished(first_rest)?;
         let (third, third_rest) = T3::decode_unfinished(second_rest)?;
