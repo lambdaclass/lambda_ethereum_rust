@@ -8,5 +8,5 @@ pub fn version(_req: &RpcRequest, store: Store) -> Result<Value, RpcErr> {
         .get_chain_config()
         .map_err(|error| RpcErr::Internal(error.to_string()))?;
     serde_json::to_value(format!("{}", chain_spec.chain_id))
-            .map_err(|error| RpcErr::Internal(error.to_string()))
+        .map_err(|error| RpcErr::Internal(error.to_string()))
 }
