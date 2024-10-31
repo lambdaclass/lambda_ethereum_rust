@@ -36,13 +36,16 @@ impl LevmDatabase for StoreWrapper {
         self.store
             .get_storage_at_hash(self.block_hash, address, key)
             .unwrap()
-            .unwrap()
+            .unwrap_or_default()
     }
 
     fn get_block_hash(&self, block_number: u64) -> Option<CoreH256> {
-        let a = self.store.get_block_header(block_number).unwrap().unwrap();
+        let a = self.store.get_block_header(block_number).unwrap();
 
-        Some(CoreH256::from(a.compute_block_hash().0))
+        match a {
+            None => None,
+            Some(a) => Some(CoreH256::from(a.compute_block_hash().0))
+        }
     }
 }
 
