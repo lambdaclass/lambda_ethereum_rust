@@ -1,19 +1,8 @@
 # Runs the specified hive testing suites
 name: Hive
 on:
-  merge_group:
-  push:
-    branches: [main]
-  pull_request:
-    branches: ["*"]
-    paths-ignore: 
-      - "crates/l2/**"
-      - 'README.md'
-      - 'LICENSE'
-      - "**/README.md"
-      - "**/docs/**"
   workflow_run:
-    workflows: ["Docker Image"]
+    workflows: [Docker Image]
     types: 
       - completed
 
@@ -27,7 +16,7 @@ env:
 jobs:
   run-hive:
     name: ${{ matrix.name }}
-    needs: [docker-build]
+    if: ${{ github.event.workflow_run.conclusion == 'success' }}
     runs-on: ubuntu-latest
     strategy:
       matrix:
