@@ -32,7 +32,7 @@ use revm::{
 use revm_inspectors::access_list::AccessListInspector;
 // Rename imported types for clarity
 use revm_primitives::{
-    ruint::Uint, AccessList as RevmAccessList, AccessListItem, Bytes, Env, FixedBytes,
+    ruint::Uint, AccessList as RevmAccessList, AccessListItem, Bytes, FixedBytes,
     TxKind as RevmTxKind,
 };
 // Export needed types
