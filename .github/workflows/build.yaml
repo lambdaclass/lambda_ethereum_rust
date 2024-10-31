@@ -20,7 +20,7 @@ env:
 
 jobs:
   build-and-upload:
-    name: Build Docker image
+    name: Build and Upload image
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
