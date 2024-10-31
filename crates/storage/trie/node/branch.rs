@@ -341,6 +341,34 @@ impl BranchNode {
         }
         Ok(())
     }
+
+    /// Traverses own subtrie until reaching the node containing `path`
+    /// Appends all nodes traversed to `node_path` (including self)
+    /// Only nodes with encoded len over or equal to 32 bytes are included
+    pub fn get_path(
+        &self,
+        state: &TrieState,
+        mut path: NibbleSlice,
+        node_path: &mut Vec<Node>,
+    ) -> Result<(), TrieError> {
+        // Add self to node_path (if not inlined in parent)
+        let encoded = self.encode_raw();
+        if encoded.len() >= 32 {
+            node_path.push(Node::Branch(self.clone()));
+        };
+        // Check the corresponding choice and delegate accordingly if present.
+        if let Some(choice) = path.next().map(usize::from) {
+            // Continue to child
+            let child_hash = &self.choices[choice];
+            if child_hash.is_valid() {
+                let child_node = state
+                    .get_node(child_hash.clone())?
+                    .expect("inconsistent internal tree structure");
+                child_node.get_path(state, path, node_path)?;
+            }
+        }
+        Ok(())
+    }
 }
 
 #[cfg(test)]

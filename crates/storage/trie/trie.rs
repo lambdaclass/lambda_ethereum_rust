@@ -165,6 +165,33 @@ impl Trie {
         Ok(node_path)
     }
 
+    /// Obtain a merkle proof for the given path.
+    /// The proof will contain all the nodes traversed until reaching the node where the path is stored (including this last node).
+    /// The proof will still be constructed even if the path is not stored in the trie, proving its absence.
+    pub fn get_proof(&self, path: &PathRLP) -> Result<Vec<Vec<u8>>, TrieError> {
+        // Will store all the encoded nodes traversed until reaching the node containing the path
+        let mut node_path = Vec::new();
+        let Some(root) = &self.root else {
+            return Ok(node_path);
+        };
+        // If the root is inlined, add it to the node_path
+        if let NodeHash::Inline(node) = root {
+            node_path.push(node);
+        }
+        let root_node = self
+            .state
+            .get_node(root.clone())?
+            .expect("inconsistent tree structure");
+        root_node.get_encoded_path(&self.state, NibbleSlice::new(path), &mut node_path)?;
+        Ok(node_path)
+    }
+
+    pub fn verify_proof(&self, proof: Vec<Vec<u8>>) -> Result<bool, TrieError> {
+        for encoded_node in proof.iter().rev() {
+            let hash = NodeHash::from_encoded_raw(encoded_node);
+        }
+    }
+
     /// Builds an in-memory trie from the given elements and returns its hash
     pub fn compute_hash_from_unsorted_iter(
         iter: impl Iterator<Item = (PathRLP, ValueRLP)>,
