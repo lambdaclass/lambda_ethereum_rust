@@ -102,7 +102,7 @@ fn load_g1_points(
     let mut reader = BufReader::new(file);
     let mut g1_points = vec![];
     let mut buf = [0u8; 48];
-    while let Ok(_) = reader.read_exact(&mut buf) {
+    while reader.read_exact(&mut buf).is_ok() {
         g1_points.push(BLS12381Curve::decompress_g1_point(&mut buf).unwrap());
     }
 
@@ -116,7 +116,7 @@ fn load_g2_points(
     let mut reader = BufReader::new(file);
     let mut buf = [0u8; 96];
     let mut g2_points = vec![];
-    while let Ok(_) = reader.read_exact(&mut buf) {
+    while reader.read_exact(&mut buf).is_ok() {
         g2_points.push(BLS12381Curve::decompress_g2_point(&mut buf).unwrap());
     }
 
@@ -171,9 +171,8 @@ impl Proposer {
             let withdrawals = self.get_block_withdrawals(&block)?;
             let deposits = self.get_block_deposits(&block)?;
 
-            let withdrawal_logs_merkle_root = self.get_withdrawals_merkle_root(
-                withdrawals.iter().map(|(hash, _tx)| hash.clone()).collect(),
-            );
+            let withdrawal_logs_merkle_root = self
+                .get_withdrawals_merkle_root(withdrawals.iter().map(|(hash, _tx)| *hash).collect());
             let deposit_logs_hash = self.get_deposit_hash(
                 deposits
                     .iter()
@@ -376,7 +375,7 @@ impl Proposer {
         info!("Preparing state diff for block {}", block.header.number);
 
         let mut state = evm_state(store.clone(), block.header.parent_hash);
-        execute_block(&block, &mut state).unwrap();
+        execute_block(block, &mut state).unwrap();
         let account_updates = get_state_transitions(&mut state);
 
         let mut modified_accounts = HashMap::new();
@@ -397,7 +396,7 @@ impl Proposer {
 
         let state_diff = StateDiff {
             modified_accounts,
-            version: Default::default(),
+            version: StateDiff::default().version,
             withdrawal_logs: withdrawals
                 .iter()
                 .map(|(hash, tx)| WithdrawalLog {
