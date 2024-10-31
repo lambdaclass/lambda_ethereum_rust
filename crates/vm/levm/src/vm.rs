@@ -284,6 +284,7 @@ impl VM {
     pub fn execute(&mut self, current_call_frame: &mut CallFrame) -> TransactionReport {
         loop {
             let opcode = current_call_frame.next_opcode().unwrap_or(Opcode::STOP);
+            dbg!(&current_call_frame.gas_used);
             dbg!(&opcode);
             let op_result: Result<OpcodeSuccess, VMError> = match opcode {
                 Opcode::STOP => Ok(OpcodeSuccess::Result(ResultReason::Stop)),
@@ -525,6 +526,18 @@ impl VM {
         let mut report = self.execute(&mut current_call_frame);
         let sender = self.call_frames.first().unwrap().msg_sender;
 
+        // This cost applies both for call and create
+        // 4 gas for each zero byte in the transaction data 16 gas for each non-zero byte in the transaction.
+        let mut calldata_cost = 0;
+        for byte in &self.call_frames[0].calldata {
+            if *byte != 0 {
+                calldata_cost += 16;
+            } else {
+                calldata_cost += 4;
+            }
+        }
+        report.gas_used += calldata_cost;
+
         if self.is_create() {
             // If create should check if transaction failed. If failed should revert (delete created contract, )
             if let TxResult::Revert(error) = report.result {
@@ -548,17 +561,6 @@ impl VM {
             creation_cost += 32000;
             report.gas_used += creation_cost;
             // Charge 22100 gas for each storage variable set
-            // 4 gas for each zero byte in the transaction data 16 gas for each non-zero byte in the transaction.
-            // 4234
-            let mut calldata_cost = 0;
-            for byte in &self.call_frames[0].calldata {
-                if *byte != 0 {
-                    calldata_cost += 16;
-                } else {
-                    calldata_cost += 4;
-                }
-            }
-            report.gas_used += calldata_cost;
 
             // GInitCodeword * number_of_words rounded up. GinitCodeWord = 2
             let number_of_words = self.call_frames[0].calldata.chunks(32).len() as u64;
