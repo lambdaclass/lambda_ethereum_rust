@@ -63,18 +63,23 @@ impl<S: AsyncWrite + AsyncRead + std::marker::Unpin> RLPxConnection<S> {
         )
     }
 
-    pub async fn initiator(signer: SigningKey, msg: &[u8], stream: S, storage: Store) -> Self {
+    pub async fn initiator(
+        signer: SigningKey,
+        msg: &[u8],
+        stream: S,
+        storage: Store,
+    ) -> Result<Self, RLPxError> {
         let mut rng = rand::thread_rng();
         let digest = Keccak256::digest(&msg[65..]);
-        let signature = &Signature::from_bytes(msg[..64].into()).unwrap();
-        let rid = RecoveryId::from_byte(msg[64]).unwrap();
-        let peer_pk = VerifyingKey::recover_from_prehash(&digest, signature, rid).unwrap();
+        let signature = &Signature::from_bytes(msg[..64].into())?;
+        let rid = RecoveryId::from_byte(msg[64]).ok_or(RLPxError::InvalidRecoveryId())?;
+        let peer_pk = VerifyingKey::recover_from_prehash(&digest, signature, rid)?;
         let state = RLPxConnectionState::Initiator(Initiator::new(
             H256::random_using(&mut rng),
             SecretKey::random(&mut rng),
             pubkey2id(&peer_pk.into()),
         ));
-        RLPxConnection::new(signer, stream, state, storage)
+        Ok(RLPxConnection::new(signer, stream, state, storage))
     }
 
     pub async fn handshake(&mut self) -> Result<(), RLPxError> {
@@ -140,12 +145,13 @@ impl<S: AsyncWrite + AsyncRead + std::marker::Unpin> RLPxConnection<S> {
                 loop {
                     match self.receive().await? {
                         // TODO: implement handlers for each message type
+                        // https://github.com/lambdaclass/lambda_ethereum_rust/issues/1030
                         Message::Disconnect(_) => info!("Received Disconnect"),
                         Message::Ping(_) => info!("Received Ping"),
                         Message::Pong(_) => info!("Received Pong"),
                         Message::Status(_) => info!("Received Status"),
                         // TODO: Add new message types and handlers as they are implemented
-                        message => return Err(RLPxError::UnexpectedMessage(message)),
+                        _ => return Err(RLPxError::MessageNotHandled()),
                     };
                 }
             }
@@ -153,18 +159,17 @@ impl<S: AsyncWrite + AsyncRead + std::marker::Unpin> RLPxConnection<S> {
         }
     }
 
-    pub fn get_remote_node_id(&self) -> H512 {
+    pub fn get_remote_node_id(&self) -> Result<H512, RLPxError> {
         match &self.state {
-            RLPxConnectionState::Established(state) => state.remote_node_id,
-            // TODO proper error
-            _ => panic!("Invalid state"),
+            RLPxConnectionState::Established(state) => Ok(state.remote_node_id),
+            _ => Err(RLPxError::InvalidState()),
         }
     }
 
     async fn start_capabilities(&mut self) -> Result<(), RLPxError> {
         // Sending eth Status if peer supports it
         if self.capabilities.contains(&CAP_ETH) {
-            let status = backend::get_status(&self.storage).unwrap();
+            let status = backend::get_status(&self.storage)?;
             self.send(Message::Status(status)).await?;
         }
         // TODO: add new capabilities startup when required (eg. snap)
@@ -260,7 +265,9 @@ impl<S: AsyncWrite + AsyncRead + std::marker::Unpin> RLPxConnection<S> {
                 let size_data = &msg_bytes[..2];
                 let msg = &msg_bytes[2..];
                 let ack = decode_ack_message(&secret_key, msg, size_data);
-                let remote_ephemeral_key = ack.get_ephemeral_pubkey().unwrap();
+                let remote_ephemeral_key = ack
+                    .get_ephemeral_pubkey()
+                    .ok_or(RLPxError::NotFound("Remote ephemeral key".to_string()))?;
                 // Build next state
                 self.state =
                     RLPxConnectionState::Established(Box::new(Established::for_initiator(
