@@ -10,20 +10,20 @@ pub(crate) enum RLPxError {
     HandshakeError(String),
     #[error("Invalid connection state")]
     InvalidState(),
-    #[error("Decode Error: {0}")]
-    DecodeError(#[from] RLPDecodeError),
-    #[error("Encode Error: {0}")]
-    EncodeError(#[from] RLPEncodeError),
-    #[error("Store Error: {0}")]
-    StoreError(#[from] StoreError),
     #[error("Not Found: {0}")]
     NotFound(String),
     #[error("Invalid peer id")]
     InvalidPeerId(),
-    #[error("Cryptography Error: {0}")]
-    CryptographyError(#[from] EcdsaError),
     #[error("Invalid recovery id")]
     InvalidRecoveryId(),
     #[error("Cannot handle message")]
     MessageNotHandled(),
+    #[error(transparent)]
+    RLPDecodeError(#[from] RLPDecodeError),
+    #[error(transparent)]
+    RLPEncodeError(#[from] RLPEncodeError),
+    #[error(transparent)]
+    StoreError(#[from] StoreError),
+    #[error(transparent)]
+    EcdsaError(#[from] EcdsaError),
 }
