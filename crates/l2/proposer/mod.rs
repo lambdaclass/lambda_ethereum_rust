@@ -13,6 +13,7 @@ use ethereum_rust_core::types::{
 use ethereum_rust_dev::utils::engine_client::{config::EngineApiConfig, EngineClient};
 use ethereum_rust_rpc::types::fork_choice::{ForkChoiceState, PayloadAttributesV3};
 use ethereum_rust_storage::Store;
+use ethereum_rust_vm::{evm_state, execute_block, get_state_transitions};
 use ethereum_types::{Address, H256, U256};
 use keccak_hash::keccak;
 use lambdaworks_crypto::commitments::kzg::StructuredReferenceString;
@@ -29,8 +30,9 @@ use lambdaworks_math::{
     unsigned_integer::element::UnsignedInteger,
 };
 use libsecp256k1::SecretKey;
-use state_diff::{DepositLog, StateDiff, WithdrawalLog};
+use state_diff::{AccountStateDiff, DepositLog, StateDiff, WithdrawalLog};
 use std::{
+    collections::HashMap,
     fs::File,
     io::{BufReader, Read},
     time::{Duration, SystemTime, UNIX_EPOCH},
@@ -172,10 +174,15 @@ impl Proposer {
             let withdrawal_logs_merkle_root = self.get_withdrawals_merkle_root(
                 withdrawals.iter().map(|(hash, _tx)| hash.clone()).collect(),
             );
-            let deposit_logs_hash =
-                self.get_deposit_hash(deposits.iter().map(|(hash, _tx)| hash.clone().0).collect());
+            let deposit_logs_hash = self.get_deposit_hash(
+                deposits
+                    .iter()
+                    .map(|tx| tx.get_deposit_hash().unwrap())
+                    .collect(),
+            );
 
-            let state_diff = self.prepare_state_diff(&block, withdrawals, deposits)?;
+            let state_diff =
+                self.prepare_state_diff(&block, store.clone(), withdrawals, deposits)?;
 
             let blob_commitment = self.prepare_blob_commitment(state_diff)?;
             let mut blob_versioned_hash = keccak(blob_commitment).0;
@@ -318,16 +325,16 @@ impl Proposer {
     pub fn get_block_deposits(
         &self,
         block: &Block,
-    ) -> Result<Vec<(H256, PrivilegedL2Transaction)>, ProposerError> {
+    ) -> Result<Vec<PrivilegedL2Transaction>, ProposerError> {
         let deposits = block
             .body
             .transactions
             .iter()
             .filter_map(|tx| match tx {
-                Transaction::PrivilegedL2Transaction(priv_tx)
-                    if priv_tx.tx_type == PrivilegedTxType::Deposit =>
+                Transaction::PrivilegedL2Transaction(tx)
+                    if tx.tx_type == PrivilegedTxType::Deposit =>
                 {
-                    Some((tx.compute_hash(), priv_tx.clone()))
+                    Some(tx.clone())
                 }
                 _ => None,
             })
@@ -336,12 +343,19 @@ impl Proposer {
         Ok(deposits)
     }
 
-    pub fn get_deposit_hash(&self, deposits: Vec<[u8; 32]>) -> H256 {
-        if !deposits.is_empty() {
+    pub fn get_deposit_hash(&self, deposit_hashes: Vec<H256>) -> H256 {
+        if !deposit_hashes.is_empty() {
             H256::from_slice(
                 [
-                    &(deposits.len() as u16).to_be_bytes(),
-                    &keccak(deposits.concat()).0[2..32],
+                    &(deposit_hashes.len() as u16).to_be_bytes(),
+                    &keccak(
+                        deposit_hashes
+                            .iter()
+                            .map(H256::as_bytes)
+                            .collect::<Vec<&[u8]>>()
+                            .concat(),
+                    )
+                    .as_bytes()[2..32],
                 ]
                 .concat()
                 .as_slice(),
@@ -355,13 +369,34 @@ impl Proposer {
     pub fn prepare_state_diff(
         &self,
         block: &Block,
+        store: Store,
         withdrawals: Vec<(H256, PrivilegedL2Transaction)>,
-        deposits: Vec<(H256, PrivilegedL2Transaction)>,
+        deposits: Vec<PrivilegedL2Transaction>,
     ) -> Result<StateDiff, ProposerError> {
         info!("Preparing state diff for block {}", block.header.number);
 
-        // TODO: Get the state diff from the block.
+        let mut state = evm_state(store.clone(), block.header.parent_hash);
+        execute_block(&block, &mut state).unwrap();
+        let account_updates = get_state_transitions(&mut state);
+
+        let mut modified_accounts = HashMap::new();
+        account_updates.iter().for_each(|account_update| {
+            modified_accounts.insert(
+                account_update.address,
+                AccountStateDiff {
+                    new_balance: account_update.info.clone().map(|info| info.balance),
+                    // TODO: Change this with the diff
+                    nonce_diff: account_update.info.clone().map(|info| info.nonce as u16),
+                    storage: account_update.added_storage.clone().into_iter().collect(),
+                    // TODO: Check if bytecode is already known
+                    bytecode: account_update.code.clone(),
+                    bytecode_hash: None,
+                },
+            );
+        });
+
         let state_diff = StateDiff {
+            modified_accounts,
             withdrawal_logs: withdrawals
                 .iter()
                 .map(|(hash, tx)| WithdrawalLog {
@@ -375,7 +410,7 @@ impl Proposer {
                 .collect(),
             deposit_logs: deposits
                 .iter()
-                .map(|(_hash, tx)| DepositLog {
+                .map(|tx| DepositLog {
                     address: match tx.to {
                         TxKind::Call(address) => address,
                         TxKind::Create => Address::zero(),

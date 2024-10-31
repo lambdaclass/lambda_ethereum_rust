@@ -8,7 +8,7 @@ use super::errors::StateDiffError;
 pub struct AccountStateDiff {
     pub new_balance: Option<U256>,
     pub nonce_diff: Option<u16>,
-    pub storage: Vec<(U256, U256)>,
+    pub storage: Vec<(H256, U256)>,
     pub bytecode: Option<Bytes>,
     pub bytecode_hash: Option<H256>,
 }
@@ -130,9 +130,8 @@ impl AccountStateDiff {
             r#type += AccountStateDiffType::Storage as u8;
             encoded.extend((self.storage.len() as u16).to_be_bytes());
             for (key, value) in &self.storage {
+                encoded.extend_from_slice(&key.0);
                 let buf = &mut [0u8; 32];
-                key.to_big_endian(buf);
-                encoded.extend_from_slice(buf);
                 value.to_big_endian(buf);
                 encoded.extend_from_slice(buf);
             }

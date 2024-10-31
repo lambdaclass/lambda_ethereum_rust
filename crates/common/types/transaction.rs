@@ -843,6 +843,9 @@ impl PrivilegedTxType {
 }
 
 impl PrivilegedL2Transaction {
+    /// Returns the formated hash of the withdrawal transaction,
+    /// or None if the transaction is not a withdrawal.
+    /// The hash is computed as keccak256(to || value || tx_hash)
     pub fn get_withdrawal_hash(&self) -> Option<H256> {
         match self.tx_type {
             PrivilegedTxType::Withdrawal => {
@@ -860,6 +863,26 @@ impl PrivilegedL2Transaction {
                 Some(keccak_hash::keccak(
                     [to.as_bytes(), value, tx_hash.as_bytes()].concat(),
                 ))
+            }
+            _ => None,
+        }
+    }
+
+    /// Returns the formated hash of the deposit transaction,
+    /// or None if the transaction is not a deposit.
+    /// The hash is computed as keccak256(to || value)
+    pub fn get_deposit_hash(&self) -> Option<H256> {
+        match self.tx_type {
+            PrivilegedTxType::Deposit => {
+                let to = match self.to {
+                    TxKind::Call(to) => to,
+                    _ => return None,
+                };
+
+                let value = &mut [0u8; 32];
+                self.value.to_big_endian(value);
+
+                Some(keccak_hash::keccak([to.as_bytes(), value].concat()))
             }
             _ => None,
         }
