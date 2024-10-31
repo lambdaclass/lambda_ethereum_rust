@@ -1,4 +1,4 @@
-name: Docker Image
+name: Docker
 on:
   merge_group:
   push:
