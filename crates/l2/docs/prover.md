@@ -31,8 +31,6 @@ sequenceDiagram
     participant zkVM
     participant ProverClient
     participant ProverServer
-    ProverClient->>+ProverServer: ProofData::RequestCheck
-    ProverServer-->>-ProverClient: ProofData::RequestAck(block_number)
     ProverClient->>+ProverServer: ProofData::Request(block_number)
     ProverServer-->>-ProverClient: ProofData::Response(block_number, ProverInputs)
     ProverClient->>+zkVM: Prove(ProverInputs)

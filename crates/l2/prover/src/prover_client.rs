@@ -61,25 +61,6 @@ impl ProverClient {
     }
 
     fn request_new_input(&mut self) -> Result<(u64, ProverInputData), String> {
-        let request_ack =
-            connect_to_prover_server_wr(&self.prover_server_endpoint, &ProofData::RequestCheck)
-                .map_err(|e| format!("Failed to get RequestAck: {e}"))?;
-
-        // Check if the last_proven_block + 1 matches block_number_to_request.
-        // If it matches, continue with the response
-        match request_ack {
-            ProofData::RequestAck { last_proven_block } => {
-                if self.block_number_to_request != last_proven_block + 1 {
-                    // In the next Request the prover_client has to ask for the correct block.
-                    self.block_number_to_request = last_proven_block + 1;
-                    Err(format!("Wrong block_number_to_request {}, and last_proven_block is: {last_proven_block}", self.block_number_to_request))
-                } else {
-                    Ok(())
-                }
-            }
-            _ => Err(format!("Expecting ProofData::RequestAck {request_ack:?}")),
-        }?;
-
         // Request the input with the correct block_number
         let request = ProofData::Request {
             block_number: self.block_number_to_request,
