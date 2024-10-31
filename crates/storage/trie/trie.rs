@@ -168,28 +168,73 @@ impl Trie {
     /// Obtain a merkle proof for the given path.
     /// The proof will contain all the nodes traversed until reaching the node where the path is stored (including this last node).
     /// The proof will still be constructed even if the path is not stored in the trie, proving its absence.
-    pub fn get_proof(&self, path: &PathRLP) -> Result<Vec<Vec<u8>>, TrieError> {
+    pub fn get_proof(&self, path: &PathRLP) -> Result<Vec<Node>, TrieError> {
         // Will store all the encoded nodes traversed until reaching the node containing the path
         let mut node_path = Vec::new();
         let Some(root) = &self.root else {
             return Ok(node_path);
         };
-        // If the root is inlined, add it to the node_path
-        if let NodeHash::Inline(node) = root {
-            node_path.push(node);
-        }
         let root_node = self
             .state
             .get_node(root.clone())?
             .expect("inconsistent tree structure");
-        root_node.get_encoded_path(&self.state, NibbleSlice::new(path), &mut node_path)?;
+        node_path.push(root_node.clone());
+        root_node.get_path(&self.state, NibbleSlice::new(path), &mut node_path)?;
         Ok(node_path)
     }
 
-    pub fn verify_proof(&self, proof: Vec<Vec<u8>>) -> Result<bool, TrieError> {
-        for encoded_node in proof.iter().rev() {
-            let hash = NodeHash::from_encoded_raw(encoded_node);
+    pub fn verify_proof(
+        &self,
+        proof: Vec<Node>,
+        root_hash: NodeHash,
+        path: &PathRLP,
+        value: &ValueRLP,
+    ) -> Result<bool, TrieError> {
+        // We'll build a trie from the proof nodes and check whether:
+        //     1. the trie root hash is the one we expect
+        //     2. the trie contains the (key, value) pair to verify
+
+        // We will only be using the trie's cache so we don't need a working DB
+        struct NullTrieDB;
+
+        impl TrieDB for NullTrieDB {
+            fn get(&self, _key: Vec<u8>) -> Result<Option<Vec<u8>>, TrieError> {
+                Ok(None)
+            }
+
+            fn put(&self, _key: Vec<u8>, _value: Vec<u8>) -> Result<(), TrieError> {
+                Ok(())
+            }
         }
+
+        let mut trie = Trie::new(Box::new(NullTrieDB));
+
+        // Only the last node of the proof is a leaf node (by definition because the proof is a
+        // path to the leaf), so that's the only node that will need an offset for inserting.
+        // Then, we leave the offset to be constant for all nodes, as the other ones will not use
+        // it.
+        let leaf_offset = 2 * path.len(); // offset in nibbles
+
+        // Build trie and get root hash
+        for node in proof {
+            node.insert_self(leaf_offset, &mut trie.state)?;
+        }
+        let expected_root_hash = trie.hash_no_commit()?.into();
+
+        // Check root hash
+        if root_hash != expected_root_hash {
+            return Ok(false);
+        }
+        // Check key exists
+        let Some(retrieved_value) = trie.get(path)? else {
+            return Ok(false);
+        };
+        // Check value is correct
+        if retrieved_value != *value {
+            return Ok(false);
+        }
+
+        Ok(true)
     }
 
     /// Builds an in-memory trie from the given elements and returns its hash
