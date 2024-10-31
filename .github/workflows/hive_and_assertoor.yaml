@@ -1,4 +1,4 @@
-name: "Hive and Assertoor"
+name: "Hive & Assertoor"
 on:
   merge_group:
   push:
@@ -105,6 +105,8 @@ jobs:
     runs-on: ubuntu-latest
     needs: [docker-build]
     steps:
+      - uses: actions/checkout@v4
+
       - name: Download artifacts
         uses: actions/download-artifact@v4
         with:
