@@ -192,6 +192,7 @@ pub fn map_http_requests(
         Ok(RpcNamespace::Admin) => map_admin_requests(req, storage, local_p2p_node),
         Ok(RpcNamespace::Debug) => map_debug_requests(req, storage),
         Ok(RpcNamespace::Web3) => map_web3_requests(req, storage),
+        Ok(RpcNamespace::Net) => map_net_requests(req, storage),
         _ => Err(RpcErr::MethodNotFound(req.method.clone())),
     }
 }
@@ -439,5 +440,28 @@ mod tests {
             terminal_total_difficulty_passed: true,
             ..Default::default()
         }
+    }
+
+    #[test]
+    fn net_version_test() {
+        let body = r#"{"jsonrpc":"2.0","method":"net_version","params":[],"id":67}"#;
+        let request: RpcRequest = serde_json::from_str(body).expect("serde serialization failed");
+        // Setup initial storage
+        let storage =
+            Store::new("temp.db", EngineType::InMemory).expect("Failed to create test DB");
+        storage.set_chain_config(&example_chain_config()).unwrap();
+        let chain_id = storage
+            .get_chain_config()
+            .expect("failed to get chain_id")
+            .chain_id
+            .to_string();
+        let local_p2p_node = example_p2p_node();
+        // Process request
+        let result = map_http_requests(&request, storage, local_p2p_node, Default::default());
+        let response = rpc_response(request.id, result);
+        let expected_response_string =
+            format!(r#"{{"id":67,"jsonrpc": "2.0","result": "{}"}}"#, chain_id);
+        let expected_response = to_rpc_response_success_value(&expected_response_string);
+        assert_eq!(response.to_string(), expected_response.to_string());
     }
 }
