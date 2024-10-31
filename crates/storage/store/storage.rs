@@ -754,6 +754,46 @@ impl Store {
         Ok(Some(proof))
     }
 
+    /// Receives the root of the state trie and a list of paths where the first path will correspond to a path in the state trie
+    /// (aka a hashed account address) and the following paths will be paths in the accoun's storage trie (aka hashed storage keys)
+    /// Returns a list of encoded nodes where the first one will be the state trie's node where the account is stored and the following
+    /// ones will be the nodes of the storage trie where each storage key is stored. Missing nodes will be skipped.
+    /// For more information check out snap capability message [`GetTrieNodes`](https://github.com/ethereum/devp2p/blob/master/caps/snap.md#gettrienodes-0x06)
+    pub fn get_trie_nodes(
+        &self,
+        state_root: H256,
+        paths: Vec<H256>,
+    ) -> Result<Vec<Vec<u8>>, StoreError> {
+        let Some(account_path) = paths.first() else {
+            return Ok(vec![]);
+        };
+        let state_trie = self.engine.open_state_trie(state_root);
+        // Fetch state trie node
+        let Some(node) = state_trie.get_node(&account_path.0.to_vec())? else {
+            return Ok(vec![]);
+        };
+        let mut nodes = vec![node];
+
+        let Some(account_state) = state_trie
+            .get(&account_path.0.to_vec())?
+            .map(|ref rlp| AccountState::decode(rlp))
+            .transpose()?
+        else {
+            // We already fetched the node containing the account so we should be able to fetch the account
+            return Ok(vec![]);
+        };
+        let storage_trie = self
+            .engine
+            .open_storage_trie(*account_path, account_state.storage_root);
+        // Fetch storage trie nodes
+        for path in paths.iter().skip(1) {
+            if let Some(node) = storage_trie.get_node(&path.0.to_vec())? {
+                nodes.push(node);
+            }
+        }
+        Ok(nodes)
+    }
+
     pub fn add_payload(&self, payload_id: u64, block: Block) -> Result<(), StoreError> {
         self.engine.add_payload(payload_id, block)
     }
