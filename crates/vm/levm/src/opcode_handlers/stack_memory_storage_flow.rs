@@ -168,8 +168,7 @@ impl VM {
                 .expect("Storage slot should have been cached")
                 .original_value
         } else {
-            self.cache_from_db(&address);
-            self.db.get_storage_slot(address, key)
+            self.get_storage_slot(&address, key).original_value
         };
 
         self.cache.write_account_storage(

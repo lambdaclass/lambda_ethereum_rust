@@ -5,6 +5,7 @@ mod execution_result;
 mod mods;
 
 use db::StoreWrapper;
+use ethereum_rust_core::types::TxType;
 use ethereum_rust_levm::{
     db::{Cache, Database as LevmDatabase},
     errors::{TransactionReport, TxResult, VMError},
@@ -78,10 +79,7 @@ pub fn execute_block(
     let mut account_updates: Vec<AccountUpdate> = vec![];
 
     for transaction in block.body.transactions.iter() {
-        // let result = execute_tx(transaction, block_header, state, spec_id)?;
-        println!("BEFORE EXECUTE LEVM");
         let result = execute_tx_levm(transaction, block_header, store_wrapper.clone()).unwrap();
-        println!("AFTER EXECUTE LEVM");
         cumulative_gas_used += result.gas_used;
         let receipt = Receipt::new(
             transaction.tx_type(),
@@ -90,7 +88,6 @@ pub fn execute_block(
             // TODO: map our logs to the logs expected by ethereum_rust
             vec![],
         );
-        dbg!(&result.new_state);
         receipts.push(receipt);
 
         for (address, account) in result.new_state {
@@ -150,6 +147,29 @@ pub fn execute_tx_levm(
         TxKind::Call(address) => Some(address),
         TxKind::Create => None,
     };
+
+    dbg!(&tx.tx_type());
+
+    let gas_price: U256 = match tx.tx_type() {
+        TxType::Legacy => tx.gas_price().into(),
+        TxType::EIP2930 => tx.gas_price().into(),
+        TxType::EIP1559 => {
+            let priority_fee_per_gas = min(
+                tx.max_priority_fee().unwrap(),
+                tx.max_fee_per_gas().unwrap() - block_header.base_fee_per_gas.unwrap(),
+            );
+            (priority_fee_per_gas + block_header.base_fee_per_gas.unwrap()).into()
+        }
+        TxType::EIP4844 => {
+            let priority_fee_per_gas = min(
+                tx.max_priority_fee().unwrap(),
+                tx.max_fee_per_gas().unwrap() - block_header.base_fee_per_gas.unwrap(),
+            );
+            (priority_fee_per_gas + block_header.base_fee_per_gas.unwrap()).into()
+        }
+        TxType::Privileged => tx.gas_price().into(),
+    };
+
     let env = Environment {
         origin: tx.sender(),
         consumed_gas: U256::zero(),
@@ -161,7 +181,7 @@ pub fn execute_tx_levm(
         prev_randao: Some(block_header.prev_randao),
         chain_id: tx.chain_id().unwrap().into(),
         base_fee_per_gas: block_header.base_fee_per_gas.unwrap_or_default().into(),
-        gas_price: tx.gas_price().into(),
+        gas_price,
         block_excess_blob_gas: block_header.excess_blob_gas.map(U256::from),
         block_blob_gas_used: block_header.blob_gas_used.map(U256::from),
         tx_blob_hashes: None,

@@ -394,6 +394,7 @@ fn apply_plain_transaction(
 
 fn finalize_payload(context: &mut PayloadBuildContext) -> Result<(), StoreError> {
     let account_updates = get_state_transitions(context.evm_state);
+    dbg!(&account_updates);
     context.payload.header.state_root = context
         .store()
         .apply_account_updates(context.parent_hash(), &account_updates)?

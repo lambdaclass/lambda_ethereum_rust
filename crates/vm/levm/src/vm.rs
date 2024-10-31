@@ -122,6 +122,35 @@ pub struct Environment {
     pub tx_blob_hashes: Option<Vec<H256>>,
 }
 
+// The fee on a 1559 transaction is base_fee + priority_fee
+// So because of how things work here, we got priority_fee = gas_price - base_fee_per_gas
+//
+// Things to do:
+// - Fix fee calculations. Use EIP 1559 (base_fee + priority fee etc).
+// - Send the coinbase fee to the coinbase_account.
+// - Do the full gas discount at the beginning and then refund at the end.
+// - Add a method for substracting/adding to the balance of an account. This is done all over the place
+
+/*
+    gas_price = effective_gas_price
+    base_fee_per_gas = base_fee
+    priority_fee_per_gas = gas_price - base_fee_per_gas
+
+    effective_gas_price = priority_fee_per_gas + base_fee_per_gas
+
+    The priority fee per gas field is NOT a part of our VM. It is implicit as the difference
+    between the gas_price and the base_fee_per_gas.
+
+    When setting the VM for execution at the beginning, we have to calculate the priority_fee_per_gas as
+    priority_fee_per_gas = min(
+        tx.max_priority_fee_per_gas,
+        tx.max_fee_per_gas - base_fee_per_gas,
+    )
+    to then set the gas_price as priority_fee_per_gas + base_fee_per_gas
+
+
+*/
+
 impl Environment {
     pub fn default_from_address(origin: Address) -> Self {
         Self {
@@ -253,12 +282,9 @@ impl VM {
     }
 
     pub fn execute(&mut self, current_call_frame: &mut CallFrame) -> TransactionReport {
-        // let mut current_call_frame = self
-        //     .call_frames
-        //     .pop()
-        //     .expect("Fatal Error: This should not happen"); // if this happens during execution, we are cooked 💀
         loop {
             let opcode = current_call_frame.next_opcode().unwrap_or(Opcode::STOP);
+            dbg!(&opcode);
             let op_result: Result<OpcodeSuccess, VMError> = match opcode {
                 Opcode::STOP => Ok(OpcodeSuccess::Result(ResultReason::Stop)),
                 Opcode::ADD => self.op_add(current_call_frame),
@@ -497,6 +523,7 @@ impl VM {
         let mut current_call_frame = self.call_frames.pop().unwrap();
 
         let mut report = self.execute(&mut current_call_frame);
+        let sender = self.call_frames.first().unwrap().msg_sender;
 
         if self.is_create() {
             // If create should check if transaction failed. If failed should revert (delete created contract, )
@@ -517,27 +544,55 @@ impl VM {
 
             // If the initialization code completes successfully, a final contract-creation cost is paid,
             // the code-deposit cost, c, proportional to the size of the created contract’s code
-            let creation_cost = 200 * contract_code.len();
+            let mut creation_cost = 200 * contract_code.len() as u64;
+            creation_cost += 32000;
+            report.gas_used += creation_cost;
+            // Charge 22100 gas for each storage variable set
+            // 4 gas for each zero byte in the transaction data 16 gas for each non-zero byte in the transaction.
+            // 4234
+            let mut calldata_cost = 0;
+            for byte in &self.call_frames[0].calldata {
+                if *byte != 0 {
+                    calldata_cost += 16;
+                } else {
+                    calldata_cost += 4;
+                }
+            }
+            report.gas_used += calldata_cost;
 
-            let sender = self.call_frames.first().unwrap().msg_sender;
-            let mut sender_account = self.get_account(&sender);
+            // GInitCodeword * number_of_words rounded up. GinitCodeWord = 2
+            let number_of_words = self.call_frames[0].calldata.chunks(32).len() as u64;
+            report.gas_used += number_of_words * 2;
 
-            sender_account.info.balance = sender_account
-                .info
-                .balance
-                .checked_sub(U256::from(creation_cost))
-                .ok_or(VMError::OutOfGas)?;
 
             let contract_address = self.call_frames.first().unwrap().to;
             let mut created_contract = self.get_account(&contract_address);
 
             created_contract.info.bytecode = contract_code;
 
-            self.cache.add_account(&sender, &sender_account);
             self.cache.add_account(&contract_address, &created_contract);
-
-            report.new_state.clone_from(&self.cache.accounts);
         }
+
+        let mut sender_account = self.get_account(&sender);
+        let coinbase_address = self.env.coinbase;
+
+        sender_account.info.balance -= U256::from(report.gas_used) * self.env.gas_price;
+
+        dbg!(&report.gas_refunded);
+
+        self.cache.add_account(&sender, &sender_account);
+
+        // Send coinbase fee
+        let priority_fee_per_gas = self.env.gas_price - self.env.base_fee_per_gas;
+        let coinbase_fee = (U256::from(report.gas_used)) * priority_fee_per_gas;
+
+        let mut coinbase_account = self.get_account(&coinbase_address);
+        coinbase_account.info.balance += coinbase_fee;
+
+        self.cache.add_account(&coinbase_address, &coinbase_account);
+
+        report.new_state.clone_from(&self.cache.accounts);
+
         Ok(report)
     }
 
@@ -577,9 +632,6 @@ impl VM {
             current_call_frame.stack.push(U256::from(REVERT_FOR_CALL))?;
             return Ok(OpcodeSuccess::Continue);
         }
-
-        // transfer value
-        // transfer(&current_call_frame.msg_sender, &address, value);
 
         let code_address_bytecode = self
             .cache
@@ -624,7 +676,6 @@ impl VM {
         current_call_frame.sub_return_data_offset = ret_offset;
         current_call_frame.sub_return_data_size = ret_size;
 
-        // self.call_frames.push(new_call_frame.clone());
         let tx_report = self.execute(&mut new_call_frame);
 
         current_call_frame.gas_used += tx_report.gas_used.into(); // We add the gas used by the sub-context to the current one after it's execution.
@@ -657,8 +708,7 @@ impl VM {
     /// address = keccak256(rlp([sender_address,sender_nonce]))[12:]
     pub fn calculate_create_address(sender_address: Address, sender_nonce: u64) -> H160 {
         let mut encoded = Vec::new();
-        sender_address.encode(&mut encoded);
-        sender_nonce.encode(&mut encoded);
+        (sender_address, sender_nonce).encode(&mut encoded);
         let mut hasher = Keccak256::new();
         hasher.update(encoded);
         Address::from_slice(&hasher.finalize()[12..])

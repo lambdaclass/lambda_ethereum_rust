@@ -44,16 +44,12 @@ pub fn add_block(block: &Block, storage: &Store) -> Result<(), ChainError> {
 
     validate_gas_used(&receipts, &block.header)?;
 
-    // TODO: Map our new state to these account updates.
-    // let account_updates = get_state_transitions(&mut state);
-
     // Apply the account updates over the last block's state and compute the new state root
     let new_state_root = state
         .database()
         .apply_account_updates(block.header.parent_hash, &account_updates)?
         .unwrap_or_default();
 
-    dbg!(&new_state_root);
     // Check state root matches the one in block header after execution
     validate_state_root(&block.header, new_state_root)?;
 
@@ -161,6 +157,8 @@ pub fn is_canonical(
 
 fn validate_gas_used(receipts: &[Receipt], block_header: &BlockHeader) -> Result<(), ChainError> {
     if let Some(last) = receipts.last() {
+        dbg!(last.cumulative_gas_used);
+        dbg!(block_header.gas_used);
         if last.cumulative_gas_used != block_header.gas_used {
             return Err(ChainError::InvalidBlock(InvalidBlockError::GasUsedMismatch));
         }
