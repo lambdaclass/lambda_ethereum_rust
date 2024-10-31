@@ -453,7 +453,7 @@ impl TransactionQueue {
                 tip: head_tx
                     .effective_gas_tip(base_fee)
                     .ok_or(ChainError::InvalidBlock(
-                        InvalidBlockError::AttemptedToAddInvalidTransaction,
+                        InvalidBlockError::InvalidTransaction("Attempted to add an invalid transaction to the block. The transaction filter must have failed.".to_owned()),
                     ))?,
                 tx: head_tx,
                 sender: *address,
@@ -505,7 +505,7 @@ impl TransactionQueue {
                     // We already ran this method when filtering the transactions from the mempool so it shouldn't fail
                     tip: head_tx.effective_gas_tip(self.base_fee).ok_or(
                         ChainError::InvalidBlock(
-                            InvalidBlockError::AttemptedToAddInvalidTransaction,
+                            InvalidBlockError::InvalidTransaction("Attempted to add an invalid transaction to the block. The transaction filter must have failed.".to_owned()),
                         ),
                     )?,
                     tx: head_tx,
