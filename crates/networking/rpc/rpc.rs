@@ -32,6 +32,7 @@ use eth::{
         GetTransactionByHashRequest, GetTransactionReceiptRequest,
     },
 };
+use ethereum_rust_core::{types::BlockHash, H256};
 use serde_json::Value;
 use std::{
     collections::HashMap,
@@ -40,7 +41,7 @@ use std::{
     sync::{Arc, Mutex},
     time::Duration,
 };
-use tokio::net::TcpListener;
+use tokio::{net::TcpListener, sync::mpsc::UnboundedSender};
 use tracing::info;
 use types::transaction::SendRawTransactionRequest;
 use utils::{
@@ -65,6 +66,7 @@ pub struct RpcApiContext {
     jwt_secret: Bytes,
     local_p2p_node: Node,
     active_filters: ActiveFilters,
+    sync_client: UnboundedSender<H256>,
 }
 
 trait RpcHandler: Sized {
@@ -96,11 +98,19 @@ pub async fn start_api(
     // TODO: Refactor how filters are handled,
     // filters are used by the filters endpoints (eth_newFilter, eth_getFilterChanges, ...etc)
     let active_filters = Arc::new(Mutex::new(HashMap::new()));
+    let (sync_client, mut syncer) = tokio::sync::mpsc::unbounded_channel::<BlockHash>();
+
+    tokio::task::spawn(async move {
+        while let Some(hash) = syncer.recv().await {
+            println!("Received a hash {}!", hash);
+        }
+    });
     let service_context = RpcApiContext {
         storage: storage.clone(),
         jwt_secret,
         local_p2p_node,
         active_filters: active_filters.clone(),
+        sync_client,
     };
 
     // Periodically clean up the active filters for the filters endpoints.
@@ -340,7 +350,14 @@ mod tests {
         let storage =
             Store::new("temp.db", EngineType::InMemory).expect("Failed to create test DB");
         storage.set_chain_config(&example_chain_config()).unwrap();
-        let result = map_http_requests(&request, storage, local_p2p_node, Default::default());
+        let context = RpcApiContext {
+            local_p2p_node,
+            storage,
+            jwt_secret: Default::default(),
+            active_filters: Default::default(),
+            sync_client: Default::default(),
+        };
+        let result = map_http_requests(&request, context);
         let rpc_response = rpc_response(request.id, result);
         let expected_response = to_rpc_response_success_value(
             r#"{"jsonrpc":"2.0","id":1,"result":{"enode":"enode://d860a01f9722d78051619d1e2351aba3f43f943f6f00718d1b9baa4101932a1f5011f16bb2b1bb35db20d6fe28fa0bf09636d26a87d31de9ec6203eeedb1f666@127.0.0.1:30303","id":"d860a01f9722d78051619d1e2351aba3f43f943f6f00718d1b9baa4101932a1f5011f16bb2b1bb35db20d6fe28fa0bf09636d26a87d31de9ec6203eeedb1f666","ip":"127.0.0.1","name":"ethereum_rust/0.1.0/rust1.80","ports":{"discovery":30303,"listener":30303},"protocols":{"eth":{"chainId":3151908,"homesteadBlock":0,"daoForkBlock":null,"daoForkSupport":false,"eip150Block":0,"eip155Block":0,"eip158Block":0,"byzantiumBlock":0,"constantinopleBlock":0,"petersburgBlock":0,"istanbulBlock":0,"muirGlacierBlock":null,"berlinBlock":0,"londonBlock":0,"arrowGlacierBlock":null,"grayGlacierBlock":null,"mergeNetsplitBlock":0,"shanghaiTime":0,"cancunTime":0,"pragueTime":1718232101,"verkleTime":null,"terminalTotalDifficulty":0,"terminalTotalDifficultyPassed":true}}}}"#,
