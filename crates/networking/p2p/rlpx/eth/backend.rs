@@ -20,7 +20,7 @@ pub fn get_status(storage: &Store) -> Result<StatusMessage, StoreError> {
     // FIXME: Remove hardcoded values
     // before PR review. This is only
     // to skip the status check for now.
-    let fork_hash = H32([5, 196, 93, 237]);
+    let fork_hash = H32([91, 142, 148, 91]);
     let fork_next = 0_u64;
     let fork_id = ForkId::new(chain_config, genesis, block_header.timestamp, block_number);
     Ok(StatusMessage::new(
