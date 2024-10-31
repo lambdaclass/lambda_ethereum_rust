@@ -55,9 +55,9 @@ pub fn apply_fork_choice(
     }
 
     let Some(head_block) = head_res else {
-        if let Some(block) = store.get_pending_block(head_hash)? {
-            trigger_sync(block);
-        };
+        if store.get_pending_block(head_hash)?.is_some() {
+            return Err(InvalidForkChoice::SyncingFromHead(head_hash));
+        }
         return Err(InvalidForkChoice::Syncing);
     };
 
@@ -139,16 +139,6 @@ pub fn apply_fork_choice(
     store.update_latest_block_number(head.number)?;
 
     Ok(head)
-}
-
-// Trigger a backfill sync from the block until we find a valid block that we're familiar with or
-// something goes wrong.
-fn trigger_sync(head_block: Block) {
-    // TODO(#438): add immediate reorg if all needed blocks are pending.
-    error!(
-        "A sync for block {} should be triggered but it's not yet supported.",
-        head_block.header.compute_block_hash()
-    );
 }
 
 // Checks that block 1 is prior to block 2 and that if the second is present, the first one is too.

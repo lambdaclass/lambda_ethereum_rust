@@ -4,6 +4,7 @@ use ethereum_rust_blockchain::{
     latest_canonical_block_hash,
     payload::{create_payload, BuildPayloadArgs},
 };
+use ethereum_rust_core::types::BlockHash;
 use ethereum_rust_storage::Store;
 use serde_json::Value;
 use tracing::{info, warn};
@@ -89,7 +90,12 @@ impl RpcHandler for ForkChoiceUpdatedV3 {
             self.fork_choice_state.finalized_block_hash,
         ) {
             Ok(head) => head,
-            Err(error) => return fork_choice_error_to_response(error),
+            Err(error) => {
+                if let InvalidForkChoice::SyncingFromHead(hash) = error {
+                    trigger_sync(hash);
+                }
+                return fork_choice_error_to_response(error);
+            }
         };
 
         // Build block from received payload. This step is skipped if applying the fork choice state failed
@@ -138,4 +144,15 @@ impl RpcHandler for ForkChoiceUpdatedV3 {
 
         serde_json::to_value(response).map_err(|error| RpcErr::Internal(error.to_string()))
     }
+}
+
+// Trigger a backfill sync from the block until we find a valid block that we're familiar with or
+// something goes wrong.
+fn trigger_sync(head_block: BlockHash) {
+    // TODO(#438): add immediate reorg if all needed blocks are pending.
+
+    info!(
+        "A sync for block {} should be triggered but it's not yet supported.",
+        head_block
+    );
 }

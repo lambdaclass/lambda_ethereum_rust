@@ -1,4 +1,7 @@
-use ethereum_rust_core::types::InvalidBlockHeaderError;
+use ethereum_rust_core::{
+    types::{BlockHash, InvalidBlockHeaderError},
+    H256,
+};
 use ethereum_rust_storage::error::StoreError;
 use ethereum_rust_vm::EvmError;
 
@@ -71,6 +74,8 @@ pub enum InvalidForkChoice {
     StoreError(#[from] StoreError),
     #[error("The node has not finished syncing.")]
     Syncing,
+    #[error("Syncing from head: {0}.")]
+    SyncingFromHead(BlockHash),
     #[error("Head hash value is invalid.")]
     InvalidHeadHash,
     #[error("New head block is already canonical. Skipping update.")]
