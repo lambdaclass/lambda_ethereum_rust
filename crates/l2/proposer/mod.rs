@@ -186,7 +186,7 @@ impl Proposer {
 
             let blob_commitment = self.prepare_blob_commitment(state_diff)?;
             let mut blob_versioned_hash = keccak(blob_commitment).0;
-            blob_versioned_hash[0] = 0x01;
+            blob_versioned_hash[0] = 0x01; // EIP-4844 versioning
 
             match self
                 .send_commitment(
@@ -397,6 +397,7 @@ impl Proposer {
 
         let state_diff = StateDiff {
             modified_accounts,
+            version: Default::default(),
             withdrawal_logs: withdrawals
                 .iter()
                 .map(|(hash, tx)| WithdrawalLog {
@@ -418,7 +419,6 @@ impl Proposer {
                     amount: tx.value,
                 })
                 .collect(),
-            ..Default::default()
         };
 
         Ok(state_diff)
