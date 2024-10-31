@@ -73,19 +73,13 @@ jobs:
         run: |
           make test
 
-  docker-build:
-    name: Build Docker image
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
-      - name: Build Docker image
-        uses: docker/build-push-action@v5
-        with:
-          context: .
-          file: ./Dockerfile
-          load: true # Important for building without pushing
+  docker-image:
+    - name: Download artifacts
+      uses: actions/download-artifact@v4
+      with:
+        run-id: ${{ github.event.workflow_run.id }}
+        name: ethereum_rust_image
+        github-token: ${{ secrets.GITHUB_TOKEN }}
 
   prover:
     name: Build RISC-V zkVM program
