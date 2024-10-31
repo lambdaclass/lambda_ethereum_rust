@@ -7,8 +7,8 @@ use ethereum_rust_core::{
     types::{
         calculate_base_fee_per_blob_gas, calculate_base_fee_per_gas, compute_receipts_root,
         compute_transactions_root, compute_withdrawals_root, BlobsBundle, Block, BlockBody,
-        BlockHash, BlockHeader, BlockNumber, MempoolTransaction, Receipt, Transaction, Withdrawal,
-        DEFAULT_OMMERS_HASH,
+        BlockHash, BlockHeader, BlockNumber, ChainConfig, MempoolTransaction, Receipt, Transaction,
+        Withdrawal, DEFAULT_OMMERS_HASH,
     },
     Address, Bloom, Bytes, H256, U256,
 };
@@ -69,51 +69,51 @@ pub fn create_payload(args: &BuildPayloadArgs, storage: &Store) -> Result<Block,
         .ok_or_else(|| ChainError::ParentNotFound)?;
     let chain_config = storage.get_chain_config()?;
     let gas_limit = calc_gas_limit(parent_block.gas_limit, DEFAULT_BUILDER_GAS_CEIL);
-    let payload = Block {
-        header: BlockHeader {
-            parent_hash: args.parent,
-            ommers_hash: *DEFAULT_OMMERS_HASH,
-            coinbase: args.fee_recipient,
-            state_root: parent_block.state_root,
-            transactions_root: compute_transactions_root(&[]),
-            receipts_root: compute_receipts_root(&[]),
-            logs_bloom: Bloom::default(),
-            difficulty: U256::zero(),
-            number: parent_block.number.saturating_add(1),
+
+    let header = BlockHeader {
+        parent_hash: args.parent,
+        ommers_hash: *DEFAULT_OMMERS_HASH,
+        coinbase: args.fee_recipient,
+        state_root: parent_block.state_root,
+        transactions_root: compute_transactions_root(&[]),
+        receipts_root: compute_receipts_root(&[]),
+        logs_bloom: Bloom::default(),
+        difficulty: U256::zero(),
+        number: parent_block.number.saturating_add(1),
+        gas_limit,
+        gas_used: 0,
+        timestamp: args.timestamp,
+        // TODO: should use builder config's extra_data
+        extra_data: Bytes::new(),
+        prev_randao: args.random,
+        nonce: 0,
+        base_fee_per_gas: calculate_base_fee_per_gas(
             gas_limit,
-            gas_used: 0,
-            timestamp: args.timestamp,
-            // TODO: should use builder config's extra_data
-            extra_data: Bytes::new(),
-            prev_randao: args.random,
-            nonce: 0,
-            base_fee_per_gas: calculate_base_fee_per_gas(
-                gas_limit,
-                parent_block.gas_limit,
-                parent_block.gas_used,
-                parent_block.base_fee_per_gas.unwrap_or_default(),
+            parent_block.gas_limit,
+            parent_block.gas_used,
+            parent_block.base_fee_per_gas.unwrap_or_default(),
+        ),
+        withdrawals_root: chain_config
+            .is_shanghai_activated(args.timestamp)
+            .then_some(compute_withdrawals_root(&args.withdrawals)),
+        blob_gas_used: Some(0),
+        excess_blob_gas: chain_config.is_cancun_activated(args.timestamp).then_some(
+            calc_excess_blob_gas(
+                parent_block.excess_blob_gas.unwrap_or_default(),
+                parent_block.blob_gas_used.unwrap_or_default(),
             ),
-            withdrawals_root: chain_config
-                .is_shanghai_activated(args.timestamp)
-                .then_some(compute_withdrawals_root(&args.withdrawals)),
-            blob_gas_used: Some(0),
-            excess_blob_gas: chain_config.is_cancun_activated(args.timestamp).then_some(
-                calc_excess_blob_gas(
-                    parent_block.excess_blob_gas.unwrap_or_default(),
-                    parent_block.blob_gas_used.unwrap_or_default(),
-                ),
-            ),
-            parent_beacon_block_root: args.beacon_root,
-        },
-        // Empty body as we just created this payload
-        body: BlockBody {
-            transactions: Vec::new(),
-            ommers: Vec::new(),
-            withdrawals: Some(args.withdrawals.clone()),
-        },
+        ),
+        parent_beacon_block_root: args.beacon_root,
     };
+
+    let body = BlockBody {
+        transactions: Vec::new(),
+        ommers: Vec::new(),
+        withdrawals: Some(args.withdrawals.clone()),
+    };
+
     // Delay applying withdrawals until the payload is requested and built
-    Ok(payload)
+    Ok(Block::new(header, body))
 }
 
 fn calc_gas_limit(parent_gas_limit: u64, desired_limit: u64) -> u64 {
@@ -180,8 +180,12 @@ impl<'a> PayloadBuildContext<'a> {
         self.payload.header.number
     }
 
-    fn store(&self) -> &Store {
+    fn store(&self) -> Option<&Store> {
         self.evm_state.database()
+    }
+
+    fn chain_config(&self) -> Result<ChainConfig, EvmError> {
+        self.evm_state.chain_config()
     }
 
     fn base_fee_per_gas(&self) -> Option<u64> {
@@ -205,7 +209,7 @@ pub fn build_payload(
 
 pub fn apply_withdrawals(context: &mut PayloadBuildContext) -> Result<(), EvmError> {
     // Apply withdrawals & call beacon root contract, and obtain the new state root
-    let spec_id = spec_id(context.store(), context.payload.header.timestamp)?;
+    let spec_id = spec_id(&context.chain_config()?, context.payload.header.timestamp);
     if context.payload.header.parent_beacon_block_root.is_some() && spec_id == SpecId::CANCUN {
         beacon_root_contract_call(context.evm_state, &context.payload.header, spec_id)?;
     }
@@ -233,15 +237,18 @@ fn fetch_mempool_transactions(
         only_blob_txs: true,
         ..tx_filter
     };
+    let store = context.store().ok_or(StoreError::Custom(
+        "no store in the context (is an ExecutionDB being used?)".to_string(),
+    ))?;
     Ok((
         // Plain txs
         TransactionQueue::new(
-            mempool::filter_transactions(&plain_tx_filter, context.store())?,
+            mempool::filter_transactions(&plain_tx_filter, store)?,
             context.base_fee_per_gas(),
         ),
         // Blob txs
         TransactionQueue::new(
-            mempool::filter_transactions(&blob_tx_filter, context.store())?,
+            mempool::filter_transactions(&blob_tx_filter, store)?,
             context.base_fee_per_gas(),
         ),
     ))
@@ -250,7 +257,7 @@ fn fetch_mempool_transactions(
 /// Fills the payload with transactions taken from the mempool
 /// Returns the block value
 pub fn fill_transactions(context: &mut PayloadBuildContext) -> Result<(), ChainError> {
-    let chain_config = context.store().get_chain_config()?;
+    let chain_config = context.chain_config()?;
     debug!("Fetching transactions from mempool");
     // Fetch mempool transactions
     let (mut plain_txs, mut blob_txs) = fetch_mempool_transactions(context)?;
@@ -302,7 +309,12 @@ pub fn fill_transactions(context: &mut PayloadBuildContext) -> Result<(), ChainE
             // Pull transaction from the mempool
             debug!("Ignoring replay-protected transaction: {}", tx_hash);
             txs.pop();
-            mempool::remove_transaction(tx_hash, context.store())?;
+            mempool::remove_transaction(
+                tx_hash,
+                context
+                    .store()
+                    .ok_or(ChainError::StoreError(StoreError::MissingStore))?,
+            )?;
             continue;
         }
         // Execute tx
@@ -310,7 +322,12 @@ pub fn fill_transactions(context: &mut PayloadBuildContext) -> Result<(), ChainE
             Ok(receipt) => {
                 txs.shift();
                 // Pull transaction from the mempool
-                mempool::remove_transaction(tx_hash, context.store())?;
+                mempool::remove_transaction(
+                    tx_hash,
+                    context
+                        .store()
+                        .ok_or(ChainError::StoreError(StoreError::MissingStore))?,
+                )?;
                 receipt
             }
             // Ignore following txs from sender
@@ -348,7 +365,11 @@ fn apply_blob_transaction(
 ) -> Result<Receipt, ChainError> {
     // Fetch blobs bundle
     let tx_hash = head.tx.compute_hash();
-    let Some(blobs_bundle) = context.store().get_blobs_bundle_from_pool(tx_hash)? else {
+    let Some(blobs_bundle) = context
+        .store()
+        .ok_or(ChainError::StoreError(StoreError::MissingStore))?
+        .get_blobs_bundle_from_pool(tx_hash)?
+    else {
         // No blob tx should enter the mempool without its blobs bundle so this is an internal error
         return Err(
             StoreError::Custom(format!("No blobs bundle found for blob tx {tx_hash}")).into(),
@@ -379,7 +400,10 @@ fn apply_plain_transaction(
         &head.tx,
         &context.payload.header,
         context.evm_state,
-        spec_id(context.store(), context.payload.header.timestamp)?,
+        spec_id(
+            &context.chain_config().map_err(ChainError::from)?,
+            context.payload.header.timestamp,
+        ),
     )?;
     context.remaining_gas = context.remaining_gas.saturating_sub(result.gas_used());
     context.block_value += U256::from(result.gas_used()) * head.tip;
@@ -396,6 +420,7 @@ fn finalize_payload(context: &mut PayloadBuildContext) -> Result<(), StoreError>
     let account_updates = get_state_transitions(context.evm_state);
     context.payload.header.state_root = context
         .store()
+        .ok_or(StoreError::MissingStore)?
         .apply_account_updates(context.parent_hash(), &account_updates)?
         .unwrap_or_default();
     context.payload.header.transactions_root =
