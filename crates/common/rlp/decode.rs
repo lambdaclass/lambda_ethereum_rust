@@ -276,8 +276,6 @@ impl<T: RLPDecode> RLPDecode for Vec<T> {
 
         let (is_list, payload, input_rest) = decode_rlp_item(rlp)?;
         if !is_list {
-            println!("THE PAYLOAD = {payload:?}");
-            println!("REST OF INPUT = {input_rest:?}");
             return Err(RLPDecodeError::MalformedData);
         }
 
