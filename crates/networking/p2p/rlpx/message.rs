@@ -63,7 +63,10 @@ impl Message {
             Message::Pong(msg) => msg.encode(buf),
             Message::Status(msg) => msg.encode(buf),
             Message::GetBlockHeaders(msg) => msg.encode(buf),
-            Message::BlockHeaders(msg) => msg.encode(buf),
+            Message::BlockHeaders(msg) => {
+                0x14_u8.encode(buf);
+                msg.encode(buf)
+            }
             Message::GetAccountRange(msg) => {
                 0x21_u8.encode(buf);
                 msg.encode(buf)

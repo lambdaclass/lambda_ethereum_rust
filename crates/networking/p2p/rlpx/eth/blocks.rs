@@ -13,7 +13,7 @@ use crate::rlpx::{message::RLPxMessage, utils::snappy_encode};
 
 pub const HASH_FIRST_BYTE_DECODER: u8 = 160;
 
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Debug, PartialEq, Eq, Clone)]
 pub enum HashOrNumber {
     Hash(BlockHash),
     Number(BlockNumber),
@@ -112,12 +112,12 @@ impl GetBlockHeaders {
 impl RLPxMessage for GetBlockHeaders {
     fn encode(&self, buf: &mut dyn BufMut) -> Result<(), RLPEncodeError> {
         let mut encoded_data = vec![];
+        let limit = self.limit;
+        let skip = self.skip;
+        let reverse = self.reverse as u8;
         Encoder::new(&mut encoded_data)
             .encode_field(&self.id)
-            .encode_field(&self.startblock)
-            .encode_field(&self.limit)
-            .encode_field(&self.skip)
-            .encode_field(&self.reverse)
+            .encode_field(&(self.startblock.clone(), limit, skip, reverse))
             .finish();
         let msg_data = snappy_encode(encoded_data)?;
         buf.put_slice(&msg_data);
@@ -158,7 +158,6 @@ impl RLPxMessage for BlockHeaders {
         // Each message is encoded with its own
         // message identifier (code).
         // Go ethereum reference: https://github.com/ethereum/go-ethereum/blob/20bf543a64d7c2a590b18a1e1d907cae65707013/p2p/transport.go#L94
-        0x14_u8.encode(buf);
         Encoder::new(&mut encoded_data)
             .encode_field(&self.id)
             .encode_field(&self.block_headers)
