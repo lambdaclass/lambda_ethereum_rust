@@ -12,6 +12,10 @@ on:
       - 'LICENSE'
       - "**/README.md"
       - "**/docs/**"
+  workflow_run:
+    workflows: ["Docker Image"]
+    types: 
+      - completed
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.head_ref || github.run_id }}
