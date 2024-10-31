@@ -136,11 +136,9 @@ async fn main() {
                     "Failed to add block {} with hash {:#x}: {}.",
                     block.header.number, hash, error
                 );
-                // FIXME: Remove and/or discuss this before PR REVIEW
             }
-            // FIXME: Remove and/or discuss this before PR REVIEW
-            store.update_latest_block_number(block.header.number).unwrap();
-            store.set_canonical_block(block.header.number, hash).unwrap();
+            store.update_latest_block_number(block.header.number).expect(&format!("Fatal: added block {} but could not update the block number -- aborting", block.header.number));
+            store.set_canonical_block(block.header.number, hash).expect(&format!("Fatal: added block {} but could not set it as canonical -- aborting", block.header.number));
         }
         if let Some(last_block) = blocks.last() {
             let hash = last_block.hash();
