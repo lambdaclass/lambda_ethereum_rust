@@ -78,10 +78,11 @@ impl GetBlockHeaders {
             // Check we have the given block hash and fetch its number
             HashOrNumber::Hash(block_hash) => storage.get_block_number(block_hash).ok().flatten(),
             // Don't check if the block number is available
-            // because if it it's not, then loop below will
+            // because if it it's not, the loop below will
             // break early and return an empty vec.
             HashOrNumber::Number(block_num) => Some(block_num),
         };
+
         let mut headers = vec![];
 
         if let Some(start_block) = start_block {
