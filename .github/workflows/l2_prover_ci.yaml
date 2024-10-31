@@ -1,8 +1,7 @@
 name: L2 Prover CI
 on:
   push:
-    branches:
-      - main
+    branches: ["main"]
     paths:
       - "crates/l2/prover/**"
   pull_request:
