@@ -763,15 +763,18 @@ impl Store {
         &self,
         state_root: H256,
         paths: Vec<H256>,
+        byte_limit: u64,
     ) -> Result<Vec<Vec<u8>>, StoreError> {
         let Some(account_path) = paths.first() else {
             return Ok(vec![]);
         };
+        let mut bytes_used = 0;
         let state_trie = self.engine.open_state_trie(state_root);
         // Fetch state trie node
         let Some(node) = state_trie.get_node(&account_path.0.to_vec())? else {
             return Ok(vec![]);
         };
+        bytes_used += node.len() as u64;
         let mut nodes = vec![node];
 
         let Some(account_state) = state_trie
@@ -787,7 +790,11 @@ impl Store {
             .open_storage_trie(*account_path, account_state.storage_root);
         // Fetch storage trie nodes
         for path in paths.iter().skip(1) {
+            if bytes_used >= byte_limit {
+                break;
+            }
             if let Some(node) = storage_trie.get_node(&path.0.to_vec())? {
+                bytes_used += node.len() as u64;
                 nodes.push(node);
             }
         }
