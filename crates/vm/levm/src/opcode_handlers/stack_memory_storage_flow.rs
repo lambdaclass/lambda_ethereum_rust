@@ -162,20 +162,42 @@ impl VM {
 
         let address = current_call_frame.to;
 
-        let original_value = if self.cache.is_slot_cached(&address, key) {
+        let mut base_dynamic_gas: U256 = U256::zero();
+
+        let storage_slot = if self.cache.is_slot_cached(&address, key) {
             self.cache
                 .get_storage_slot(address, key)
-                .expect("Storage slot should have been cached")
-                .original_value
+                .unwrap()
         } else {
-            self.get_storage_slot(&address, key).original_value
+            // If slot is cold 2100 is added to base_dynamic_gas
+            base_dynamic_gas += U256::from(2100);
+            
+            let value_from_db = self.db.get_storage_slot(address, key); // get storage from db
+            StorageSlot {
+                original_value: value_from_db,
+                current_value: value_from_db,
+            }
         };
+
+        base_dynamic_gas += if value == storage_slot.current_value {
+            U256::from(100)
+        } else if storage_slot.current_value == storage_slot.original_value {
+            if storage_slot.original_value == U256::zero() {
+                U256::from(20000)
+            } else {
+                U256::from(2900)
+            }
+        } else {
+            U256::from(100)
+        };
+
+        self.increase_consumed_gas(current_call_frame, base_dynamic_gas)?;
 
         self.cache.write_account_storage(
             &address,
             key,
             StorageSlot {
-                original_value,
+                original_value: storage_slot.original_value,
                 current_value: value,
             },
         );
