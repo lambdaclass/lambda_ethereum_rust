@@ -45,21 +45,25 @@ impl RLPDecode for bool {
 
 impl RLPDecode for u8 {
     fn decode_unfinished(rlp: &[u8]) -> Result<(Self, &[u8]), RLPDecodeError> {
-        if rlp.is_empty() {
-            return Err(RLPDecodeError::InvalidLength);
-        }
-
-        match rlp[0] {
+        let first_byte = rlp.get(0).ok_or(RLPDecodeError::InvalidLength)?;
+        match first_byte {
             // Single byte in the range [0x00, 0x7f]
-            // FIXME: This slice can fail if out of bounds
-            0..=0x7f => Ok((rlp[0], &rlp[1..])),
+            0..=0x7f => {
+                let rest = rlp.get(1..).ok_or(RLPDecodeError::MalformedData)?;
+                Ok((*first_byte, rest))
+            }
 
-            // FIXME: This slice can fail if out of bounds
             // RLP_NULL represents zero
-            RLP_NULL => Ok((0, &rlp[1..])),
+            &RLP_NULL => {
+                let rest = rlp.get(1..).ok_or(RLPDecodeError::MalformedData)?;
+                Ok((0, rest))
+            }
 
             // Two bytes, where the first byte is RLP_NULL + 1
-            x if rlp.len() >= 2 && x == RLP_NULL + 1 => Ok((rlp[1], &rlp[2..])),
+            x if rlp.len() >= 2 && *x == RLP_NULL + 1 => {
+                let rest = rlp.get(2..).ok_or(RLPDecodeError::MalformedData)?;
+                Ok((rlp[1], rest))
+            }
 
             // Any other case is invalid for u8
             _ => Err(RLPDecodeError::MalformedData),
@@ -334,7 +338,6 @@ impl<T1: RLPDecode, T2: RLPDecode, T3: RLPDecode> RLPDecode for (T1, T2, T3) {
     }
 }
 
-// FIXME: Clean up this code
 impl<
         T1: RLPDecode + std::fmt::Debug,
         T2: RLPDecode + std::fmt::Debug,

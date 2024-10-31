@@ -12,10 +12,8 @@ use super::{BlockHash, BlockNumber, ChainConfig};
 
 #[derive(Debug)]
 pub struct ForkId {
-    // FIXME: Return this fields to private
-    // before PR review.
-    pub fork_hash: H32,
-    pub fork_next: BlockNumber,
+    fork_hash: H32,
+    fork_next: BlockNumber,
 }
 
 impl ForkId {

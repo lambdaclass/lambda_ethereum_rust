@@ -332,7 +332,6 @@ impl<S: AsyncWrite + AsyncRead + std::marker::Unpin> RLPxConnection<S> {
         match &mut self.state {
             RLPxConnectionState::Established(state) => {
                 let frame_data = frame::read(state, &mut self.stream).await;
-                // FIXME: Remove this print before PR review
                 let (msg_id, msg_data): (u8, _) =
                     RLPDecode::decode_unfinished(&frame_data).unwrap();
                 rlpx::Message::decode(msg_id, msg_data).unwrap()
