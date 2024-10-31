@@ -8,6 +8,7 @@ use super::{
     frame,
     handshake::{decode_ack_message, decode_auth_message, encode_auth_message},
     message as rlpx,
+    p2p::Capability,
     utils::{ecdh_xchng, pubkey2id},
 };
 use aes::cipher::KeyIvInit;
@@ -22,8 +23,11 @@ use k256::{
 use sha3::{Digest, Keccak256};
 use tokio::io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt};
 use tracing::{error, info};
-pub const SUPPORTED_CAPABILITIES: [(&str, u8); 2] = [("p2p", 5), ("eth", 68)];
-// pub const SUPPORTED_CAPABILITIES: [(&str, u8); 3] = [("p2p", 5), ("eth", 68), ("snap", 1)];
+const CAP_P2P: (Capability, u8) = (Capability::P2p, 5);
+const CAP_ETH: (Capability, u8) = (Capability::Eth, 68);
+//const CAP_SNAP: (Capability, u8) = (Capability::Snap, 1);
+const SUPPORTED_CAPABILITIES: [(Capability, u8); 2] = [CAP_P2P, CAP_ETH];
+// pub const SUPPORTED_CAPABILITIES: [(&str, u8); 3] = [CAP_P2P, CAP_ETH, CAP_SNAP)];
 
 pub(crate) type Aes256Ctr64BE = ctr::Ctr64BE<aes::Aes256>;
 
@@ -33,7 +37,7 @@ pub(crate) struct RLPxConnection<S> {
     state: RLPxConnectionState,
     stream: S,
     storage: Store,
-    capabilities: Vec<(String, u8)>,
+    capabilities: Vec<(Capability, u8)>,
 }
 
 impl<S: AsyncWrite + AsyncRead + std::marker::Unpin> RLPxConnection<S> {
@@ -93,32 +97,25 @@ impl<S: AsyncWrite + AsyncRead + std::marker::Unpin> RLPxConnection<S> {
         info!("Completed handshake!");
 
         self.exchange_hello_messages().await?;
-        info!("Completed Hello roundtrip!");
         Ok(())
     }
 
     pub async fn exchange_hello_messages(&mut self) -> Result<(), RLPxError> {
-        let supported_capabilities: Vec<(String, u8)> = SUPPORTED_CAPABILITIES
-            .into_iter()
-            .map(|(name, version)| (name.to_string(), version))
-            .collect();
         let hello_msg = Message::Hello(p2p::HelloMessage::new(
-            supported_capabilities.clone(),
+            SUPPORTED_CAPABILITIES.to_vec(),
             PublicKey::from(self.signer.verifying_key()),
         ));
 
         self.send(hello_msg).await;
-        info!("Hello message sent!");
 
         // Receive Hello message
         match self.receive().await {
             Message::Hello(hello_message) => {
-                info!("Hello message received {hello_message:?}");
                 self.capabilities = hello_message.capabilities;
 
                 // Check if we have any capability in common
                 for cap in self.capabilities.clone() {
-                    if supported_capabilities.contains(&cap) {
+                    if SUPPORTED_CAPABILITIES.contains(&cap) {
                         return Ok(());
                     }
                 }
@@ -148,8 +145,6 @@ impl<S: AsyncWrite + AsyncRead + std::marker::Unpin> RLPxConnection<S> {
                         Message::Ping(_) => info!("Received Ping"),
                         Message::Pong(_) => info!("Received Pong"),
                         Message::Status(_) => info!("Received Status"),
-                        // TODO: Add new message types and handlers as they are implemented
-                        // FIXME: Maybe separate this into a function
                         Message::GetBlockHeaders(msg_data) => {
                             // FIXME: Handle skip case when > 0
                             let GetBlockHeaders { startblock, limit, skip, id, reverse }  = msg_data;
@@ -185,6 +180,7 @@ impl<S: AsyncWrite + AsyncRead + std::marker::Unpin> RLPxConnection<S> {
                                 }
                             }
                         },
+                        // TODO: Add new message types and handlers as they are implemented
                         message => return Err(RLPxError::UnexpectedMessage(message)),
                     };
                 }
@@ -205,9 +201,8 @@ impl<S: AsyncWrite + AsyncRead + std::marker::Unpin> RLPxConnection<S> {
 
     async fn start_capabilities(&mut self) -> Result<(), RLPxError> {
         // Sending eth Status if peer supports it
-        if self.capabilities.contains(&("eth".to_string(), 68u8)) {
+        if self.capabilities.contains(&CAP_ETH) {
             let status = backend::get_status(&self.storage).unwrap();
-            info!("Status message sent: {status:?}");
             self.send(Message::Status(status)).await;
         }
         // TODO: add new capabilities startup when required (eg. snap)
@@ -230,7 +225,6 @@ impl<S: AsyncWrite + AsyncRead + std::marker::Unpin> RLPxConnection<S> {
 
                 auth_message.put_slice(&msg);
                 self.stream.write_all(&auth_message).await.unwrap();
-                info!("Sent auth message correctly!");
 
                 self.state = RLPxConnectionState::InitiatedAuth(InitiatedAuth::new(
                     initiator_state,
@@ -256,7 +250,6 @@ impl<S: AsyncWrite + AsyncRead + std::marker::Unpin> RLPxConnection<S> {
 
                 ack_message.put_slice(&msg);
                 self.stream.write_all(&ack_message).await.unwrap();
-                info!("Sent ack message correctly!");
 
                 self.state = RLPxConnectionState::Established(Box::new(Established::for_receiver(
                     received_auth_state,
@@ -287,7 +280,6 @@ impl<S: AsyncWrite + AsyncRead + std::marker::Unpin> RLPxConnection<S> {
                 let auth_bytes = &buf[..msg_size + 2];
                 let msg = &buf[2..msg_size + 2];
                 let (auth, remote_ephemeral_key) = decode_auth_message(&secret_key, msg, auth_data);
-                info!("Received auth message correctly!");
 
                 // Build next state
                 self.state = RLPxConnectionState::ReceivedAuth(ReceivedAuth::new(
@@ -323,7 +315,6 @@ impl<S: AsyncWrite + AsyncRead + std::marker::Unpin> RLPxConnection<S> {
                 let msg = &buf[2..msg_size + 2];
                 let ack = decode_ack_message(&secret_key, msg, ack_data);
                 let remote_ephemeral_key = ack.get_ephemeral_pubkey().unwrap();
-                info!("Received ack message correctly!");
 
                 // Build next state
                 self.state = RLPxConnectionState::Established(Box::new(Established::for_initiator(

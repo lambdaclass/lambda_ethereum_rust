@@ -1,4 +1,4 @@
-use ethereum_rust_core::{types::ForkId, H32, U256};
+use ethereum_rust_core::{types::ForkId, U256};
 use ethereum_rust_storage::{error::StoreError, Store};
 
 use super::status::StatusMessage;
@@ -17,11 +17,6 @@ pub fn get_status(storage: &Store) -> Result<StatusMessage, StoreError> {
 
     let genesis = genesis_header.compute_block_hash();
     let block_hash = block_header.compute_block_hash();
-    // FIXME: Remove hardcoded values
-    // before PR review. This is only
-    // to skip the status check for now.
-    let fork_hash = H32([91, 142, 148, 91]);
-    let fork_next = 0_u64;
     let fork_id = ForkId::new(chain_config, genesis, block_header.timestamp, block_number);
     Ok(StatusMessage::new(
         ETH_VERSION,
@@ -29,9 +24,6 @@ pub fn get_status(storage: &Store) -> Result<StatusMessage, StoreError> {
         total_difficulty,
         block_hash,
         genesis,
-        ForkId {
-            fork_hash,
-            fork_next,
-        },
+        fork_id,
     ))
 }

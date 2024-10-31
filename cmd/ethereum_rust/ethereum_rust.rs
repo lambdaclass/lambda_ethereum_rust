@@ -1,6 +1,7 @@
 use bytes::Bytes;
 use directories::ProjectDirs;
 use ethereum_rust_blockchain::add_block;
+use ethereum_rust_blockchain::fork_choice::apply_fork_choice;
 use ethereum_rust_core::types::{Block, Genesis};
 use ethereum_rust_core::H256;
 use ethereum_rust_net::bootnode::BootNode;
@@ -8,6 +9,7 @@ use ethereum_rust_net::node_id_from_signing_key;
 use ethereum_rust_net::types::Node;
 use ethereum_rust_storage::{EngineType, Store};
 use k256::ecdsa::SigningKey;
+use local_ip_address::local_ip;
 use std::future::IntoFuture;
 use std::path::Path;
 use std::str::FromStr as _;
@@ -15,7 +17,7 @@ use std::time::Duration;
 use std::{
     fs::File,
     io,
-    net::{SocketAddr, ToSocketAddrs},
+    net::{Ipv4Addr, SocketAddr, ToSocketAddrs},
 };
 use tokio_util::task::TaskTracker;
 use tracing::{info, warn};
@@ -122,24 +124,27 @@ async fn main() {
     if let Some(chain_rlp_path) = matches.get_one::<String>("import") {
         let blocks = read_chain_file(chain_rlp_path);
         let size = blocks.len();
-        for block in blocks {
-            let hash = block.header.compute_block_hash();
+        for block in &blocks {
+            let hash = block.hash();
             info!(
                 "Adding block {} with hash {:#x}.",
                 block.header.number, hash
             );
-            let result = add_block(&block, &store);
-            if result.is_err() {
+            let result = add_block(block, &store);
+            if let Some(error) = result.err() {
                 warn!(
-                    "Failed to add block {} with hash {:#x}: {:?}.",
-                    block.header.number, hash, result
+                    "Failed to add block {} with hash {:#x}: {}.",
+                    block.header.number, hash, error
                 );
                 // FIXME: Remove and/or discuss this before PR REVIEW
-                break;
             }
             // FIXME: Remove and/or discuss this before PR REVIEW
             store.update_latest_block_number(block.header.number).unwrap();
             store.set_canonical_block(block.header.number, hash).unwrap();
+        }
+        if let Some(last_block) = blocks.last() {
+            let hash = last_block.hash();
+            apply_fork_choice(&store, hash, hash, hash).unwrap();
         }
         info!("Added {} blocks to blockchain", size);
     }
@@ -153,8 +158,16 @@ async fn main() {
     let signer = SigningKey::from_slice(key_bytes.as_bytes()).unwrap();
     let local_node_id = node_id_from_signing_key(&signer);
 
+    // TODO: If hhtp.addr is 0.0.0.0 we get the local ip as the one of the node, otherwise we use the provided one.
+    // This is fine for now, but we might need to support more options in the future.
+    let p2p_node_ip = if udp_socket_addr.ip() == Ipv4Addr::new(0, 0, 0, 0) {
+        local_ip().expect("Failed to get local ip")
+    } else {
+        udp_socket_addr.ip()
+    };
+
     let local_p2p_node = Node {
-        ip: udp_socket_addr.ip(),
+        ip: p2p_node_ip,
         udp_port: udp_socket_addr.port(),
         tcp_port: tcp_socket_addr.port(),
         node_id: local_node_id,

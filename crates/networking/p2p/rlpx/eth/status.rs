@@ -69,7 +69,6 @@ impl RLPxMessage for StatusMessage {
         let decoder = Decoder::new(&decompressed_data)?;
         let (eth_version, decoder): (u32, _) = decoder.decode_field("protocolVersion")?;
 
-        // FIXME: Return an error here, do not panic.
         assert_eq!(eth_version, 68, "only eth version 68 is supported");
 
         let (network_id, decoder): (u64, _) = decoder.decode_field("networkId")?;

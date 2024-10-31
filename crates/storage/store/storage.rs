@@ -158,6 +158,19 @@ impl Store {
         self.engine.get_block_body(block_number)
     }
 
+    pub fn add_pending_block(&self, block: Block) -> Result<(), StoreError> {
+        info!(
+            "Adding block to pending: {}",
+            block.header.compute_block_hash()
+        );
+        self.engine.add_pending_block(block)
+    }
+
+    pub fn get_pending_block(&self, block_hash: BlockHash) -> Result<Option<Block>, StoreError> {
+        info!("get pending: {}", block_hash);
+        self.engine.get_pending_block(block_hash)
+    }
+
     pub fn add_block_number(
         &self,
         block_hash: BlockHash,
@@ -443,7 +456,7 @@ impl Store {
         let genesis_block = genesis.get_block();
         let genesis_block_number = genesis_block.header.number;
 
-        let genesis_hash = genesis_block.header.compute_block_hash();
+        let genesis_hash = genesis_block.hash();
 
         if let Some(header) = self.get_block_header(genesis_block_number)? {
             if header.compute_block_hash() == genesis_hash {
@@ -607,7 +620,7 @@ impl Store {
     }
 
     // Obtain the storage trie for the given block
-    fn state_trie(&self, block_hash: BlockHash) -> Result<Option<Trie>, StoreError> {
+    pub fn state_trie(&self, block_hash: BlockHash) -> Result<Option<Trie>, StoreError> {
         let Some(header) = self.get_block_header_by_hash(block_hash)? else {
             return Ok(None);
         };

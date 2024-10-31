@@ -110,7 +110,7 @@ impl RpcHandler for FeeHistoryRequest {
             );
 
             if let Some(percentiles) = &self.reward_percentiles {
-                let block = Block { header, body };
+                let block = Block::new(header, body);
                 reward.push(Self::calculate_percentiles_for_block(block, percentiles));
             }
         }
@@ -198,6 +198,9 @@ impl FeeHistoryRequest {
                     .max_priority_fee_per_gas
                     .min(t.max_fee_per_gas.saturating_sub(base_fee_per_gas)),
                 Transaction::EIP4844Transaction(t) => t
+                    .max_priority_fee_per_gas
+                    .min(t.max_fee_per_gas.saturating_sub(base_fee_per_gas)),
+                Transaction::PrivilegedL2Transaction(t) => t
                     .max_priority_fee_per_gas
                     .min(t.max_fee_per_gas.saturating_sub(base_fee_per_gas)),
             })
