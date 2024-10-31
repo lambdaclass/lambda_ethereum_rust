@@ -444,6 +444,7 @@ mod tests {
 
     #[test]
     fn net_version_test() {
+        // Request taken from: https://ethereum.org/en/developers/docs/apis/json-rpc/#net_version
         let body = r#"{"jsonrpc":"2.0","method":"net_version","params":[],"id":67}"#;
         let request: RpcRequest = serde_json::from_str(body).expect("serde serialization failed");
         // Setup initial storage
