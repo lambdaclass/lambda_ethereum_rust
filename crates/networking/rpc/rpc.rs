@@ -275,9 +275,9 @@ pub fn map_web3_requests(req: &RpcRequest, context: RpcApiContext) -> Result<Val
     }
 }
 
-pub fn map_net_requests(req: &RpcRequest, storage: Store) -> Result<Value, RpcErr> {
+pub fn map_net_requests(req: &RpcRequest, contex: RpcApiContext) -> Result<Value, RpcErr> {
     match req.method.as_str() {
-        "net_version" => net::version(req, storage),
+        "net_version" => net::version(req, contex),
         unknown_net_method => Err(RpcErr::MethodNotFound(unknown_net_method.to_owned())),
     }
 }
@@ -442,7 +442,6 @@ mod tests {
 
     #[test]
     fn net_version_test() {
-        // Request taken from: https://ethereum.org/en/developers/docs/apis/json-rpc/#net_version
         let body = r#"{"jsonrpc":"2.0","method":"net_version","params":[],"id":67}"#;
         let request: RpcRequest = serde_json::from_str(body).expect("serde serialization failed");
         // Setup initial storage
@@ -455,8 +454,14 @@ mod tests {
             .chain_id
             .to_string();
         let local_p2p_node = example_p2p_node();
+        let context = RpcApiContext {
+            storage,
+            local_p2p_node,
+            jwt_secret: Default::default(),
+            active_filters: Default::default()
+        };
         // Process request
-        let result = map_http_requests(&request, storage, local_p2p_node, Default::default());
+        let result = map_http_requests(&request, context);
         let response = rpc_response(request.id, result);
         let expected_response_string =
             format!(r#"{{"id":67,"jsonrpc": "2.0","result": "{}"}}"#, chain_id);
