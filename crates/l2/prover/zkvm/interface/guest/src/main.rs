@@ -4,6 +4,9 @@ use risc0_zkvm::guest::env;
 use ethereum_rust_blockchain::{validate_block, validate_gas_used};
 use ethereum_rust_core::types::{Block, BlockHeader};
 use ethereum_rust_vm::{execute_block, execution_db::ExecutionDB, get_state_transitions, EvmState};
+use ethereum_rust_blockchain::{validate_block, validate_gas_used};
+use ethereum_rust_core::types::{Block, BlockHeader};
+use ethereum_rust_vm::{execute_block, execution_db::ExecutionDB, get_state_transitions, EvmState};
 
 fn main() {
     let (block, execution_db, parent_header) = read_inputs().expect("failed to read inputs");
@@ -27,7 +30,11 @@ fn main() {
 fn read_inputs() -> Result<(Block, ExecutionDB, BlockHeader), RLPDecodeError> {
     let head_block_bytes = env::read::<Vec<u8>>();
     let execution_db = env::read::<ExecutionDB>();
+    let execution_db = env::read::<ExecutionDB>();
     let parent_header_bytes = env::read::<Vec<u8>>();
+
+    let block = Block::decode(&head_block_bytes)?;
+    let parent_header = BlockHeader::decode(&parent_header_bytes)?;
 
     let block = Block::decode(&head_block_bytes)?;
     let parent_header = BlockHeader::decode(&parent_header_bytes)?;
