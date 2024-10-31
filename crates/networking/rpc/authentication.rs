@@ -16,7 +16,7 @@ pub enum AuthenticationError {
 }
 
 pub fn authenticate(
-    secret: Bytes,
+    secret: &Bytes,
     auth_header: Option<TypedHeader<Authorization<Bearer>>>,
 ) -> Result<(), RpcErr> {
     match auth_header {
@@ -39,7 +39,7 @@ struct Claims {
 }
 
 /// Authenticates bearer jwt to check that authrpc calls are sent by the consensus layer
-pub fn validate_jwt_authentication(token: &str, secret: Bytes) -> Result<(), AuthenticationError> {
+pub fn validate_jwt_authentication(token: &str, secret: &Bytes) -> Result<(), AuthenticationError> {
     let decoding_key = DecodingKey::from_secret(&secret);
     let mut validation = Validation::new(Algorithm::HS256);
     validation.validate_exp = false;
