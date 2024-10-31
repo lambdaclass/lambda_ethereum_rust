@@ -155,6 +155,7 @@ impl<S: AsyncWrite + AsyncRead + std::marker::Unpin> RLPxConnection<S> {
                             let response =
                                 process_account_range_request(req, self.storage.clone())?;
                             self.send(Message::AccountRange(response)).await
+                        }
                         Message::GetBlockHeaders(msg_data) => {
                             let response = BlockHeaders {
                                 id: msg_data.id,
