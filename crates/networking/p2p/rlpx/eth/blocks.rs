@@ -155,7 +155,9 @@ impl BlockHeaders {
 impl RLPxMessage for BlockHeaders {
     fn encode(&self, buf: &mut dyn BufMut) -> Result<(), RLPEncodeError> {
         let mut encoded_data = vec![];
-        // FIXME: Document properly this
+        // Each message is encoded with its own
+        // message identifier (code).
+        // Go ethereum reference: https://github.com/ethereum/go-ethereum/blob/20bf543a64d7c2a590b18a1e1d907cae65707013/p2p/transport.go#L94
         0x14_u8.encode(buf);
         Encoder::new(&mut encoded_data)
             .encode_field(&self.id)
