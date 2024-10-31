@@ -1,5 +1,4 @@
 use bytes::BufMut;
-use ethereum_rust_core::types::BlockNumber;
 use ethereum_rust_rlp::error::{RLPDecodeError, RLPEncodeError};
 use std::fmt::Display;
 

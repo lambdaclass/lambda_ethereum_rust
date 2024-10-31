@@ -1,5 +1,14 @@
 use crate::{
-    rlpx::{eth::{backend, blocks::{BlockHeaders, GetBlockHeaders, HashOrNumber}}, handshake::encode_ack_message, message::Message, p2p, utils::id2pubkey},
+    rlpx::{
+        eth::{
+            backend,
+            blocks::BlockHeaders,
+        },
+        handshake::encode_ack_message,
+        message::Message,
+        p2p,
+        utils::id2pubkey,
+    },
     MAX_DISC_PACKET_SIZE,
 };
 
@@ -146,40 +155,12 @@ impl<S: AsyncWrite + AsyncRead + std::marker::Unpin> RLPxConnection<S> {
                         Message::Pong(_) => info!("Received Pong"),
                         Message::Status(_) => info!("Received Status"),
                         Message::GetBlockHeaders(msg_data) => {
-                            // FIXME: Handle skip case when > 0
-                            let GetBlockHeaders { startblock, limit, skip, id, reverse }  = msg_data;
-
-                            match startblock {
-                                HashOrNumber::Hash(block_hash) => {
-                                    // FIXME: Remove these unwraps.
-                                    let mut current_block = self.storage.get_block_number(block_hash).unwrap().unwrap();
-                                    // FIXME: Check if limit is too big for the query.
-                                    // FIXME: Implement reverse.
-                                    // let block_range = (startblock..).skip((skip + 1) as usize).take(limit as usize);
-                                    let mut headers = vec![];
-                                    for block_count in 0..limit  {
-                                        // FIXME: Remove these unwraps
-                                        let header = self.storage.get_block_header(current_block).unwrap().unwrap();
-                                        headers.push(header);
-                                        current_block += (skip + 1);
-                                    }
-                                    let response = BlockHeaders {
-                                        id,
-                                        block_headers: headers
-                                    };
-
-                                    println!("THE RESPONSE = {response:?}");
-
-                                    self.send(Message::BlockHeaders(response)).await;
-                                }
-                                HashOrNumber::Number(block_num) => {
-                                    // FIXME: Implement this
-                                    todo!("Only implemented for block hash");
-
-                                    // self.storage.
-                                }
-                            }
-                        },
+                            let response = BlockHeaders {
+                                id: msg_data.id,
+                                block_headers: msg_data.fetch_headers(&self.storage),
+                            };
+                            self.send(Message::BlockHeaders(response)).await;
+                        }
                         // TODO: Add new message types and handlers as they are implemented
                         message => return Err(RLPxError::UnexpectedMessage(message)),
                     };

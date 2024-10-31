@@ -352,16 +352,11 @@ impl<
         }
         // FIXME: Remove the prints
         let (first, first_rest) = T1::decode_unfinished(payload)?;
-        println!("FIRST DECODED = {first:x?}");
         let (second, second_rest) = T2::decode_unfinished(first_rest)?;
-        println!("SECOND DECODED = {second:x?}");
         let (third, third_rest) = T3::decode_unfinished(second_rest)?;
-        println!("THIRD DECODED = {third:x?}");
         let (fourth, fourth_rest) = T4::decode_unfinished(third_rest)?;
-        println!("FOURTH DECODED = {fourth:x?}");
         // check that there is no more data to decode after the fourth element.
         if !fourth_rest.is_empty() {
-            println!("LIST IS NOT EMPTY = {fourth_rest:?}");
             return Err(RLPDecodeError::MalformedData);
         }
 

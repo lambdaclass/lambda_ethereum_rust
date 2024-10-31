@@ -6,6 +6,7 @@ use ethereum_rust_rlp::{
     error::{RLPDecodeError, RLPEncodeError},
     structs::{Decoder, Encoder},
 };
+use ethereum_rust_storage::Store;
 use snap::raw::Decoder as SnappyDecoder;
 
 use crate::rlpx::{message::RLPxMessage, utils::snappy_encode};
@@ -72,6 +73,40 @@ impl GetBlockHeaders {
             skip,
             reverse,
         }
+    }
+    pub fn fetch_headers(&self, storage: &Store) -> Vec<BlockHeader> {
+        let start_block = match self.startblock {
+            // Check we have the given block hash and fetch its number
+            HashOrNumber::Hash(block_hash) => storage.get_block_number(block_hash).ok().flatten(),
+            // Don't check if the block number is available
+            // because if it it's not, then loop below will
+            // break early and return an empty vec.
+            HashOrNumber::Number(block_num) => Some(block_num),
+        };
+        let mut headers = vec![];
+
+        if let Some(start_block) = start_block {
+            let mut current_block = start_block as i64;
+            let block_skip = if self.reverse {
+                -((self.skip + 1) as i64)
+            } else {
+                (self.skip + 1) as i64
+            };
+            // Limit taken from here: https://github.com/ethereum/go-ethereum/blob/20bf543a64d7c2a590b18a1e1d907cae65707013/eth/protocols/eth/handler.go#L40
+            let limit = if self.limit > 1024 { 1024 } else { self.limit };
+            for _ in 0..limit {
+                let Some(block_header) = storage
+                    .get_block_header(current_block as u64)
+                    .ok()
+                    .flatten()
+                else {
+                    break;
+                };
+                headers.push(block_header);
+                current_block += block_skip
+            }
+        }
+        return headers;
     }
 }
 
