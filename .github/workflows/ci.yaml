@@ -73,14 +73,6 @@ jobs:
         run: |
           make test
 
-  docker-image:
-    - name: Download artifacts
-      uses: actions/download-artifact@v4
-      with:
-        run-id: ${{ github.event.workflow_run.id }}
-        name: ethereum_rust_image
-        github-token: ${{ secrets.GITHUB_TOKEN }}
-
   prover:
     name: Build RISC-V zkVM program
     runs-on: ubuntu-latest
