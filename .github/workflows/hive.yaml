@@ -1,18 +1,49 @@
 # Runs the specified hive testing suites
 name: Hive
 on:
-  workflow_run:
-    workflows: [Docker]
-    types: 
-      - completed
+  merge_group:
+  push:
+    branches: [main]
+  pull_request:
+    branches: ["**"]
+    paths-ignore:
+      - "README.md"
+      - "LICENSE"
+      - "**/README.md"
+      - "**/docs/**"
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.head_ref || github.run_id }}
+  cancel-in-progress: true
  
 env:
   RUST_VERSION: 1.80.1
 
 jobs:
+  docker-build:
+    name: Build and Upload image
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+      - name: Build Docker image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: ./Dockerfile
+          load: true 
+          tags: ethereum_rust
+          outputs: type=docker,dest=/tmp/ethereum_rust_image.tar
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: ethereum_rust_image
+          path: /tmp/ethereum_rust_image.tar
+
   run-hive:
-    if: ${{ github.event.workflow_run.conclusion == 'success' }}
     name: ${{ matrix.name }}
+    needs: docker-build
     runs-on: ubuntu-latest
     strategy:
       matrix:
@@ -36,9 +67,8 @@ jobs:
       - name: Download artifacts
         uses: actions/download-artifact@v4
         with:
-          run-id: ${{ github.event.workflow_run.id }}
           name: ethereum_rust_image
-          github-token: ${{ secrets.GITHUB_TOKEN }}
+          path: /tmp
       - name: Load image
         run: |
           docker load --input /tmp/ethereum_rust_image.tar
