@@ -22,13 +22,11 @@ env:
 
 jobs:
   docker-build:
-    name: Docker Image Build Check
-    steps:
-      - uses: ./.github/workflows/build.yml
+    uses: ./.github/workflows/build.yaml
 
   run-hive:
     name: ${{ matrix.name }}
-    needs: docker-build
+    needs: [docker-build]
     runs-on: ubuntu-latest
     strategy:
       matrix:
