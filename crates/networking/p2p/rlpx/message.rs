@@ -5,6 +5,9 @@ use std::fmt::Display;
 use super::eth::blocks::{BlockHeaders, GetBlockHeaders};
 use super::eth::status::StatusMessage;
 use super::p2p::{DisconnectMessage, HelloMessage, PingMessage, PongMessage};
+use super::snap::{AccountRange, GetAccountRange};
+
+use ethereum_rust_rlp::encode::RLPEncode;
 
 pub trait RLPxMessage: Sized {
     fn encode(&self, buf: &mut dyn BufMut) -> Result<(), RLPEncodeError>;
@@ -21,6 +24,9 @@ pub(crate) enum Message {
     // https://github.com/ethereum/devp2p/blob/5713591d0366da78a913a811c7502d9ca91d29a8/caps/eth.md#getblockheaders-0x03
     GetBlockHeaders(GetBlockHeaders),
     BlockHeaders(BlockHeaders),
+    // snap capability
+    GetAccountRange(GetAccountRange),
+    AccountRange(AccountRange),
 }
 
 impl Message {
@@ -43,6 +49,8 @@ impl Message {
             0x10 => Ok(Message::Status(StatusMessage::decode(msg_data)?)),
             0x13 => Ok(Message::GetBlockHeaders(GetBlockHeaders::decode(msg_data)?)),
             0x14 => Ok(Message::BlockHeaders(BlockHeaders::decode(msg_data)?)),
+            0x21 => Ok(Message::GetAccountRange(GetAccountRange::decode(msg_data)?)),
+            0x22 => Ok(Message::AccountRange(AccountRange::decode(msg_data)?)),
             _ => Err(RLPDecodeError::MalformedData),
         }
     }
@@ -56,6 +64,14 @@ impl Message {
             Message::Status(msg) => msg.encode(buf),
             Message::GetBlockHeaders(msg) => msg.encode(buf),
             Message::BlockHeaders(msg) => msg.encode(buf),
+            Message::GetAccountRange(msg) => {
+                0x21_u8.encode(buf);
+                msg.encode(buf)
+            }
+            Message::AccountRange(msg) => {
+                0x22_u8.encode(buf);
+                msg.encode(buf)
+            }
         }
     }
 }
@@ -70,6 +86,8 @@ impl Display for Message {
             Message::Status(_) => "eth:Status".fmt(f),
             Message::GetBlockHeaders(_) => "eth:getBlockHeaders".fmt(f),
             Message::BlockHeaders(_) => "eth:BlockHeaders".fmt(f),
+            Message::GetAccountRange(_) => "snap:GetAccountRange".fmt(f),
+            Message::AccountRange(_) => "snap:AccountRange".fmt(f),
         }
     }
 }
