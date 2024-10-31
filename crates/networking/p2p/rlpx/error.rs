@@ -1,6 +1,5 @@
 use ethereum_rust_rlp::error::{RLPDecodeError, RLPEncodeError};
 use ethereum_rust_storage::error::StoreError;
-use k256::ecdsa::Error as EcdsaError;
 use thiserror::Error;
 
 // TODO improve errors
@@ -24,6 +23,32 @@ pub(crate) enum RLPxError {
     RLPEncodeError(#[from] RLPEncodeError),
     #[error(transparent)]
     StoreError(#[from] StoreError),
-    #[error(transparent)]
-    EcdsaError(#[from] EcdsaError),
+    #[error("Error in cryptographic library: {0}")]
+    CryptographyError(String),
+}
+
+// Grouping all cryptographic related errors in a single CryptographicError variant
+// We can improve this to individual errors if required
+impl From<k256::ecdsa::Error> for RLPxError {
+    fn from(e: k256::ecdsa::Error) -> Self {
+        RLPxError::CryptographyError(e.to_string())
+    }
+}
+
+impl From<k256::elliptic_curve::Error> for RLPxError {
+    fn from(e: k256::elliptic_curve::Error) -> Self {
+        RLPxError::CryptographyError(e.to_string())
+    }
+}
+
+impl From<sha3::digest::InvalidLength> for RLPxError {
+    fn from(e: sha3::digest::InvalidLength) -> Self {
+        RLPxError::CryptographyError(e.to_string())
+    }
+}
+
+impl From<aes::cipher::StreamCipherError> for RLPxError {
+    fn from(e: aes::cipher::StreamCipherError) -> Self {
+        RLPxError::CryptographyError(e.to_string())
+    }
 }

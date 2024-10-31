@@ -191,7 +191,7 @@ impl<S: AsyncWrite + AsyncRead + std::marker::Unpin> RLPxConnection<S> {
                     previous_state.nonce,
                     &peer_pk,
                     &previous_state.ephemeral_key,
-                );
+                )?;
 
                 self.send_handshake_msg(&msg).await?;
 
@@ -216,7 +216,7 @@ impl<S: AsyncWrite + AsyncRead + std::marker::Unpin> RLPxConnection<S> {
                     &previous_state.local_ephemeral_key,
                     previous_state.local_nonce,
                     &peer_pk,
-                );
+                )?;
 
                 self.send_handshake_msg(&msg).await?;
 
@@ -239,7 +239,8 @@ impl<S: AsyncWrite + AsyncRead + std::marker::Unpin> RLPxConnection<S> {
                 let msg_bytes = self.receive_handshake_msg().await?;
                 let size_data = &msg_bytes[..2];
                 let msg = &msg_bytes[2..];
-                let (auth, remote_ephemeral_key) = decode_auth_message(&secret_key, msg, size_data);
+                let (auth, remote_ephemeral_key) =
+                    decode_auth_message(&secret_key, msg, size_data)?;
 
                 // Build next state
                 self.state = RLPxConnectionState::ReceivedAuth(ReceivedAuth::new(
@@ -264,7 +265,7 @@ impl<S: AsyncWrite + AsyncRead + std::marker::Unpin> RLPxConnection<S> {
                 let msg_bytes = self.receive_handshake_msg().await?;
                 let size_data = &msg_bytes[..2];
                 let msg = &msg_bytes[2..];
-                let ack = decode_ack_message(&secret_key, msg, size_data);
+                let ack = decode_ack_message(&secret_key, msg, size_data)?;
                 let remote_ephemeral_key = ack
                     .get_ephemeral_pubkey()
                     .ok_or(RLPxError::NotFound("Remote ephemeral key".to_string()))?;
