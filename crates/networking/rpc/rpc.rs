@@ -178,7 +178,7 @@ pub fn map_http_requests(req: &RpcRequest, context: RpcApiContext) -> Result<Val
         Ok(RpcNamespace::Admin) => map_admin_requests(req, context),
         Ok(RpcNamespace::Debug) => map_debug_requests(req, context),
         Ok(RpcNamespace::Web3) => map_web3_requests(req, context),
-        Ok(RpcNamespace::Net) => map_net_requests(req, storage),
+        Ok(RpcNamespace::Net) => map_net_requests(req, context),
         _ => Err(RpcErr::MethodNotFound(req.method.clone())),
     }
 }
@@ -458,7 +458,7 @@ mod tests {
             storage,
             local_p2p_node,
             jwt_secret: Default::default(),
-            active_filters: Default::default()
+            active_filters: Default::default(),
         };
         // Process request
         let result = map_http_requests(&request, context);
