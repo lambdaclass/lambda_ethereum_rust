@@ -1,4 +1,4 @@
-name: CI
+name: Docker Image
 on:
   merge_group:
   push:
@@ -19,7 +19,7 @@ env:
   RUST_VERSION: 1.80.1
 
 jobs:
-  docker-build:
+  build-and-upload:
     name: Build Docker image
     runs-on: ubuntu-latest
     steps:
