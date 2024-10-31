@@ -51,6 +51,7 @@ mod admin;
 mod authentication;
 pub mod engine;
 mod eth;
+mod net;
 pub mod types;
 pub mod utils;
 mod web3;
@@ -290,6 +291,13 @@ pub fn map_web3_requests(req: &RpcRequest, storage: Store) -> Result<Value, RpcE
     match req.method.as_str() {
         "web3_clientVersion" => web3::client_version(req, storage),
         unknown_web3_method => Err(RpcErr::MethodNotFound(unknown_web3_method.to_owned())),
+    }
+}
+
+pub fn map_net_requests(req: &RpcRequest, storage: Store) -> Result<Value, RpcErr> {
+    match req.method.as_str() {
+        "net_version" => net::version(req, storage),
+        unknown_net_method => Err(RpcErr::MethodNotFound(unknown_net_method.to_owned())),
     }
 }
 
