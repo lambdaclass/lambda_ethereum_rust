@@ -1,10 +1,14 @@
 name: "Hive & Assertoor"
 on:
   merge_group:
-  push:
-    branches: [main]
+    paths-ignore:
+      - "crates/l2/**"
+      - 'README.md'
+      - 'LICENSE'
+      - "**/README.md"
+      - "**/docs/**"
   pull_request:
-    branches: ["*"]
+    branches: ["**"]
     paths-ignore: 
       - "crates/l2/**"
       - 'README.md'
