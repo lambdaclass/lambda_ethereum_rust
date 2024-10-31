@@ -4,7 +4,7 @@ use ethereum_rust_storage::{error::StoreError, Store};
 
 use crate::rlpx::snap::{
     AccountRange, AccountRangeUnit, AccountStateSlim, ByteCodes, GetAccountRange, GetByteCodes,
-    GetStorageRanges, StorageRanges, StorageSlot,
+    GetStorageRanges, GetTrieNodes, StorageRanges, StorageSlot, TrieNodes,
 };
 
 pub fn process_account_range_request(
@@ -116,6 +116,28 @@ pub fn process_byte_codes_request(
     Ok(ByteCodes {
         id: request.id,
         codes,
+    })
+}
+
+pub fn process_trie_nodes_request(
+    request: GetTrieNodes,
+    store: Store,
+) -> Result<TrieNodes, StoreError> {
+    let mut nodes = vec![];
+    let mut remaining_bytes = request.bytes;
+    for paths in request.paths {
+        let trie_nodes = store.get_trie_nodes(request.root_hash, paths, remaining_bytes)?;
+        nodes.extend(trie_nodes.iter().map(|nodes| Bytes::copy_from_slice(nodes)));
+        remaining_bytes = remaining_bytes
+            .saturating_sub(trie_nodes.iter().fold(0, |acc, nodes| acc + nodes.len()) as u64);
+        if remaining_bytes == 0 {
+            break;
+        }
+    }
+
+    Ok(TrieNodes {
+        id: request.id,
+        nodes,
     })
 }
 
