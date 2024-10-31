@@ -5,7 +5,6 @@ use ethereum_rust_blockchain::{
     payload::{create_payload, BuildPayloadArgs},
 };
 use ethereum_rust_core::types::BlockHash;
-use ethereum_rust_storage::Store;
 use serde_json::Value;
 use tracing::{info, warn};
 
@@ -15,7 +14,7 @@ use crate::{
         payload::PayloadStatus,
     },
     utils::RpcRequest,
-    RpcErr, RpcHandler,
+    RpcApiContext, RpcErr, RpcHandler,
 };
 
 #[derive(Debug)]
@@ -59,7 +58,8 @@ impl RpcHandler for ForkChoiceUpdatedV3 {
         })
     }
 
-    fn handle(&self, storage: Store) -> Result<Value, RpcErr> {
+    fn handle(&self, context: RpcApiContext) -> Result<Value, RpcErr> {
+        let storage = &context.storage;
         info!(
             "New fork choice request with head: {}, safe: {}, finalized: {}.",
             self.fork_choice_state.head_block_hash,
@@ -69,7 +69,7 @@ impl RpcHandler for ForkChoiceUpdatedV3 {
         let fork_choice_error_to_response = |error| {
             let response = match error {
                 InvalidForkChoice::NewHeadAlreadyCanonical => ForkChoiceResponse::from(
-                    PayloadStatus::valid_with_hash(latest_canonical_block_hash(&storage).unwrap()),
+                    PayloadStatus::valid_with_hash(latest_canonical_block_hash(storage).unwrap()),
                 ),
                 InvalidForkChoice::Syncing => ForkChoiceResponse::from(PayloadStatus::syncing()),
                 reason => {
@@ -84,7 +84,7 @@ impl RpcHandler for ForkChoiceUpdatedV3 {
         };
 
         let head_block = match apply_fork_choice(
-            &storage,
+            storage,
             self.fork_choice_state.head_block_hash,
             self.fork_choice_state.safe_block_hash,
             self.fork_choice_state.finalized_block_hash,
@@ -131,7 +131,7 @@ impl RpcHandler for ForkChoiceUpdatedV3 {
                 };
                 let payload_id = args.id();
                 response.set_id(payload_id);
-                let payload = match create_payload(&args, &storage) {
+                let payload = match create_payload(&args, storage) {
                     Ok(payload) => payload,
                     Err(ChainError::EvmError(error)) => return Err(error.into()),
                     // Parent block is guaranteed to be present at this point,
