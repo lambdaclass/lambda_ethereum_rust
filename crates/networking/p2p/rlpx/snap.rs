@@ -31,7 +31,6 @@ pub(crate) struct AccountRange {
     pub id: u64,
     pub accounts: Vec<AccountRangeUnit>,
     pub proof: Vec<Bytes>,
-<<<<<<< HEAD
 }
 
 #[derive(Debug)]
@@ -49,8 +48,6 @@ pub(crate) struct StorageRanges {
     pub id: u64,
     pub slots: Vec<Vec<StorageSlot>>,
     pub proof: Vec<Bytes>,
-=======
->>>>>>> ef9c51143dda041e0c8e4ca2a8833b0857e73bf2
 }
 
 impl RLPxMessage for GetAccountRange {
@@ -125,7 +122,6 @@ impl RLPxMessage for AccountRange {
     }
 }
 
-<<<<<<< HEAD
 impl RLPxMessage for GetStorageRanges {
     fn encode(&self, buf: &mut dyn BufMut) -> Result<(), RLPEncodeError> {
         let mut encoded_data = vec![];
@@ -197,8 +193,6 @@ impl RLPxMessage for StorageRanges {
     }
 }
 
-=======
->>>>>>> ef9c51143dda041e0c8e4ca2a8833b0857e73bf2
 // Intermediate structures
 
 #[derive(Debug)]
@@ -215,15 +209,12 @@ pub struct AccountStateSlim {
     pub code_hash: Bytes,
 }
 
-<<<<<<< HEAD
 #[derive(Debug)]
 pub struct StorageSlot {
     pub hash: H256,
     pub data: U256,
 }
 
-=======
->>>>>>> ef9c51143dda041e0c8e4ca2a8833b0857e73bf2
 impl RLPEncode for AccountRangeUnit {
     fn encode(&self, buf: &mut dyn BufMut) {
         Encoder::new(buf)
@@ -311,7 +302,6 @@ impl From<AccountStateSlim> for AccountState {
             storage_root,
             code_hash,
         }
-<<<<<<< HEAD
     }
 }
 
@@ -330,7 +320,5 @@ impl RLPDecode for StorageSlot {
         let (hash, decoder) = decoder.decode_field("hash")?;
         let (data, decoder) = decoder.decode_field("data")?;
         Ok((Self { hash, data }, decoder.finish()?))
-=======
->>>>>>> ef9c51143dda041e0c8e4ca2a8833b0857e73bf2
     }
 }
