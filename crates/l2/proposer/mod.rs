@@ -6,7 +6,10 @@ use crate::utils::{
 use bytes::Bytes;
 use errors::ProposerError;
 use ethereum_rust_blockchain::constants::TX_GAS_COST;
-use ethereum_rust_core::types::{Block, EIP1559Transaction, GenericTransaction, TxKind};
+use ethereum_rust_core::types::{
+    Block, EIP1559Transaction, GenericTransaction, PrivilegedL2Transaction, PrivilegedTxType,
+    Transaction, TxKind,
+};
 use ethereum_rust_dev::utils::engine_client::{config::EngineApiConfig, EngineClient};
 use ethereum_rust_rpc::types::fork_choice::{ForkChoiceState, PayloadAttributesV3};
 use ethereum_rust_storage::Store;
@@ -26,7 +29,7 @@ use lambdaworks_math::{
     unsigned_integer::element::UnsignedInteger,
 };
 use libsecp256k1::SecretKey;
-use state_diff::StateDiff;
+use state_diff::{DepositLog, StateDiff, WithdrawalLog};
 use std::{
     fs::File,
     io::{BufReader, Read},
@@ -163,18 +166,25 @@ impl Proposer {
                     "Failed to get block by hash from storage".to_string(),
                 ))?;
 
-            let state_diff = self.prepare_state_diff(block.clone())?;
+            let withdrawals = self.get_block_withdrawals(&block)?;
+            let deposits = self.get_block_deposits(&block)?;
 
-            let commitment_data = self.prepare_blob_commitment(block.clone(), state_diff)?;
-            warn!("{commitment_data:#x}");
+            let withdrawal_logs_merkle_root = self.get_withdrawals_merkle_root(
+                withdrawals.iter().map(|(hash, _tx)| hash.clone()).collect(),
+            );
+            let deposit_logs_hash =
+                self.get_deposit_hash(deposits.iter().map(|(hash, _tx)| hash.clone().0).collect());
 
-            let withdrawal_logs_merkle_root = H256::zero();
-            let deposit_logs_hash = H256::zero();
+            let state_diff = self.prepare_state_diff(&block, withdrawals, deposits)?;
+
+            let blob_commitment = self.prepare_blob_commitment(state_diff)?;
+            let mut blob_versioned_hash = keccak(blob_commitment).0;
+            blob_versioned_hash[0] = 0x01;
 
             match self
                 .send_commitment(
                     block.header.number,
-                    commitment_data,
+                    H256::from(blob_versioned_hash),
                     withdrawal_logs_merkle_root,
                     deposit_logs_hash,
                 )
@@ -276,12 +286,103 @@ impl Proposer {
         Ok(produced_block_hash)
     }
 
+    pub fn get_block_withdrawals(
+        &self,
+        block: &Block,
+    ) -> Result<Vec<(H256, PrivilegedL2Transaction)>, ProposerError> {
+        let withdrawals = block
+            .body
+            .transactions
+            .iter()
+            .filter_map(|tx| match tx {
+                Transaction::PrivilegedL2Transaction(priv_tx)
+                    if priv_tx.tx_type == PrivilegedTxType::Withdrawal =>
+                {
+                    Some((tx.compute_hash(), priv_tx.clone()))
+                }
+                _ => None,
+            })
+            .collect();
+
+        Ok(withdrawals)
+    }
+
+    pub fn get_withdrawals_merkle_root(&self, withdrawals_hashes: Vec<H256>) -> H256 {
+        if !withdrawals_hashes.is_empty() {
+            merkelize(withdrawals_hashes)
+        } else {
+            H256::zero()
+        }
+    }
+
+    pub fn get_block_deposits(
+        &self,
+        block: &Block,
+    ) -> Result<Vec<(H256, PrivilegedL2Transaction)>, ProposerError> {
+        let deposits = block
+            .body
+            .transactions
+            .iter()
+            .filter_map(|tx| match tx {
+                Transaction::PrivilegedL2Transaction(priv_tx)
+                    if priv_tx.tx_type == PrivilegedTxType::Deposit =>
+                {
+                    Some((tx.compute_hash(), priv_tx.clone()))
+                }
+                _ => None,
+            })
+            .collect();
+
+        Ok(deposits)
+    }
+
+    pub fn get_deposit_hash(&self, deposits: Vec<[u8; 32]>) -> H256 {
+        if !deposits.is_empty() {
+            H256::from_slice(
+                [
+                    &(deposits.len() as u16).to_be_bytes(),
+                    &keccak(deposits.concat()).0[2..32],
+                ]
+                .concat()
+                .as_slice(),
+            )
+        } else {
+            H256::zero()
+        }
+    }
+
     /// Prepare the state diff for the block.
-    pub fn prepare_state_diff(&self, block: Block) -> Result<StateDiff, ProposerError> {
+    pub fn prepare_state_diff(
+        &self,
+        block: &Block,
+        withdrawals: Vec<(H256, PrivilegedL2Transaction)>,
+        deposits: Vec<(H256, PrivilegedL2Transaction)>,
+    ) -> Result<StateDiff, ProposerError> {
         info!("Preparing state diff for block {}", block.header.number);
 
         // TODO: Get the state diff from the block.
         let state_diff = StateDiff {
+            withdrawal_logs: withdrawals
+                .iter()
+                .map(|(hash, tx)| WithdrawalLog {
+                    address: match tx.to {
+                        TxKind::Call(address) => address,
+                        TxKind::Create => Address::zero(),
+                    },
+                    amount: tx.value,
+                    tx_hash: *hash,
+                })
+                .collect(),
+            deposit_logs: deposits
+                .iter()
+                .map(|(_hash, tx)| DepositLog {
+                    address: match tx.to {
+                        TxKind::Call(address) => address,
+                        TxKind::Create => Address::zero(),
+                    },
+                    amount: tx.value,
+                })
+                .collect(),
             ..Default::default()
         };
 
@@ -292,11 +393,8 @@ impl Proposer {
     /// to generate the blob versioned hash necessary for the EIP-4844 transaction.
     pub fn prepare_blob_commitment(
         &self,
-        block: Block,
         state_diff: StateDiff,
-    ) -> Result<H256, ProposerError> {
-        info!("Preparing commitment for block {}", block.header.number);
-
+    ) -> Result<[u8; 48], ProposerError> {
         let blob_data = state_diff.encode().map_err(ProposerError::from)?;
 
         let field_elements = blob_data
@@ -326,58 +424,7 @@ impl Proposer {
             .to_affine(),
         );
 
-        Ok(keccak(commitment))
-
-        // let withdrawal_data_hashes: Vec<H256> = block
-        //     .body
-        //     .transactions
-        //     .iter()
-        //     .filter_map(|tx| match tx {
-        //         Transaction::PrivilegedL2Transaction(tx) => tx.get_withdrawal_hash(),
-        //         _ => None,
-        //     })
-        //     .collect();
-
-        // let withdrawals_logs_merkle_root = if !withdrawal_data_hashes.is_empty() {
-        //     merkelize(withdrawal_data_hashes.clone())
-        // } else {
-        //     H256::zero()
-        // };
-
-        // let deposit_hashes: Vec<[u8; 32]> = block
-        //     .body
-        //     .transactions
-        //     .iter()
-        //     .filter_map(|tx| match tx {
-        //         Transaction::PrivilegedL2Transaction(tx)
-        //             if tx.tx_type == PrivilegedTxType::Deposit =>
-        //         {
-        //             let to = match tx.to {
-        //                 TxKind::Call(to) => to,
-        //                 TxKind::Create => Address::zero(),
-        //             };
-        //             let value_bytes = &mut [0u8; 32];
-        //             tx.value.to_big_endian(value_bytes);
-        //             Some(keccak([H256::from(to).0, H256::from(value_bytes).0].concat()).0)
-        //         }
-        //         _ => None,
-        //     })
-        //     .collect();
-
-        // let deposit_logs_hash = if deposit_hashes.is_empty() {
-        //     H256::zero()
-        // } else {
-        //     H256::from_slice(
-        //         [
-        //             &(deposit_hashes.len() as u16).to_be_bytes(),
-        //             &keccak(deposit_hashes.concat()).0[2..32],
-        //         ]
-        //         .concat()
-        //         .as_slice(),
-        //     )
-        // };
-
-        // Ok(H256::zero())
+        Ok(commitment)
     }
 
     pub async fn send_commitment(
@@ -387,7 +434,7 @@ impl Proposer {
         withdrawal_logs_merkle_root: H256,
         deposit_logs_hash: H256,
     ) -> Result<H256, ProposerError> {
-        info!("Sending commitment");
+        info!("Sending commitment for block {block_number}");
         let mut calldata = Vec::with_capacity(132);
         calldata.extend(COMMIT_FUNCTION_SELECTOR);
         let mut block_number_bytes = [0_u8; 32];
