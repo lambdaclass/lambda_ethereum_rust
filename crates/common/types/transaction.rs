@@ -1451,8 +1451,6 @@ mod mempool {
 #[cfg(test)]
 mod tests {
 
-    use std::str::FromStr;
-
     use crate::types::{compute_receipts_root, compute_transactions_root, BlockBody, Receipt};
 
     use super::*;
