@@ -22,7 +22,9 @@ env:
 
 jobs:
   docker-build:
-    uses: ./.github/workflows/build.yml  # use the callable tests job to run tests
+    name: Docker Image Build Check
+    steps:
+      - uses: ./.github/workflows/build.yml
 
   run-hive:
     name: ${{ matrix.name }}
