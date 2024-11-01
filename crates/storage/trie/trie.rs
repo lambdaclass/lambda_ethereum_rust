@@ -185,6 +185,7 @@ impl Trie {
     /// Obtain the encoded node given its path.
     /// Allows usage of partial paths
     pub fn get_node(&self, partial_path: &PathRLP) -> Result<Vec<u8>, TrieError> {
+        println!("Get node from partial path: {partial_path:?}");
         if partial_path.len() > 32 {
             return Ok(vec![]);
         }
@@ -199,6 +200,7 @@ impl Trie {
         };
 
         let node = self.get_node_inner(root_node, NibbleSlice::new(partial_path))?;
+        println!("Node got: {node:?}");
         Ok(node)
     }
 
@@ -207,11 +209,16 @@ impl Trie {
         node: Node,
         mut partial_path: NibbleSlice,
     ) -> Result<Vec<u8>, TrieError> {
+        println!("Partial path: {partial_path:?}, offset {}, len {}", partial_path.offset(), partial_path.len());
+        // PROBLEM: We may have an odd number of nibbles here that we are not taking into account with NibbleSlice
         if partial_path.len() == 0 {
             return Ok(node.encode_raw(partial_path.offset()));
         }
         match node {
-            Node::Branch(branch_node) => match partial_path.next().map(usize::from) {
+            Node::Branch(branch_node) => {
+                let next = partial_path.next().map(usize::from);
+                println!("BR Next: {next:?}");
+                match next {
                 Some(idx) if idx <= 16 => {
                     let child_hash = &branch_node.choices[idx as usize];
                     if child_hash.is_valid() {
