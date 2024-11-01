@@ -94,8 +94,8 @@ pub fn filter_transactions(
 }
 
 /// Remove a transaction from the mempool
-pub fn remove_transaction(address: Address, tx_hash: H256, store: &Store) {
-    store.remove_transaction_from_pool(address, tx_hash)
+pub fn remove_transaction(sender_address: Address, tx_hash: H256, store: &Store) {
+    store.remove_transaction_from_pool(sender_address, tx_hash)
 }
 
 #[derive(Debug, Default)]
