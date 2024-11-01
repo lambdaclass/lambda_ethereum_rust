@@ -12,7 +12,7 @@ pub struct StoreWrapper {
 }
 
 impl LevmDatabase for StoreWrapper {
-    fn get_account_info(&self, address: CoreAddress) -> ethereum_rust_levm::vm::AccountInfo {
+    fn get_account_info(&self, address: CoreAddress) -> ethereum_rust_levm::AccountInfo {
         let acc_info = self
             .store
             .get_account_info_by_hash(self.block_hash, address)
@@ -25,7 +25,7 @@ impl LevmDatabase for StoreWrapper {
             .unwrap()
             .unwrap();
 
-        ethereum_rust_levm::vm::AccountInfo {
+        ethereum_rust_levm::AccountInfo {
             balance: acc_info.balance,
             nonce: acc_info.nonce,
             bytecode: acc_code,

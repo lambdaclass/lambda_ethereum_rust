@@ -1,3 +1,4 @@
+pub mod account;
 pub mod call_frame;
 pub mod constants;
 pub mod db;
@@ -8,3 +9,5 @@ pub mod opcodes;
 pub mod operations;
 pub mod utils;
 pub mod vm;
+
+pub use account::*;

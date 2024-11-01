@@ -1,7 +1,8 @@
 use crate::{
+    account::{Account, AccountInfo},
     db::{Cache, Db},
     operations::Operation,
-    vm::{Account, AccountInfo, Environment, VM},
+    vm::{Environment, VM},
 };
 use bytes::Bytes;
 use ethereum_rust_core::{types::TxKind, Address, U256};
