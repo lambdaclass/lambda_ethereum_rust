@@ -186,13 +186,25 @@ impl RLPxMessage for BlockHeaders {
 pub(crate) struct GetBlockBodies {
     // id is a u64 chosen by the requesting peer, the responding peer must mirror the value for the response
     // https://github.com/ethereum/devp2p/blob/master/caps/eth.md#protocol-messages
-    id: u64,
-    block_hashes: Vec<BlockHash>,
+    pub id: u64,
+    pub block_hashes: Vec<BlockHash>,
 }
 
 impl GetBlockBodies {
     pub fn new(id: u64, block_hashes: Vec<BlockHash>) -> Self {
         Self { block_hashes, id }
+    }
+    pub fn fetch_blocks(&self, storage: &Store) -> Vec<BlockBody> {
+        let mut block_bodies = vec![];
+        for block_hash in &self.block_hashes {
+            // FIXME: Remove these unwraps.
+            let block_body = storage
+                .get_block_body_by_hash(*block_hash)
+                .unwrap()
+                .unwrap();
+            block_bodies.push(block_body)
+        }
+        return block_bodies;
     }
 }
 
@@ -223,11 +235,12 @@ impl RLPxMessage for GetBlockBodies {
 }
 
 // https://github.com/ethereum/devp2p/blob/master/caps/eth.md#blockbodies-0x06
+#[derive(Debug)]
 pub(crate) struct BlockBodies {
     // id is a u64 chosen by the requesting peer, the responding peer must mirror the value for the response
     // https://github.com/ethereum/devp2p/blob/master/caps/eth.md#protocol-messages
-    id: u64,
-    block_bodies: Vec<BlockBody>,
+    pub id: u64,
+    pub block_bodies: Vec<BlockBody>,
 }
 
 impl BlockBodies {
