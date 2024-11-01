@@ -14,7 +14,8 @@ use ethereum_rust_rlp::encode::RLPEncode;
 use ethereum_rust_trie::Trie;
 use ethereum_types::{Address, H256, U256};
 use sha3::{Digest as _, Keccak256};
-use std::collections::HashMap;
+use std::cmp::Reverse;
+use std::collections::{BinaryHeap, HashMap};
 use std::fmt::Debug;
 use std::sync::{Arc, Mutex};
 use tracing::info;
@@ -24,12 +25,77 @@ pub mod error;
 mod rlp;
 use std::collections::BTreeMap;
 
+/// Mempool transactions store
+///
+/// This structure aims to share the same interface as the BTreeMap to keep
+/// consistency with the rest of the codebase. However, under the hood it also
+/// uses a BinaryHeap as min-heap of nonces to allow for efficient retrieval of
+/// transactions sorted by nonce.
+///
+/// # Parameters
+///
+/// * `by_hash` - A BTreeMap that maps transaction hashes to transactions.
+/// * `by_nonce` - A BinaryHeap that stores nonces in reverse order to allow for
+///    efficient retrieval of transactions sorted by nonce.
+#[derive(Debug, Clone, Default)]
+pub struct MempoolTransactionStore {
+    by_hash: BTreeMap<H256, MempoolTransaction>,
+    by_nonce: BinaryHeap<Reverse<u64>>,
+}
+
+impl MempoolTransactionStore {
+    pub fn new() -> Self {
+        Default::default()
+    }
+
+    pub fn insert(&mut self, tx_hash: H256, tx: MempoolTransaction) {
+        self.by_hash.insert(tx_hash, tx.clone());
+        self.by_nonce.push(Reverse(tx.nonce()));
+    }
+
+    pub fn get(&self, tx_hash: &H256) -> Option<&MempoolTransaction> {
+        self.by_hash.get(tx_hash)
+    }
+
+    pub fn remove(&mut self, tx_hash: &H256) {
+        if let Some(tx) = self.by_hash.remove(tx_hash) {
+            self.by_nonce.retain(|Reverse(nonce)| *nonce != tx.nonce());
+        }
+    }
+
+    pub fn pop_first(&mut self) -> Option<(H256, MempoolTransaction)> {
+        let (tx_hash, tx) = self.by_hash.pop_first()?;
+        self.by_nonce.retain(|Reverse(nonce)| *nonce != tx.nonce());
+        Some((tx_hash, tx))
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.by_hash.is_empty()
+    }
+
+    pub fn iter(&self) -> impl Iterator<Item = (&H256, &MempoolTransaction)> {
+        self.by_hash.iter()
+    }
+
+    pub fn iter_sorted_by_nonce(&self) -> impl Iterator<Item = (&H256, &MempoolTransaction)> {
+        self.by_nonce.iter().filter_map(move |Reverse(nonce)| {
+            self.by_hash.iter().find(|(_, tx)| tx.nonce() == *nonce)
+        })
+    }
+}
+
+impl PartialEq for MempoolTransactionStore {
+    fn eq(&self, other: &Self) -> bool {
+        self.by_hash == other.by_hash
+    }
+}
+
 #[derive(Debug, Clone)]
 pub struct Store {
     // TODO: Check if we can remove this mutex and move it to the in_memory::Store struct
     engine: Arc<dyn StoreEngine>,
-    // Address -> (nonce -> Transaction)
-    pub mempool: Arc<Mutex<HashMap<Address, BTreeMap<u64, MempoolTransaction>>>>,
+    // Address -> MempoolTransactionStore (H256 -> MempoolTransaction)
+    pub mempool: Arc<Mutex<HashMap<Address, MempoolTransactionStore>>>,
     pub blobs_bundle_pool: Arc<Mutex<HashMap<H256, BlobsBundle>>>,
 }
 
