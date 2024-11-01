@@ -132,7 +132,7 @@ impl VM {
         let mut base_dynamic_gas: U256 = U256::zero();
 
         let current_value = if self.cache.is_slot_cached(&address, key) {
-            // If slot is warm (cached) 100 is added to base_dynamic_gas
+            // If slot is warm (cached) add 100 to base_dynamic_gas
             base_dynamic_gas += U256::from(100);
 
             self.cache
@@ -140,10 +140,10 @@ impl VM {
                 .unwrap_or_default()
                 .current_value
         } else {
-            // If slot is cold 2100 is added to base_dynamic_gas
+            // If slot is cold (not cached) add 2100 to base_dynamic_gas
             base_dynamic_gas += U256::from(2100);
 
-            self.get_storage_slot(&address, key).current_value // it is not in cache because of previous if
+            self.get_storage_slot(&address, key).current_value
         };
 
         self.increase_consumed_gas(current_call_frame, base_dynamic_gas)?;
