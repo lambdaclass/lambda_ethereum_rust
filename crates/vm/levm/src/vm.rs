@@ -4,11 +4,11 @@ use crate::{
     db::{Cache, Database},
     errors::{OpcodeSuccess, ResultReason, TransactionReport, TxResult, VMError},
     opcodes::Opcode,
-    primitives::{Address, Bytes, H256, U256},
 };
+use bytes::Bytes;
+use ethereum_rust_core::{types::TxKind, Address, H256, U256};
 use ethereum_rust_rlp;
 use ethereum_rust_rlp::encode::RLPEncode;
-use ethereum_types::H160;
 use keccak_hash::keccak;
 use sha3::{Digest, Keccak256};
 use std::{collections::HashMap, str::FromStr, sync::Arc};
@@ -60,7 +60,7 @@ impl Account {
     }
 
     pub fn bytecode_hash(&self) -> H256 {
-        keccak(self.info.bytecode.as_ref())
+        keccak(self.info.bytecode.as_ref()).0.into()
     }
 
     pub fn is_empty(&self) -> bool {
@@ -182,12 +182,7 @@ pub struct VM {
     /// states.
     pub db: Arc<dyn Database>,
     pub cache: Cache,
-    pub tx_type: TxType,
-}
-
-pub enum TxType {
-    CALL,
-    CREATE,
+    pub tx_kind: TxKind,
 }
 
 fn address_to_word(address: Address) -> U256 {
@@ -205,7 +200,7 @@ impl VM {
     // TODO: Refactor this.
     #[allow(clippy::too_many_arguments)]
     pub fn new(
-        to: Option<Address>,
+        to: TxKind,
         env: Environment,
         value: U256,
         calldata: Bytes,
@@ -215,7 +210,7 @@ impl VM {
         // Maybe this decision should be made in an upper layer
 
         match to {
-            Some(address_to) => {
+            TxKind::Call(address_to) => {
                 // CALL tx
                 let initial_call_frame = CallFrame::new(
                     env.origin,
@@ -236,10 +231,10 @@ impl VM {
                     env,
                     accrued_substate: Substate::default(),
                     cache,
-                    tx_type: TxType::CALL,
+                    tx_kind: to,
                 }
             }
-            None => {
+            TxKind::Create => {
                 // CREATE tx
                 let sender_account_info = db.get_account_info(env.origin);
                 // Note that this is a copy of account, not the real one
@@ -274,7 +269,7 @@ impl VM {
                     env,
                     accrued_substate: Substate::default(),
                     cache,
-                    tx_type: TxType::CREATE,
+                    tx_kind: TxKind::Create,
                 }
             }
         }
@@ -492,7 +487,7 @@ impl VM {
     }
 
     fn is_create(&self) -> bool {
-        matches!(self.tx_type, TxType::CREATE)
+        matches!(self.tx_kind, TxKind::Create)
     }
 
     fn revert_create(&mut self) -> Result<(), VMError> {
@@ -707,7 +702,7 @@ impl VM {
     /// Calculates the address of a new conctract using the CREATE opcode as follow
     ///
     /// address = keccak256(rlp([sender_address,sender_nonce]))[12:]
-    pub fn calculate_create_address(sender_address: Address, sender_nonce: u64) -> H160 {
+    pub fn calculate_create_address(sender_address: Address, sender_nonce: u64) -> Address {
         let mut encoded = Vec::new();
         (sender_address, sender_nonce).encode(&mut encoded);
         let mut hasher = Keccak256::new();
@@ -724,7 +719,7 @@ impl VM {
         sender_address: Address,
         initialization_code: &Bytes,
         salt: U256,
-    ) -> H160 {
+    ) -> Address {
         let mut hasher = Keccak256::new();
         hasher.update(initialization_code.clone());
         let initialization_code_hash = hasher.finalize();

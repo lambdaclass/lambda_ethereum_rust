@@ -143,11 +143,6 @@ pub fn execute_tx_levm(
     block_header: &BlockHeader,
     db: Arc<dyn LevmDatabase>,
 ) -> Result<TransactionReport, VMError> {
-    let to = match tx.to() {
-        TxKind::Call(address) => Some(address),
-        TxKind::Create => None,
-    };
-
     dbg!(&tx.tx_type());
 
     let gas_price: U256 = match tx.tx_type() {
@@ -187,7 +182,14 @@ pub fn execute_tx_levm(
         tx_blob_hashes: None,
     };
 
-    let mut vm = VM::new(to, env, tx.value(), tx.data().clone(), db, Cache::default());
+    let mut vm = VM::new(
+        tx.to(),
+        env,
+        tx.value(),
+        tx.data().clone(),
+        db,
+        Cache::default(),
+    );
 
     vm.transact()
 }

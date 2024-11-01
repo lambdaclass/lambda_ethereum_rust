@@ -1,13 +1,13 @@
+use bytes::Bytes;
+use ethereum_rust_core::{types::TxKind, Address, H256, U256};
 use ethereum_rust_levm::{
     constants::*,
     db::{Cache, Db},
     errors::{TxResult, VMError},
     operations::Operation,
-    primitives::{Address, Bytes, H256, U256},
     utils::{new_vm_with_ops, new_vm_with_ops_addr_bal_db, new_vm_with_ops_db},
     vm::{word_to_address, Account, Environment, Storage, VM},
 };
-use ethereum_types::H32;
 use std::{collections::HashMap, sync::Arc};
 
 fn create_opcodes(size: usize, offset: usize, value_to_transfer: usize) -> Vec<Operation> {
@@ -2991,7 +2991,7 @@ fn log1() {
     let data = [0xff_u8; 32].as_slice();
     assert_eq!(logs.len(), 1);
     assert_eq!(logs[0].data, data.to_vec());
-    assert_eq!(logs[0].topics, vec![H32::from_slice(&topic1)]);
+    assert_eq!(logs[0].topics, vec![H256::from_slice(&topic1)]);
     assert_eq!(vm.env.consumed_gas, TX_BASE_COST + 1027);
 }
 
@@ -3026,7 +3026,7 @@ fn log2() {
     assert_eq!(logs[0].data, data.to_vec());
     assert_eq!(
         logs[0].topics,
-        vec![H32::from_slice(&topic1), H32::from_slice(&topic2)]
+        vec![H256::from_slice(&topic1), H256::from_slice(&topic2)]
     );
     assert_eq!(vm.env.consumed_gas, TX_BASE_COST + 1405);
 }
@@ -3066,9 +3066,9 @@ fn log3() {
     assert_eq!(
         logs[0].topics,
         vec![
-            H32::from_slice(&topic1),
-            H32::from_slice(&topic2),
-            H32::from_slice(&topic3)
+            H256::from_slice(&topic1),
+            H256::from_slice(&topic2),
+            H256::from_slice(&topic3)
         ]
     );
     assert_eq!(vm.env.consumed_gas, TX_BASE_COST + 1783);
@@ -3112,10 +3112,10 @@ fn log4() {
     assert_eq!(
         logs[0].topics,
         vec![
-            H32::from_slice(&topic1),
-            H32::from_slice(&topic2),
-            H32::from_slice(&topic3),
-            H32::from_slice(&topic4)
+            H256::from_slice(&topic1),
+            H256::from_slice(&topic2),
+            H256::from_slice(&topic3),
+            H256::from_slice(&topic4)
         ]
     );
     assert_eq!(vm.env.consumed_gas, TX_BASE_COST + 2161);
@@ -3229,7 +3229,7 @@ fn multiple_logs_of_different_types() {
     assert_eq!(logs.len(), 2);
     assert_eq!(logs[0].data, data.to_vec());
     assert_eq!(logs[1].data, data.to_vec());
-    assert_eq!(logs[0].topics, vec![H32::from_slice(&topic1)]);
+    assert_eq!(logs[0].topics, vec![H256::from_slice(&topic1)]);
     assert_eq!(logs[1].topics.len(), 0);
 }
 
@@ -3974,7 +3974,7 @@ fn caller_op() {
     let env = Environment::default_from_address(caller);
 
     let mut vm = VM::new(
-        Some(address_that_has_the_code),
+        TxKind::Call(address_that_has_the_code),
         env,
         Default::default(),
         Default::default(),
@@ -4014,7 +4014,7 @@ fn origin_op() {
     let env = Environment::default_from_address(msg_sender);
 
     let mut vm = VM::new(
-        Some(address_that_has_the_code),
+        TxKind::Call(address_that_has_the_code),
         env,
         Default::default(),
         Default::default(),
@@ -4080,7 +4080,7 @@ fn address_op() {
     let env = Environment::default_from_address(Address::from_low_u64_be(42));
 
     let mut vm = VM::new(
-        Some(address_that_has_the_code),
+        TxKind::Call(address_that_has_the_code),
         env,
         Default::default(),
         Default::default(),
@@ -4124,7 +4124,7 @@ fn selfbalance_op() {
     let env = Environment::default_from_address(Address::from_low_u64_be(42));
 
     let mut vm = VM::new(
-        Some(address_that_has_the_code),
+        TxKind::Call(address_that_has_the_code),
         env,
         Default::default(),
         Default::default(),
@@ -4162,7 +4162,7 @@ fn callvalue_op() {
     let env = Environment::default_from_address(Address::from_low_u64_be(42));
 
     let mut vm = VM::new(
-        Some(address_that_has_the_code),
+        TxKind::Call(address_that_has_the_code),
         env,
         value,
         Default::default(),
@@ -4199,7 +4199,7 @@ fn codesize_op() {
     let env = Environment::default_from_address(Address::from_low_u64_be(42));
 
     let mut vm = VM::new(
-        Some(address_that_has_the_code),
+        TxKind::Call(address_that_has_the_code),
         env,
         Default::default(),
         Default::default(),
@@ -4239,7 +4239,7 @@ fn gasprice_op() {
     env.gas_price = U256::from_str_radix("9876", 16).unwrap();
 
     let mut vm = VM::new(
-        Some(address_that_has_the_code),
+        TxKind::Call(address_that_has_the_code),
         env,
         Default::default(),
         Default::default(),
@@ -4295,7 +4295,7 @@ fn codecopy_op() {
     let env = Environment::default_from_address(Address::from_low_u64_be(42));
 
     let mut vm = VM::new(
-        Some(address_that_has_the_code),
+        TxKind::Call(address_that_has_the_code),
         env,
         Default::default(),
         Default::default(),

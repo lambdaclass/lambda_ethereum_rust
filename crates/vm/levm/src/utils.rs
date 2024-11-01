@@ -4,7 +4,7 @@ use crate::{
     vm::{Account, AccountInfo, Environment, VM},
 };
 use bytes::Bytes;
-use ethereum_types::{Address, U256};
+use ethereum_rust_core::{types::TxKind, Address, U256};
 use std::{collections::HashMap, sync::Arc};
 
 pub fn ops_to_bytecde(operations: &[Operation]) -> Bytes {
@@ -90,7 +90,7 @@ pub fn new_vm_with_ops_addr_bal_db(
     let env = Environment::default_from_address(sender_address);
 
     VM::new(
-        Some(Address::from_low_u64_be(42)),
+        TxKind::Call(Address::from_low_u64_be(42)),
         env,
         Default::default(),
         Default::default(),

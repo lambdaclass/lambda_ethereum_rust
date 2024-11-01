@@ -1,4 +1,4 @@
-use ethereum_types::U256;
+use ethereum_rust_core::U256;
 
 pub const LAST_AVAILABLE_BLOCK_LIMIT: U256 = U256([256, 0, 0, 0]);
 
