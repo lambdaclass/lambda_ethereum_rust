@@ -1496,6 +1496,32 @@ mod serde_impl {
             }
         }
     }
+
+    impl From<EIP4844Transaction> for GenericTransaction {
+        fn from(value: EIP4844Transaction) -> Self {
+            Self {
+                r#type: TxType::EIP4844,
+                nonce: value.nonce,
+                to: TxKind::Call(value.to),
+                gas: Some(value.gas),
+                value: value.value,
+                input: value.data,
+                gas_price: value.max_fee_per_gas,
+                max_priority_fee_per_gas: Some(value.max_priority_fee_per_gas),
+                max_fee_per_gas: Some(value.max_fee_per_gas),
+                max_fee_per_blob_gas: Some(value.max_fee_per_blob_gas),
+                access_list: value
+                    .access_list
+                    .iter()
+                    .map(AccessListEntry::from)
+                    .collect(),
+                blob_versioned_hashes: value.blob_versioned_hashes,
+                blobs: vec![],
+                chain_id: None,
+                ..Default::default()
+            }
+        }
+    }
 }
 
 mod mempool {

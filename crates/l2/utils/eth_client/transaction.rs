@@ -1,4 +1,4 @@
-use ethereum_rust_core::types::{EIP1559Transaction, PrivilegedL2Transaction};
+use ethereum_rust_core::types::{EIP1559Transaction, EIP4844Transaction, PrivilegedL2Transaction};
 use ethereum_rust_rlp::structs::Encoder;
 
 pub trait PayloadRLPEncode {
@@ -22,6 +22,24 @@ impl PayloadRLPEncode for EIP1559Transaction {
             .encode_field(&self.value)
             .encode_field(&self.data)
             .encode_field(&self.access_list)
+            .finish();
+    }
+}
+
+impl PayloadRLPEncode for EIP4844Transaction {
+    fn encode_payload(&self, buf: &mut dyn bytes::BufMut) {
+        Encoder::new(buf)
+            .encode_field(&self.chain_id)
+            .encode_field(&self.nonce)
+            .encode_field(&self.max_priority_fee_per_gas)
+            .encode_field(&self.max_fee_per_gas)
+            .encode_field(&self.gas)
+            .encode_field(&self.to)
+            .encode_field(&self.value)
+            .encode_field(&self.data)
+            .encode_field(&self.access_list)
+            .encode_field(&self.max_fee_per_blob_gas)
+            .encode_field(&self.blob_versioned_hashes)
             .finish();
     }
 }

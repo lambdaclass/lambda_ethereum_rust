@@ -7,11 +7,14 @@ use bytes::Bytes;
 use errors::ProposerError;
 use ethereum_rust_blockchain::constants::TX_GAS_COST;
 use ethereum_rust_core::types::{
-    Block, EIP1559Transaction, GenericTransaction, PrivilegedL2Transaction, PrivilegedTxType,
-    Transaction, TxKind,
+    BlobsBundle, Block, EIP1559Transaction, EIP4844Transaction, GenericTransaction,
+    PrivilegedL2Transaction, PrivilegedTxType, Transaction, TxKind, BYTES_PER_BLOB,
 };
 use ethereum_rust_dev::utils::engine_client::{config::EngineApiConfig, EngineClient};
-use ethereum_rust_rpc::types::fork_choice::{ForkChoiceState, PayloadAttributesV3};
+use ethereum_rust_rpc::types::{
+    fork_choice::{ForkChoiceState, PayloadAttributesV3},
+    transaction::WrappedEIP4844Transaction,
+};
 use ethereum_rust_storage::Store;
 use ethereum_rust_vm::{evm_state, execute_block, get_state_transitions};
 use ethereum_types::{Address, H256, U256};
@@ -182,16 +185,15 @@ impl Proposer {
             let state_diff =
                 self.prepare_state_diff(&block, store.clone(), withdrawals, deposits)?;
 
-            let blob_commitment = self.prepare_blob_commitment(state_diff)?;
-            let mut blob_versioned_hash = keccak(blob_commitment).0;
-            blob_versioned_hash[0] = 0x01; // EIP-4844 versioning
+            let blob_commitment = self.prepare_blob_commitment(state_diff.clone())?;
 
             match self
                 .send_commitment(
                     block.header.number,
-                    H256::from(blob_versioned_hash),
                     withdrawal_logs_merkle_root,
                     deposit_logs_hash,
+                    blob_commitment,
+                    state_diff.encode()?,
                 )
                 .await
             {
@@ -467,23 +469,66 @@ impl Proposer {
     pub async fn send_commitment(
         &self,
         block_number: u64,
-        commitment: H256,
         withdrawal_logs_merkle_root: H256,
         deposit_logs_hash: H256,
+        commitment: [u8; 48],
+        blob: Bytes,
     ) -> Result<H256, ProposerError> {
         info!("Sending commitment for block {block_number}");
+
+        let mut blob_versioned_hash = keccak(commitment).0;
+        blob_versioned_hash[0] = 0x01; // EIP-4844 versioning
+
         let mut calldata = Vec::with_capacity(132);
         calldata.extend(COMMIT_FUNCTION_SELECTOR);
         let mut block_number_bytes = [0_u8; 32];
         U256::from(block_number).to_big_endian(&mut block_number_bytes);
         calldata.extend(block_number_bytes);
-        calldata.extend(commitment.0);
+        calldata.extend(blob_versioned_hash);
         calldata.extend(withdrawal_logs_merkle_root.0);
         calldata.extend(deposit_logs_hash.0);
 
+        // let commit_tx_hash = self
+        //     .send_transaction_with_calldata(self.on_chain_proposer_address, calldata.into())
+        //     .await?;
+
+        let mut tx = EIP4844Transaction {
+            to: self.on_chain_proposer_address,
+            data: Bytes::from(calldata),
+            max_fee_per_gas: self.eth_client.get_gas_price().await?.as_u64(),
+            nonce: self.eth_client.get_nonce(self.l1_address).await?,
+            chain_id: self.eth_client.get_chain_id().await?.as_u64(),
+            blob_versioned_hashes: vec![H256::from(blob_versioned_hash)],
+            max_fee_per_blob_gas: U256::from_dec_str("100000000000000").unwrap(),
+            ..Default::default()
+        };
+
+        let mut generic_tx = GenericTransaction::from(tx.clone());
+        generic_tx.from = self.l1_address;
+
+        tx.gas = self
+            .eth_client
+            .estimate_gas(generic_tx)
+            .await?
+            .saturating_add(TX_GAS_COST);
+
+        let mut buf = [0u8; BYTES_PER_BLOB];
+        buf[..blob.len()].copy_from_slice(blob.as_ref());
+
+        let mut wrapped_tx = WrappedEIP4844Transaction {
+            tx,
+            blobs_bundle: BlobsBundle {
+                blobs: vec![buf],
+                commitments: vec![commitment],
+                proofs: vec![commitment],
+            },
+        };
+
         let commit_tx_hash = self
-            .send_transaction_with_calldata(self.on_chain_proposer_address, calldata.into())
-            .await?;
+            .eth_client
+            .send_eip4844_transaction(&mut wrapped_tx, self.l1_private_key)
+            .await
+            .map_err(ProposerError::from)?;
 
         info!("Commitment sent: {commit_tx_hash:#x}");
 
