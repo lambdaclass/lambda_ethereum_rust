@@ -214,23 +214,34 @@ impl Trie {
         // Then, we leave the offset to be constant for all nodes, as the other ones will not use
         // it.
         let leaf_offset = 2 * path.len(); // offset in nibbles
+        dbg!(&leaf_offset);
 
-        // Build trie and get root hash
+        // Insert root into trie
+        let mut proof = proof.into_iter();
+        // TODO: this should be an error, the proof can be whatever.
+        let root_node = proof.next().expect("inconsistent internal tree structure");
+        trie.root = Some(root_node.insert_self(leaf_offset, &mut trie.state)?);
+
+        // Insert rest of nodes
         for node in proof {
+            dbg!(&node);
             node.insert_self(leaf_offset, &mut trie.state)?;
         }
         let expected_root_hash = trie.hash_no_commit()?.into();
 
-        // Check root hash
-        if root_hash != expected_root_hash {
-            return Ok(false);
-        }
         // Check key exists
         let Some(retrieved_value) = trie.get(path)? else {
+            dbg!("key does not exists");
             return Ok(false);
         };
         // Check value is correct
         if retrieved_value != *value {
+            dbg!("value not correct");
+            return Ok(false);
+        }
+        // Check root hash
+        if root_hash != expected_root_hash {
+            dbg!("wrong root hash");
             return Ok(false);
         }
 
@@ -1065,5 +1076,25 @@ mod test {
         let cita_proof = cita_trie.get_proof(&a).unwrap();
         let trie_proof = trie.get_encoded_proof(&a).unwrap();
         assert_eq!(cita_proof, trie_proof);
+    }
+
+    #[test]
+    fn verify_proof_one_leaf() {
+        // Trie -> Leaf["duck"]
+        let mut trie = Trie::new_temp();
+        trie.insert(b"duck".to_vec(), b"duckling".to_vec()).unwrap();
+        //trie.insert(b"duc".to_vec(), b"duckling".to_vec()).unwrap();
+        dbg!(&trie.root);
+        dbg!(&trie.state.cache);
+
+        let root_hash = trie.hash_no_commit().unwrap().into();
+        let trie_proof = trie.get_proof(&b"duck".to_vec()).unwrap();
+        assert!(Trie::verify_proof(
+            trie_proof,
+            root_hash,
+            &b"duck".to_vec(),
+            &b"duckling".to_vec(),
+        )
+        .unwrap());
     }
 }
