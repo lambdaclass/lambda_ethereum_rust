@@ -1091,7 +1091,7 @@ mod test {
         trie.insert(b"duck".to_vec(), b"duckling".to_vec()).unwrap();
         //trie.insert(b"duc".to_vec(), b"duckling".to_vec()).unwrap();
         dbg!(&trie.root);
-        dbg!(&trie.state.cache);
+        //dbg!(&trie.state.cache);
 
         let root_hash = trie.hash_no_commit().unwrap().into();
         let trie_proof = trie.get_proof(&b"duck".to_vec()).unwrap();
