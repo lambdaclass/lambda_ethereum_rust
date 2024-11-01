@@ -166,15 +166,6 @@ impl LeafNode {
         }
         Ok(())
     }
-
-    /// Obtain the encoded node given its path.
-    pub fn get_node(&self, path: NibbleSlice) -> Result<Option<Vec<u8>>, TrieError> {
-        if path.cmp_rest(&self.path) {
-            Ok(Some(self.encode_raw(path.offset())))
-        } else {
-            Ok(None)
-        }
-    }
 }
 
 #[cfg(test)]
