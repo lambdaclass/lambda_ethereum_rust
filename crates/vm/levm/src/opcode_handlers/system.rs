@@ -2,6 +2,7 @@ use super::*;
 use crate::{
     constants::{call_opcode, SUCCESS_FOR_RETURN},
     errors::ResultReason,
+    vm::word_to_address,
 };
 
 // System Operations (10)
@@ -14,7 +15,7 @@ impl VM {
         current_call_frame: &mut CallFrame,
     ) -> Result<OpcodeSuccess, VMError> {
         let gas = current_call_frame.stack.pop()?;
-        let code_address = Address::from_low_u64_be(current_call_frame.stack.pop()?.low_u64());
+        let code_address = word_to_address(current_call_frame.stack.pop()?);
         let value = current_call_frame.stack.pop()?;
         let args_offset = current_call_frame
             .stack
@@ -93,7 +94,7 @@ impl VM {
         current_call_frame: &mut CallFrame,
     ) -> Result<OpcodeSuccess, VMError> {
         let gas = current_call_frame.stack.pop()?;
-        let code_address = Address::from_low_u64_be(current_call_frame.stack.pop()?.low_u64());
+        let code_address = word_to_address(current_call_frame.stack.pop()?);
         let value = current_call_frame.stack.pop()?;
         let args_offset = current_call_frame.stack.pop()?.try_into().unwrap();
         let args_size = current_call_frame.stack.pop()?.try_into().unwrap();
@@ -156,7 +157,7 @@ impl VM {
         current_call_frame: &mut CallFrame,
     ) -> Result<OpcodeSuccess, VMError> {
         let gas = current_call_frame.stack.pop()?;
-        let code_address = Address::from_low_u64_be(current_call_frame.stack.pop()?.low_u64());
+        let code_address = word_to_address(current_call_frame.stack.pop()?);
         let args_offset = current_call_frame.stack.pop()?.try_into().unwrap();
         let args_size = current_call_frame.stack.pop()?.try_into().unwrap();
         let ret_offset = current_call_frame.stack.pop()?.try_into().unwrap();
@@ -189,7 +190,7 @@ impl VM {
         current_call_frame: &mut CallFrame,
     ) -> Result<OpcodeSuccess, VMError> {
         let gas = current_call_frame.stack.pop()?;
-        let code_address = Address::from_low_u64_be(current_call_frame.stack.pop()?.low_u64());
+        let code_address = word_to_address(current_call_frame.stack.pop()?);
         let args_offset = current_call_frame.stack.pop()?.try_into().unwrap();
         let args_size = current_call_frame.stack.pop()?.try_into().unwrap();
         let ret_offset = current_call_frame.stack.pop()?.try_into().unwrap();

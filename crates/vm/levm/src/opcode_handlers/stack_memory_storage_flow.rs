@@ -169,7 +169,7 @@ impl VM {
         } else {
             // If slot is cold 2100 is added to base_dynamic_gas
             base_dynamic_gas += U256::from(2100);
-            
+
             self.get_storage_slot(&address, key) // it is not in cache because of previous if
         };
 
