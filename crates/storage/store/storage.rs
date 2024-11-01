@@ -769,7 +769,6 @@ impl Store {
         let Some(account_path) = paths.first() else {
             return Ok(vec![]);
         };
-        let mut bytes_used = 0;
         let state_trie = self.engine.open_state_trie(state_root);
         // State Trie Nodes Request
         if paths.len() == 1 {
@@ -794,6 +793,7 @@ impl Store {
             .open_storage_trie(hashed_address, account_state.storage_root);
         // Fetch storage trie nodes
         let mut nodes = vec![];
+        let mut bytes_used = 0;
         for path in paths.iter().skip(1) {
             if bytes_used >= byte_limit {
                 break;
