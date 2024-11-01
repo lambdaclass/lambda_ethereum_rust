@@ -274,9 +274,9 @@ impl Store {
 
         for (address, txs_by_nonce) in mempool.iter() {
             let mut account_txs = BTreeMap::new();
-            for (nonce, tx) in txs_by_nonce.iter() {
+            for (_tx_hash, tx) in txs_by_nonce.iter_sorted_by_nonce() {
                 if filter(tx) {
-                    account_txs.insert(*nonce, tx.clone());
+                    account_txs.insert(tx.nonce(), tx.clone());
                 } else {
                     // If the tx does not pass the filter then stop right away;
                     // There's no point in including subsequent transactions since the nonce is
