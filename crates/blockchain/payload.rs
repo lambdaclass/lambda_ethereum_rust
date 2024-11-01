@@ -303,7 +303,7 @@ pub fn fill_transactions(context: &mut PayloadBuildContext) -> Result<(), ChainE
             // Pull transaction from the mempool
             debug!("Ignoring replay-protected transaction: {}", tx_hash);
             txs.pop();
-            mempool::remove_transaction(head_tx.sender, tx_hash, context.store())?;
+            mempool::remove_transaction(head_tx.sender, head_tx.tx.nonce(), context.store())?;
             continue;
         }
         // Execute tx
@@ -311,7 +311,7 @@ pub fn fill_transactions(context: &mut PayloadBuildContext) -> Result<(), ChainE
             Ok(receipt) => {
                 txs.shift();
                 // Pull transaction from the mempool
-                mempool::remove_transaction(head_tx.sender, tx_hash, context.store())?;
+                mempool::remove_transaction(head_tx.sender, head_tx.tx.nonce(), context.store())?;
                 receipt
             }
             // Ignore following txs from sender
@@ -411,8 +411,8 @@ fn finalize_payload(context: &mut PayloadBuildContext) -> Result<(), StoreError>
 struct TransactionQueue {
     // The first transaction for each account along with its tip, sorted by highest tip
     heads: Vec<HeadTransaction>,
-    // The remaining txs grouped by account and sorted by hash
-    txs: HashMap<Address, BTreeMap<H256, MempoolTransaction>>,
+    // The remaining txs grouped by account and sorted by nonce
+    txs: HashMap<Address, BTreeMap<u64, MempoolTransaction>>,
     // Base Fee stored for tip calculations
     base_fee: Option<u64>,
 }
@@ -439,9 +439,9 @@ impl From<HeadTransaction> for Transaction {
 }
 
 impl TransactionQueue {
-    /// Creates a new TransactionQueue from a set of transactions grouped by sender and sorted by hash
+    /// Creates a new TransactionQueue from a set of transactions grouped by sender and sorted by nonce
     fn new(
-        mut txs: HashMap<Address, BTreeMap<H256, MempoolTransaction>>,
+        mut txs: HashMap<Address, BTreeMap<u64, MempoolTransaction>>,
         base_fee: Option<u64>,
     ) -> Self {
         let mut heads = Vec::new();
