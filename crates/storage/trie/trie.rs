@@ -187,11 +187,18 @@ impl Trie {
     /// Obtain the encoded node given its path.
     /// Allows usage of full paths (byte slice of 32 bytes) or compact-encoded nibble slices (with length lower than 32)
     pub fn get_node(&self, partial_path: &PathRLP) -> Result<Vec<u8>, TrieError> {
-        println!("Get node from partial path: {partial_path:?}");
-        if partial_path.len() > 32 {
-            return Ok(vec![]);
-        }
-        let (partial_path, last_byte_is_half) = maybe_compact_to_bytes(partial_path);
+        // Convert compact-encoded nibbles into a byte slice if necessary
+        let (partial_path, last_byte_is_half) = match partial_path.len() {
+            // Compact-encoded nibbles
+            n if n < 32 => {
+                let (p, l) = compact_nibbles_to_bytes(partial_path);
+                (Cow::Owned(p), l)
+            }
+            // Full path (No conversion needed)
+            32 => (Cow::Borrowed(partial_path), false),
+            // We won't handle paths with length over 32
+            _ => return Ok(vec![]),
+        };
         let Some(root_node) = self
             .root
             .as_ref()
@@ -281,33 +288,28 @@ impl Trie {
     }
 }
 
-fn maybe_compact_to_bytes(maybe_compact: &Vec<u8>) -> (Cow<Vec<u8>>, bool) {
-    match maybe_compact.len() {
-        // Partial path is represented as compact nibbles
-        n if n < 32 => {
-            // Convert compact nibbles to nibbles
-            let nibbles = compact_to_hex(maybe_compact.clone());
-            // Convert nibbles to bytes, accouning for odd number of bytes
-            let mut last_is_half = false;
-            let bytes = nibbles
-                .chunks(2)
-                .map(|chunk| match chunk.len() {
-                    1 => {
-                        last_is_half = true;
-                        chunk[0] << 4
-                    }
-                    // 2
-                    _ => chunk[0] << 4 | chunk[1],
-                })
-                .collect::<Vec<_>>();
-                (Cow::Owned(bytes), last_is_half)
-        },
-        // Full path already represented as bytes
-        _ => (Cow::Borrowed(maybe_compact), false)
-    }
+/// Converts a slice of compact-encoded nibbles into a byte slice
+/// If the nibble slice has odd-length (aka the last byte will be a half byte) returns true else false
+fn compact_nibbles_to_bytes(compact: &Vec<u8>) -> (Vec<u8>, bool) {
+    // Convert compact nibbles to nibbles
+    let nibbles = compact_to_hex(compact);
+    // Convert nibbles to bytes, accouning for odd number of bytes
+    let mut last_is_half = false;
+    let bytes = nibbles
+        .chunks(2)
+        .map(|chunk| match chunk.len() {
+            1 => {
+                last_is_half = true;
+                chunk[0] << 4
+            }
+            // 2
+            _ => chunk[0] << 4 | chunk[1],
+        })
+        .collect::<Vec<_>>();
+    (bytes, last_is_half)
 }
 
-fn compact_to_hex(compact: Vec<u8>) -> Vec<u8> {
+fn compact_to_hex(compact: &Vec<u8>) -> Vec<u8> {
     if compact.is_empty() {
         return vec![];
     }
@@ -321,7 +323,7 @@ fn compact_to_hex(compact: Vec<u8>) -> Vec<u8> {
     base[chop..].to_vec()
 }
 
-fn keybytes_to_hex(keybytes: Vec<u8>) -> Vec<u8> {
+fn keybytes_to_hex(keybytes: &Vec<u8>) -> Vec<u8> {
     let l = keybytes.len() * 2 + 1;
     let mut nibbles = vec![0; l];
     for (i, b) in keybytes.into_iter().enumerate() {
