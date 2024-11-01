@@ -63,6 +63,9 @@ pub(crate) struct GetBlockHeaders {
     pub reverse: bool,
 }
 
+// Limit taken from here: https://github.com/ethereum/go-ethereum/blob/20bf543a64d7c2a590b18a1e1d907cae65707013/eth/protocols/eth/handler.go#L40
+pub const BLOCK_HEADER_LIMIT: u64 = 1024;
+
 impl GetBlockHeaders {
     pub fn new(id: u64, startblock: HashOrNumber, limit: u64, skip: u64, reverse: bool) -> Self {
         Self {
@@ -92,8 +95,11 @@ impl GetBlockHeaders {
             } else {
                 (self.skip + 1) as i64
             };
-            // Limit taken from here: https://github.com/ethereum/go-ethereum/blob/20bf543a64d7c2a590b18a1e1d907cae65707013/eth/protocols/eth/handler.go#L40
-            let limit = if self.limit > 1024 { 1024 } else { self.limit };
+            let limit = if self.limit > BLOCK_HEADER_LIMIT {
+                BLOCK_HEADER_LIMIT
+            } else {
+                self.limit
+            };
             for _ in 0..limit {
                 let Some(block_header) = storage
                     .get_block_header(current_block as u64)
