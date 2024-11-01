@@ -79,8 +79,8 @@ mod tests {
         }
 
         let mut path = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
-        // Go back 5 levels (Go to the root of the project)
-        for _ in 0..5 {
+        // Go back 4 levels (Go to the root of the project)
+        for _ in 0..4 {
             path.pop();
         }
         path.push("test_data");

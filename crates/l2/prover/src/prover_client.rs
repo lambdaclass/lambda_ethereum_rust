@@ -78,11 +78,7 @@ impl ProverClient {
         }
     }
 
-    fn submit_proof(
-        &self,
-        block_number: u64,
-        receipt: risc0_zkvm::Receipt,
-    ) -> Result<(), String> {
+    fn submit_proof(&self, block_number: u64, receipt: risc0_zkvm::Receipt) -> Result<(), String> {
         let submit = ProofData::Submit {
             block_number,
             receipt: Box::new(receipt),
