@@ -218,21 +218,13 @@ impl Store {
     }
 
     /// Add transaction to the pool
-    pub fn add_transaction_to_pool(&self, transaction: MempoolTransaction) {
-        let mut mempool = self.mempool.lock().unwrap();
-        let maybe_old_value = mempool.get_mut(&transaction.sender());
-        let sender = transaction.sender();
-
-        match maybe_old_value {
-            Some(old_value) => {
-                old_value.insert(transaction.nonce(), transaction);
-            }
-            None => {
-                let mut new_value = BTreeMap::new();
-                new_value.insert(transaction.nonce(), transaction);
-                mempool.insert(sender, new_value);
-            }
-        }
+    pub fn add_transaction_to_pool(&self, tx_hash: H256, transaction: MempoolTransaction) {
+        self.mempool
+            .lock()
+            .unwrap()
+            .entry(transaction.sender())
+            .or_default()
+            .insert(tx_hash, transaction);
     }
 
     /// Add a blobs bundle to the pool by its blob transaction hash
