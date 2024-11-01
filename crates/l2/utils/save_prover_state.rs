@@ -67,7 +67,7 @@ pub fn read_block_in_prover_state(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use ethereum_rust_l2::utils::test_data_io;
+    use crate::utils::test_data_io;
     use std::fs::{self, create_dir_all};
     use std::path::{Path, PathBuf};
 
