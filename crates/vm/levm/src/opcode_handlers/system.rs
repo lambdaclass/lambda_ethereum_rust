@@ -1,10 +1,9 @@
+use super::*;
 use crate::{
     constants::{call_opcode, SUCCESS_FOR_RETURN},
     errors::ResultReason,
-    vm::Account,
+    vm::{Account, TxType},
 };
-
-use super::*;
 
 // System Operations (10)
 // Opcodes: CREATE, CALL, CALLCODE, RETURN, DELEGATECALL, CREATE2, STATICCALL, REVERT, INVALID, SELFDESTRUCT
@@ -42,18 +41,20 @@ impl VM {
         let memory_byte_size = (args_offset + args_size).max(ret_offset + ret_size);
         let memory_expansion_cost = current_call_frame.memory.expansion_cost(memory_byte_size)?;
 
-        let address_access_cost = if self.accrued_substate.warm_addresses.contains(&code_address) {
-            call_opcode::WARM_ADDRESS_ACCESS_COST
-        } else {
-            call_opcode::COLD_ADDRESS_ACCESS_COST
-        };
-
         let positive_value_cost = if !value.is_zero() {
             call_opcode::NON_ZERO_VALUE_COST + call_opcode::BASIC_FALLBACK_FUNCTION_STIPEND
         } else {
             U256::zero()
         };
-        let account = self.db.get_account(&code_address)?;
+
+        let address_access_cost = if !self.cache.is_account_cached(&code_address) {
+            self.cache_from_db(&code_address);
+            call_opcode::COLD_ADDRESS_ACCESS_COST
+        } else {
+            call_opcode::WARM_ADDRESS_ACCESS_COST
+        };
+        let account = self.cache.get_account(code_address).unwrap().clone();
+
         let value_to_empty_account_cost = if !value.is_zero() && account.is_empty() {
             call_opcode::VALUE_TO_EMPTY_ACCOUNT_COST
         } else {
@@ -67,10 +68,8 @@ impl VM {
 
         self.increase_consumed_gas(current_call_frame, gas_cost)?;
 
-        self.accrued_substate.warm_addresses.insert(code_address);
-
-        let msg_sender = current_call_frame.msg_sender;
-        let to = current_call_frame.to;
+        let msg_sender = current_call_frame.to; // The new sender will be the current contract.
+        let to = code_address; // In this case code_address and the sub-context account are the same. Unlike CALLCODE or DELEGATECODE.
         let is_static = current_call_frame.is_static;
 
         self.generic_call(
@@ -80,7 +79,6 @@ impl VM {
             msg_sender,
             to,
             code_address,
-            None,
             false,
             is_static,
             args_offset,
@@ -103,7 +101,8 @@ impl VM {
         let ret_offset = current_call_frame.stack.pop()?.try_into().unwrap();
         let ret_size = current_call_frame.stack.pop()?.try_into().unwrap();
 
-        let msg_sender = current_call_frame.msg_sender;
+        // Sender and recipient are the same in this case. But the code executed is from another account.
+        let msg_sender = current_call_frame.to;
         let to = current_call_frame.to;
         let is_static = current_call_frame.is_static;
 
@@ -111,10 +110,9 @@ impl VM {
             current_call_frame,
             gas,
             value,
-            code_address,
+            msg_sender,
             to,
             code_address,
-            Some(msg_sender),
             false,
             is_static,
             args_offset,
@@ -165,8 +163,8 @@ impl VM {
         let ret_offset = current_call_frame.stack.pop()?.try_into().unwrap();
         let ret_size = current_call_frame.stack.pop()?.try_into().unwrap();
 
-        let value = current_call_frame.msg_value;
         let msg_sender = current_call_frame.msg_sender;
+        let value = current_call_frame.msg_value;
         let to = current_call_frame.to;
         let is_static = current_call_frame.is_static;
 
@@ -177,7 +175,6 @@ impl VM {
             msg_sender,
             to,
             code_address,
-            Some(msg_sender),
             false,
             is_static,
             args_offset,
@@ -199,17 +196,17 @@ impl VM {
         let ret_offset = current_call_frame.stack.pop()?.try_into().unwrap();
         let ret_size = current_call_frame.stack.pop()?.try_into().unwrap();
 
-        let msg_sender = current_call_frame.msg_sender;
-        let value = current_call_frame.msg_value;
+        let value = U256::zero();
+        let msg_sender = current_call_frame.to; // The new sender will be the current contract.
+        let to = code_address; // In this case code_address and the sub-context account are the same. Unlike CALLCODE or DELEGATECODE.
 
         self.generic_call(
             current_call_frame,
             gas,
             value,
             msg_sender,
+            to,
             code_address,
-            code_address,
-            None,
             false,
             true,
             args_offset,
@@ -309,51 +306,39 @@ impl VM {
         // Gas costs variables
         let static_gas_cost = gas_cost::SELFDESTRUCT_STATIC;
         let dynamic_gas_cost = gas_cost::SELFDESTRUCT_DYNAMIC;
-        let _cold_gas_cost = gas_cost::COLD_ADDRESS_ACCESS_COST;
+        let cold_gas_cost = gas_cost::COLD_ADDRESS_ACCESS_COST;
         let mut gas_cost = static_gas_cost; // This will be updated later
 
         // 1. Pop the target address from the stack
         let target_address = Address::from_low_u64_be(current_call_frame.stack.pop()?.low_u64());
 
         // 2. Get current account and: Store the balance in a variable, set it's balance to 0
-        let current_account_balance = self
-            .db
-            .accounts
-            .get(&current_call_frame.to)
-            .unwrap()
-            .balance;
-        self.db
-            .accounts
-            .get_mut(&current_call_frame.to)
-            .unwrap()
-            .balance = U256::zero();
+        let mut current_account = self
+            .get_account(&current_call_frame.to);
+        let current_account_balance = current_account.info.balance;
 
+        current_account.info.balance = U256::zero();
+        
         // 3 & 4. Get target account and add the balance of the current account to it
-        // TODO: If address is cold, there is an additional cost of 2600. AFAIK accessList has not been implemented yet.
-        if self.db.account_is_empty(&target_address) {
-            gas_cost += dynamic_gas_cost;
-            self.db.accounts.insert(
-                target_address,
-                Account::default().with_balance(current_account_balance),
-            );
-        } else {
-            let target_account = self.db.accounts.get_mut(&target_address).unwrap();
-
-            target_account.balance += current_account_balance;
+        // TODO: If address is cold, there is an additional cost of 2600.
+        if !self.cache.is_account_cached(&target_address) {
+            gas_cost += cold_gas_cost;
         }
+
+        let mut target_account = self.get_account(&target_address);
+        if target_account.is_empty() {
+            gas_cost += dynamic_gas_cost;
+        }
+        target_account.info.balance += current_account_balance;
+
 
         // 5. Register account to be destroyed in accrued substate IF executed in the same transaction a contract was created
-        // This is temporary because it is not necessarily right but we should just check if the current account was created in this transaction.
-        if self
-            .accrued_substate
-            .created_contract_addresses
-            .contains(&current_call_frame.to)
-        {
+        if self.tx_type == TxType::CREATE {
             self.accrued_substate
-                .self_destruct_set
+                .selfdestrutct_set
                 .insert(current_call_frame.to);
         }
-        // Those accounts should be destroyed at the end of the transaction.
+        // Accounts in SelfDestruct set should be destroyed at the end of the transaction.
 
         self.increase_consumed_gas(current_call_frame, gas_cost)?;
 

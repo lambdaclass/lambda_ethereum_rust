@@ -47,7 +47,6 @@ pub mod gas_cost {
     pub const RETURNDATACOPY_STATIC: U256 = U256([3, 0, 0, 0]);
     pub const RETURNDATACOPY_DYNAMIC_BASE: U256 = U256([3, 0, 0, 0]);
     pub const ADDRESS: U256 = U256([2, 0, 0, 0]);
-    pub const BALANCE: U256 = U256([100, 0, 0, 0]);
     pub const ORIGIN: U256 = U256([2, 0, 0, 0]);
     pub const CALLER: U256 = U256([2, 0, 0, 0]);
     pub const BLOCKHASH: U256 = U256([20, 0, 0, 0]);
@@ -117,6 +116,8 @@ pub const TX_BASE_COST: U256 = U256([21000, 0, 0, 0]);
 
 pub const MAX_CODE_SIZE: usize = 0x6000;
 pub const MAX_CREATE_CODE_SIZE: usize = 2 * MAX_CODE_SIZE;
+
+pub const INVALID_CONTRACT_PREFIX: u8 = 0xef;
 
 // Costs in gas for init word and init code (in wei)
 pub const INIT_WORD_COST: i64 = 2;

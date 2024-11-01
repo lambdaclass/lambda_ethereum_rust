@@ -1,13 +1,11 @@
 name: CI
 on:
   merge_group:
-  push:
-    branches: [main]
   pull_request:
     branches: ["**"]
     paths-ignore:
-      - 'README.md'
-      - 'LICENSE'
+      - "README.md"
+      - "LICENSE"
       - "**/README.md"
       - "**/docs/**"
 
@@ -24,13 +22,16 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout sources
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
       - name: Rustup toolchain install
         uses: dtolnay/rust-toolchain@stable
         with:
           toolchain: ${{ env.RUST_VERSION }}
           components: rustfmt, clippy
+
+      - name: Add Rust Cache
+        uses: Swatinem/rust-cache@v2
 
       - name: Run cargo check
         run: cargo check
@@ -41,7 +42,7 @@ jobs:
 
       - name: Run cargo clippy
         run: |
-          cargo clippy --all-targets --all-features --workspace -- -D warnings
+          cargo clippy --all-targets --all-features --workspace --exclude ethereum_rust-prover -- -D warnings
 
       - name: Run cargo fmt
         run: |
@@ -52,12 +53,15 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout sources
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
       - name: Rustup toolchain install
         uses: dtolnay/rust-toolchain@stable
         with:
           toolchain: ${{ env.RUST_VERSION }}
+
+      - name: Caching
+        uses: Swatinem/rust-cache@v2
 
       - name: Download test vectors
         run: |
@@ -80,25 +84,3 @@ jobs:
           context: .
           file: ./Dockerfile
           load: true # Important for building without pushing
-
-  prover:
-    name: Build RISC-V zkVM program
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout sources
-        uses: actions/checkout@v3
-
-      - name: Rust toolchain install
-        uses: dtolnay/rust-toolchain@stable
-        with:
-          toolchain: ${{ env.RUST_VERSION }}
-
-      - name: RISC-V zkVM toolchain install
-        run: |
-          curl -L https://risczero.com/install | bash
-          ~/.risc0/bin/rzup install
-
-      - name: Build prover and zkVM
-        run: |
-          cd crates/l2/prover
-          cargo build --release --features build_zkvm
