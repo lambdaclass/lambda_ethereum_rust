@@ -41,7 +41,7 @@ pub fn generate_rlp(
             let body = store.get_block_body(i)?.unwrap();
             let header = store.get_block_header(i)?.unwrap();
 
-            let block = Block { header, body };
+            let block = Block::new(header, body);
             let vec = block.encode_to_vec();
             file.write_all(&vec)?;
         }

@@ -11,8 +11,8 @@ use std::cmp::min;
 
 use ethereum_rust_core::{
     types::{
-        AccountInfo, Block, BlockHash, BlockHeader, ChainConfig, Fork, GenericTransaction, Receipt,
-        Transaction, TxKind, Withdrawal, GWEI_TO_WEI, INITIAL_BASE_FEE,
+        AccountInfo, Block, BlockHash, BlockHeader, ChainConfig, Fork, GenericTransaction,
+        PrivilegedTxType, Receipt, Transaction, TxKind, Withdrawal, GWEI_TO_WEI, INITIAL_BASE_FEE,
     },
     Address, BigEndianHash, H256, U256,
 };
@@ -29,7 +29,8 @@ use revm::{
 use revm_inspectors::access_list::AccessListInspector;
 // Rename imported types for clarity
 use revm_primitives::{
-    ruint::Uint, AccessList as RevmAccessList, AccessListItem, FixedBytes, TxKind as RevmTxKind,
+    ruint::Uint, AccessList as RevmAccessList, AccessListItem, Bytes, FixedBytes,
+    TxKind as RevmTxKind,
 };
 // Export needed types
 pub use errors::EvmError;
@@ -37,6 +38,9 @@ pub use execution_result::*;
 pub use revm::primitives::{Address as RevmAddress, SpecId};
 
 type AccessList = Vec<(Address, Vec<H256>)>;
+
+pub const WITHDRAWAL_MAGIC_DATA: &[u8] = b"burn";
+pub const DEPOSIT_MAGIC_DATA: &[u8] = b"mint";
 
 /// State used when running the EVM. The state can be represented with a [StoreWrapper] database, or
 /// with a [ExecutionDB] in case we only want to store the necessary data for some particular
@@ -151,63 +155,38 @@ fn run_evm(
     let tx_result = {
         let chain_spec = state.chain_config()?;
         #[allow(unused_mut)]
+        let mut evm_builder = Evm::builder()
+            .with_block_env(block_env)
+            .with_tx_env(tx_env)
+            .modify_cfg_env(|cfg| cfg.chain_id = chain_spec.chain_id)
+            .with_spec_id(spec_id)
+            .with_external_context(
+                TracerEip3155::new(Box::new(std::io::stderr())).without_summary(),
+            );
+        cfg_if::cfg_if! {
+            if #[cfg(feature = "l2")] {
+                use revm::{Handler, primitives::{CancunSpec, HandlerCfg}};
+                use std::sync::Arc;
+
+                evm_builder = evm_builder.with_handler({
+                    let mut evm_handler = Handler::new(HandlerCfg::new(SpecId::LATEST));
+                    evm_handler.pre_execution.deduct_caller = Arc::new(mods::deduct_caller::<CancunSpec, _, _>);
+                    evm_handler.validation.tx_against_state = Arc::new(mods::validate_tx_against_state::<CancunSpec, _, _>);
+                    evm_handler.execution.last_frame_return = Arc::new(mods::last_frame_return::<CancunSpec, _, _>);
+                    // TODO: Override `end` function. We should deposit even if we revert.
+                    // evm_handler.pre_execution.end
+                    evm_handler
+                });
+            }
+        }
+
         match state {
             EvmState::Store(db) => {
-                let mut evm_builder = Evm::builder()
-                    .with_db(db)
-                    .with_block_env(block_env)
-                    .with_tx_env(tx_env)
-                    .modify_cfg_env(|cfg| cfg.chain_id = chain_spec.chain_id)
-                    .with_spec_id(spec_id)
-                    .with_external_context(
-                        TracerEip3155::new(Box::new(std::io::stderr())).without_summary(),
-                    );
-                cfg_if::cfg_if! {
-                    if #[cfg(feature = "l2")] {
-                        use revm::{Handler, primitives::{CancunSpec, HandlerCfg}};
-                        use std::sync::Arc;
-
-                        evm_builder = evm_builder.with_handler({
-                            let mut evm_handler = Handler::new(HandlerCfg::new(SpecId::LATEST));
-                            evm_handler.pre_execution.deduct_caller = Arc::new(mods::deduct_caller::<CancunSpec, _, _>);
-                            evm_handler.validation.tx_against_state = Arc::new(mods::validate_tx_against_state::<CancunSpec, _, _>);
-                            // TODO: Override `end` function. We should deposit even if we revert.
-                            // evm_handler.pre_execution.end
-                            evm_handler
-                        });
-                    }
-                }
-
-                let mut evm = evm_builder.build();
+                let mut evm = evm_builder.with_db(db).build();
                 evm.transact_commit().map_err(EvmError::from)?
             }
             EvmState::Execution(db) => {
-                let mut evm_builder = Evm::builder()
-                    .with_db(db)
-                    .with_block_env(block_env)
-                    .with_tx_env(tx_env)
-                    .modify_cfg_env(|cfg| cfg.chain_id = chain_spec.chain_id)
-                    .with_spec_id(spec_id)
-                    .with_external_context(
-                        TracerEip3155::new(Box::new(std::io::stderr())).without_summary(),
-                    );
-                cfg_if::cfg_if! {
-                    if #[cfg(feature = "l2")] {
-                        use revm::{Handler, primitives::{CancunSpec, HandlerCfg}};
-                        use std::sync::Arc;
-
-                        evm_builder = evm_builder.with_handler({
-                            let mut evm_handler = Handler::new(HandlerCfg::new(SpecId::LATEST));
-                            evm_handler.pre_execution.deduct_caller = Arc::new(mods::deduct_caller::<CancunSpec, _, _>);
-                            evm_handler.validation.tx_against_state = Arc::new(mods::validate_tx_against_state::<CancunSpec, _, _>);
-                            // TODO: Override `end` function. We should deposit even if we revert.
-                            // evm_handler.pre_execution.end
-                            evm_handler
-                        });
-                    }
-                }
-
-                let mut evm = evm_builder.build();
+                let mut evm = evm_builder.with_db(db).build();
                 evm.transact_commit().map_err(EvmError::from)?
             }
         }
@@ -260,34 +239,29 @@ fn create_access_list_inner(
     spec_id: SpecId,
 ) -> Result<(ExecutionResult, RevmAccessList), EvmError> {
     let mut access_list_inspector = access_list_inspector(&tx_env, state, spec_id)?;
+    #[allow(unused_mut)]
+    let mut evm_builder = Evm::builder()
+        .with_block_env(block_env)
+        .with_tx_env(tx_env)
+        .with_spec_id(spec_id)
+        .modify_cfg_env(|env| {
+            env.disable_base_fee = true;
+            env.disable_block_gas_limit = true
+        })
+        .with_external_context(&mut access_list_inspector);
+
     let tx_result = {
         match state {
             EvmState::Store(db) => {
-                let mut evm = Evm::builder()
+                let mut evm = evm_builder
                     .with_db(db)
-                    .with_block_env(block_env)
-                    .with_tx_env(tx_env)
-                    .with_spec_id(spec_id)
-                    .modify_cfg_env(|env| {
-                        env.disable_base_fee = true;
-                        env.disable_block_gas_limit = true
-                    })
-                    .with_external_context(&mut access_list_inspector)
                     .append_handler_register(inspector_handle_register)
                     .build();
                 evm.transact().map_err(EvmError::from)?
             }
             EvmState::Execution(db) => {
-                let mut evm = Evm::builder()
+                let mut evm = evm_builder
                     .with_db(db)
-                    .with_block_env(block_env)
-                    .with_tx_env(tx_env)
-                    .with_spec_id(spec_id)
-                    .modify_cfg_env(|env| {
-                        env.disable_base_fee = true;
-                        env.disable_block_gas_limit = true
-                    })
-                    .with_external_context(&mut access_list_inspector)
                     .append_handler_register(inspector_handle_register)
                     .build();
                 evm.transact().map_err(EvmError::from)?
@@ -312,33 +286,23 @@ fn run_without_commit(
         tx_env.max_fee_per_blob_gas,
     );
     let chain_config = state.chain_config()?;
+    #[allow(unused_mut)]
+    let mut evm_builder = Evm::builder()
+        .with_block_env(block_env)
+        .with_tx_env(tx_env)
+        .with_spec_id(spec_id)
+        .modify_cfg_env(|env| {
+            env.disable_base_fee = true;
+            env.disable_block_gas_limit = true;
+            env.chain_id = chain_config.chain_id;
+        });
     let tx_result = match state {
         EvmState::Store(db) => {
-            let mut evm = Evm::builder()
-                .with_db(db)
-                .with_block_env(block_env)
-                .with_tx_env(tx_env)
-                .with_spec_id(spec_id)
-                .modify_cfg_env(|env| {
-                    env.disable_base_fee = true;
-                    env.disable_block_gas_limit = true;
-                    env.chain_id = chain_config.chain_id;
-                })
-                .build();
+            let mut evm = evm_builder.with_db(db).build();
             evm.transact().map_err(EvmError::from)?
         }
         EvmState::Execution(db) => {
-            let mut evm = Evm::builder()
-                .with_db(db)
-                .with_block_env(block_env)
-                .with_tx_env(tx_env)
-                .with_spec_id(spec_id)
-                .modify_cfg_env(|env| {
-                    env.disable_base_fee = true;
-                    env.disable_block_gas_limit = true;
-                    env.chain_id = chain_config.chain_id;
-                })
-                .build();
+            let mut evm = evm_builder.with_db(db).build();
             evm.transact().map_err(EvmError::from)?
         }
     };
@@ -556,15 +520,41 @@ pub fn tx_env(tx: &Transaction) -> TxEnv {
         None => None,
     };
     TxEnv {
-        caller: RevmAddress(tx.sender().0.into()),
+        caller: match tx {
+            Transaction::PrivilegedL2Transaction(tx) if tx.tx_type == PrivilegedTxType::Deposit => {
+                RevmAddress::ZERO
+            }
+            _ => RevmAddress(tx.sender().0.into()),
+        },
         gas_limit: tx.gas_limit(),
         gas_price: RevmU256::from(tx.gas_price()),
-        transact_to: match tx.to() {
-            TxKind::Call(address) => RevmTxKind::Call(address.0.into()),
-            TxKind::Create => RevmTxKind::Create,
+        transact_to: match tx {
+            Transaction::PrivilegedL2Transaction(tx)
+                if tx.tx_type == PrivilegedTxType::Withdrawal =>
+            {
+                RevmTxKind::Call(RevmAddress::ZERO)
+            }
+            _ => match tx.to() {
+                TxKind::Call(address) => RevmTxKind::Call(address.0.into()),
+                TxKind::Create => RevmTxKind::Create,
+            },
         },
         value: RevmU256::from_limbs(tx.value().0),
-        data: tx.data().clone().into(),
+        data: match tx {
+            Transaction::PrivilegedL2Transaction(tx) => match tx.tx_type {
+                PrivilegedTxType::Deposit => DEPOSIT_MAGIC_DATA.into(),
+                PrivilegedTxType::Withdrawal => {
+                    let to = match tx.to {
+                        TxKind::Call(to) => to,
+                        _ => Address::zero(),
+                    };
+                    [Bytes::from(WITHDRAWAL_MAGIC_DATA), Bytes::from(to.0)]
+                        .concat()
+                        .into()
+                }
+            },
+            _ => tx.data().clone().into(),
+        },
         nonce: Some(tx.nonce()),
         chain_id: tx.chain_id(),
         access_list: tx

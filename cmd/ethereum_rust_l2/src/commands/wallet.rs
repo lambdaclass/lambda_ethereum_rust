@@ -1,12 +1,20 @@
-use crate::config::EthereumRustL2Config;
+use crate::{commands::utils::encode_calldata, config::EthereumRustL2Config};
 use bytes::Bytes;
 use clap::Subcommand;
-use ethereum_rust_core::types::{EIP1559Transaction, GenericTransaction, TxKind};
-use ethereum_rust_l2::utils::eth_client::{errors::EthClientError, EthClient};
-use ethereum_rust_rlp::encode::RLPEncode;
+use ethereum_rust_core::types::{
+    EIP1559Transaction, PrivilegedL2Transaction, PrivilegedTxType, Transaction, TxKind,
+};
+use ethereum_rust_l2::utils::{
+    eth_client::{eth_sender::Overrides, EthClient},
+    merkle_tree::merkle_proof,
+};
 use ethereum_types::{Address, H256, U256};
+use eyre::OptionExt;
 use hex::FromHexError;
-use keccak_hash::keccak;
+use itertools::Itertools;
+
+const CLAIM_WITHDRAWAL_SIGNATURE: &str =
+    "claimWithdrawal(bytes32,uint256,uint256,uint256,bytes32[])";
 
 #[derive(Subcommand)]
 pub(crate) enum Command {
@@ -34,13 +42,16 @@ pub(crate) enum Command {
             help = "Specify the wallet in which you want to deposit your funds."
         )]
         to: Option<Address>,
+        #[clap(short = 'w', required = false)]
+        wait_for_receipt: bool,
         #[clap(long, short = 'e', required = false)]
         explorer_url: bool,
     },
     #[clap(about = "Finalize a pending withdrawal.")]
-    FinalizeWithdraw {
-        #[clap(long = "hash")]
+    ClaimWithdraw {
         l2_withdrawal_tx_hash: H256,
+        #[clap(short = 'w', required = false)]
+        wait_for_receipt: bool,
     },
     #[clap(about = "Transfer funds to another wallet.")]
     Transfer {
@@ -51,6 +62,10 @@ pub(crate) enum Command {
         token_address: Option<Address>,
         #[clap(long = "to")]
         to: Address,
+        #[clap(long = "nonce")]
+        nonce: Option<u64>,
+        #[clap(short = 'w', required = false)]
+        wait_for_receipt: bool,
         #[clap(
             long = "l1",
             required = false,
@@ -65,13 +80,24 @@ pub(crate) enum Command {
         // TODO: Parse ether instead.
         #[clap(long = "amount", value_parser = U256::from_dec_str)]
         amount: U256,
+        #[clap(long = "to")]
+        to: Option<Address>,
+        #[clap(long = "nonce")]
+        nonce: Option<u64>,
         #[clap(
             long = "token",
             help = "Specify the token address, the base token is used as default."
         )]
         token_address: Option<Address>,
+        #[clap(short = 'w', required = false)]
+        wait_for_receipt: bool,
         #[clap(long, short = 'e', required = false)]
         explorer_url: bool,
+    },
+    #[clap(about = "Get the withdrawal merkle proof of a transaction.")]
+    WithdrawalProof {
+        #[clap(long = "hash")]
+        tx_hash: H256,
     },
     #[clap(about = "Get the wallet address.")]
     Address,
@@ -107,6 +133,8 @@ pub(crate) enum Command {
         gas_price: Option<u64>,
         #[clap(long = "priority-gas-price", required = false)]
         priority_gas_price: Option<u64>,
+        #[clap(short = 'w', required = false)]
+        wait_for_receipt: bool,
     },
     #[clap(about = "Make a call to a contract")]
     Call {
@@ -163,49 +191,60 @@ pub(crate) enum Command {
         gas_price: Option<u64>,
         #[clap(long = "priority-gas-price", required = false)]
         priority_gas_price: Option<u64>,
+        #[clap(short = 'w', required = false)]
+        wait_for_receipt: bool,
     },
 }
 
 fn decode_hex(s: &str) -> Result<Bytes, FromHexError> {
-    if s.starts_with("0x") {
-        return hex::decode(&s[2..]).map(Into::into);
+    match s.strip_prefix("0x") {
+        Some(s) => hex::decode(s).map(Into::into),
+        None => hex::decode(s).map(Into::into),
     }
-    return hex::decode(s).map(Into::into);
 }
 
-async fn make_eip1559_transaction(
+async fn get_withdraw_merkle_proof(
     client: &EthClient,
-    to: TxKind,
-    from: Address,
-    data: Bytes,
-    value: U256,
-    chain_id: u64,
-    nonce: Option<u64>,
-    gas_limit: Option<u64>,
-    gas_price: Option<u64>,
-    priority_gas_price: Option<u64>,
-) -> Result<EIP1559Transaction, EthClientError> {
-    let mut tx = EIP1559Transaction {
-        to,
-        data,
-        value,
-        chain_id,
-        nonce: match nonce {
-            Some(nonce) => nonce,
-            None => client.get_nonce(from).await?,
-        },
-        max_fee_per_gas: match gas_price {
-            Some(price) => price,
-            None => client.get_gas_price().await?.as_u64(),
-        },
-        max_priority_fee_per_gas: priority_gas_price.unwrap_or(Default::default()),
-        ..Default::default()
-    };
-    tx.gas_limit = match gas_limit {
-        Some(gas) => gas,
-        None => client.estimate_gas(tx.clone()).await?,
-    };
-    Ok(tx)
+    tx_hash: H256,
+) -> Result<(u64, Vec<H256>), eyre::Error> {
+    let tx_receipt = client
+        .get_transaction_receipt(tx_hash)
+        .await?
+        .ok_or_eyre("Transaction receipt not found")?;
+
+    let transactions = client
+        .get_block_by_hash(tx_receipt.block_info.block_hash)
+        .await?
+        .transactions;
+
+    let (index, tx_withdrawal_hash) = transactions
+        .iter()
+        .filter(|tx| match tx {
+            Transaction::PrivilegedL2Transaction(tx) => tx.tx_type == PrivilegedTxType::Withdrawal,
+            _ => false,
+        })
+        .find_position(|tx| tx.compute_hash() == tx_hash)
+        .map(|(i, tx)| match tx {
+            Transaction::PrivilegedL2Transaction(tx) => {
+                (i as u64, tx.get_withdrawal_hash().unwrap())
+            }
+            _ => unreachable!(),
+        })
+        .ok_or_eyre("Transaction is not a Withdrawal")?;
+
+    let path = merkle_proof(
+        transactions
+            .iter()
+            .filter_map(|tx| match tx {
+                Transaction::PrivilegedL2Transaction(tx) => tx.get_withdrawal_hash(),
+                _ => None,
+            })
+            .collect(),
+        tx_withdrawal_hash,
+    )
+    .ok_or_eyre("Transaction's WithdrawalData is not in block's WithdrawalDataMerkleRoot")?;
+
+    Ok((index, path))
 }
 
 impl Command {
@@ -235,6 +274,7 @@ impl Command {
                 amount,
                 token_address,
                 to,
+                wait_for_receipt,
                 explorer_url: _,
             } => {
                 if to.is_some() {
@@ -252,7 +292,9 @@ impl Command {
                         amount,
                         token_address: None,
                         to: cfg.contracts.common_bridge,
+                        wait_for_receipt,
                         l1: true,
+                        nonce: None,
                         explorer_url: false,
                     }
                     .run(cfg)
@@ -260,15 +302,64 @@ impl Command {
                 })
                 .await?;
             }
-            Command::FinalizeWithdraw {
-                l2_withdrawal_tx_hash: _,
+            Command::ClaimWithdraw {
+                l2_withdrawal_tx_hash,
+                wait_for_receipt,
             } => {
-                todo!()
+                let (withdrawal_l2_block_number, claimed_amount) = match rollup_client
+                    .get_transaction_by_hash(l2_withdrawal_tx_hash)
+                    .await?
+                {
+                    Some(l2_withdrawal_tx) => {
+                        (l2_withdrawal_tx.block_number, l2_withdrawal_tx.value)
+                    }
+                    None => {
+                        println!("Withdrawal transaction not found in L2");
+                        return Ok(());
+                    }
+                };
+
+                let (index, proof) =
+                    get_withdraw_merkle_proof(&rollup_client, l2_withdrawal_tx_hash).await?;
+
+                let claim_withdrawal_data = encode_calldata(
+                    CLAIM_WITHDRAWAL_SIGNATURE,
+                    &format!(
+                        "{l2_withdrawal_tx_hash:#x} {claimed_amount} {withdrawal_l2_block_number} {index} {}",
+                        proof.iter().map(hex::encode).join(",")
+                    ),
+                    false
+                )?;
+                println!(
+                    "ClaimWithdrawalData: {}",
+                    hex::encode(claim_withdrawal_data.clone())
+                );
+
+                let tx_hash = eth_client
+                    .send(
+                        claim_withdrawal_data.into(),
+                        from,
+                        TxKind::Call(cfg.contracts.common_bridge),
+                        cfg.wallet.private_key,
+                        Overrides {
+                            chain_id: Some(cfg.network.l1_chain_id),
+                            ..Default::default()
+                        },
+                    )
+                    .await?;
+
+                println!("Withdrawal claim sent: {tx_hash:#x}");
+
+                if wait_for_receipt {
+                    wait_for_transaction_receipt(&eth_client, tx_hash).await?;
+                }
             }
             Command::Transfer {
                 amount,
                 token_address,
                 to,
+                nonce,
+                wait_for_receipt,
                 l1,
                 explorer_url: _,
             } => {
@@ -276,42 +367,71 @@ impl Command {
                     todo!("Handle ERC20 transfers")
                 }
 
+                let client = if l1 { eth_client } else { rollup_client };
+
                 let mut transfer_transaction = EIP1559Transaction {
                     to: TxKind::Call(to),
                     value: amount,
-                    chain_id: cfg.network.l1_chain_id,
-                    nonce: eth_client.get_nonce(from).await?,
-                    max_fee_per_gas: eth_client.get_gas_price().await?.as_u64(),
+                    chain_id: if l1 {
+                        cfg.network.l1_chain_id
+                    } else {
+                        cfg.network.l2_chain_id
+                    },
+                    nonce: nonce.unwrap_or(client.get_nonce(from).await?),
+                    max_fee_per_gas: client.get_gas_price().await?.as_u64() * 100,
+                    gas_limit: 21000 * 100,
                     ..Default::default()
                 };
 
-                // let estimated_gas = eth_client
-                //     .estimate_gas(transfer_transaction.clone())
+                // transfer_transaction.gas_limit = client
+                //     .estimate_gas(transfer_transaction.clone().into())
                 //     .await?;
 
-                transfer_transaction.gas_limit = 21000 * 2;
-
-                let tx_hash = if l1 {
-                    eth_client
-                        .send_eip1559_transaction(transfer_transaction, cfg.wallet.private_key)
-                        .await?
-                } else {
-                    rollup_client
-                        .send_eip1559_transaction(transfer_transaction, cfg.wallet.private_key)
-                        .await?
-                };
+                let tx_hash = client
+                    .send_eip1559_transaction(&mut transfer_transaction, cfg.wallet.private_key)
+                    .await?;
 
                 println!(
                     "[{}] Transfer sent: {tx_hash:#x}",
                     if l1 { "L1" } else { "L2" }
                 );
+
+                if wait_for_receipt {
+                    wait_for_transaction_receipt(&client, tx_hash).await?;
+                }
             }
             Command::Withdraw {
-                amount: _,
+                amount,
+                to,
+                nonce,
                 token_address: _,
+                wait_for_receipt,
                 explorer_url: _,
             } => {
-                todo!()
+                let withdraw_transaction = PrivilegedL2Transaction {
+                    to: TxKind::Call(to.unwrap_or(cfg.wallet.address)),
+                    value: amount,
+                    chain_id: cfg.network.l2_chain_id,
+                    nonce: nonce.unwrap_or(rollup_client.get_nonce(from).await?),
+                    max_fee_per_gas: 800000000,
+                    tx_type: PrivilegedTxType::Withdrawal,
+                    gas_limit: 21000 * 2,
+                    ..Default::default()
+                };
+
+                let tx_hash = rollup_client
+                    .send_privileged_l2_transaction(withdraw_transaction, cfg.wallet.private_key)
+                    .await?;
+
+                println!("Withdrawal sent: {tx_hash:#x}");
+
+                if wait_for_receipt {
+                    wait_for_transaction_receipt(&rollup_client, tx_hash).await?;
+                }
+            }
+            Command::WithdrawalProof { tx_hash } => {
+                let (_index, path) = get_withdraw_merkle_proof(&rollup_client, tx_hash).await?;
+                println!("{path:?}");
             }
             Command::Address => {
                 todo!()
@@ -329,37 +449,39 @@ impl Command {
                 gas_limit,
                 gas_price,
                 priority_gas_price,
+                wait_for_receipt,
             } => {
                 let client = match l1 {
                     true => eth_client,
                     false => rollup_client,
                 };
 
-                let tx = make_eip1559_transaction(
-                    &client,
-                    TxKind::Call(to),
-                    from,
-                    calldata,
-                    value,
-                    chain_id.unwrap_or_else(|| match l1 {
-                        true => cfg.network.l1_chain_id,
-                        false => cfg.network.l2_chain_id,
-                    }),
-                    nonce,
-                    gas_limit,
-                    gas_price,
-                    priority_gas_price,
-                )
-                .await?;
-
                 let tx_hash = client
-                    .send_eip1559_transaction(tx, cfg.wallet.private_key)
+                    .send(
+                        calldata,
+                        from,
+                        TxKind::Call(to),
+                        cfg.wallet.private_key,
+                        Overrides {
+                            value: value.into(),
+                            nonce,
+                            chain_id,
+                            gas_limit,
+                            gas_price,
+                            priority_gas_price,
+                            ..Default::default()
+                        },
+                    )
                     .await?;
 
                 println!(
                     "[{}] Transaction sent: {tx_hash:#x}",
                     if l1 { "L1" } else { "L2" }
                 );
+
+                if wait_for_receipt {
+                    wait_for_transaction_receipt(&client, tx_hash).await?;
+                }
             }
             Command::Call {
                 to,
@@ -375,17 +497,19 @@ impl Command {
                     false => rollup_client,
                 };
 
-                let call_tx = GenericTransaction {
-                    to: TxKind::Call(to),
-                    input: calldata,
-                    value,
-                    from: from.unwrap_or(Default::default()),
-                    gas: gas_limit,
-                    gas_price: gas_price.unwrap_or(Default::default()),
-                    ..Default::default()
-                };
-
-                let result = client.call(call_tx).await?;
+                let result = client
+                    .call(
+                        to,
+                        calldata,
+                        Overrides {
+                            from,
+                            value: value.into(),
+                            gas_limit,
+                            gas_price,
+                            ..Default::default()
+                        },
+                    )
+                    .await?;
 
                 println!("{result}");
             }
@@ -398,45 +522,47 @@ impl Command {
                 gas_limit,
                 gas_price,
                 priority_gas_price,
+                wait_for_receipt,
             } => {
                 let client = match l1 {
                     true => eth_client,
                     false => rollup_client,
                 };
 
-                let nonce = nonce.unwrap_or(client.get_nonce(from).await?);
-                let tx = make_eip1559_transaction(
-                    &client,
-                    TxKind::Create,
-                    from,
-                    bytecode,
-                    value,
-                    chain_id.unwrap_or_else(|| match l1 {
-                        true => cfg.network.l1_chain_id,
-                        false => cfg.network.l2_chain_id,
-                    }),
-                    Some(nonce),
-                    gas_limit,
-                    gas_price,
-                    priority_gas_price,
-                )
-                .await?;
-
-                let hash = client
-                    .send_eip1559_transaction(tx, cfg.wallet.private_key)
+                let (deployment_tx_hash, deployed_contract_address) = client
+                    .deploy(
+                        from,
+                        cfg.wallet.private_key,
+                        bytecode,
+                        Overrides {
+                            value: value.into(),
+                            nonce,
+                            chain_id,
+                            gas_limit,
+                            gas_price,
+                            priority_gas_price,
+                            ..Default::default()
+                        },
+                    )
                     .await?;
 
-                let encoded_from = from.encode_to_vec();
-                let encoded_nonce = nonce.encode_to_vec();
-                let mut encoded = vec![(0xc0 + encoded_from.len() + encoded_nonce.len()) as u8];
-                encoded.extend(encoded_from.clone());
-                encoded.extend(encoded_nonce.clone());
-                let deployed_address = Address::from(keccak(encoded));
+                println!("Contract deployed in tx: {deployment_tx_hash:#x}");
+                println!("Contract address: {deployed_contract_address:#x}");
 
-                println!("Contract deployed in tx: {hash:#x}");
-                println!("Contract address: {deployed_address:#x}");
+                if wait_for_receipt {
+                    wait_for_transaction_receipt(&client, deployment_tx_hash).await?;
+                }
             }
         };
         Ok(())
     }
+}
+
+pub async fn wait_for_transaction_receipt(client: &EthClient, tx_hash: H256) -> eyre::Result<()> {
+    println!("Waiting for transaction receipt...");
+    while client.get_transaction_receipt(tx_hash).await?.is_none() {
+        tokio::time::sleep(std::time::Duration::from_secs(1)).await;
+    }
+    println!("Transaction confirmed");
+    Ok(())
 }

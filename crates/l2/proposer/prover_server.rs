@@ -210,18 +210,19 @@ impl ProverServer {
     }
 
     fn create_prover_input(&self, block_number: u64) -> Result<ProverInputData, String> {
-        let block = Block {
-            header: self
-                .store
-                .get_block_header(block_number)
-                .map_err(|err| err.to_string())?
-                .ok_or("block header not found")?,
-            body: self
-                .store
-                .get_block_body(block_number)
-                .map_err(|err| err.to_string())?
-                .ok_or("block body not found")?,
-        };
+        let header = self
+            .store
+            .get_block_header(block_number)
+            .map_err(|err| err.to_string())?
+            .ok_or("block header not found")?;
+        let body = self
+            .store
+            .get_block_body(block_number)
+            .map_err(|err| err.to_string())?
+            .ok_or("block body not found")?;
+
+        let block = Block::new(header, body);
+
         let db = ExecutionDB::from_exec(&block, &self.store).map_err(|err| err.to_string())?;
 
         let parent_header = self

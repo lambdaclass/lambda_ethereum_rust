@@ -2,6 +2,7 @@ use crate::{
     block::LAST_AVAILABLE_BLOCK_LIMIT,
     constants::{BLOB_BASE_FEE_UPDATE_FRACTION, MIN_BASE_FEE_PER_BLOB_GAS},
 };
+use keccak_hash::H256;
 
 // Block Information (11)
 // Opcodes: BLOCKHASH, COINBASE, TIMESTAMP, NUMBER, PREVRANDAO, GASLIMIT, CHAINID, SELFBALANCE, BASEFEE, BLOBHASH, BLOBBASEFEE
@@ -29,10 +30,12 @@ impl VM {
             return Ok(OpcodeSuccess::Continue);
         }
 
-        if let Some(block_hash) = self.db.block_hashes.get(&block_number) {
+        let block_number = block_number.as_u64();
+
+        if let Some(block_hash) = self.db.get_block_hash(block_number) {
             current_call_frame
                 .stack
-                .push(U256::from_big_endian(&block_hash.0))?;
+                .push(U256::from_big_endian(block_hash.as_bytes()))?;
         } else {
             current_call_frame.stack.push(U256::zero())?;
         }
@@ -124,9 +127,15 @@ impl VM {
     ) -> Result<OpcodeSuccess, VMError> {
         self.increase_consumed_gas(current_call_frame, gas_cost::SELFBALANCE)?;
 
-        let balance = self.db.balance(&current_call_frame.code_address);
-        current_call_frame.stack.push(balance)?;
+        // the current account should have been cached when the contract was called
+        let balance = self
+            .cache
+            .get_account(current_call_frame.code_address)
+            .expect("The current account should always be cached")
+            .info
+            .balance;
 
+        current_call_frame.stack.push(balance)?;
         Ok(OpcodeSuccess::Continue)
     }
 
@@ -143,16 +152,33 @@ impl VM {
     }
 
     // BLOBHASH operation
+    /// Currently not tested
     pub fn op_blobhash(
         &mut self,
         current_call_frame: &mut CallFrame,
     ) -> Result<OpcodeSuccess, VMError> {
         self.increase_consumed_gas(current_call_frame, gas_cost::BLOBHASH)?;
 
-        // Should push in stack the blob hash
-        unimplemented!("when we have tx implemented");
+        let index = current_call_frame.stack.pop()?.as_usize();
 
-        // Ok(OpcodeSuccess::Continue)
+        let blob_hash: H256 = match &self.env.tx_blob_hashes {
+            Some(vec) => match vec.get(index) {
+                Some(el) => *el,
+                None => {
+                    return Err(VMError::BlobHashIndexOutOfBounds);
+                }
+            },
+            None => {
+                return Err(VMError::MissingBlobHashes);
+            }
+        };
+
+        // Could not find a better way to translate from H256 to U256
+        let u256_blob = U256::from(blob_hash.as_bytes());
+
+        current_call_frame.stack.push(u256_blob)?;
+
+        Ok(OpcodeSuccess::Continue)
     }
 
     fn get_blob_gasprice(&mut self) -> U256 {

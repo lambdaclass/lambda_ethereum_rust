@@ -62,19 +62,25 @@ pub struct CallFrame {
     pub gas_limit: U256,
     pub gas_used: U256,
     pub pc: usize,
+    /// Address of the account that sent the message
     pub msg_sender: Address,
+    /// Address of the recipient of the message
     pub to: Address,
+    /// Address of the code to execute. Usually the same as `to`, but can be different
     pub code_address: Address,
-    pub delegate: Option<Address>,
+    /// Bytecode to execute
     pub bytecode: Bytes,
     pub msg_value: U256,
     pub stack: Stack, // max 1024 in the future
     pub memory: Memory,
     pub calldata: Bytes,
+    /// Return data of the CURRENT CONTEXT (see docs for more details)
     pub returndata: Bytes,
-    // where to store return data of subcall
-    pub return_data_offset: Option<usize>,
-    pub return_data_size: Option<usize>,
+    /// Return data of the SUB-CONTEXT (see docs for more details)
+    pub sub_return_data: Bytes,
+    /// where to store return data of sub-context in memory
+    pub sub_return_data_offset: usize,
+    pub sub_return_data_size: usize,
     pub is_static: bool,
     pub transient_storage: TransientStorage,
     pub logs: Vec<Log>,
@@ -95,12 +101,12 @@ impl CallFrame {
         msg_sender: Address,
         to: Address,
         code_address: Address,
-        delegate: Option<Address>,
         bytecode: Bytes,
         msg_value: U256,
         calldata: Bytes,
         is_static: bool,
         gas_limit: U256,
+        gas_used: U256,
         depth: usize,
     ) -> Self {
         Self {
@@ -108,12 +114,12 @@ impl CallFrame {
             msg_sender,
             to,
             code_address,
-            delegate,
             bytecode,
             msg_value,
             calldata,
             is_static,
             depth,
+            gas_used,
             ..Default::default()
         }
     }
