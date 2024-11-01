@@ -2,6 +2,7 @@ use crate::utils::engine_client::EngineClient;
 use bytes::Bytes;
 use ethereum_rust_rpc::types::fork_choice::{ForkChoiceState, PayloadAttributesV3};
 use ethereum_types::H256;
+use keccak_hash::keccak;
 use std::{
     net::SocketAddr,
     time::{SystemTime, UNIX_EPOCH},
@@ -62,7 +63,16 @@ pub async fn start_block_producer(
         let payload_status = match engine_client
             .engine_new_payload_v3(
                 execution_payload_response.execution_payload,
-                Default::default(),
+                execution_payload_response
+                    .blobs_bundle
+                    .commitments
+                    .iter()
+                    .map(|commitment| {
+                        let mut hash = keccak(commitment).0;
+                        hash[0] = 0x01;
+                        H256::from(hash)
+                    })
+                    .collect(),
                 Default::default(),
             )
             .await
