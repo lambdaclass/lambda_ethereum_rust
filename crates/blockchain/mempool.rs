@@ -15,7 +15,7 @@ use ethereum_rust_core::{
     },
     Address, H256, U256,
 };
-use ethereum_rust_storage::{error::StoreError, Store};
+use ethereum_rust_storage::Store;
 
 /// Add a blob transaction and its blobs bundle to the mempool
 pub fn add_blob_transaction(
@@ -32,8 +32,8 @@ pub fn add_blob_transaction(
 
     // Add transaction and blobs bundle to storage
     let hash = transaction.compute_hash();
-    store.add_transaction_to_pool(MempoolTransaction::new(transaction))?;
-    store.add_blobs_bundle_to_pool(hash, blobs_bundle)?;
+    store.add_transaction_to_pool(MempoolTransaction::new(transaction));
+    store.add_blobs_bundle_to_pool(hash, blobs_bundle);
     Ok(hash)
 }
 
@@ -49,16 +49,14 @@ pub fn add_transaction(transaction: Transaction, store: Store) -> Result<H256, M
     let hash = transaction.compute_hash();
 
     // Add transaction to storage
-    store.add_transaction_to_pool(MempoolTransaction::new(transaction))?;
+    store.add_transaction_to_pool(MempoolTransaction::new(transaction));
 
     Ok(hash)
 }
 
 /// Fetch a blobs bundle from the mempool given its blob transaction hash
 pub fn get_blobs_bundle(tx_hash: H256, store: Store) -> Result<Option<BlobsBundle>, MempoolError> {
-    store
-        .get_blobs_bundle_from_pool(tx_hash)
-        .map_err(MempoolError::from)
+    Ok(store.get_blobs_bundle_from_pool(tx_hash))
 }
 
 /// Applies the filter and returns a set of suitable transactions from the mempool.
@@ -66,7 +64,7 @@ pub fn get_blobs_bundle(tx_hash: H256, store: Store) -> Result<Option<BlobsBundl
 pub fn filter_transactions(
     filter: &PendingTxFilter,
     store: &Store,
-) -> Result<HashMap<Address, BTreeMap<u64, MempoolTransaction>>, StoreError> {
+) -> HashMap<Address, BTreeMap<u64, MempoolTransaction>> {
     let filter_tx = |tx: &Transaction| -> bool {
         // Filter by tx type
         let is_blob_tx = matches!(tx, Transaction::EIP4844Transaction(_));
@@ -96,7 +94,7 @@ pub fn filter_transactions(
 }
 
 /// Remove a transaction from the mempool
-pub fn remove_transaction(address: Address, nonce: u64, store: &Store) -> Result<(), StoreError> {
+pub fn remove_transaction(address: Address, nonce: u64, store: &Store) {
     store.remove_transaction_from_pool(address, nonce)
 }
 

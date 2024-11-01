@@ -237,12 +237,12 @@ fn fetch_mempool_transactions(
     Ok((
         // Plain txs
         TransactionQueue::new(
-            mempool::filter_transactions(&plain_tx_filter, context.store())?,
+            mempool::filter_transactions(&plain_tx_filter, context.store()),
             context.base_fee_per_gas(),
         ),
         // Blob txs
         TransactionQueue::new(
-            mempool::filter_transactions(&blob_tx_filter, context.store())?,
+            mempool::filter_transactions(&blob_tx_filter, context.store()),
             context.base_fee_per_gas(),
         ),
     ))
@@ -303,7 +303,7 @@ pub fn fill_transactions(context: &mut PayloadBuildContext) -> Result<(), ChainE
             // Pull transaction from the mempool
             debug!("Ignoring replay-protected transaction: {}", tx_hash);
             txs.pop();
-            mempool::remove_transaction(head_tx.sender, head_tx.tx.nonce(), context.store())?;
+            mempool::remove_transaction(head_tx.sender, head_tx.tx.nonce(), context.store());
             continue;
         }
         // Execute tx
@@ -311,7 +311,7 @@ pub fn fill_transactions(context: &mut PayloadBuildContext) -> Result<(), ChainE
             Ok(receipt) => {
                 txs.shift();
                 // Pull transaction from the mempool
-                mempool::remove_transaction(head_tx.sender, head_tx.tx.nonce(), context.store())?;
+                mempool::remove_transaction(head_tx.sender, head_tx.tx.nonce(), context.store());
                 receipt
             }
             // Ignore following txs from sender
@@ -349,7 +349,7 @@ fn apply_blob_transaction(
 ) -> Result<Receipt, ChainError> {
     // Fetch blobs bundle
     let tx_hash = head.tx.compute_hash();
-    let Some(blobs_bundle) = context.store().get_blobs_bundle_from_pool(tx_hash)? else {
+    let Some(blobs_bundle) = context.store().get_blobs_bundle_from_pool(tx_hash) else {
         // No blob tx should enter the mempool without its blobs bundle so this is an internal error
         return Err(
             StoreError::Custom(format!("No blobs bundle found for blob tx {tx_hash}")).into(),
