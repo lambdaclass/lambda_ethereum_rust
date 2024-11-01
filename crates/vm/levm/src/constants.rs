@@ -1,4 +1,4 @@
-use ethereum_types::U256;
+use ethereum_rust_core::U256;
 
 pub const SUCCESS_FOR_CALL: i32 = 1;
 pub const REVERT_FOR_CALL: i32 = 0;
@@ -9,7 +9,7 @@ pub const WORD_SIZE: usize = 32;
 
 /// Contains the gas costs of the EVM instructions (in wei)
 pub mod gas_cost {
-    use ethereum_types::U256;
+    use ethereum_rust_core::U256;
 
     pub const ADD: U256 = U256([3, 0, 0, 0]);
     pub const MUL: U256 = U256([5, 0, 0, 0]);
@@ -91,7 +91,7 @@ pub mod gas_cost {
 
 // Costs in gas for call opcodes (in wei)
 pub mod call_opcode {
-    use ethereum_types::U256;
+    use ethereum_rust_core::U256;
 
     pub const WARM_ADDRESS_ACCESS_COST: U256 = U256([100, 0, 0, 0]);
     pub const COLD_ADDRESS_ACCESS_COST: U256 = U256([2600, 0, 0, 0]);

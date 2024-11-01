@@ -1,5 +1,5 @@
 use crate::vm::{Account, AccountInfo, StorageSlot};
-use ethereum_types::{Address, H256, U256};
+use ethereum_rust_core::{Address, H256, U256};
 use std::collections::HashMap;
 
 pub trait Database {

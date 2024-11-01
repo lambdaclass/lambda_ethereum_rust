@@ -1,8 +1,10 @@
-use keccak_hash::H256;
-
-use crate::{constants::WORD_SIZE, vm::StorageSlot};
-
-use super::*;
+use crate::{
+    call_frame::CallFrame,
+    constants::{gas_cost, WORD_SIZE},
+    errors::{OpcodeSuccess, VMError},
+    vm::{StorageSlot, VM},
+};
+use ethereum_rust_core::{H256, U256};
 
 // Stack, Memory, Storage and Flow Operations (15)
 // Opcodes: POP, MLOAD, MSTORE, MSTORE8, SLOAD, SSTORE, JUMP, JUMPI, PC, MSIZE, GAS, JUMPDEST, TLOAD, TSTORE, MCOPY

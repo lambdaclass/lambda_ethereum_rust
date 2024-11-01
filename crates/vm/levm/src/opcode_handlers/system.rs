@@ -1,7 +1,10 @@
-use super::*;
+use ethereum_rust_core::U256;
+
 use crate::{
+    call_frame::CallFrame,
     constants::{call_opcode, SUCCESS_FOR_RETURN},
-    errors::ResultReason,
+    errors::{OpcodeSuccess, ResultReason, VMError},
+    vm::{word_to_address, VM},
 };
 
 // System Operations (10)
