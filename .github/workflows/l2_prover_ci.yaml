@@ -1,17 +1,7 @@
-<<<<<<< HEAD
-name: L2_PROVER_CI
-on:
-  push:
-    branches:
-      - main
-      - l2**
-      - prover**
-=======
 name: L2 Prover CI
 on:
   push:
     branches: ["main"]
->>>>>>> main
     paths:
       - "crates/l2/prover/**"
   pull_request:
@@ -24,10 +14,6 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-<<<<<<< HEAD
-  prover:
-    name: Build RISC-V zkVM program
-=======
   lint:
     name: Lint
     runs-on: ubuntu-latest
@@ -49,7 +35,6 @@ jobs:
 
   build_and_test:
     name: Build and Test RISC-V zkVM program
->>>>>>> main
     runs-on: ubuntu-latest
     steps:
       - name: Checkout sources
@@ -69,8 +54,4 @@ jobs:
       - name: Test Prover Execution
         run: |
           cd crates/l2/prover
-<<<<<<< HEAD
-          RISC0_DEV_MODE=1 make perf_test_proving
-=======
           RUST_LOG=info make perf_test_proving
->>>>>>> main
