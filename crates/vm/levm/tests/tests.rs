@@ -2969,7 +2969,7 @@ fn log0() {
 
 #[test]
 fn log1() {
-    let mut topic1: [u8; 4] = [0x00; 4];
+    let mut topic1 = [0u8; 32];
     topic1[3] = 1;
 
     let data: [u8; 32] = [0xff; 32];
@@ -2999,9 +2999,9 @@ fn log1() {
 
 #[test]
 fn log2() {
-    let mut topic1: [u8; 4] = [0x00; 4];
+    let mut topic1 = [0u8; 32];
     topic1[3] = 1;
-    let mut topic2: [u8; 4] = [0x00; 4];
+    let mut topic2 = [0u8; 32];
     topic2[3] = 2;
 
     let data: [u8; 32] = [0xff; 32];
@@ -3035,11 +3035,11 @@ fn log2() {
 
 #[test]
 fn log3() {
-    let mut topic1: [u8; 4] = [0x00; 4];
+    let mut topic1 = [0u8; 32];
     topic1[3] = 1;
-    let mut topic2: [u8; 4] = [0x00; 4];
+    let mut topic2 = [0u8; 32];
     topic2[3] = 2;
-    let mut topic3: [u8; 4] = [0x00; 4];
+    let mut topic3 = [0u8; 32];
     topic3[3] = 3;
 
     let data: [u8; 32] = [0xff; 32];
@@ -3078,13 +3078,13 @@ fn log3() {
 
 #[test]
 fn log4() {
-    let mut topic1: [u8; 4] = [0x00; 4];
+    let mut topic1 = [0u8; 32];
     topic1[3] = 1;
-    let mut topic2: [u8; 4] = [0x00; 4];
+    let mut topic2 = [0u8; 32];
     topic2[3] = 2;
-    let mut topic3: [u8; 4] = [0x00; 4];
+    let mut topic3 = [0u8; 32];
     topic3[3] = 3;
-    let mut topic4: [u8; 4] = [0x00; 4];
+    let mut topic4 = [0u8; 32];
     topic4[3] = 4;
 
     let data: [u8; 32] = [0xff; 32];
@@ -3203,7 +3203,7 @@ fn log_with_data_in_memory_smaller_than_size() {
 
 #[test]
 fn multiple_logs_of_different_types() {
-    let mut topic1: [u8; 4] = [0x00; 4];
+    let mut topic1 = [0u8; 32];
     topic1[3] = 1;
 
     let data: [u8; 32] = [0xff; 32];
