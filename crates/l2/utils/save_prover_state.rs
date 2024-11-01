@@ -1,12 +1,20 @@
 use directories::ProjectDirs;
+use ethereum_rust_core::H256;
 use ethereum_rust_storage::AccountUpdate;
 use serde::{Deserialize, Serialize};
-use std::fs::{create_dir, File};
-use std::path::PathBuf;
+use std::fs::{create_dir, read_dir, File};
+use std::io::{BufReader, Read};
+use std::path::{Path, PathBuf};
 use std::{
     fs::create_dir_all,
     io::{BufWriter, Write},
 };
+
+#[derive(Serialize, Deserialize, Debug)]
+pub enum StateType {
+    Proof(H256),
+    AccountUpdates(Vec<AccountUpdate>),
+}
 
 #[derive(Serialize, Deserialize, Debug, Clone, Copy)]
 pub enum StateFileType {
@@ -38,6 +46,21 @@ fn get_state_dir_for_block(block_number: u64) -> Result<PathBuf, Box<dyn std::er
     Ok(path_buf)
 }
 
+#[inline(always)]
+fn get_state_file_path(
+    path_buf: &Path,
+    block_number: u64,
+    state_file_type: StateFileType,
+) -> PathBuf {
+    match state_file_type {
+        StateFileType::AccountUpdates => {
+            path_buf.join(format!("account_updates{block_number}.json"))
+        }
+        StateFileType::Proof => path_buf.join(format!("proof_{block_number}.json")),
+    }
+}
+
+/// CREATE
 fn create_state_file_for_block_number(
     block_number: u64,
     state_file_type: StateFileType,
@@ -59,12 +82,7 @@ fn create_state_file_for_block_number(
 
     let block_number = block_number.parse::<u64>()?;
 
-    let file_path = match state_file_type {
-        StateFileType::AccountUpdates => {
-            path_buf.join(format!("account_updates{block_number}.json"))
-        }
-        StateFileType::Proof => path_buf.join(format!("proof_{block_number}.json")),
-    };
+    let file_path: PathBuf = get_state_file_path(&path_buf, block_number, state_file_type);
 
     if let Err(e) = create_dir(&path_buf) {
         if e.kind() != std::io::ErrorKind::AlreadyExists {
@@ -76,38 +94,34 @@ fn create_state_file_for_block_number(
     File::create(file_path).map_err(Into::into)
 }
 
-pub fn persist_state_in_block_state_path(
+/// WRITE
+pub fn write_state_in_block_state_path(
     block_number: u64,
+    state_type: StateType,
     state_file_type: StateFileType,
-    proof: Option<&ethereum_rust_core::H256>,
-    account_updates: Option<&Vec<AccountUpdate>>,
 ) -> Result<(), Box<dyn std::error::Error>> {
     let inner = create_state_file_for_block_number(block_number, state_file_type)?;
 
-    match state_file_type {
-        StateFileType::Proof => {
-            let value = proof
-                .ok_or_else(|| Box::<dyn std::error::Error>::from("Error: proof not present"))?;
+    match state_type {
+        StateType::Proof(value) => {
             let mut writer = BufWriter::new(inner);
-            serde_json::to_writer(&mut writer, value)?;
+            serde_json::to_writer(&mut writer, &value)?;
             writer.flush()?;
         }
-        StateFileType::AccountUpdates => {
-            let value = account_updates.ok_or_else(|| {
-                Box::<dyn std::error::Error>::from("Error: account_updates not present")
-            })?;
+        StateType::AccountUpdates(value) => {
             let mut writer = BufWriter::new(inner);
-            serde_json::to_writer(&mut writer, value)?;
+            serde_json::to_writer(&mut writer, &value)?;
             writer.flush()?;
         }
-    };
+    }
 
     Ok(())
 }
 
-fn get_latest_block_state_path() -> Result<PathBuf, Box<dyn std::error::Error>> {
+fn get_latest_block_number_and_path_from_state_path(
+) -> Result<(u64, PathBuf), Box<dyn std::error::Error>> {
     let data_dir = default_datadir()?;
-    let latest_block_number = std::fs::read_dir(&data_dir)?
+    let latest_block_number = read_dir(&data_dir)?
         .filter_map(|entry| {
             let entry = entry.ok()?;
             let path = entry.path();
@@ -122,10 +136,121 @@ fn get_latest_block_state_path() -> Result<PathBuf, Box<dyn std::error::Error>> 
     match latest_block_number {
         Some(block_number) => {
             let latest_path = data_dir.join(block_number.to_string());
-            Ok(latest_path)
+            Ok((block_number, latest_path))
         }
         None => Err(Box::from("No valid block directories found")),
     }
+}
+
+fn get_block_state_path(block_number: u64) -> Result<PathBuf, Box<dyn std::error::Error>> {
+    let data_dir = default_datadir()?;
+    let block_state_path = data_dir.join(block_number.to_string());
+    Ok(block_state_path)
+}
+
+/// READ
+pub fn read_state_file_for_block_number(
+    block_number: u64,
+    state_file_type: StateFileType,
+) -> Result<StateType, Box<dyn std::error::Error>> {
+    // TODO handle path not found
+    let block_state_path = get_block_state_path(block_number)?;
+
+    let inner = File::open(block_state_path)?;
+    let mut reader = BufReader::new(inner);
+    let mut buf = String::new();
+
+    reader.read_to_string(&mut buf)?;
+
+    let state = match state_file_type {
+        StateFileType::Proof => {
+            let state: H256 = serde_json::from_str(&buf)?;
+            StateType::Proof(state)
+        }
+        StateFileType::AccountUpdates => {
+            let state: Vec<AccountUpdate> = serde_json::from_str(&buf)?;
+            StateType::AccountUpdates(state)
+        }
+    };
+
+    Ok(state)
+}
+
+/// READ
+pub fn read_latest_state_file(
+    state_file_type: StateFileType,
+) -> Result<StateType, Box<dyn std::error::Error>> {
+    let (latest_block_state_number, _) = get_latest_block_number_and_path_from_state_path()?;
+    let state = read_state_file_for_block_number(latest_block_state_number, state_file_type)?;
+    Ok(state)
+}
+
+/// DELETE
+pub fn delete_state_file_for_block_number(
+    block_number: u64,
+    state_file_type: StateFileType,
+) -> Result<(), Box<dyn std::error::Error>> {
+    let block_state_path = get_block_state_path(block_number)?;
+    let file_path: PathBuf = get_state_file_path(&block_state_path, block_number, state_file_type);
+    std::fs::remove_file(file_path)?;
+
+    Ok(())
+}
+
+pub fn delete_latest_state_file(
+    state_file_type: StateFileType,
+) -> Result<(), Box<dyn std::error::Error>> {
+    let (latest_block_state_number, _) = get_latest_block_number_and_path_from_state_path()?;
+    let latest_block_state_path = get_block_state_path(latest_block_state_number)?;
+    let file_path: PathBuf = get_state_file_path(
+        &latest_block_state_path,
+        latest_block_state_number,
+        state_file_type,
+    );
+    std::fs::remove_file(file_path)?;
+
+    Ok(())
+}
+
+pub fn delete_state_path_for_block_number(
+    block_number: u64,
+) -> Result<(), Box<dyn std::error::Error>> {
+    let block_state_path = get_block_state_path(block_number)?;
+    std::fs::remove_dir_all(block_state_path)?;
+    Ok(())
+}
+
+pub fn delete_latest_state_path() -> Result<(), Box<dyn std::error::Error>> {
+    let (latest_block_state_number, _) = get_latest_block_number_and_path_from_state_path()?;
+    let latest_block_state_path = get_block_state_path(latest_block_state_number)?;
+    std::fs::remove_dir_all(latest_block_state_path)?;
+    Ok(())
+}
+
+pub fn path_has_state_file(
+    state_file_type: StateFileType,
+    path_buf: &Path,
+) -> Result<bool, Box<dyn std::error::Error>> {
+    let file_prefix = match state_file_type {
+        StateFileType::AccountUpdates => "account_updates",
+        StateFileType::Proof => "proof",
+    };
+
+    for entry in std::fs::read_dir(path_buf)? {
+        let entry = entry?;
+        let file_name = entry.file_name();
+        println!("file_name: {file_name:?}");
+        let lossy_string = file_name.to_string_lossy();
+
+        let matches_prefix = lossy_string.starts_with(file_prefix);
+        let matches_suffix = lossy_string.ends_with(".json");
+
+        if matches_prefix && matches_suffix {
+            return Ok(true);
+        }
+    }
+
+    Ok(false)
 }
 
 #[cfg(test)]
@@ -160,34 +285,53 @@ mod tests {
             add_block(block, &store).unwrap();
         }
 
-        let mut account_updates_vec: Vec<AccountUpdate> = Vec::new();
+        let mut _account_updates_vec: Vec<AccountUpdate> = Vec::new();
 
+        // Write all
         for block in &blocks {
             let (_, account_updates) =
                 ExecutionDB::from_exec(blocks.last().unwrap(), &store).unwrap();
 
-            account_updates_vec = account_updates;
+            _account_updates_vec = account_updates;
 
-            persist_state_in_block_state_path(
+            write_state_in_block_state_path(
                 block.header.number,
+                StateType::AccountUpdates(_account_updates_vec),
                 StateFileType::AccountUpdates,
-                None,
-                Some(&account_updates_vec),
             )?;
         }
 
-        let latest_block_path = get_latest_block_state_path()?;
+        let (latest_block_state_number, _) = get_latest_block_number_and_path_from_state_path()?;
 
         assert_eq!(
-            latest_block_path
-                .file_name()
-                .unwrap()
-                .to_string_lossy()
-                .parse::<u64>()?,
-            blocks.len() as u64
+            latest_block_state_number,
+            blocks.last().unwrap().header.number
         );
 
-        // Read account_updates back todo
+        // Delete account_updates file
+        let (_, latest_path) = get_latest_block_number_and_path_from_state_path()?;
+
+        assert!(path_has_state_file(
+            StateFileType::AccountUpdates,
+            &latest_path
+        )?);
+
+        delete_latest_state_file(StateFileType::AccountUpdates)?;
+
+        assert!(!path_has_state_file(
+            StateFileType::AccountUpdates,
+            &latest_path
+        )?);
+
+        // Delete latest path
+        delete_latest_state_path()?;
+        let (latest_block_state_number, _) = get_latest_block_number_and_path_from_state_path()?;
+        assert_eq!(
+            latest_block_state_number,
+            blocks.last().unwrap().header.number - 1
+        );
+
+        // Read account_updates back TODO
 
         fs::remove_dir_all(default_datadir()?)?;
 
