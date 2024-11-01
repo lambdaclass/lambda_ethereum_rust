@@ -245,9 +245,9 @@ impl Store {
     }
 
     /// Remove a transaction from the pool
-    pub fn remove_transaction_from_pool(&self, address: Address, nonce: u64) {
+    pub fn remove_transaction_from_pool(&self, address: Address, tx_hash: H256) {
         if let Some(old_value) = self.mempool.lock().unwrap().get_mut(&address) {
-            let tx = old_value.get(&nonce).unwrap();
+            let tx = old_value.get(&tx_hash).unwrap();
 
             if matches!(tx.tx_type(), TxType::EIP4844) {
                 self.blobs_bundle_pool
@@ -256,7 +256,7 @@ impl Store {
                     .remove(&tx.compute_hash());
             }
 
-            old_value.remove(&nonce);
+            old_value.remove(&tx_hash);
         };
     }
 
