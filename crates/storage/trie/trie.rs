@@ -306,6 +306,7 @@ fn compact_nibbles_to_bytes(compact: &Vec<u8>) -> (Vec<u8>, bool) {
     (bytes, last_is_half)
 }
 
+// Code taken from https://github.com/ethereum/go-ethereum/blob/a1093d98eb3260f2abf340903c2d968b2b891c11/trie/encoding.go#L82
 fn compact_to_hex(compact: &Vec<u8>) -> Vec<u8> {
     if compact.is_empty() {
         return vec![];
@@ -320,6 +321,7 @@ fn compact_to_hex(compact: &Vec<u8>) -> Vec<u8> {
     base[chop..].to_vec()
 }
 
+// Code taken from https://github.com/ethereum/go-ethereum/blob/a1093d98eb3260f2abf340903c2d968b2b891c11/trie/encoding.go#L96
 fn keybytes_to_hex(keybytes: &Vec<u8>) -> Vec<u8> {
     let l = keybytes.len() * 2 + 1;
     let mut nibbles = vec![0; l];
