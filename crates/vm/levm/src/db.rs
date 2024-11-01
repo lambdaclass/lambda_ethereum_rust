@@ -1,4 +1,4 @@
-use crate::vm::{Account, AccountInfo, StorageSlot};
+use crate::account::{Account, AccountInfo, StorageSlot};
 use ethereum_rust_core::{Address, H256, U256};
 use std::collections::HashMap;
 

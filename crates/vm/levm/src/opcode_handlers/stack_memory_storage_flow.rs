@@ -1,8 +1,9 @@
 use crate::{
+    account::StorageSlot,
     call_frame::CallFrame,
     constants::{gas_cost, WORD_SIZE},
     errors::{OpcodeSuccess, VMError},
-    vm::{StorageSlot, VM},
+    vm::VM,
 };
 use ethereum_rust_core::{H256, U256};
 

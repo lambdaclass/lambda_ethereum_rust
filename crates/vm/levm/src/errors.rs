@@ -1,4 +1,4 @@
-use crate::vm::Account;
+use crate::account::Account;
 use bytes::Bytes;
 use ethereum_rust_core::{types::Log, Address};
 use std::collections::HashMap;

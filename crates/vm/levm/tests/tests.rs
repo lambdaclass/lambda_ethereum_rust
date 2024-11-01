@@ -1,12 +1,13 @@
 use bytes::Bytes;
 use ethereum_rust_core::{types::TxKind, Address, H256, U256};
 use ethereum_rust_levm::{
+    account::Account,
     constants::*,
     db::{Cache, Db},
     errors::{TxResult, VMError},
     operations::Operation,
     utils::{new_vm_with_ops, new_vm_with_ops_addr_bal_db, new_vm_with_ops_db},
-    vm::{word_to_address, Account, Environment, Storage, VM},
+    vm::{word_to_address, Environment, Storage, VM},
 };
 use std::collections::HashMap;
 
