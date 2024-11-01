@@ -2,9 +2,12 @@ use bytes::Bytes;
 use ethereum_rust_rlp::encode::RLPEncode;
 use ethereum_rust_storage::{error::StoreError, Store};
 
-use crate::rlpx::snap::{
-    AccountRange, AccountRangeUnit, AccountStateSlim, ByteCodes, GetAccountRange, GetByteCodes,
-    GetStorageRanges, GetTrieNodes, StorageRanges, StorageSlot, TrieNodes,
+use crate::rlpx::{
+    error::RLPxError,
+    snap::{
+        AccountRange, AccountRangeUnit, AccountStateSlim, ByteCodes, GetAccountRange, GetByteCodes,
+        GetStorageRanges, GetTrieNodes, StorageRanges, StorageSlot, TrieNodes,
+    },
 };
 
 pub fn process_account_range_request(
@@ -122,8 +125,7 @@ pub fn process_byte_codes_request(
 pub fn process_trie_nodes_request(
     request: GetTrieNodes,
     store: Store,
-) -> Result<TrieNodes, StoreError> {
-    println!("PROCESSING REQUEST");
+) -> Result<TrieNodes, RLPxError> {
     let mut nodes = vec![];
     let mut remaining_bytes = request.bytes;
     for paths in request.paths {
@@ -131,8 +133,8 @@ pub fn process_trie_nodes_request(
             request.root_hash,
             paths
                 .into_iter()
-                .map(|bytes| compact_to_hex(bytes))
-                .collect(),
+                .map(|bytes| process_path_input(bytes))
+                .collect::<Result<_, _>>()?,
             remaining_bytes,
         )?;
         nodes.extend(trie_nodes.iter().map(|nodes| Bytes::copy_from_slice(nodes)));
@@ -149,6 +151,28 @@ pub fn process_trie_nodes_request(
     })
 }
 
+fn process_path_input(bytes: Bytes) -> Result<Vec<u8>, RLPxError> {
+    match bytes.len() {
+        0 => Err(RLPxError::BadRequest(
+            "zero-item pathset requested".to_string(),
+        )),
+        n if n < 32 => Ok(compact_to_hex(bytes)),
+        _ => Ok(bytes.to_vec()),
+    }
+}
+
+fn compact_to_hex(compact: Bytes) -> Vec<u8> {
+    // We already checked that compact is not empty
+    let mut base = keybytes_to_hex(compact);
+    // delete terminator flag
+    if base[0] < 2 {
+        base = base[..base.len() - 1].to_vec();
+    }
+    // apply odd flag
+    let chop = 2 - (base[0] & 1) as usize;
+    base[chop..].to_vec()
+}
+
 fn keybytes_to_hex(keybytes: Bytes) -> Vec<u8> {
     let l = keybytes.len() * 2 + 1;
     let mut nibbles = vec![0; l];
@@ -158,20 +182,6 @@ fn keybytes_to_hex(keybytes: Bytes) -> Vec<u8> {
     }
     nibbles[l - 1] = 16;
     nibbles
-}
-
-fn compact_to_hex(compact: Bytes) -> Vec<u8> {
-    if compact.is_empty() || compact.len() == 32 {
-        return compact.to_vec();
-    }
-    let mut base = keybytes_to_hex(compact);
-    // delete terminator flag
-    if base[0] < 2 {
-        base = base[..base.len() - 1].to_vec();
-    }
-    // apply odd flag
-    let chop = 2 - (base[0] & 1) as usize;
-    base[chop..].to_vec()
 }
 
 #[cfg(test)]

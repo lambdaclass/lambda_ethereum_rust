@@ -13,4 +13,6 @@ pub(crate) enum RLPxError {
     UnexpectedMessage(Message),
     #[error(transparent)]
     Store(#[from] StoreError),
+    #[error("Bad Request: {0}")]
+    BadRequest(String),
 }
