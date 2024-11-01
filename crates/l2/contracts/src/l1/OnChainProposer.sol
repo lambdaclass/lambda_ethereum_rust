@@ -55,7 +55,7 @@ contract OnChainProposer is IOnChainProposer, ReentrancyGuard {
         bytes32 depositLogs
     ) external override {
         require(
-            blockNumber = lastVerifiedBlock + 1,
+            blockNumber == lastVerifiedBlock + 1,
             "OnChainProposer: block already verified"
         );
         require(
@@ -93,7 +93,7 @@ contract OnChainProposer is IOnChainProposer, ReentrancyGuard {
             "OnChainProposer: block not committed"
         );
         require(
-            blockNumber = lastVerifiedBlock + 1,
+            blockNumber == lastVerifiedBlock + 1,
             "OnChainProposer: block already verified"
         );
 
