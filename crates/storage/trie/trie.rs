@@ -10,6 +10,8 @@ mod trie_iter;
 #[cfg(test)]
 mod test_utils;
 
+use std::borrow::Cow;
+
 use ethereum_rust_rlp::constants::RLP_NULL;
 use ethereum_types::H256;
 use node::Node;
@@ -183,14 +185,13 @@ impl Trie {
     }
 
     /// Obtain the encoded node given its path.
-    /// Allows usage of partial paths
+    /// Allows usage of full paths (byte slice of 32 bytes) or compact-encoded nibble slices (with length lower than 32)
     pub fn get_node(&self, partial_path: &PathRLP) -> Result<Vec<u8>, TrieError> {
         println!("Get node from partial path: {partial_path:?}");
         if partial_path.len() > 32 {
             return Ok(vec![]);
         }
-        let partial_path = PartialPath::new(partial_path.clone());
-        let (partial_path, last_byte_is_half) = partial_path.to_bytes();
+        let (partial_path, last_byte_is_half) = maybe_compact_to_bytes(partial_path);
         let Some(root_node) = self
             .root
             .as_ref()
@@ -216,12 +217,7 @@ impl Trie {
         mut partial_path: NibbleSlice,
         last_byte_is_half: bool,
     ) -> Result<Vec<u8>, TrieError> {
-        println!(
-            "Partial path: {partial_path:?}, offset {}, len {}",
-            partial_path.offset(),
-            partial_path.len()
-        );
-        // PROBLEM: We may have an odd number of nibbles here that we are not taking into account with NibbleSlice
+        // If we reached the end of the partial path, return the current node
         if partial_path.len() == last_byte_is_half as usize {
             return Ok(node.encode_raw(partial_path.offset()));
         }
@@ -253,7 +249,6 @@ impl Trie {
                         .state
                         .get_node(extension_node.child.clone())?
                         .expect("inconsistent internal tree structure");
-                    dbg!(&child_node);
                     self.get_node_inner(child_node, partial_path, last_byte_is_half)
                 } else {
                     Ok(vec![])
@@ -286,42 +281,29 @@ impl Trie {
     }
 }
 
-/// Struct representing a partial path, either in the form of bytes (full path) or compact-encoded bytes
-pub enum PartialPath {
-    // Full 32-byte path expressed in bytes
-    Bytes(Vec<u8>),
-    // Partial path expressed as compact nibbles
-    Compact(Vec<u8>),
-}
-
-impl PartialPath {
-    /// Returns the partial path represented as a byte slice and a boolean representing if the last byte is only a half byte
-    pub fn to_bytes(self) -> (Vec<u8>, bool) {
-        match self {
-            PartialPath::Bytes(bytes) => (bytes, false),
-            PartialPath::Compact(compact) => {
-                let nibbles = compact_to_hex(compact);
-                let mut last_is_half = false;
-                let bytes = nibbles
-                    .chunks(2)
-                    .map(|chunk| match chunk.len() {
-                        1 => {
-                            last_is_half = true;
-                            chunk[0] << 4
-                        }
-                        // 2
-                        _ => chunk[0] << 4 | chunk[1],
-                    })
-                    .collect::<Vec<_>>();
-                (bytes, last_is_half)
-            }
-        }
-    }
-    pub fn new(maybe_compact: Vec<u8>) -> Self {
-        match maybe_compact.len() {
-            n if n < 32 => Self::Compact(maybe_compact),
-            _ => Self::Bytes(maybe_compact),
-        }
+fn maybe_compact_to_bytes(maybe_compact: &Vec<u8>) -> (Cow<Vec<u8>>, bool) {
+    match maybe_compact.len() {
+        // Partial path is represented as compact nibbles
+        n if n < 32 => {
+            // Convert compact nibbles to nibbles
+            let nibbles = compact_to_hex(maybe_compact.clone());
+            // Convert nibbles to bytes, accouning for odd number of bytes
+            let mut last_is_half = false;
+            let bytes = nibbles
+                .chunks(2)
+                .map(|chunk| match chunk.len() {
+                    1 => {
+                        last_is_half = true;
+                        chunk[0] << 4
+                    }
+                    // 2
+                    _ => chunk[0] << 4 | chunk[1],
+                })
+                .collect::<Vec<_>>();
+                (Cow::Owned(bytes), last_is_half)
+        },
+        // Full path already represented as bytes
+        _ => (Cow::Borrowed(maybe_compact), false)
     }
 }
 
