@@ -1,9 +1,6 @@
 use bytes::Bytes;
 use ethereum_rust_core::Address;
 use ethereum_rust_core::{types::Log, H256};
-use revm::primitives::result::Output as RevmOutput;
-use revm::primitives::result::SuccessReason as RevmSuccessReason;
-use revm::primitives::ExecutionResult as RevmExecutionResult;
 
 #[derive(Debug)]
 pub enum ExecutionResult {
@@ -38,56 +35,6 @@ pub enum Output {
     Create(Bytes, Option<Address>),
 }
 
-impl From<RevmExecutionResult> for ExecutionResult {
-    fn from(val: RevmExecutionResult) -> Self {
-        match val {
-            RevmExecutionResult::Success {
-                reason,
-                gas_used,
-                gas_refunded,
-                logs,
-                output,
-            } => ExecutionResult::Success {
-                reason: match reason {
-                    RevmSuccessReason::Stop => SuccessReason::Stop,
-                    RevmSuccessReason::Return => SuccessReason::Return,
-                    RevmSuccessReason::SelfDestruct => SuccessReason::SelfDestruct,
-                    RevmSuccessReason::EofReturnContract => SuccessReason::EofReturnContract,
-                },
-                gas_used,
-                gas_refunded,
-                logs: logs
-                    .into_iter()
-                    .map(|log| Log {
-                        address: Address::from_slice(log.address.0.as_ref()),
-                        topics: log
-                            .topics()
-                            .iter()
-                            .map(|v| H256::from_slice(v.as_slice()))
-                            .collect(),
-                        data: log.data.data.0,
-                    })
-                    .collect(),
-                output: match output {
-                    RevmOutput::Call(bytes) => Output::Call(bytes.0),
-                    RevmOutput::Create(bytes, addr) => Output::Create(
-                        bytes.0,
-                        addr.map(|addr| Address::from_slice(addr.0.as_ref())),
-                    ),
-                },
-            },
-            RevmExecutionResult::Revert { gas_used, output } => ExecutionResult::Revert {
-                gas_used,
-                output: output.0,
-            },
-            RevmExecutionResult::Halt { reason, gas_used } => ExecutionResult::Halt {
-                reason: format!("{:?}", reason),
-                gas_used,
-            },
-        }
-    }
-}
-
 impl ExecutionResult {
     pub fn is_success(&self) -> bool {
         matches!(self, ExecutionResult::Success { .. })
@@ -120,6 +67,64 @@ impl ExecutionResult {
             },
             ExecutionResult::Revert { output, .. } => output.clone(),
             ExecutionResult::Halt { .. } => Bytes::new(),
+        }
+    }
+}
+
+cfg_if::cfg_if! {
+    if #[cfg(not(feature = "levm"))] {
+        use revm::primitives::result::Output as RevmOutput;
+        use revm::primitives::result::SuccessReason as RevmSuccessReason;
+        use revm::primitives::ExecutionResult as RevmExecutionResult;
+
+        impl From<RevmExecutionResult> for ExecutionResult {
+            fn from(val: RevmExecutionResult) -> Self {
+                match val {
+                    RevmExecutionResult::Success {
+                        reason,
+                        gas_used,
+                        gas_refunded,
+                        logs,
+                        output,
+                    } => ExecutionResult::Success {
+                        reason: match reason {
+                            RevmSuccessReason::Stop => SuccessReason::Stop,
+                            RevmSuccessReason::Return => SuccessReason::Return,
+                            RevmSuccessReason::SelfDestruct => SuccessReason::SelfDestruct,
+                            RevmSuccessReason::EofReturnContract => SuccessReason::EofReturnContract,
+                        },
+                        gas_used,
+                        gas_refunded,
+                        logs: logs
+                            .into_iter()
+                            .map(|log| Log {
+                                address: Address::from_slice(log.address.0.as_ref()),
+                                topics: log
+                                    .topics()
+                                    .iter()
+                                    .map(|v| H256::from_slice(v.as_slice()))
+                                    .collect(),
+                                data: log.data.data.0,
+                            })
+                            .collect(),
+                        output: match output {
+                            RevmOutput::Call(bytes) => Output::Call(bytes.0),
+                            RevmOutput::Create(bytes, addr) => Output::Create(
+                                bytes.0,
+                                addr.map(|addr| Address::from_slice(addr.0.as_ref())),
+                            ),
+                        },
+                    },
+                    RevmExecutionResult::Revert { gas_used, output } => ExecutionResult::Revert {
+                        gas_used,
+                        output: output.0,
+                    },
+                    RevmExecutionResult::Halt { reason, gas_used } => ExecutionResult::Halt {
+                        reason: format!("{:?}", reason),
+                        gas_used,
+                    },
+                }
+            }
         }
     }
 }
