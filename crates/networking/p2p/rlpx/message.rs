@@ -1,8 +1,12 @@
 use bytes::BufMut;
 use ethereum_rust_rlp::error::{RLPDecodeError, RLPEncodeError};
+use std::fmt::Display;
 
-use super::eth::StatusMessage;
+use super::eth::status::StatusMessage;
 use super::p2p::{DisconnectMessage, HelloMessage, PingMessage, PongMessage};
+use super::snap::{AccountRange, GetAccountRange};
+
+use ethereum_rust_rlp::encode::RLPEncode;
 
 pub trait RLPxMessage: Sized {
     fn encode(&self, buf: &mut dyn BufMut) -> Result<(), RLPEncodeError>;
@@ -16,6 +20,9 @@ pub(crate) enum Message {
     Ping(PingMessage),
     Pong(PongMessage),
     Status(StatusMessage),
+    // snap capability
+    GetAccountRange(GetAccountRange),
+    AccountRange(AccountRange),
 }
 
 impl Message {
@@ -26,6 +33,8 @@ impl Message {
             0x02 => Ok(Message::Ping(PingMessage::decode(msg_data)?)),
             0x03 => Ok(Message::Pong(PongMessage::decode(msg_data)?)),
             0x10 => Ok(Message::Status(StatusMessage::decode(msg_data)?)),
+            0x21 => Ok(Message::GetAccountRange(GetAccountRange::decode(msg_data)?)),
+            0x22 => Ok(Message::AccountRange(AccountRange::decode(msg_data)?)),
             _ => Err(RLPDecodeError::MalformedData),
         }
     }
@@ -37,6 +46,28 @@ impl Message {
             Message::Ping(msg) => msg.encode(buf),
             Message::Pong(msg) => msg.encode(buf),
             Message::Status(msg) => msg.encode(buf),
+            Message::GetAccountRange(msg) => {
+                0x21_u8.encode(buf);
+                msg.encode(buf)
+            }
+            Message::AccountRange(msg) => {
+                0x22_u8.encode(buf);
+                msg.encode(buf)
+            }
+        }
+    }
+}
+
+impl Display for Message {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Message::Hello(_) => "p2p:Hello".fmt(f),
+            Message::Disconnect(_) => "p2p:Disconnect".fmt(f),
+            Message::Ping(_) => "p2p:Ping".fmt(f),
+            Message::Pong(_) => "p2p:Pong".fmt(f),
+            Message::Status(_) => "eth:Status".fmt(f),
+            Message::GetAccountRange(_) => "snap:GetAccountRange".fmt(f),
+            Message::AccountRange(_) => "snap:AccountRange".fmt(f),
         }
     }
 }
