@@ -190,6 +190,10 @@ pub(crate) struct GetBlockBodies {
     pub block_hashes: Vec<BlockHash>,
 }
 
+// Limit taken from here:
+// https://github.com/ethereum/go-ethereum/blob/a1093d98eb3260f2abf340903c2d968b2b891c11/eth/protocols/eth/handler.go#L45
+pub const BLOCK_BODY_LIMIT: usize = 1024;
+
 impl GetBlockBodies {
     pub fn new(id: u64, block_hashes: Vec<BlockHash>) -> Self {
         Self { block_hashes, id }
@@ -201,7 +205,11 @@ impl GetBlockBodies {
             else {
                 break;
             };
-            block_bodies.push(block_body)
+            block_bodies.push(block_body);
+            // TODO: Implement a limit based on byte size, if possible.
+            if block_bodies.len() >= BLOCK_BODY_LIMIT {
+                break;
+            }
         }
         block_bodies
     }
