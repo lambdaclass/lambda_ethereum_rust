@@ -34,10 +34,7 @@ struct ProverClient {
 
 impl ProverClient {
     pub fn new(config: ProverClientConfig) -> Result<Self, Box<dyn std::error::Error>> {
-        let prover_state_file_path = match config.prover_state_file_path {
-            Some(path) => path,
-            None => save_prover_state::get_default_prover_state_file_path()?,
-        };
+        let prover_state_file_path = save_prover_state::get_default_prover_state_file_path()?;
 
         let block_number_to_request = match read_block_in_prover_state(&prover_state_file_path) {
             Ok(ps) => ps.block_header.number + 1,

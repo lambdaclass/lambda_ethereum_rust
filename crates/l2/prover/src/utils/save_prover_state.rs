@@ -29,9 +29,8 @@ pub fn get_default_prover_state_file_path() -> Result<String, Box<dyn std::error
     create_prover_state_file_path("prover_client_state.json")
 }
 
-pub fn create_prover_state_file() -> Result<File, Box<dyn std::error::Error>> {
-    let file_path = get_default_prover_state_file_path()?;
-    if let Some(parent) = Path::new(&file_path).parent() {
+pub fn create_prover_state_file(file_path: &str) -> Result<File, Box<dyn std::error::Error>> {
+    if let Some(parent) = Path::new(file_path).parent() {
         create_dir_all(parent)?;
     }
     File::create(file_path).map_err(Into::into)
@@ -41,7 +40,7 @@ pub fn persist_block_in_prover_state(
     file_path: &str,
     block_header: BlockHeader,
 ) -> Result<(), Box<dyn std::error::Error>> {
-    let inner = File::create(file_path)?;
+    let inner = create_prover_state_file(file_path)?;
     let mut writer = BufWriter::new(inner);
 
     let prover_state = ProverState { block_header };

@@ -5,7 +5,6 @@ use super::errors::ConfigError;
 #[derive(Deserialize, Debug)]
 pub struct ProverClientConfig {
     pub prover_server_endpoint: String,
-    pub prover_state_file_path: Option<String>,
 }
 
 impl ProverClientConfig {

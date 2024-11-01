@@ -4,6 +4,7 @@
 
 - [ToC](#toc)
 - [What](#what)
+- [Prover State](#prover-state)
 - [Workflow](#workflow)
 - [How](#how)
   - [Dev Mode](#dev-mode)
@@ -21,6 +22,16 @@ The prover consists of two main components: handling incoming proving data from 
 Before the `zkVM` code (or guest), there is a directory called `interface`, which indicates that we access the `zkVM` through the "interface" crate.
 
 In summary, the `prover_client` manages the inputs from the `prover_server` and then "calls" the `zkVM` to perform the proving process and generate the `groth16` ZK proof.
+
+## Prover State
+
+The `prover_client` saves its state in the file located at `directories::ProjectDirs::data_local_dir()/ethereum_rust_l2/prover_state.json`.
+
+It is assumed that the `prover_server` is initiated beforehand and that the `prover_client` starts afterward. After receiving a `SubmitAck`, the client saves the last prover block header in the file. If the client goes down, it will read the file, extract the block number, and add 1, so the next request to the server will be for `last_proven_block_number + 1`.
+
+If the `prover_server` goes down, it will start its count from 0. Consequently, when the prover client requests a higher block, this may result in a panic.
+
+Currently, the state of the `prover_server` is not being saved.
 
 ## Workflow
 
