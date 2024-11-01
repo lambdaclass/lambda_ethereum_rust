@@ -197,11 +197,10 @@ impl GetBlockBodies {
     pub fn fetch_blocks(&self, storage: &Store) -> Vec<BlockBody> {
         let mut block_bodies = vec![];
         for block_hash in &self.block_hashes {
-            // FIXME: Remove these unwraps.
-            let block_body = storage
-                .get_block_body_by_hash(*block_hash)
-                .unwrap()
-                .unwrap();
+            let Some(block_body) = storage.get_block_body_by_hash(*block_hash).ok().flatten()
+            else {
+                break;
+            };
             block_bodies.push(block_body)
         }
         return block_bodies;
