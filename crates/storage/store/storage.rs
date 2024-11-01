@@ -57,10 +57,12 @@ impl MempoolTransactionStore {
         self.by_hash.get(tx_hash)
     }
 
-    pub fn remove(&mut self, tx_hash: &H256) {
-        if let Some(tx) = self.by_hash.remove(tx_hash) {
+    pub fn remove(&mut self, tx_hash: &H256) -> Option<MempoolTransaction> {
+        let tx = self.by_hash.remove(tx_hash);
+        if let Some(tx) = &tx {
             self.by_nonce.retain(|Reverse(nonce)| *nonce != tx.nonce());
         }
+        tx
     }
 
     pub fn pop_first(&mut self) -> Option<(H256, MempoolTransaction)> {
@@ -311,18 +313,16 @@ impl Store {
     }
 
     /// Remove a transaction from the pool
-    pub fn remove_transaction_from_pool(&self, address: Address, tx_hash: H256) {
-        if let Some(old_value) = self.mempool.lock().unwrap().get_mut(&address) {
-            let tx = old_value.get(&tx_hash).unwrap();
-
-            if matches!(tx.tx_type(), TxType::EIP4844) {
-                self.blobs_bundle_pool
-                    .lock()
-                    .unwrap()
-                    .remove(&tx.compute_hash());
+    pub fn remove_transaction_from_pool(&self, sender_address: Address, tx_hash: H256) {
+        if let Some(old_value) = self.mempool.lock().unwrap().get_mut(&sender_address) {
+            if let Some(tx) = old_value.remove(&tx_hash) {
+                if matches!(tx.tx_type(), TxType::EIP4844) {
+                    self.blobs_bundle_pool
+                        .lock()
+                        .unwrap()
+                        .remove(&tx.compute_hash());
+                }
             }
-
-            old_value.remove(&tx_hash);
         };
     }
 
