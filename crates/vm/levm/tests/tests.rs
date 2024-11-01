@@ -7,7 +7,8 @@ use ethereum_rust_levm::{
     errors::{TxResult, VMError},
     operations::Operation,
     utils::{new_vm_with_ops, new_vm_with_ops_addr_bal_db, new_vm_with_ops_db},
-    vm::{word_to_address, Environment, Storage, VM},
+    vm::{word_to_address, Storage, VM},
+    Environment,
 };
 use std::{collections::HashMap, sync::Arc};
 

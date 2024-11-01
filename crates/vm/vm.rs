@@ -3,13 +3,13 @@ mod errors;
 mod execution_result;
 #[cfg(feature = "l2")]
 mod mods;
-
 use db::StoreWrapper;
 use ethereum_rust_core::types::TxType;
 use ethereum_rust_levm::{
     db::{Cache, Database as LevmDatabase},
     errors::{TransactionReport, TxResult, VMError},
-    vm::{Environment, VM},
+    vm::VM,
+    Environment,
 };
 use std::{cmp::min, collections::HashMap, sync::Arc};
 
