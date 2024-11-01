@@ -117,7 +117,6 @@ impl VM {
     }
 
     // SLOAD operation
-    // TODO: add gas consumption
     pub fn op_sload(
         &mut self,
         current_call_frame: &mut CallFrame,
