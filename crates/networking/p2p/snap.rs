@@ -123,12 +123,16 @@ pub fn process_trie_nodes_request(
     request: GetTrieNodes,
     store: Store,
 ) -> Result<TrieNodes, StoreError> {
+    println!("PROCESSING REQUEST");
     let mut nodes = vec![];
     let mut remaining_bytes = request.bytes;
     for paths in request.paths {
         let trie_nodes = store.get_trie_nodes(
             request.root_hash,
-            paths.into_iter().map(|bytes| compact_to_hex(bytes)).collect(),
+            paths
+                .into_iter()
+                .map(|bytes| compact_to_hex(bytes))
+                .collect(),
             remaining_bytes,
         )?;
         nodes.extend(trie_nodes.iter().map(|nodes| Bytes::copy_from_slice(nodes)));

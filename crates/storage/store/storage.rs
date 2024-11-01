@@ -775,9 +775,7 @@ impl Store {
         // State Trie Nodes Request
         if paths.len() == 1 {
             // Fetch state trie node
-            let Some(node) = state_trie.get_node(&account_path)? else {
-                return Ok(vec![]);
-            };
+            let node = state_trie.get_node_partial(&account_path)?;
             return Ok(vec![node]);
         }
         // Storage Trie Nodes Request
@@ -801,10 +799,9 @@ impl Store {
             if bytes_used >= byte_limit {
                 break;
             }
-            if let Some(node) = storage_trie.get_node_partial(path)? {
-                bytes_used += node.len() as u64;
-                nodes.push(node);
-            }
+            let node = storage_trie.get_node_partial(path)?;
+            bytes_used += node.len() as u64;
+            nodes.push(node);
         }
         Ok(nodes)
     }

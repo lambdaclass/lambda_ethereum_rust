@@ -210,7 +210,7 @@ impl Trie {
         }
     }
 
-    pub fn get_node_partial(&self, partial_path: &PathRLP) -> Result<Option<Vec<u8>>, TrieError> {
+    pub fn get_node_partial(&self, partial_path: &PathRLP) -> Result<Vec<u8>, TrieError> {
         println!("Getting node with partial path: {:?}", partial_path);
         let Some(root_node) = self
             .root
@@ -219,47 +219,52 @@ impl Trie {
             .transpose()?
             .flatten()
         else {
-            return Ok(None);
+            return Ok(vec![]);
         };
 
-        println!("Root Node: {:?}", root_node);
-        self.get_node_inner(root_node, partial_path, 0)
+        let node = self.get_node_inner(root_node, partial_path, 0)?;
+        println!("Node: {:?}", node);
+        Ok(node)
     }
 
-    fn get_node_inner(&self, node: Node, partial_path: &Vec<u8>, pos: usize) -> Result<Option<Vec<u8>>, TrieError> {
+    fn get_node_inner(
+        &self,
+        node: Node,
+        partial_path: &Vec<u8>,
+        pos: usize,
+    ) -> Result<Vec<u8>, TrieError> {
         if pos == partial_path.len() {
-            return Ok(Some(node.encode_raw(pos)))
+            return Ok(node.encode_raw(pos));
         }
         match node {
-            Node::Branch(branch_node) => {
-                match partial_path.get(pos) {
-                    Some(idx) if *idx <= 16 => {
-                        let child_hash = &branch_node.choices[*idx as usize];
+            Node::Branch(branch_node) => match partial_path.get(pos) {
+                Some(idx) if *idx <= 16 => {
+                    let child_hash = &branch_node.choices[*idx as usize];
                     if child_hash.is_valid() {
-                        let child_node = self.state
+                        let child_node = self
+                            .state
                             .get_node(child_hash.clone())?
                             .expect("inconsistent internal tree structure");
-                        self.get_node_inner(child_node, partial_path, pos+1)
+                        self.get_node_inner(child_node, partial_path, pos + 1)
                     } else {
-                        Ok(None)
+                        Ok(vec![])
                     }
-                    },
-                    _=> Ok(Some(branch_node.encode_raw()))
                 }
+                _ => Ok(branch_node.encode_raw()),
             },
             Node::Extension(extension_node) => {
                 if extension_node.child.is_valid() {
-                    let child_node = self.state
+                    let child_node = self
+                        .state
                         .get_node(extension_node.child.clone())?
                         .expect("inconsistent internal tree structure");
-                    self.get_node_inner(child_node, partial_path, pos+1)
+                    self.get_node_inner(child_node, partial_path, pos + 1)
                 } else {
-                    Ok(None)
+                    Ok(vec![])
                 }
-            },
-            Node::Leaf(_) => Ok(None),
+            }
+            Node::Leaf(_) => Ok(vec![]),
         }
-
     }
 
     #[cfg(all(test, feature = "libmdbx"))]
