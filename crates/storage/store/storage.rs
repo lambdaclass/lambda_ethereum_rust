@@ -801,7 +801,7 @@ impl Store {
             if bytes_used >= byte_limit {
                 break;
             }
-            if let Some(node) = storage_trie.get_node(path)? {
+            if let Some(node) = storage_trie.get_node_partial(path)? {
                 bytes_used += node.len() as u64;
                 nodes.push(node);
             }

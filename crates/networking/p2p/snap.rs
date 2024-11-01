@@ -128,7 +128,7 @@ pub fn process_trie_nodes_request(
     for paths in request.paths {
         let trie_nodes = store.get_trie_nodes(
             request.root_hash,
-            paths.into_iter().map(|bytes| bytes.to_vec()).collect(),
+            paths.into_iter().map(|bytes| compact_to_hex(bytes)).collect(),
             remaining_bytes,
         )?;
         nodes.extend(trie_nodes.iter().map(|nodes| Bytes::copy_from_slice(nodes)));
@@ -145,56 +145,30 @@ pub fn process_trie_nodes_request(
     })
 }
 
-// // func keybytesToHex(str []byte) []byte {
-// // 	l := len(str)*2 + 1
-// // 	var nibbles = make([]byte, l)
-// // 	for i, b := range str {
-// // 		nibbles[i*2] = b / 16
-// // 		nibbles[i*2+1] = b % 16
-// // 	}
-// // 	nibbles[l-1] = 16
-// // 	return nibbles
-// // }
+fn keybytes_to_hex(keybytes: Bytes) -> Vec<u8> {
+    let l = keybytes.len() * 2 + 1;
+    let mut nibbles = vec![0; l];
+    for (i, b) in keybytes.into_iter().enumerate() {
+        nibbles[i * 2] = b / 16;
+        nibbles[i * 2 + 1] = b % 16;
+    }
+    nibbles[l - 1] = 16;
+    nibbles
+}
 
-// fn keybytes_to_hex(keybytes: Bytes) -> Vec<u8> {
-//     let l = keybytes.len()*2+1;
-//     let mut nibbles = vec![0;l];
-//     for (i, b) in keybytes.into_iter().enumerate() {
-//         nibbles[i*2] = b / 16;
-//         nibbles[i*2+1] = b % 16;
-//     }
-//     nibbles[l - 1] = 16;
-//     nibbles
-// }
-
-// // func compactToHex(compact []byte) []byte {
-// // 	if len(compact) == 0 {
-// // 		return compact
-// // 	}
-// // 	base := keybytesToHex(compact)
-// // 	// delete terminator flag
-// // 	if base[0] < 2 {
-// // 		base = base[:len(base)-1]
-// // 	}
-// // 	// apply odd flag
-// // 	chop := 2 - base[0]&1
-// // 	return base[chop:]
-// // }
-
-// fn compact_to_hex(compact: Bytes) -> Vec<u8> {
-//     if compact.is_empty() {
-//         return vec![]
-//     }
-//     let mut base = keybytes_to_hex(compact);
-//     // delete terminator flag
-//     if base[0] < 2 {
-//         base = base[..base.len() - 1].to_vec();
-//     }
-//     // apply odd flag
-//     let chop = 2 - (base[0]&1) as usize;
-//     base[chop..].to_vec()
-
-// }
+fn compact_to_hex(compact: Bytes) -> Vec<u8> {
+    if compact.is_empty() || compact.len() == 32 {
+        return compact.to_vec();
+    }
+    let mut base = keybytes_to_hex(compact);
+    // delete terminator flag
+    if base[0] < 2 {
+        base = base[..base.len() - 1].to_vec();
+    }
+    // apply odd flag
+    let chop = 2 - (base[0] & 1) as usize;
+    base[chop..].to_vec()
+}
 
 #[cfg(test)]
 mod tests {
