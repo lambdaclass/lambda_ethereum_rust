@@ -136,10 +136,7 @@ pub fn process_trie_nodes_request(
         }
         let trie_nodes = store.get_trie_nodes(
             request.root_hash,
-            paths
-                .into_iter()
-                .map(process_path_input)
-                .collect(),
+            paths.into_iter().map(process_path_input).collect(),
             remaining_bytes,
         )?;
         nodes.extend(trie_nodes.iter().map(|nodes| Bytes::copy_from_slice(nodes)));

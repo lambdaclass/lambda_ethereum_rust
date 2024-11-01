@@ -760,7 +760,7 @@ impl Store {
     /// If more than one hash is received, then the storage trie nodes where each storage key is stored will be returned
     /// Missing nodes will be skipped.
     /// For more information check out snap capability message [`GetTrieNodes`](https://github.com/ethereum/devp2p/blob/master/caps/snap.md#gettrienodes-0x06)
-    /// The paths can be either full paths (hash) or partial paths (bytes), if a partial path is given for the account this method will not return storage nodes for it (TODO: FIX)
+    /// The paths can be either full paths (hash) or partial paths (bytes), if a partial path is given for the account this method will not return storage nodes for it
     pub fn get_trie_nodes(
         &self,
         state_root: H256,
@@ -775,7 +775,7 @@ impl Store {
         // State Trie Nodes Request
         if paths.len() == 1 {
             // Fetch state trie node
-            let node = state_trie.get_node_partial(account_path)?;
+            let node = state_trie.get_node(account_path)?;
             return Ok(vec![node]);
         }
         // Storage Trie Nodes Request
@@ -787,7 +787,7 @@ impl Store {
         else {
             return Ok(vec![]);
         };
-        // We can't access the storage trie without the account's address hash (TODO: FIX THIS)
+        // We can't access the storage trie without the account's address hash
         let Ok(hashed_address) = account_path.clone().try_into().map(H256) else {
             return Ok(nodes);
         };
@@ -799,7 +799,7 @@ impl Store {
             if bytes_used >= byte_limit {
                 break;
             }
-            let node = storage_trie.get_node_partial(path)?;
+            let node = storage_trie.get_node(path)?;
             bytes_used += node.len() as u64;
             nodes.push(node);
         }

@@ -185,11 +185,10 @@ impl Trie {
 
     /// Obtain the encoded node given its path.
     /// Allows usage of partial paths
-    pub fn get_node_partial(&self, partial_path: &PathRLP) -> Result<Vec<u8>, TrieError> {
+    pub fn get_node(&self, partial_path: &PathRLP) -> Result<Vec<u8>, TrieError> {
         if partial_path.len() > 32 {
             return Ok(vec![]);
         }
-        println!("Getting node with partial path: {:?}", partial_path);
         let Some(root_node) = self
             .root
             .as_ref()
@@ -201,7 +200,6 @@ impl Trie {
         };
 
         let node = self.get_node_inner(root_node, partial_path, 0)?;
-        println!("Node: {:?}", node);
         Ok(node)
     }
 
@@ -237,7 +235,6 @@ impl Trie {
                 }
             },
             Node::Extension(extension_node) => {
-                // len(path)-pos < len(n.Key) || !bytes.Equal(n.Key, path[pos:pos+len(n.Key)])
                 if partial_path.len() - pos < extension_node.prefix.len() {
                     return Ok(vec![]);
                 }
