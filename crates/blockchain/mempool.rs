@@ -32,7 +32,7 @@ pub fn add_blob_transaction(
 
     // Add transaction and blobs bundle to storage
     let hash = transaction.compute_hash();
-    store.add_transaction_to_pool(MempoolTransaction::new(transaction));
+    store.add_transaction_to_pool(hash, MempoolTransaction::new(transaction));
     store.add_blobs_bundle_to_pool(hash, blobs_bundle);
     Ok(hash)
 }
@@ -49,7 +49,7 @@ pub fn add_transaction(transaction: Transaction, store: Store) -> Result<H256, M
     let hash = transaction.compute_hash();
 
     // Add transaction to storage
-    store.add_transaction_to_pool(MempoolTransaction::new(transaction));
+    store.add_transaction_to_pool(hash, MempoolTransaction::new(transaction));
 
     Ok(hash)
 }
@@ -94,8 +94,8 @@ pub fn filter_transactions(
 }
 
 /// Remove a transaction from the mempool
-pub fn remove_transaction(address: Address, nonce: u64, store: &Store) {
-    store.remove_transaction_from_pool(address, nonce)
+pub fn remove_transaction(address: Address, tx_hash: H256, store: &Store) {
+    store.remove_transaction_from_pool(address, tx_hash)
 }
 
 #[derive(Debug, Default)]

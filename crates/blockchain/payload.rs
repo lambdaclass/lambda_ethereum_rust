@@ -303,7 +303,7 @@ pub fn fill_transactions(context: &mut PayloadBuildContext) -> Result<(), ChainE
             // Pull transaction from the mempool
             debug!("Ignoring replay-protected transaction: {}", tx_hash);
             txs.pop();
-            mempool::remove_transaction(head_tx.sender, head_tx.tx.nonce(), context.store());
+            mempool::remove_transaction(head_tx.sender, tx_hash, context.store());
             continue;
         }
         // Execute tx
@@ -311,7 +311,7 @@ pub fn fill_transactions(context: &mut PayloadBuildContext) -> Result<(), ChainE
             Ok(receipt) => {
                 txs.shift();
                 // Pull transaction from the mempool
-                mempool::remove_transaction(head_tx.sender, head_tx.tx.nonce(), context.store());
+                mempool::remove_transaction(head_tx.sender, tx_hash, context.store());
                 receipt
             }
             // Ignore following txs from sender
