@@ -1040,8 +1040,8 @@ mod tests {
         let blob_tx = MempoolTransaction::new(Transaction::decode_canonical(&hex!("03f88f0780843b9aca008506fc23ac00830186a09400000000000000000000000000000000000001008080c001e1a0010657f37554c781402a22917dee2f75def7ab966d7b770905398eba3c44401401a0840650aa8f74d2b07f40067dc33b715078d73422f01da17abdbd11e02bbdfda9a04b2260f6022bf53eadb337b3e59514936f7317d872defb891a708ee279bdca90")).unwrap());
         let filter =
             |tx: &Transaction| -> bool { matches!(tx, Transaction::EIP4844Transaction(_)) };
-        store.add_transaction_to_pool(blob_tx.clone());
-        store.add_transaction_to_pool(plain_tx);
+        store.add_transaction_to_pool(blob_tx.compute_hash(), blob_tx.clone());
+        store.add_transaction_to_pool(plain_tx.compute_hash(), plain_tx);
         let txs = store.filter_pool_transactions(&filter);
         let mut expected_result: HashMap<H160, BTreeMap<u64, MempoolTransaction>> = HashMap::new();
         expected_result.insert(
