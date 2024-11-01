@@ -59,8 +59,40 @@ down-l2: ## 🛑 Shuts down the L2 Lambda Ethereum Rust Client
 
 restart-l2: down-l2 init-l2 ## 🔄 Restarts the L2 Lambda Ethereum Rust Client
 
-init-l2-prover: ## 🚀 Initializes the Prover
+init-l2-prover: FORCE_PURGE := 1
+init-l2-prover: purge_prover_state ## 🚀 Initializes the Prover
 	cargo run --release --features build_zkvm --manifest-path ../../Cargo.toml --bin ethereum_rust_prover
 
-init-l2-prover-gpu: ## 🚀 Initializes the Prover with GPU support
-	cargo run --release --features "build_zkvm,cuda" --manifest-path ../../Cargo.toml --bin ethereum_rust_prover
+init-l2-prover-gpu: FORCE_PURGE := 1
+init-l2-prover-gpu: purge_prover_state ## 🚀 Initializes the Prover with GPU support
+	cargo run --release --features "build_zkvm,gpu" --manifest-path ../../Cargo.toml --bin ethereum_rust_prover
+
+# Purge L2
+
+UNAME_S := $(shell uname -s)
+PROJECT_NAME := ethereum_rust_l2
+
+ifeq ($(UNAME_S),Linux)
+    PROJECT_PATH := $(HOME)/.local/share/${PROJECT_NAME}
+else ifeq ($(UNAME_S),Darwin)
+    PROJECT_PATH := $(HOME)/Library/Application\ Support/${PROJECT_NAME}
+else
+    $(error Unsupported platform: $(UNAME_S))
+endif
+
+.PHONY: purge_prover_state
+purge_prover_state:
+	@if [ "$(FORCE_PURGE)" -eq "1" ]; then \
+		echo "Force purging the directory: $(PROJECT_PATH)"; \
+		rm -rf "$(PROJECT_PATH)"; \
+		echo "Directory deleted."; \
+	else \
+		echo "Are you sure you want to delete the directory: $(PROJECT_PATH)? [y/n]"; \
+		read answer; \
+		if [ "$$answer" != "y" ]; then \
+			echo "Operation canceled."; \
+			exit 1; \
+		fi; \
+		rm -rf "$(PROJECT_PATH)"; \
+		echo "Directory deleted."; \
+	fi

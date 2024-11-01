@@ -12,13 +12,18 @@ use ethereum_rust_l2::{
     utils::config::prover_client::ProverClientConfig,
 };
 
-use crate::utils::prover_state::{self, persist_block_in_prover_state, read_block_in_prover_state};
+use crate::utils::save_prover_state::{
+    self, persist_block_in_prover_state, read_block_in_prover_state,
+};
 
 use super::prover::Prover;
 
-pub async fn start_proof_data_client(config: ProverClientConfig) {
-    let mut proof_data_client = ProverClient::new(config);
+pub async fn start_proof_data_client(
+    config: ProverClientConfig,
+) -> Result<(), Box<dyn std::error::Error>> {
+    let mut proof_data_client = ProverClient::new(config)?;
     proof_data_client.start().await;
+    Ok(())
 }
 
 struct ProverClient {
@@ -28,21 +33,22 @@ struct ProverClient {
 }
 
 impl ProverClient {
-    pub fn new(config: ProverClientConfig) -> Self {
-        let prover_state_file_path = config
-            .prover_state_file_path
-            // TODO: rm unwrap
-            .unwrap_or_else(|| prover_state::get_default_prover_state_file_path().unwrap());
+    pub fn new(config: ProverClientConfig) -> Result<Self, Box<dyn std::error::Error>> {
+        let prover_state_file_path = match config.prover_state_file_path {
+            Some(path) => path,
+            None => save_prover_state::get_default_prover_state_file_path()?,
+        };
 
         let block_number_to_request = match read_block_in_prover_state(&prover_state_file_path) {
-            Ok(ps) => ps.block_header.number,
+            Ok(ps) => ps.block_header.number + 1,
             Err(_) => 1,
         };
-        Self {
+
+        Ok(Self {
             prover_server_endpoint: config.prover_server_endpoint,
             prover_state_file_path,
             block_number_to_request,
-        }
+        })
     }
 
     pub async fn start(&mut self) {
@@ -117,9 +123,9 @@ impl ProverClient {
                     "Received submit ack for block_number: {}",
                     block_header.number
                 );
-                // After submission, add 1 so that in the next request, the prover_client receives the subsequent block.
+                // After submission, add 1 to request for the subsequent block.
                 self.block_number_to_request += 1;
-                // Persist the State
+                // Persist the State in a file.
                 persist_block_in_prover_state(&self.prover_state_file_path, block_header)
                     .map_err(|e| format!("Error while persisting state: {e}"))?;
                 Ok(())

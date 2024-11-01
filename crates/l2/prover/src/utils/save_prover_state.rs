@@ -3,7 +3,7 @@ use ethereum_rust_core::types::BlockHeader;
 use serde::{Deserialize, Serialize};
 use std::fs::File;
 use std::{
-    fs::{self, create_dir_all},
+    fs::create_dir_all,
     io::{BufReader, BufWriter, Read, Write},
     path::Path,
 };
@@ -14,15 +14,15 @@ pub struct ProverState {
 }
 
 fn create_prover_state_file_path(file_name: &str) -> Result<String, Box<dyn std::error::Error>> {
-    let project_dir =
-        ProjectDirs::from("", "", "ethereum_rust_l2").expect("Couldn't find home directory");
-    // TODO: rm unwrap
-    Ok(project_dir
-        .data_local_dir()
-        .join(file_name)
+    let project_dir = ProjectDirs::from("", "", "ethereum_rust_l2")
+        .ok_or_else(|| Box::<dyn std::error::Error>::from("Couldn't get project_dir."))?;
+
+    let binding = project_dir.data_local_dir().join(file_name);
+    let path_str = binding
         .to_str()
-        .unwrap()
-        .to_owned())
+        .ok_or_else(|| Box::<dyn std::error::Error>::from("Couldn't convert path to str."))?;
+
+    Ok(path_str.to_string())
 }
 
 pub fn get_default_prover_state_file_path() -> Result<String, Box<dyn std::error::Error>> {
@@ -35,12 +35,6 @@ pub fn create_prover_state_file() -> Result<File, Box<dyn std::error::Error>> {
         create_dir_all(parent)?;
     }
     File::create(file_path).map_err(Into::into)
-}
-
-pub fn remove_default_prover_state_file() -> Result<(), Box<dyn std::error::Error>> {
-    let file_path = get_default_prover_state_file_path()?;
-    fs::remove_file(file_path)?;
-    Ok(())
 }
 
 pub fn persist_block_in_prover_state(
@@ -75,7 +69,7 @@ pub fn read_block_in_prover_state(
 mod tests {
     use super::*;
     use ethereum_rust_l2::utils::test_data_io;
-    use fs::create_dir_all;
+    use std::fs::{self, create_dir_all};
     use std::path::{Path, PathBuf};
 
     #[test]
