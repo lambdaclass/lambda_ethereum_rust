@@ -59,13 +59,13 @@ down-l2: ## 🛑 Shuts down the L2 Lambda Ethereum Rust Client
 
 restart-l2: down-l2 init-l2 ## 🔄 Restarts the L2 Lambda Ethereum Rust Client
 
-init-l2-prover: purge_prover_state ## 🚀 Initializes the Prover
+init-l2-prover: ## 🚀 Initializes the Prover
 	cargo run --release --features build_zkvm --manifest-path ../../Cargo.toml --bin ethereum_rust_prover
 
-init-l2-prover-gpu: purge_prover_state ## 🚀 Initializes the Prover with GPU support
+init-l2-prover-gpu: ## 🚀 Initializes the Prover with GPU support
 	cargo run --release --features "build_zkvm,gpu" --manifest-path ../../Cargo.toml --bin ethereum_rust_prover
 
-# Purge L2
+# Purge L2's state
 
 UNAME_S := $(shell uname -s)
 PROJECT_NAME := ethereum_rust_l2

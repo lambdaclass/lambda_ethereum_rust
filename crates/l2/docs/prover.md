@@ -4,7 +4,7 @@
 
 - [ToC](#toc)
 - [What](#what)
-- [Prover State](#prover-state)
+- [Prover/Proposer State](#proverproposer-state)
 - [Workflow](#workflow)
 - [How](#how)
   - [Dev Mode](#dev-mode)
@@ -23,15 +23,21 @@ Before the `zkVM` code (or guest), there is a directory called `interface`, whic
 
 In summary, the `prover_client` manages the inputs from the `prover_server` and then "calls" the `zkVM` to perform the proving process and generate the `groth16` ZK proof.
 
-## Prover State
+## Prover/Proposer State
 
-The `prover_client` saves its state in the file located at `directories::ProjectDirs::data_local_dir()/ethereum_rust_l2/prover_state.json`.
+The `prover_server`/`proposer` saves its state in the file located at `directories::ProjectDirs::data_local_dir()/ethereum_rust_l2`.
 
-It is assumed that the `prover_server` is initiated beforehand and that the `prover_client` starts afterward. After receiving a `SubmitAck`, the client saves the last prover block header in the file. If the client goes down, it will read the file, extract the block number, and add 1, so the next request to the server will be for `last_proven_block_number + 1`.
+With the following structure:
 
-If the `prover_server` goes down, it will start its count from 0. Consequently, when the prover client requests a higher block, this may result in a panic.
-
-Currently, the state of the `prover_server` is not being saved.
+```
+ethereum_rust_l2/
+├── 1
+│   ├── account_updates_1.json
+│   └── proof_1.json
+└── 2
+    ├── account_updates_2.json
+    └── proof_2.json
+```
 
 ## Workflow
 
@@ -42,7 +48,7 @@ sequenceDiagram
     participant zkVM
     participant ProverClient
     participant ProverServer
-    ProverClient->>+ProverServer: ProofData::Request(block_number)
+    ProverClient->>+ProverServer: ProofData::Request
     ProverServer-->>-ProverClient: ProofData::Response(block_number, ProverInputs)
     ProverClient->>+zkVM: Prove(ProverInputs)
     zkVM-->>-ProverClient: Creates zkProof
@@ -78,24 +84,22 @@ make perf_test_proving
 
 ### GPU mode
 
-**Dependencies (based on the Docker CUDA image):**
+**Steps for Ubuntu 22.04 with Nvidia A4000:**
 
->[!NOTE]
-> If you don't want to run it inside a Docker container based on the NVIDIA CUDA image, [the following steps from RISC0](https://dev.risczero.com/api/generating-proofs/local-proving) may be helpful.
-
-- [Rust](https://www.rust-lang.org/tools/install)
-- [RISC0](https://dev.risczero.com/api/zkvm/install)
-
-Next, install the following packages:
+1. Install `docker` &rarr; using the [Ubuntu apt repository](https://docs.docker.com/engine/install/ubuntu/#install-using-the-repository)
+   - Add the `user` you are using to the `docker` group &rarr; command: `sudo usermod -aG docker $USER`. (needs reboot, doing it after CUDA installation)
+   - `id -nG` after reboot to check if the user is in the group.
+2. Install [Rust](https://www.rust-lang.org/tools/install)
+3. Install [RISC0](https://dev.risczero.com/api/zkvm/install)
+4. Instalar [CUDA for Ubuntu](https://developer.nvidia.com/cuda-downloads?target_os=Linux&target_arch=x86_64&Distribution=Ubuntu&target_version=22.04&target_type=deb_local)
+   - Install `CUDA Toolkit Installer` first. Then the `nvidia-open` drivers.
+5. Reboot
+6. Run the following commands:
 
 ```sh
 sudo apt-get install libssl-dev pkg-config libclang-dev clang
-```
-
-To start the `prover_client`, use the following command:
-
-```sh
-make init-l2-prover-gpu
+echo 'export PATH=/usr/local/cuda/bin:$PATH' >> ~/.bashrc
+echo 'export LD_LIBRARY_PATH=/usr/local/cuda/lib64:$LD_LIBRARY_PATH' >> ~/.bashrc
 ```
 
 #### Proving Process Test

@@ -6,9 +6,6 @@ use ethereum_rust_l2::utils::config::prover_client::ProverClientConfig;
 use tracing::warn;
 
 pub async fn init_client(config: ProverClientConfig) {
-    // TODO: panicking if the client fails. Improve error handling
-    prover_client::start_proof_data_client(config)
-        .await
-        .unwrap();
+    prover_client::start_proof_data_client(config).await;
     warn!("Prover finished!");
 }

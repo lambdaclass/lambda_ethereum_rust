@@ -12,43 +12,25 @@ use ethereum_rust_l2::{
     utils::config::prover_client::ProverClientConfig,
 };
 
-use crate::utils::save_prover_state::{
-    self, persist_block_in_prover_state, read_block_in_prover_state,
-};
-
 use super::prover::Prover;
 
-pub async fn start_proof_data_client(
-    config: ProverClientConfig,
-) -> Result<(), Box<dyn std::error::Error>> {
-    let mut proof_data_client = ProverClient::new(config)?;
+pub async fn start_proof_data_client(config: ProverClientConfig) {
+    let proof_data_client = ProverClient::new(config);
     proof_data_client.start().await;
-    Ok(())
 }
 
 struct ProverClient {
     prover_server_endpoint: String,
-    prover_state_file_path: String,
-    block_number_to_request: u64,
 }
 
 impl ProverClient {
-    pub fn new(config: ProverClientConfig) -> Result<Self, Box<dyn std::error::Error>> {
-        let prover_state_file_path = save_prover_state::get_default_prover_state_file_path()?;
-
-        let block_number_to_request = match read_block_in_prover_state(&prover_state_file_path) {
-            Ok(ps) => ps.block_header.number + 1,
-            Err(_) => 1,
-        };
-
-        Ok(Self {
+    pub fn new(config: ProverClientConfig) -> Self {
+        Self {
             prover_server_endpoint: config.prover_server_endpoint,
-            prover_state_file_path,
-            block_number_to_request,
-        })
+        }
     }
 
-    pub async fn start(&mut self) {
+    pub async fn start(&self) {
         let mut prover = Prover::new();
 
         loop {
@@ -66,20 +48,15 @@ impl ProverClient {
                 }
                 Err(e) => {
                     sleep(Duration::from_secs(5)).await;
-                    warn!(
-                        "Failed to request new data, block_number_to_request: {}. Error: {e}",
-                        self.block_number_to_request
-                    );
+                    warn!("Failed to request new data: {e}");
                 }
             }
         }
     }
 
-    fn request_new_input(&mut self) -> Result<(u64, ProverInputData), String> {
+    fn request_new_input(&self) -> Result<(u64, ProverInputData), String> {
         // Request the input with the correct block_number
-        let request = ProofData::Request {
-            block_number: self.block_number_to_request,
-        };
+        let request = ProofData::Request;
         let response = connect_to_prover_server_wr(&self.prover_server_endpoint, &request)
             .map_err(|e| format!("Failed to get Response: {e}"))?;
 
@@ -90,7 +67,6 @@ impl ProverClient {
             } => match (block_number, input) {
                 (Some(n), Some(i)) => {
                     info!("Received Response for block_number: {n}");
-                    self.block_number_to_request = n;
                     Ok((n, i))
                 }
                 _ => Err(
@@ -103,7 +79,7 @@ impl ProverClient {
     }
 
     fn submit_proof(
-        &mut self,
+        &self,
         block_number: u64,
         receipt: risc0_zkvm::Receipt,
     ) -> Result<(), String> {
@@ -115,16 +91,8 @@ impl ProverClient {
             .map_err(|e| format!("Failed to get SubmitAck: {e}"))?;
 
         match submit_ack {
-            ProofData::SubmitAck { block_header } => {
-                info!(
-                    "Received submit ack for block_number: {}",
-                    block_header.number
-                );
-                // After submission, add 1 to request for the subsequent block.
-                self.block_number_to_request += 1;
-                // Persist the State in a file.
-                persist_block_in_prover_state(&self.prover_state_file_path, block_header)
-                    .map_err(|e| format!("Error while persisting state: {e}"))?;
+            ProofData::SubmitAck { block_number } => {
+                info!("Received submit ack for block_number: {}", block_number);
                 Ok(())
             }
             _ => Err(format!("Expecting ProofData::SubmitAck {submit_ack:?}")),

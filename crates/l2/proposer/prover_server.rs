@@ -45,15 +45,12 @@ pub async fn start_prover_server(store: Store) {
 pub enum ProofData {
     /// 1.
     /// The Client initiates the connection with a Request.
-    /// Asking for the ProverInputData for the block_number.
-    Request { block_number: u64 },
+    /// Asking for the ProverInputData the prover_server considers/needs.
+    Request,
 
     /// 2.
-    /// The Server responds with a Response containing the ProverInputData
-    /// for the requested block.
-    /// If the block_number requested > latest_block_number from [ProverServer::store]
-    /// the Response will be ProofData::Response{None, None}.
-    /// So that the Client knows that the Request couldn't be performed.
+    /// The Server responds with a Response containing the ProverInputData.
+    /// If the Response will is ProofData::Response{None, None}, the Client knows that the Request couldn't be performed.
     Response {
         block_number: Option<u64>,
         input: Option<ProverInputData>,
@@ -70,15 +67,14 @@ pub enum ProofData {
 
     /// 4.
     /// The Server acknowledges the receipt of the proof and updates its state,
-    /// enabling the Client to also update its state and request the next block.
-    SubmitAck { block_header: BlockHeader },
+    SubmitAck { block_number: u64 },
 }
 
 struct ProverServer {
     ip: IpAddr,
     port: u16,
     store: Store,
-    last_proven_block: u64,
+    latest_proven_block: u64,
 }
 
 impl ProverServer {
@@ -87,7 +83,7 @@ impl ProverServer {
             ip: config.listen_ip,
             port: config.listen_port,
             store,
-            last_proven_block: 0_u64,
+            latest_proven_block: 0_u64,
         }
     }
 
@@ -122,9 +118,11 @@ impl ProverServer {
 
         let data: Result<ProofData, _> = serde_json::de::from_reader(buf_reader);
         match data {
-            Ok(ProofData::Request { block_number }) => {
-                assert!(block_number == (self.last_proven_block + 1), "Prover Client requested an invalid block_number: {block_number}. The last_proved_block is: {}", self.last_proven_block);
-                if let Err(e) = self.handle_request(&mut stream, block_number).await {
+            Ok(ProofData::Request) => {
+                if let Err(e) = self
+                    .handle_request(&mut stream, self.latest_proven_block + 1)
+                    .await
+                {
                     warn!("Failed to handle request: {e}");
                 }
             }
@@ -135,8 +133,8 @@ impl ProverServer {
                 if let Err(e) = self.handle_submit(&mut stream, block_number, receipt) {
                     warn!("Failed to handle submit: {e}");
                 }
-                assert!(block_number == (self.last_proven_block + 1), "Prover Client submitted an invalid block_number: {block_number}. The last_proved_block is: {}", self.last_proven_block);
-                self.last_proven_block = block_number;
+                assert!(block_number == (self.latest_proven_block + 1), "Prover Client submitted an invalid block_number: {block_number}. The last_proved_block is: {}", self.latest_proven_block);
+                self.latest_proven_block = block_number;
             }
             Err(e) => {
                 warn!("Failed to parse request: {e}");
@@ -192,9 +190,6 @@ impl ProverServer {
             receipt
         );
 
-        // TODO: remove unwrap
-        let block_header = self.store.get_block_header(block_number).unwrap().unwrap();
-
         // TODO: Verify the groth16 proof on chain.
         // helpful links:
         // https://docs.rs/risc0-zkvm/1.1.2/risc0_zkvm/struct.Groth16Receipt.html
@@ -204,7 +199,7 @@ impl ProverServer {
         // receipt.inner.groth16().unwrap();
         // Many implementations make use of Bonsai, check if it is strictly necessary.
 
-        let response = ProofData::SubmitAck { block_header };
+        let response = ProofData::SubmitAck { block_number };
         let writer = BufWriter::new(stream);
         serde_json::to_writer(writer, &response).map_err(|e| e.to_string())
     }
