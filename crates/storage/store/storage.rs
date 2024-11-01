@@ -13,6 +13,7 @@ use ethereum_rust_rlp::decode::RLPDecode;
 use ethereum_rust_rlp::encode::RLPEncode;
 use ethereum_rust_trie::Trie;
 use ethereum_types::{Address, H256, U256};
+use serde::{Deserialize, Serialize};
 use sha3::{Digest as _, Keccak256};
 use std::collections::HashMap;
 use std::fmt::Debug;
@@ -37,7 +38,7 @@ pub enum EngineType {
     Libmdbx,
 }
 
-#[derive(Default, Debug)]
+#[derive(Default, Debug, Serialize, Deserialize)]
 pub struct AccountUpdate {
     pub address: Address,
     pub removed: bool,
