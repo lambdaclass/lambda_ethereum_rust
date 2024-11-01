@@ -339,7 +339,8 @@ impl VM {
         // Accounts in SelfDestruct set should be destroyed at the end of the transaction.
 
         // Update cache after modifying accounts.
-        self.cache.add_account(&current_call_frame.to, &current_account);
+        self.cache
+            .add_account(&current_call_frame.to, &current_account);
         self.cache.add_account(&target_address, &target_account);
 
         self.increase_consumed_gas(current_call_frame, gas_cost)?;
