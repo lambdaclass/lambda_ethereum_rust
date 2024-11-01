@@ -87,8 +87,7 @@ impl Cache {
     }
 
     pub fn get_storage_slot(&self, address: Address, key: H256) -> Option<StorageSlot> {
-        self.get_account(address)
-            .expect("Account should have been cached")
+        self.get_account(address)?
             .storage
             .get(&key)
             .cloned()

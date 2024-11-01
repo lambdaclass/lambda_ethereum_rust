@@ -172,11 +172,7 @@ impl VM {
             // If slot is cold 2100 is added to base_dynamic_gas
             base_dynamic_gas += U256::from(2100);
             
-            let value_from_db = self.db.get_storage_slot(address, key); // get storage from db
-            StorageSlot {
-                original_value: value_from_db,
-                current_value: value_from_db,
-            }
+            self.get_storage_slot(&address, key) // it is not in cache because of previous if
         };
 
         base_dynamic_gas += if value == storage_slot.current_value {

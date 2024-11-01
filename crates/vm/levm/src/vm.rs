@@ -858,6 +858,7 @@ impl VM {
         );
     }
 
+    /// Gets account, first checking the cache and then the database (caching in the second case)
     pub fn get_account(&mut self, address: &Address) -> Account {
         match self.cache.get_account(*address) {
             Some(acc) => acc.clone(),
@@ -873,6 +874,7 @@ impl VM {
         }
     }
 
+    /// Gets storage slot, first checking the cache and then the database (caching in the second case)
     pub fn get_storage_slot(&mut self, address: &Address, key: H256) -> StorageSlot {
         match self.cache.get_storage_slot(*address, key) {
             Some(slot) => slot,
