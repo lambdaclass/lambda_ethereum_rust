@@ -12,7 +12,6 @@ mod test_utils;
 
 use ethereum_rust_rlp::constants::RLP_NULL;
 use ethereum_types::H256;
-use nibble::{Nibble, NibbleVec};
 use node::Node;
 use node_hash::NodeHash;
 use sha3::{Digest, Keccak256};
@@ -199,35 +198,34 @@ impl Trie {
             return Ok(vec![]);
         };
 
-        let node = self.get_node_inner(root_node, partial_path, 0)?;
+        let node = self.get_node_inner(root_node, NibbleSlice::new(partial_path))?;
         Ok(node)
     }
 
     fn get_node_inner(
         &self,
         node: Node,
-        partial_path: &Vec<u8>,
-        pos: usize,
+        mut partial_path: NibbleSlice,
     ) -> Result<Vec<u8>, TrieError> {
-        if pos == partial_path.len() {
-            return Ok(node.encode_raw(pos));
+        if partial_path.len() == 0 {
+            return Ok(node.encode_raw(partial_path.offset()));
         }
         match node {
-            Node::Branch(branch_node) => match partial_path.get(pos) {
-                Some(idx) if *idx <= 16 => {
-                    let child_hash = &branch_node.choices[*idx as usize];
+            Node::Branch(branch_node) => match partial_path.next().map(usize::from) {
+                Some(idx) if idx <= 16 => {
+                    let child_hash = &branch_node.choices[idx as usize];
                     if child_hash.is_valid() {
                         let child_node = self
                             .state
                             .get_node(child_hash.clone())?
                             .expect("inconsistent internal tree structure");
-                        self.get_node_inner(child_node, partial_path, pos + 1)
+                        self.get_node_inner(child_node, partial_path)
                     } else {
                         Ok(vec![])
                     }
                 }
                 _ => {
-                    if &branch_node.path == partial_path {
+                    if partial_path.cmp_rest(&branch_node.path) {
                         Ok(branch_node.encode_raw())
                     } else {
                         Ok(vec![])
@@ -235,25 +233,13 @@ impl Trie {
                 }
             },
             Node::Extension(extension_node) => {
-                if partial_path.len() - pos < extension_node.prefix.len() {
-                    return Ok(vec![]);
-                }
-                // Compare prefix
-                let nibble_vec = NibbleVec::from_nibbles(
-                    partial_path[pos..pos + extension_node.prefix.len()]
-                        .iter()
-                        .map(|b| Nibble::try_from(*b).unwrap()),
-                    false,
-                );
-                if extension_node.prefix != nibble_vec {
-                    return Ok(vec![]);
-                }
-                if extension_node.child.is_valid() {
+                if partial_path.skip_prefix(&extension_node.prefix) && extension_node.child.is_valid() {
                     let child_node = self
                         .state
                         .get_node(extension_node.child.clone())?
                         .expect("inconsistent internal tree structure");
-                    self.get_node_inner(child_node, partial_path, pos + extension_node.prefix.len())
+                    dbg!(&child_node);
+                    self.get_node_inner(child_node, partial_path)
                 } else {
                     Ok(vec![])
                 }

@@ -155,9 +155,16 @@ pub fn process_trie_nodes_request(
 
 fn process_path_input(bytes: Bytes) -> Vec<u8> {
     match bytes.len() {
-        n if n < 32 => compact_to_hex(bytes),
+        n if n < 32 => nibbles_to_bytes(compact_to_hex(bytes)),
         _ => bytes.to_vec(),
     }
+}
+
+fn nibbles_to_bytes(nibbles: Vec<u8>) -> Vec<u8> {
+    nibbles.chunks(2).map(|chunk| match chunk.len() {
+        1 => chunk[0] << 4,
+        _ /* 2 */ => chunk[0] << 4 | chunk[1]
+    }).collect::<Vec<_>>()
 }
 
 fn compact_to_hex(compact: Bytes) -> Vec<u8> {
