@@ -775,13 +775,13 @@ impl Store {
         // State Trie Nodes Request
         if paths.len() == 1 {
             // Fetch state trie node
-            let node = state_trie.get_node_partial(&account_path)?;
+            let node = state_trie.get_node_partial(account_path)?;
             return Ok(vec![node]);
         }
         // Storage Trie Nodes Request
         let mut nodes = vec![];
         let Some(account_state) = state_trie
-            .get(&account_path)?
+            .get(account_path)?
             .map(|ref rlp| AccountState::decode(rlp))
             .transpose()?
         else {

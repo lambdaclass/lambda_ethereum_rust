@@ -228,21 +228,28 @@ impl Trie {
                         Ok(vec![])
                     }
                 }
-                _ => if &branch_node.path == partial_path {
-                    Ok(branch_node.encode_raw())
-                } else {
-                    Ok(vec![])
+                _ => {
+                    if &branch_node.path == partial_path {
+                        Ok(branch_node.encode_raw())
+                    } else {
+                        Ok(vec![])
+                    }
                 }
             },
             Node::Extension(extension_node) => {
                 // len(path)-pos < len(n.Key) || !bytes.Equal(n.Key, path[pos:pos+len(n.Key)])
-                if partial_path.len()-pos < extension_node.prefix.len() {
-                    return Ok(vec![])
+                if partial_path.len() - pos < extension_node.prefix.len() {
+                    return Ok(vec![]);
                 }
                 // Compare prefix
-                let nibble_vec = NibbleVec::from_nibbles(partial_path[pos..pos+extension_node.prefix.len()].iter().map(|b| Nibble::try_from(*b).unwrap()), false);
+                let nibble_vec = NibbleVec::from_nibbles(
+                    partial_path[pos..pos + extension_node.prefix.len()]
+                        .iter()
+                        .map(|b| Nibble::try_from(*b).unwrap()),
+                    false,
+                );
                 if extension_node.prefix != nibble_vec {
-                    return Ok(vec![])
+                    return Ok(vec![]);
                 }
                 if extension_node.child.is_valid() {
                     let child_node = self

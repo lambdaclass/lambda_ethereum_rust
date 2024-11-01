@@ -138,7 +138,7 @@ pub fn process_trie_nodes_request(
             request.root_hash,
             paths
                 .into_iter()
-                .map(|bytes| process_path_input(bytes))
+                .map(process_path_input)
                 .collect(),
             remaining_bytes,
         )?;
