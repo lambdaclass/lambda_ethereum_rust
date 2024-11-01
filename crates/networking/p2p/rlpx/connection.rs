@@ -1,6 +1,9 @@
 use crate::{
     rlpx::{
-        eth::{backend, blocks::{BlockBodies, BlockHeaders}},
+        eth::{
+            backend,
+            blocks::{BlockBodies, BlockHeaders},
+        },
         handshake::encode_ack_message,
         message::Message,
         p2p,
@@ -166,7 +169,7 @@ impl<S: AsyncWrite + AsyncRead + std::marker::Unpin> RLPxConnection<S> {
                         Message::GetBlockBodies(msg_data) => {
                             let response = BlockBodies {
                                 id: msg_data.id,
-                                block_bodies: msg_data.fetch_blocks(&self.storage)
+                                block_bodies: msg_data.fetch_blocks(&self.storage),
                             };
                             self.send(Message::BlockBodies(response)).await;
                         }
