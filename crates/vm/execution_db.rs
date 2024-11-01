@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 
 use ethereum_rust_core::types::{Block, ChainConfig};
-use ethereum_rust_storage::Store;
+use ethereum_rust_storage::{AccountUpdate, Store};
 use revm::{
     primitives::{
         AccountInfo as RevmAccountInfo, Address as RevmAddress, Bytecode as RevmBytecode,
@@ -34,8 +34,12 @@ pub struct ExecutionDB {
 }
 
 impl ExecutionDB {
-    /// Creates a database by executing a block, without performing any validation.
-    pub fn from_exec(block: &Block, store: &Store) -> Result<Self, ExecutionDBError> {
+    /// Creates a database and returns the ExecutionDB and account_updates by executing a block,
+    /// without performing any validation.
+    pub fn from_exec(
+        block: &Block,
+        store: &Store,
+    ) -> Result<(Self, Vec<AccountUpdate>), ExecutionDBError> {
         // TODO: perform validation to exit early
 
         let mut state = evm_state(store.clone(), block.header.parent_hash);
@@ -55,7 +59,7 @@ impl ExecutionDB {
         let mut storage = HashMap::new();
         let block_hashes = HashMap::new(); // TODO: `block_hashes` remains empty for now
 
-        for account_update in account_updates {
+        for account_update in &account_updates {
             let address = RevmAddress::from_slice(account_update.address.as_bytes());
             let account_info = store_wrapper
                 .basic(address)?
@@ -78,13 +82,15 @@ impl ExecutionDB {
             storage.insert(address, account_storage);
         }
 
-        Ok(Self {
+        let execution_db = Self {
             accounts,
             code,
             storage,
             block_hashes,
             chain_config,
-        })
+        };
+
+        Ok((execution_db, account_updates))
     }
 
     pub fn get_chain_config(&self) -> ChainConfig {

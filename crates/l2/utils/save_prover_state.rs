@@ -1,12 +1,11 @@
 use directories::ProjectDirs;
 use ethereum_rust_storage::AccountUpdate;
 use serde::{Deserialize, Serialize};
-use std::fs::File;
+use std::fs::{create_dir, File};
 use std::path::PathBuf;
 use std::{
     fs::create_dir_all,
-    io::{BufReader, BufWriter, Read, Write},
-    path::Path,
+    io::{BufWriter, Write},
 };
 
 #[derive(Serialize, Deserialize, Debug, Clone, Copy)]
@@ -15,9 +14,16 @@ pub enum StateFileType {
     AccountUpdates,
 }
 
+const DEFAULT_DATADIR: &str = "ethereum_rust_l2";
+
 #[inline(always)]
 fn default_datadir() -> Result<PathBuf, Box<dyn std::error::Error>> {
-    let path_buf_data_dir = ProjectDirs::from("", "", "ethereum_rust_l2")
+    create_datadir(DEFAULT_DATADIR)
+}
+
+#[inline(always)]
+fn create_datadir(dir_name: &str) -> Result<PathBuf, Box<dyn std::error::Error>> {
+    let path_buf_data_dir = ProjectDirs::from("", "", dir_name)
         .ok_or_else(|| Box::<dyn std::error::Error>::from("Couldn't get project_dir."))?
         .data_local_dir()
         .to_path_buf();
@@ -38,7 +44,12 @@ fn create_state_file_for_block_number(
 ) -> Result<File, Box<dyn std::error::Error>> {
     let path_buf = get_state_dir_for_block(block_number)?;
     if let Some(parent) = path_buf.parent() {
-        create_dir_all(parent)?;
+        if let Err(e) = create_dir_all(parent) {
+            if e.kind() != std::io::ErrorKind::AlreadyExists {
+                eprintln!("Directory already exists: {:?}", parent);
+                return Err(e.into());
+            }
+        }
     }
 
     let block_number = path_buf
@@ -47,12 +58,20 @@ fn create_state_file_for_block_number(
         .to_string_lossy();
 
     let block_number = block_number.parse::<u64>()?;
+
     let file_path = match state_file_type {
         StateFileType::AccountUpdates => {
             path_buf.join(format!("account_updates{block_number}.json"))
         }
         StateFileType::Proof => path_buf.join(format!("proof_{block_number}.json")),
     };
+
+    if let Err(e) = create_dir(&path_buf) {
+        if e.kind() != std::io::ErrorKind::AlreadyExists {
+            return Err(e.into());
+        }
+        eprintln!("Directory already exists: {:?}", path_buf);
+    }
 
     File::create(file_path).map_err(Into::into)
 }
@@ -111,27 +130,13 @@ fn get_latest_block_state_path() -> Result<PathBuf, Box<dyn std::error::Error>> 
 
 #[cfg(test)]
 mod tests {
+    use ethereum_rust_blockchain::add_block;
+    use ethereum_rust_storage::{EngineType, Store};
+    use ethereum_rust_vm::execution_db::ExecutionDB;
+
     use super::*;
     use crate::utils::test_data_io;
-    use std::fs::{self, create_dir_all};
-    use std::path::{Path, PathBuf};
-
-    fn default_datadir_test() -> Result<PathBuf, Box<dyn std::error::Error>> {
-        let path_buf_data_dir = ProjectDirs::from("", "", "test_state")
-            .ok_or_else(|| Box::<dyn std::error::Error>::from("Couldn't get project_dir."))?
-            .data_local_dir()
-            .to_path_buf();
-        Ok(path_buf_data_dir)
-    }
-
-    fn get_state_dir_for_block_test(
-        block_number: u64,
-    ) -> Result<PathBuf, Box<dyn std::error::Error>> {
-        let mut path_buf = default_datadir_test()?;
-        path_buf.push(block_number.to_string());
-
-        Ok(path_buf)
-    }
+    use std::fs::{self};
 
     #[test]
     fn test_state_file_integration() -> Result<(), Box<dyn std::error::Error>> {
@@ -142,12 +147,49 @@ mod tests {
         }
         path.push("test_data");
 
-        let chain_file_path = path.join("chain.rlp");
+        let chain_file_path = path.join("l2-loadtest.rlp");
+        let genesis_file_path = path.join("genesis-l2.json");
+
+        let store = Store::new("memory", EngineType::InMemory).expect("Failed to create Store");
+
+        let genesis = test_data_io::read_genesis_file(genesis_file_path.to_str().unwrap());
+        store.add_initial_state(genesis.clone()).unwrap();
 
         let blocks = test_data_io::read_chain_file(chain_file_path.to_str().unwrap());
-        let last_block = blocks.last().unwrap().clone();
+        for block in &blocks {
+            add_block(block, &store).unwrap();
+        }
 
-        fs::remove_dir_all(default_datadir_test()?)?;
+        let mut account_updates_vec: Vec<AccountUpdate> = Vec::new();
+
+        for block in &blocks {
+            let (_, account_updates) =
+                ExecutionDB::from_exec(blocks.last().unwrap(), &store).unwrap();
+
+            account_updates_vec = account_updates;
+
+            persist_state_in_block_state_path(
+                block.header.number,
+                StateFileType::AccountUpdates,
+                None,
+                Some(&account_updates_vec),
+            )?;
+        }
+
+        let latest_block_path = get_latest_block_state_path()?;
+
+        assert_eq!(
+            latest_block_path
+                .file_name()
+                .unwrap()
+                .to_string_lossy()
+                .parse::<u64>()?,
+            blocks.len() as u64
+        );
+
+        // Read account_updates back todo
+
+        fs::remove_dir_all(default_datadir()?)?;
 
         Ok(())
     }
