@@ -129,12 +129,17 @@ pub fn process_trie_nodes_request(
     let mut nodes = vec![];
     let mut remaining_bytes = request.bytes;
     for paths in request.paths {
+        if paths.is_empty() {
+            return Err(RLPxError::BadRequest(
+                "zero-item pathset requested".to_string(),
+            ));
+        }
         let trie_nodes = store.get_trie_nodes(
             request.root_hash,
             paths
                 .into_iter()
                 .map(|bytes| process_path_input(bytes))
-                .collect::<Result<_, _>>()?,
+                .collect(),
             remaining_bytes,
         )?;
         nodes.extend(trie_nodes.iter().map(|nodes| Bytes::copy_from_slice(nodes)));
@@ -151,18 +156,17 @@ pub fn process_trie_nodes_request(
     })
 }
 
-fn process_path_input(bytes: Bytes) -> Result<Vec<u8>, RLPxError> {
+fn process_path_input(bytes: Bytes) -> Vec<u8> {
     match bytes.len() {
-        0 => Err(RLPxError::BadRequest(
-            "zero-item pathset requested".to_string(),
-        )),
-        n if n < 32 => Ok(compact_to_hex(bytes)),
-        _ => Ok(bytes.to_vec()),
+        n if n < 32 => compact_to_hex(bytes),
+        _ => bytes.to_vec(),
     }
 }
 
 fn compact_to_hex(compact: Bytes) -> Vec<u8> {
-    // We already checked that compact is not empty
+    if compact.is_empty() {
+        return vec![];
+    }
     let mut base = keybytes_to_hex(compact);
     // delete terminator flag
     if base[0] < 2 {

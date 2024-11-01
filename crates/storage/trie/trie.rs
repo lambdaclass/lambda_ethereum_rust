@@ -187,7 +187,7 @@ impl Trie {
     /// Allows usage of partial paths
     pub fn get_node_partial(&self, partial_path: &PathRLP) -> Result<Vec<u8>, TrieError> {
         if partial_path.len() > 32 {
-            return Ok(vec![])
+            return Ok(vec![]);
         }
         println!("Getting node with partial path: {:?}", partial_path);
         let Some(root_node) = self
