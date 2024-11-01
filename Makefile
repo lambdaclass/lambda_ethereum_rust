@@ -100,8 +100,5 @@ run-hive: build-image setup-hive ## 🧪 Run Hive testing suite
 run-hive-debug: build-image setup-hive ## 🐞 Run Hive testing suite in debug mode
 	cd hive && ./hive --sim $(SIMULATION) --client ethereumrust --sim.limit "$(TEST_PATTERN)" --docker.output
 
-run-hive-geth: build-image setup-hive ## 🧪 Run Hive testing suite
-	cd hive && ./hive --sim $(SIMULATION) --client go-ethereum --sim.limit "$(TEST_PATTERN)" --docker.output
-
 clean-hive-logs: ## 🧹 Clean Hive logs
 	rm -rf ./hive/workspace/logs
