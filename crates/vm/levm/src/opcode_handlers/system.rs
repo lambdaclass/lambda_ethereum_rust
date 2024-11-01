@@ -314,12 +314,11 @@ impl VM {
         let target_address = Address::from_low_u64_be(current_call_frame.stack.pop()?.low_u64());
 
         // 2. Get current account and: Store the balance in a variable, set it's balance to 0
-        let mut current_account = self
-            .get_account(&current_call_frame.to);
+        let mut current_account = self.get_account(&current_call_frame.to);
         let current_account_balance = current_account.info.balance;
 
         current_account.info.balance = U256::zero();
-        
+
         // 3 & 4. Get target account and add the balance of the current account to it
         // TODO: If address is cold, there is an additional cost of 2600.
         if !self.cache.is_account_cached(&target_address) {
@@ -331,7 +330,6 @@ impl VM {
             gas_cost += dynamic_gas_cost;
         }
         target_account.info.balance += current_account_balance;
-
 
         // 5. Register account to be destroyed in accrued substate IF executed in the same transaction a contract was created
         if self.tx_kind == TxKind::Create {
