@@ -21,7 +21,6 @@ pub struct Environment {
     pub tx_blob_hashes: Option<Vec<H256>>,
 }
 
-
 impl Environment {
     pub fn default_from_address(origin: Address) -> Self {
         Self {
