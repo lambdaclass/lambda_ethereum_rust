@@ -199,6 +199,8 @@ impl Trie {
             // We won't handle paths with length over 32
             _ => return Ok(vec![]),
         };
+
+        // Fetch node
         let Some(root_node) = self
             .root
             .as_ref()
@@ -208,14 +210,11 @@ impl Trie {
         else {
             return Ok(vec![]);
         };
-
-        let node = self.get_node_inner(
+        self.get_node_inner(
             root_node,
             NibbleSlice::new(&partial_path),
             last_byte_is_half,
-        )?;
-        println!("Node got: {node:?}");
-        Ok(node)
+        )
     }
 
     fn get_node_inner(
@@ -230,11 +229,9 @@ impl Trie {
         }
         match node {
             Node::Branch(branch_node) => {
-                let next = partial_path.next().map(usize::from);
-                println!("BR Next: {next:?}");
-                match next {
-                    Some(idx) if idx <= 16 => {
-                        let child_hash = &branch_node.choices[idx as usize];
+                match partial_path.next().map(usize::from) {
+                    Some(idx) if idx < 16 => {
+                        let child_hash = &branch_node.choices[idx];
                         if child_hash.is_valid() {
                             let child_node = self
                                 .state
