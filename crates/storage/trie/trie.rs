@@ -12,6 +12,7 @@ mod test_utils;
 
 use ethereum_rust_rlp::constants::RLP_NULL;
 use ethereum_types::H256;
+use nibble::{Nibble, NibbleVec};
 use node::Node;
 use node_hash::NodeHash;
 use sha3::{Digest, Keccak256};
@@ -227,15 +228,28 @@ impl Trie {
                         Ok(vec![])
                     }
                 }
-                _ => Ok(branch_node.encode_raw()),
+                _ => if &branch_node.path == partial_path {
+                    Ok(branch_node.encode_raw())
+                } else {
+                    Ok(vec![])
+                }
             },
             Node::Extension(extension_node) => {
+                // len(path)-pos < len(n.Key) || !bytes.Equal(n.Key, path[pos:pos+len(n.Key)])
+                if partial_path.len()-pos < extension_node.prefix.len() {
+                    return Ok(vec![])
+                }
+                // Compare prefix
+                let nibble_vec = NibbleVec::from_nibbles(partial_path[pos..pos+extension_node.prefix.len()].iter().map(|b| Nibble::try_from(*b).unwrap()), false);
+                if extension_node.prefix != nibble_vec {
+                    return Ok(vec![])
+                }
                 if extension_node.child.is_valid() {
                     let child_node = self
                         .state
                         .get_node(extension_node.child.clone())?
                         .expect("inconsistent internal tree structure");
-                    self.get_node_inner(child_node, partial_path, pos + 1)
+                    self.get_node_inner(child_node, partial_path, pos + extension_node.prefix.len())
                 } else {
                     Ok(vec![])
                 }
