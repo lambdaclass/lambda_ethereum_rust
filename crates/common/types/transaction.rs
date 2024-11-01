@@ -1460,8 +1460,7 @@ mod serde_impl {
         pub max_priority_fee_per_gas: Option<u64>,
         #[serde(default, with = "crate::serde_utils::u64::hex_str_opt")]
         pub max_fee_per_gas: Option<u64>,
-        #[serde(default, with = "crate::serde_utils::u64::hex_str_opt")]
-        pub max_fee_per_blob_gas: Option<u64>,
+        pub max_fee_per_blob_gas: Option<U256>,
         #[serde(default)]
         pub access_list: Vec<AccessListEntry>,
         #[serde(default)]
