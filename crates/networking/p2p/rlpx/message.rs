@@ -107,14 +107,14 @@ impl Display for Message {
             Message::Ping(_) => "p2p:Ping".fmt(f),
             Message::Pong(_) => "p2p:Pong".fmt(f),
             Message::Status(_) => "eth:Status".fmt(f),
-            Message::GetAccountRange(_) => "snap::GetAccountRange".fmt(f),
-            Message::AccountRange(_) => "snap::AccountRange".fmt(f),
-            Message::GetStorageRanges(_) => "snap::GetStorageRanges".fmt(f),
-            Message::StorageRanges(_) => "snap::StorageRanges".fmt(f),
-            Message::GetByteCodes(_) => "snap::GetByteCodes".fmt(f),
-            Message::ByteCodes(_) => "snap::ByteCodes".fmt(f),
-            Message::GetTrieNodes(_) => "snap::GetTrieNodes".fmt(f),
-            Message::TrieNodes(_) => "snap::TrieNodes".fmt(f),
+            Message::GetAccountRange(_) => "snap:GetAccountRange".fmt(f),
+            Message::AccountRange(_) => "snap:AccountRange".fmt(f),
+            Message::GetStorageRanges(_) => "snap:GetStorageRanges".fmt(f),
+            Message::StorageRanges(_) => "snap:StorageRanges".fmt(f),
+            Message::GetByteCodes(_) => "snap:GetByteCodes".fmt(f),
+            Message::ByteCodes(_) => "snap:ByteCodes".fmt(f),
+            Message::GetTrieNodes(_) => "snap:GetTrieNodes".fmt(f),
+            Message::TrieNodes(_) => "snap:TrieNodes".fmt(f),
         }
     }
 }
