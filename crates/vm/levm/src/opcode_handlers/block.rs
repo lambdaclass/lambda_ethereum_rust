@@ -1,7 +1,6 @@
 use crate::{
-    block::LAST_AVAILABLE_BLOCK_LIMIT,
     call_frame::CallFrame,
-    constants::gas_cost,
+    constants::{gas_cost, LAST_AVAILABLE_BLOCK_LIMIT},
     errors::{OpcodeSuccess, VMError},
     vm::VM,
 };
