@@ -203,7 +203,7 @@ impl GetBlockBodies {
             };
             block_bodies.push(block_body)
         }
-        return block_bodies;
+        block_bodies
     }
 }
 
