@@ -130,14 +130,24 @@ impl VM {
         key.to_big_endian(&mut bytes);
         let key = H256::from(bytes);
 
+        let mut base_dynamic_gas: U256 = U256::zero();
+
         let current_value = if self.cache.is_slot_cached(&address, key) {
+            // If slot is warm (cached) 100 is added to base_dynamic_gas
+            base_dynamic_gas += U256::from(100);
+
             self.cache
                 .get_storage_slot(address, key)
                 .unwrap_or_default()
                 .current_value
         } else {
-            self.db.get_storage_slot(address, key)
+            // If slot is cold 2100 is added to base_dynamic_gas
+            base_dynamic_gas += U256::from(2100);
+
+            self.get_storage_slot(&address, key).current_value // it is not in cache because of previous if
         };
+
+        self.increase_consumed_gas(current_call_frame, base_dynamic_gas)?;
 
         current_call_frame.stack.push(current_value)?;
         Ok(OpcodeSuccess::Continue)
