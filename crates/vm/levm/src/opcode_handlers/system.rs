@@ -2,7 +2,7 @@ use crate::{
     call_frame::CallFrame,
     constants::{call_opcode, gas_cost, SUCCESS_FOR_RETURN},
     errors::{OpcodeSuccess, ResultReason, VMError},
-    vm::VM,
+    vm::{word_to_address, VM},
 };
 use ethereum_rust_core::{types::TxKind, Address, U256};
 
@@ -262,8 +262,7 @@ impl VM {
         // Description: Gets values from stack, calculates gas cost and sets return data.
         // Returns: VMError RevertOpcode if executed correctly.
         // Notes:
-        //      The reversion of changes is made in the generic_call().
-        //      Changes are not "reverted" if it is the first callframe, they are just not commited.
+        //      The actual reversion of changes is made in the execute() function.
 
         let offset = current_call_frame.stack.pop()?.as_usize();
 
@@ -308,10 +307,10 @@ impl VM {
         let static_gas_cost = gas_cost::SELFDESTRUCT_STATIC;
         let dynamic_gas_cost = gas_cost::SELFDESTRUCT_DYNAMIC;
         let cold_gas_cost = gas_cost::COLD_ADDRESS_ACCESS_COST;
-        let mut gas_cost = static_gas_cost; // This will be updated later
+        let mut gas_cost = static_gas_cost;
 
         // 1. Pop the target address from the stack
-        let target_address = Address::from_low_u64_be(current_call_frame.stack.pop()?.low_u64());
+        let target_address = word_to_address(current_call_frame.stack.pop()?);
 
         // 2. Get current account and: Store the balance in a variable, set it's balance to 0
         let mut current_account = self.get_account(&current_call_frame.to);
@@ -338,6 +337,10 @@ impl VM {
                 .insert(current_call_frame.to);
         }
         // Accounts in SelfDestruct set should be destroyed at the end of the transaction.
+
+        // Update cache after modifying accounts.
+        self.cache.add_account(&current_call_frame.to, &current_account);
+        self.cache.add_account(&target_address, &target_account);
 
         self.increase_consumed_gas(current_call_frame, gas_cost)?;
 
