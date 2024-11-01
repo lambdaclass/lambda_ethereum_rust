@@ -165,9 +165,7 @@ impl VM {
         let mut base_dynamic_gas: U256 = U256::zero();
 
         let storage_slot = if self.cache.is_slot_cached(&address, key) {
-            self.cache
-                .get_storage_slot(address, key)
-                .unwrap()
+            self.cache.get_storage_slot(address, key).unwrap()
         } else {
             // If slot is cold 2100 is added to base_dynamic_gas
             base_dynamic_gas += U256::from(2100);

@@ -566,7 +566,6 @@ impl VM {
             let number_of_words = self.call_frames[0].calldata.chunks(32).len() as u64;
             report.gas_used += number_of_words * 2;
 
-
             let contract_address = self.call_frames.first().unwrap().to;
             let mut created_contract = self.get_account(&contract_address);
 

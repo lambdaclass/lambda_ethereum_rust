@@ -15,9 +15,8 @@ use ethereum_rust_core::H256;
 
 use ethereum_rust_storage::error::StoreError;
 use ethereum_rust_storage::Store;
-use ethereum_rust_vm::db::StoreWrapper;
 use ethereum_rust_vm::{
-    evm_state, execute_block, get_state_transitions, spec_id, EvmState, SpecId,
+    evm_state, execute_block, spec_id, EvmState, SpecId,
 };
 
 //TODO: Implement a struct Chain or BlockChain to encapsulate
