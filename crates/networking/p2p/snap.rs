@@ -126,7 +126,6 @@ pub fn process_trie_nodes_request(
     request: GetTrieNodes,
     store: Store,
 ) -> Result<TrieNodes, RLPxError> {
-    println!("Request: {request:?}");
     let mut nodes = vec![];
     let mut remaining_bytes = request.bytes;
     for paths in request.paths {
