@@ -189,6 +189,8 @@ impl Trie {
         if partial_path.len() > 32 {
             return Ok(vec![]);
         }
+        let partial_path = PartialPath::new(partial_path.clone());
+        let (partial_path, last_byte_is_half) = partial_path.to_bytes();
         let Some(root_node) = self
             .root
             .as_ref()
@@ -199,7 +201,11 @@ impl Trie {
             return Ok(vec![]);
         };
 
-        let node = self.get_node_inner(root_node, NibbleSlice::new(partial_path))?;
+        let node = self.get_node_inner(
+            root_node,
+            NibbleSlice::new(&partial_path),
+            last_byte_is_half,
+        )?;
         println!("Node got: {node:?}");
         Ok(node)
     }
@@ -208,10 +214,15 @@ impl Trie {
         &self,
         node: Node,
         mut partial_path: NibbleSlice,
+        last_byte_is_half: bool,
     ) -> Result<Vec<u8>, TrieError> {
-        println!("Partial path: {partial_path:?}, offset {}, len {}", partial_path.offset(), partial_path.len());
+        println!(
+            "Partial path: {partial_path:?}, offset {}, len {}",
+            partial_path.offset(),
+            partial_path.len()
+        );
         // PROBLEM: We may have an odd number of nibbles here that we are not taking into account with NibbleSlice
-        if partial_path.len() == 0 {
+        if partial_path.len() == last_byte_is_half as usize {
             return Ok(node.encode_raw(partial_path.offset()));
         }
         match node {
@@ -219,34 +230,31 @@ impl Trie {
                 let next = partial_path.next().map(usize::from);
                 println!("BR Next: {next:?}");
                 match next {
-                Some(idx) if idx <= 16 => {
-                    let child_hash = &branch_node.choices[idx as usize];
-                    if child_hash.is_valid() {
-                        let child_node = self
-                            .state
-                            .get_node(child_hash.clone())?
-                            .expect("inconsistent internal tree structure");
-                        self.get_node_inner(child_node, partial_path)
-                    } else {
-                        Ok(vec![])
+                    Some(idx) if idx <= 16 => {
+                        let child_hash = &branch_node.choices[idx as usize];
+                        if child_hash.is_valid() {
+                            let child_node = self
+                                .state
+                                .get_node(child_hash.clone())?
+                                .expect("inconsistent internal tree structure");
+                            self.get_node_inner(child_node, partial_path, last_byte_is_half)
+                        } else {
+                            Ok(vec![])
+                        }
                     }
+                    _ => Ok(vec![]),
                 }
-                _ => {
-                    if partial_path.cmp_rest(&branch_node.path) {
-                        Ok(branch_node.encode_raw())
-                    } else {
-                        Ok(vec![])
-                    }
-                }
-            },
+            }
             Node::Extension(extension_node) => {
-                if partial_path.skip_prefix(&extension_node.prefix) && extension_node.child.is_valid() {
+                if partial_path.skip_prefix(&extension_node.prefix)
+                    && extension_node.child.is_valid()
+                {
                     let child_node = self
                         .state
                         .get_node(extension_node.child.clone())?
                         .expect("inconsistent internal tree structure");
                     dbg!(&child_node);
-                    self.get_node_inner(child_node, partial_path)
+                    self.get_node_inner(child_node, partial_path, last_byte_is_half)
                 } else {
                     Ok(vec![])
                 }
@@ -276,6 +284,70 @@ impl Trie {
         let db = InMemoryTrieDB::new(map);
         Trie::new(Box::new(db))
     }
+}
+
+/// Struct representing a partial path, either in the form of bytes (full path) or compact-encoded bytes
+pub enum PartialPath {
+    // Full 32-byte path expressed in bytes
+    Bytes(Vec<u8>),
+    // Partial path expressed as compact nibbles
+    Compact(Vec<u8>),
+}
+
+impl PartialPath {
+    /// Returns the partial path represented as a byte slice and a boolean representing if the last byte is only a half byte
+    pub fn to_bytes(self) -> (Vec<u8>, bool) {
+        match self {
+            PartialPath::Bytes(bytes) => (bytes, false),
+            PartialPath::Compact(compact) => {
+                let nibbles = compact_to_hex(compact);
+                let mut last_is_half = false;
+                let bytes = nibbles
+                    .chunks(2)
+                    .map(|chunk| match chunk.len() {
+                        1 => {
+                            last_is_half = true;
+                            chunk[0] << 4
+                        }
+                        // 2
+                        _ => chunk[0] << 4 | chunk[1],
+                    })
+                    .collect::<Vec<_>>();
+                (bytes, last_is_half)
+            }
+        }
+    }
+    pub fn new(maybe_compact: Vec<u8>) -> Self {
+        match maybe_compact.len() {
+            n if n < 32 => Self::Compact(maybe_compact),
+            _ => Self::Bytes(maybe_compact),
+        }
+    }
+}
+
+fn compact_to_hex(compact: Vec<u8>) -> Vec<u8> {
+    if compact.is_empty() {
+        return vec![];
+    }
+    let mut base = keybytes_to_hex(compact);
+    // delete terminator flag
+    if base[0] < 2 {
+        base = base[..base.len() - 1].to_vec();
+    }
+    // apply odd flag
+    let chop = 2 - (base[0] & 1) as usize;
+    base[chop..].to_vec()
+}
+
+fn keybytes_to_hex(keybytes: Vec<u8>) -> Vec<u8> {
+    let l = keybytes.len() * 2 + 1;
+    let mut nibbles = vec![0; l];
+    for (i, b) in keybytes.into_iter().enumerate() {
+        nibbles[i * 2] = b / 16;
+        nibbles[i * 2 + 1] = b % 16;
+    }
+    nibbles[l - 1] = 16;
+    nibbles
 }
 
 impl IntoIterator for Trie {

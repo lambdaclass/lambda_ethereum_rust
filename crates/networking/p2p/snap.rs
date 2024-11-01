@@ -137,7 +137,7 @@ pub fn process_trie_nodes_request(
         }
         let trie_nodes = store.get_trie_nodes(
             request.root_hash,
-            paths.into_iter().map(process_path_input).collect(),
+            paths.into_iter().map(|bytes| bytes.to_vec()).collect(),
             remaining_bytes,
         )?;
         nodes.extend(trie_nodes.iter().map(|nodes| Bytes::copy_from_slice(nodes)));
@@ -152,45 +152,6 @@ pub fn process_trie_nodes_request(
         id: request.id,
         nodes,
     })
-}
-
-fn process_path_input(bytes: Bytes) -> Vec<u8> {
-    match bytes.len() {
-        n if n < 32 => nibbles_to_bytes(compact_to_hex(bytes)),
-        _ => bytes.to_vec(),
-    }
-}
-
-fn nibbles_to_bytes(nibbles: Vec<u8>) -> Vec<u8> {
-    nibbles.chunks(2).map(|chunk| match chunk.len() {
-        1 => chunk[0] << 4,
-        _ /* 2 */ => chunk[0] << 4 | chunk[1]
-    }).collect::<Vec<_>>()
-}
-
-fn compact_to_hex(compact: Bytes) -> Vec<u8> {
-    if compact.is_empty() {
-        return vec![];
-    }
-    let mut base = keybytes_to_hex(compact);
-    // delete terminator flag
-    if base[0] < 2 {
-        base = base[..base.len() - 1].to_vec();
-    }
-    // apply odd flag
-    let chop = 2 - (base[0] & 1) as usize;
-    base[chop..].to_vec()
-}
-
-fn keybytes_to_hex(keybytes: Bytes) -> Vec<u8> {
-    let l = keybytes.len() * 2 + 1;
-    let mut nibbles = vec![0; l];
-    for (i, b) in keybytes.into_iter().enumerate() {
-        nibbles[i * 2] = b / 16;
-        nibbles[i * 2 + 1] = b % 16;
-    }
-    nibbles[l - 1] = 16;
-    nibbles
 }
 
 #[cfg(test)]
