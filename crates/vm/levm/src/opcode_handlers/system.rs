@@ -1,9 +1,10 @@
-use super::*;
 use crate::{
-    constants::{call_opcode, SUCCESS_FOR_RETURN},
-    errors::ResultReason,
-    vm::{Account, TxType},
+    call_frame::CallFrame,
+    constants::{call_opcode, gas_cost, SUCCESS_FOR_RETURN},
+    errors::{OpcodeSuccess, ResultReason, VMError},
+    vm::VM,
 };
+use ethereum_rust_core::{types::TxKind, Address, U256};
 
 // System Operations (10)
 // Opcodes: CREATE, CALL, CALLCODE, RETURN, DELEGATECALL, CREATE2, STATICCALL, REVERT, INVALID, SELFDESTRUCT
@@ -333,7 +334,7 @@ impl VM {
 
 
         // 5. Register account to be destroyed in accrued substate IF executed in the same transaction a contract was created
-        if self.tx_type == TxType::CREATE {
+        if self.tx_kind == TxKind::Create {
             self.accrued_substate
                 .selfdestrutct_set
                 .insert(current_call_frame.to);
