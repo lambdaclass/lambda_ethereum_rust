@@ -1,26 +1,25 @@
-use ethereum_rust_storage::error::StoreError;
-
-#[derive(Debug, thiserror::Error)]
-pub enum EvmError {
-    #[error("Invalid Transaction: {0}")]
-    Transaction(String),
-    #[error("Invalid Header: {0}")]
-    Header(String),
-    #[error("DB error: {0}")]
-    DB(#[from] StoreError),
-    #[error("Execution DB error: {0}")]
-    ExecutionDB(#[from] ExecutionDBError),
-    #[error("{0}")]
-    Custom(String),
-    #[error("{0}")]
-    Precompile(String),
-}
-
 cfg_if::cfg_if! {
-    if #[cfg(not(feature = "levm"))] {
+    if #[cfg(feature = "revm")] {
         use revm::primitives::{
             result::EVMError as RevmError, Address as RevmAddress, B256 as RevmB256, U256 as RevmU256,
         };
+        use ethereum_rust_storage::error::StoreError;
+
+        #[derive(Debug, thiserror::Error)]
+        pub enum EvmError {
+            #[error("Invalid Transaction: {0}")]
+            Transaction(String),
+            #[error("Invalid Header: {0}")]
+            Header(String),
+            #[error("DB error: {0}")]
+            DB(#[from] StoreError),
+            #[error("Execution DB error: {0}")]
+            ExecutionDB(#[from] ExecutionDBError),
+            #[error("{0}")]
+            Custom(String),
+            #[error("{0}")]
+            Precompile(String),
+        }
 
         #[derive(Debug, thiserror::Error)]
         pub enum ExecutionDBError {

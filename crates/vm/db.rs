@@ -1,20 +1,18 @@
-use ethereum_rust_core::types::BlockHash;
-use ethereum_rust_storage::Store;
-
-pub struct StoreWrapper {
-    pub store: Store,
-    pub block_hash: BlockHash,
-}
-
 cfg_if::cfg_if! {
-    // use revm
-    if #[cfg(not(feature = "levm"))] {
+    if #[cfg(feature = "revm")] {
         use ethereum_rust_core::{Address as CoreAddress, H256 as CoreH256};
         use ethereum_rust_storage::error::StoreError;
         use revm::primitives::{
             AccountInfo as RevmAccountInfo, Address as RevmAddress, Bytecode as RevmBytecode,
             Bytes as RevmBytes, B256 as RevmB256, U256 as RevmU256,
         };
+        use ethereum_rust_core::types::BlockHash;
+        use ethereum_rust_storage::Store;
+
+        pub struct StoreWrapper {
+            pub store: Store,
+            pub block_hash: BlockHash,
+        }
 
         impl revm::Database for StoreWrapper {
             type Error = StoreError;

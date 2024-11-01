@@ -1,81 +1,80 @@
-use bytes::Bytes;
-use ethereum_rust_core::Address;
-use ethereum_rust_core::{types::Log, H256};
-
-#[derive(Debug)]
-pub enum ExecutionResult {
-    Success {
-        reason: SuccessReason,
-        gas_used: u64,
-        gas_refunded: u64,
-        logs: Vec<Log>,
-        output: Output,
-    },
-    /// Reverted by `REVERT` opcode
-    Revert { gas_used: u64, output: Bytes },
-    /// Reverted for other reasons, spends all gas.
-    Halt {
-        reason: String,
-        /// Halting will spend all the gas, which will be equal to gas_limit.
-        gas_used: u64,
-    },
-}
-
-#[derive(Debug)]
-pub enum SuccessReason {
-    Stop,
-    Return,
-    SelfDestruct,
-    EofReturnContract,
-}
-
-#[derive(Debug)]
-pub enum Output {
-    Call(Bytes),
-    Create(Bytes, Option<Address>),
-}
-
-impl ExecutionResult {
-    pub fn is_success(&self) -> bool {
-        matches!(self, ExecutionResult::Success { .. })
-    }
-    pub fn gas_used(&self) -> u64 {
-        match self {
-            ExecutionResult::Success { gas_used, .. } => *gas_used,
-            ExecutionResult::Revert { gas_used, .. } => *gas_used,
-            ExecutionResult::Halt { gas_used, .. } => *gas_used,
-        }
-    }
-    pub fn logs(&self) -> Vec<Log> {
-        match self {
-            ExecutionResult::Success { logs, .. } => logs.clone(),
-            _ => vec![],
-        }
-    }
-    pub fn gas_refunded(&self) -> u64 {
-        match self {
-            ExecutionResult::Success { gas_refunded, .. } => *gas_refunded,
-            _ => 0,
-        }
-    }
-
-    pub fn output(&self) -> Bytes {
-        match self {
-            ExecutionResult::Success { output, .. } => match output {
-                Output::Call(bytes) => bytes.clone(),
-                Output::Create(bytes, _) => bytes.clone(),
-            },
-            ExecutionResult::Revert { output, .. } => output.clone(),
-            ExecutionResult::Halt { .. } => Bytes::new(),
-        }
-    }
-}
-
 cfg_if::cfg_if! {
-    if #[cfg(not(feature = "levm"))] {
+    if #[cfg(feature = "revm")] {
+        use bytes::Bytes;
+        use ethereum_rust_core::Address;
+        use ethereum_rust_core::{types::Log, H256};
         use revm::primitives::result::Output as RevmOutput;
         use revm::primitives::result::SuccessReason as RevmSuccessReason;
         use revm::primitives::ExecutionResult as RevmExecutionResult;
+
+        #[derive(Debug)]
+        pub enum ExecutionResult {
+            Success {
+                reason: SuccessReason,
+                gas_used: u64,
+                gas_refunded: u64,
+                logs: Vec<Log>,
+                output: Output,
+            },
+            /// Reverted by `REVERT` opcode
+            Revert { gas_used: u64, output: Bytes },
+            /// Reverted for other reasons, spends all gas.
+            Halt {
+                reason: String,
+                /// Halting will spend all the gas, which will be equal to gas_limit.
+                gas_used: u64,
+            },
+        }
+
+        #[derive(Debug)]
+        pub enum SuccessReason {
+            Stop,
+            Return,
+            SelfDestruct,
+            EofReturnContract,
+        }
+
+        #[derive(Debug)]
+        pub enum Output {
+            Call(Bytes),
+            Create(Bytes, Option<Address>),
+        }
+
+        impl ExecutionResult {
+            pub fn is_success(&self) -> bool {
+                matches!(self, ExecutionResult::Success { .. })
+            }
+            pub fn gas_used(&self) -> u64 {
+                match self {
+                    ExecutionResult::Success { gas_used, .. } => *gas_used,
+                    ExecutionResult::Revert { gas_used, .. } => *gas_used,
+                    ExecutionResult::Halt { gas_used, .. } => *gas_used,
+                }
+            }
+            pub fn logs(&self) -> Vec<Log> {
+                match self {
+                    ExecutionResult::Success { logs, .. } => logs.clone(),
+                    _ => vec![],
+                }
+            }
+            pub fn gas_refunded(&self) -> u64 {
+                match self {
+                    ExecutionResult::Success { gas_refunded, .. } => *gas_refunded,
+                    _ => 0,
+                }
+            }
+
+            pub fn output(&self) -> Bytes {
+                match self {
+                    ExecutionResult::Success { output, .. } => match output {
+                        Output::Call(bytes) => bytes.clone(),
+                        Output::Create(bytes, _) => bytes.clone(),
+                    },
+                    ExecutionResult::Revert { output, .. } => output.clone(),
+                    ExecutionResult::Halt { .. } => Bytes::new(),
+                }
+            }
+        }
 
         impl From<RevmExecutionResult> for ExecutionResult {
             fn from(val: RevmExecutionResult) -> Self {

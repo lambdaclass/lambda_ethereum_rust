@@ -23,7 +23,7 @@ serde_json.workspace = true
 path = "./blockchain.rs"
 
 [features]
-default = ["libmdbx"]
+default = ["libmdbx", "ethereum_rust-vm/revm"]
 libmdbx = [
     "ethereum_rust-core/libmdbx",
     "ethereum_rust-storage/default",

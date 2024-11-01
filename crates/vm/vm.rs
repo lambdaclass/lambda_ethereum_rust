@@ -2,48 +2,17 @@ mod db;
 mod errors;
 pub mod execution_db;
 mod execution_result;
-#[cfg(feature = "l2")]
-mod mods;
 
-// Export needed types
-pub use errors::EvmError;
-pub use execution_result::*;
-
-/// Executes all transactions in a block and returns their receipts.
-pub fn execute_block(block: &Block, state: &mut EvmState) -> Result<Vec<Receipt>, EvmError> {
-    let block_header = &block.header;
-    let spec_id = spec_id(&state.chain_config()?, block_header.timestamp);
-    //eip 4788: execute beacon_root_contract_call before block transactions
-    if block_header.parent_beacon_block_root.is_some() && spec_id == SpecId::CANCUN {
-        beacon_root_contract_call(state, block_header, spec_id)?;
-    }
-    let mut receipts = Vec::new();
-    let mut cumulative_gas_used = 0;
-
-    for transaction in block.body.transactions.iter() {
-        let result = execute_tx(transaction, block_header, state, spec_id)?;
-        cumulative_gas_used += result.gas_used();
-        let receipt = Receipt::new(
-            transaction.tx_type(),
-            result.is_success(),
-            cumulative_gas_used,
-            result.logs(),
-        );
-        receipts.push(receipt);
-    }
-
-    if let Some(withdrawals) = &block.body.withdrawals {
-        process_withdrawals(state, withdrawals)?;
-    }
-
-    Ok(receipts)
-}
+pub const WITHDRAWAL_MAGIC_DATA: &[u8] = b"burn";
+pub const DEPOSIT_MAGIC_DATA: &[u8] = b"mint";
 
 cfg_if::cfg_if! {
-    if #[cfg(not(feature = "levm"))] {
+    if #[cfg(feature = "revm")] {
         use db::StoreWrapper;
         use execution_db::ExecutionDB;
         use std::cmp::min;
+        #[cfg(feature = "l2")]
+        mod mods;
 
         use ethereum_rust_core::{
             types::{
@@ -69,12 +38,12 @@ cfg_if::cfg_if! {
             TxKind as RevmTxKind,
         };
 
+        // Export needed types
+        pub use execution_result::*;
+        pub use errors::EvmError;
         pub use revm::primitives::{Address as RevmAddress, SpecId};
 
         type AccessList = Vec<(Address, Vec<H256>)>;
-
-        pub const WITHDRAWAL_MAGIC_DATA: &[u8] = b"burn";
-        pub const DEPOSIT_MAGIC_DATA: &[u8] = b"mint";
 
         /// State used when running the EVM. The state can be represented with a [StoreWrapper] database, or
         /// with a [ExecutionDB] in case we only want to store the necessary data for some particular
@@ -107,6 +76,36 @@ cfg_if::cfg_if! {
                     EvmState::Execution(db) => Ok(db.db.get_chain_config()),
                 }
             }
+        }
+
+        /// Executes all transactions in a block and returns their receipts.
+        pub fn execute_block(block: &Block, state: &mut EvmState) -> Result<Vec<Receipt>, EvmError> {
+            let block_header = &block.header;
+            let spec_id = spec_id(&state.chain_config()?, block_header.timestamp);
+            //eip 4788: execute beacon_root_contract_call before block transactions
+            if block_header.parent_beacon_block_root.is_some() && spec_id == SpecId::CANCUN {
+                beacon_root_contract_call(state, block_header, spec_id)?;
+            }
+            let mut receipts = Vec::new();
+            let mut cumulative_gas_used = 0;
+
+            for transaction in block.body.transactions.iter() {
+                let result = execute_tx(transaction, block_header, state, spec_id)?;
+                cumulative_gas_used += result.gas_used();
+                let receipt = Receipt::new(
+                    transaction.tx_type(),
+                    result.is_success(),
+                    cumulative_gas_used,
+                    result.logs(),
+                );
+                receipts.push(receipt);
+            }
+
+            if let Some(withdrawals) = &block.body.withdrawals {
+                process_withdrawals(state, withdrawals)?;
+            }
+
+            Ok(receipts)
         }
 
         // Executes a single tx, doesn't perform state transitions

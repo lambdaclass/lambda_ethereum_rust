@@ -1,5 +1,5 @@
 cfg_if::cfg_if! {
-    if #[cfg(not(feature = "levm"))] {
+    if #[cfg(feature = "revm")] {
         use crate::{
             db::StoreWrapper, errors::ExecutionDBError, evm_state, execute_block, get_state_transitions,
         };
