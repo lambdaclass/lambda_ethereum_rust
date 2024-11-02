@@ -808,6 +808,9 @@ mod tests {
             ..Default::default()
         };
 
-        assert!(matches!(validate_blobs_bundle(&tx, &blobs_bundle), Err(MempoolError::BlobVersionedHashesIncorrectError)));
+        assert!(matches!(
+            validate_blobs_bundle(&tx, &blobs_bundle),
+            Err(MempoolError::BlobVersionedHashesIncorrectError)
+        ));
     }
 }
