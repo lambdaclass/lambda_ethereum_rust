@@ -711,6 +711,8 @@ mod tests {
             array
         };
 
+        // blob data taken from: https://etherscan.io/tx/0x02a623925c05c540a7633ffa4eb78474df826497faa81035c4168695656801a2#blobs
+
         let blobs_bundle = BlobsBundle {
             blobs: vec![[0; BYTES_PER_BLOB], [0; BYTES_PER_BLOB]],
             commitments: vec!["b90289aabe0fcfb8db20a76b863ba90912d1d4d040cb7a156427d1c8cd5825b4d95eaeb221124782cc216960a3d01ec5",
@@ -764,6 +766,7 @@ mod tests {
             array
         };
 
+        // blob data taken from: https://etherscan.io/tx/0x02a623925c05c540a7633ffa4eb78474df826497faa81035c4168695656801a2#blobs
         let blobs_bundle = BlobsBundle {
             blobs: vec![[0; BYTES_PER_BLOB], [0; BYTES_PER_BLOB]],
             commitments: vec!["dead89aabe0fcfb8db20a76b863ba90912d1d4d040cb7a156427d1c8cd5825b4d95eaeb221124782cc216960a3d01ec5",
