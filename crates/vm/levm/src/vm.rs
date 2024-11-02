@@ -459,14 +459,9 @@ impl VM {
         ret_offset: usize,
         ret_size: usize,
     ) -> Result<OpcodeSuccess, VMError> {
-        let mut sender_account = self
-            .get_account(&current_call_frame.msg_sender);
+        let mut sender_account = self.get_account(&current_call_frame.msg_sender);
 
-        if sender_account
-            .info
-            .balance
-            < value
-        {
+        if sender_account.info.balance < value {
             current_call_frame.stack.push(U256::from(REVERT_FOR_CALL))?;
             return Ok(OpcodeSuccess::Continue);
         }
@@ -477,11 +472,7 @@ impl VM {
         sender_account.info.balance -= value;
         recipient_account.info.balance += value;
 
-
-        let code_address_bytecode = self
-            .get_account(&code_address)
-            .info
-            .bytecode;
+        let code_address_bytecode = self.get_account(&code_address).info.bytecode;
 
         if code_address_bytecode.is_empty() {
             current_call_frame
@@ -498,13 +489,10 @@ impl VM {
             .into();
 
         // I don't know if this gas limit should be calculated before or after consuming gas
-        let gas_limit = std::cmp::min(
-            gas_limit,
-            {
-                    let remaining_gas = current_call_frame.gas_limit - current_call_frame.gas_used;
-                    remaining_gas - remaining_gas / 64
-                }
-        );
+        let gas_limit = std::cmp::min(gas_limit, {
+            let remaining_gas = current_call_frame.gas_limit - current_call_frame.gas_used;
+            remaining_gas - remaining_gas / 64
+        });
 
         let mut new_call_frame = CallFrame::new(
             msg_sender,
@@ -523,7 +511,8 @@ impl VM {
         current_call_frame.sub_return_data_size = ret_size;
 
         // Update sender account and recipient in cache
-        self.cache.add_account(&current_call_frame.msg_sender, &sender_account);
+        self.cache
+            .add_account(&current_call_frame.msg_sender, &sender_account);
         self.cache.add_account(&to, &recipient_account);
 
         // self.call_frames.push(new_call_frame.clone());
