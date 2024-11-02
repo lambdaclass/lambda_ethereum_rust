@@ -39,6 +39,10 @@ impl VM {
             .try_into()
             .unwrap_or(usize::MAX);
 
+        if current_call_frame.is_static && !value.is_zero() {
+            return Err(VMError::OpcodeNotAllowedInStaticContext);
+        }
+
         let memory_byte_size = (args_offset + args_size).max(ret_offset + ret_size);
         let memory_expansion_cost = current_call_frame.memory.expansion_cost(memory_byte_size)?;
 

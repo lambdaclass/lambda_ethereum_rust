@@ -459,15 +459,10 @@ impl VM {
         ret_offset: usize,
         ret_size: usize,
     ) -> Result<OpcodeSuccess, VMError> {
-        // check balance
-        if !self.cache.is_account_cached(&current_call_frame.msg_sender) {
-            self.cache_from_db(&current_call_frame.msg_sender);
-        }
+        let mut sender_account = self
+            .get_account(&current_call_frame.msg_sender);
 
-        if self
-            .cache
-            .get_account(current_call_frame.msg_sender)
-            .unwrap()
+        if sender_account
             .info
             .balance
             < value
@@ -476,34 +471,39 @@ impl VM {
             return Ok(OpcodeSuccess::Continue);
         }
 
+        let mut recipient_account = self.get_account(&to);
+
         // transfer value
-        // transfer(&current_call_frame.msg_sender, &address, value);
+        sender_account.info.balance -= value;
+        recipient_account.info.balance += value;
+
 
         let code_address_bytecode = self
-            .cache
-            .get_account(code_address)
-            .unwrap()
+            .get_account(&code_address)
             .info
-            .bytecode
-            .clone();
+            .bytecode;
+
         if code_address_bytecode.is_empty() {
-            // should stop
             current_call_frame
                 .stack
                 .push(U256::from(SUCCESS_FOR_CALL))?;
             return Ok(OpcodeSuccess::Result(ResultReason::Stop));
         }
 
-        self.cache.increment_account_nonce(&code_address);
+        // self.cache.increment_account_nonce(&code_address); // Internal call doesn't increment account nonce.
 
         let calldata = current_call_frame
             .memory
             .load_range(args_offset, args_size)
             .into();
 
+        // I don't know if this gas limit should be calculated before or after consuming gas
         let gas_limit = std::cmp::min(
             gas_limit,
-            (current_call_frame.gas_limit - current_call_frame.gas_used) / 64 * 63,
+            {
+                    let remaining_gas = current_call_frame.gas_limit - current_call_frame.gas_used;
+                    remaining_gas - remaining_gas / 64
+                }
         );
 
         let mut new_call_frame = CallFrame::new(
@@ -521,6 +521,10 @@ impl VM {
 
         current_call_frame.sub_return_data_offset = ret_offset;
         current_call_frame.sub_return_data_size = ret_size;
+
+        // Update sender account and recipient in cache
+        self.cache.add_account(&current_call_frame.msg_sender, &sender_account);
+        self.cache.add_account(&to, &recipient_account);
 
         // self.call_frames.push(new_call_frame.clone());
         let tx_report = self.execute(&mut new_call_frame);
