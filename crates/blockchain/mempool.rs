@@ -205,23 +205,24 @@ fn validate_blobs_bundle(
 ) -> Result<(), MempoolError> {
     let tx_blob_count = tx.blob_versioned_hashes.len();
 
-    let is_versioned_hashes_correct = blobs_bundle
-        .commitments
-        .iter()
-        .map(|blob| kzg_to_versioned_hash(blob))
-        .zip(&tx.blob_versioned_hashes)
-        .all(|(a, b)| a.eq(b));
-
-    if !is_versioned_hashes_correct {
-        return Err(MempoolError::BlobVersionedHashesIncorrectError);
-    }
-
     if tx_blob_count != blobs_bundle.blobs.len()
         || tx_blob_count != blobs_bundle.commitments.len()
         || tx_blob_count != blobs_bundle.proofs.len()
     {
         return Err(MempoolError::BlobsBundleWrongLen);
     };
+
+    // return error early if any commitment doesn't match it's blob versioned hash
+    for (commitment, blob_versioned_hash) in blobs_bundle
+        .commitments
+        .iter()
+        .zip(tx.blob_versioned_hashes.iter())
+    {
+        if *blob_versioned_hash != kzg_to_versioned_hash(commitment) {
+            return Err(MempoolError::BlobVersionedHashesIncorrectError);
+        }
+    }
+
     Ok(())
 }
 
