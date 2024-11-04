@@ -32,10 +32,7 @@ pub fn add_blob_transaction(
 
     // Add transaction and blobs bundle to storage
     let hash = transaction.compute_hash();
-    store.add_transaction_to_pool(
-        transaction.compute_hash(),
-        MempoolTransaction::new(transaction),
-    )?;
+    store.add_transaction_to_pool(hash, MempoolTransaction::new(transaction))?;
     store.add_blobs_bundle_to_pool(hash, blobs_bundle)?;
     Ok(hash)
 }
@@ -52,10 +49,7 @@ pub fn add_transaction(transaction: Transaction, store: Store) -> Result<H256, M
     let hash = transaction.compute_hash();
 
     // Add transaction to storage
-    store.add_transaction_to_pool(
-        transaction.compute_hash(),
-        MempoolTransaction::new(transaction),
-    )?;
+    store.add_transaction_to_pool(hash, MempoolTransaction::new(transaction))?;
 
     Ok(hash)
 }
