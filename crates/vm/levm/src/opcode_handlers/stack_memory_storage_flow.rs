@@ -137,7 +137,7 @@ impl VM {
 
             self.cache
                 .get_storage_slot(address, key)
-                .unwrap_or_default()
+                .expect("Should be already cached")  // Because entered the if is_slot_cached
                 .current_value
         } else {
             // If slot is cold (not cached) add 2100 to base_dynamic_gas
