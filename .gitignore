@@ -37,8 +37,6 @@ crates/levm_mlir/*.tar.gz
 # Ethereum Rust L2 stuff
 volumes
 jwt.hex
-Cargo.lock
-!crates/l2/prover/zkvm/**/Cargo.lock
 
 # Used by the make test target
 /tmp
