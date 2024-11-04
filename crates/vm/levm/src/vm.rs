@@ -451,7 +451,6 @@ impl VM {
         let mut sender_account = self.get_account(&sender);
         let coinbase_address = self.env.coinbase;
 
-
         sender_account.info.balance = sender_account
             .info
             .balance
