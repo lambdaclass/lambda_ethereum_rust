@@ -117,6 +117,7 @@ impl VM {
     }
 
     // SLOAD operation
+    // TODO: Add tests about gas usage
     pub fn op_sload(
         &mut self,
         current_call_frame: &mut CallFrame,
