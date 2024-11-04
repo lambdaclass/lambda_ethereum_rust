@@ -496,31 +496,20 @@ impl VM {
         ret_offset: usize,
         ret_size: usize,
     ) -> Result<OpcodeSuccess, VMError> {
-        // check balance
-        if !self.cache.is_account_cached(&current_call_frame.msg_sender) {
-            self.cache_from_db(&current_call_frame.msg_sender);
-        }
+        let mut sender_account = self.get_account(&current_call_frame.msg_sender);
 
-        if self
-            .cache
-            .get_account(current_call_frame.msg_sender)
-            .unwrap()
-            .info
-            .balance
-            < value
-        {
+        if sender_account.info.balance < value {
             current_call_frame.stack.push(U256::from(REVERT_FOR_CALL))?;
             return Ok(OpcodeSuccess::Continue);
         }
 
-        let mut sender_account = self.get_account(&code_address);
         let mut recipient_account = self.get_account(&to);
 
         // transfer value
         sender_account.info.balance -= value;
         recipient_account.info.balance += value;
 
-        let code_address_bytecode = sender_account.info.bytecode.clone();
+        let code_address_bytecode = self.get_account(&code_address).info.bytecode;
 
         if code_address_bytecode.is_empty() {
             current_call_frame
