@@ -304,8 +304,8 @@ mod tests {
 
         // Write all
         for block in &blocks {
-            let (_, account_updates) =
-                ExecutionDB::from_exec(blocks.last().unwrap(), &store).unwrap();
+            let account_updates =
+                ExecutionDB::get_account_updates(blocks.last().unwrap(), &store).unwrap();
 
             account_updates_vec.push(account_updates.clone());
 

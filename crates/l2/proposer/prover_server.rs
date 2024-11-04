@@ -218,7 +218,7 @@ impl ProverServer {
 
         let block = Block::new(header, body);
 
-        let (db, _) = ExecutionDB::from_exec(&block, &self.store).map_err(|err| err.to_string())?;
+        let db = ExecutionDB::from_exec(&block, &self.store).map_err(|err| err.to_string())?;
 
         let parent_header = self
             .store
