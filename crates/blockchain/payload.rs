@@ -368,7 +368,7 @@ fn apply_blob_transaction(
     let Some(blobs_bundle) = context
         .store()
         .ok_or(ChainError::StoreError(StoreError::MissingStore))?
-        .get_blobs_bundle_from_pool(tx_hash)
+        .get_blobs_bundle_from_pool(tx_hash)?
     else {
         // No blob tx should enter the mempool without its blobs bundle so this is an internal error
         return Err(

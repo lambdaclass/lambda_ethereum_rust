@@ -244,20 +244,29 @@ impl Store {
     }
 
     /// Add a blobs bundle to the pool by its blob transaction hash
-    pub fn add_blobs_bundle_to_pool(&self, tx_hash: H256, blobs_bundle: BlobsBundle) {
+    pub fn add_blobs_bundle_to_pool(
+        &self,
+        tx_hash: H256,
+        blobs_bundle: BlobsBundle,
+    ) -> Result<(), StoreError> {
         self.blobs_bundle_pool
             .lock()
-            .unwrap()
+            .map_err(|error| StoreError::Custom(error.to_string()))?
             .insert(tx_hash, blobs_bundle);
+        Ok(())
     }
 
     /// Get a blobs bundle to the pool given its blob transaction hash
-    pub fn get_blobs_bundle_from_pool(&self, tx_hash: H256) -> Option<BlobsBundle> {
-        self.blobs_bundle_pool
+    pub fn get_blobs_bundle_from_pool(
+        &self,
+        tx_hash: H256,
+    ) -> Result<Option<BlobsBundle>, StoreError> {
+        Ok(self
+            .blobs_bundle_pool
             .lock()
-            .unwrap()
+            .map_err(|error| StoreError::Custom(error.to_string()))?
             .get(&tx_hash)
-            .cloned()
+            .cloned())
     }
 
     /// Remove a transaction from the pool
@@ -270,7 +279,7 @@ impl Store {
             if matches!(tx.tx_type(), TxType::EIP4844) {
                 self.blobs_bundle_pool
                     .lock()
-                    .unwrap()
+                    .map_err(|error| StoreError::Custom(error.to_string()))?
                     .remove(&tx.compute_hash());
             }
 
@@ -1107,7 +1116,9 @@ mod tests {
                 commitments: commitments.to_vec(),
                 proofs: proofs.to_vec(),
             };
-            store.add_blobs_bundle_to_pool(H256::random(), bundle);
+            store
+                .add_blobs_bundle_to_pool(H256::random(), bundle)
+                .unwrap();
         }
     }
 }

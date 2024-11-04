@@ -36,7 +36,7 @@ pub fn add_blob_transaction(
         transaction.compute_hash(),
         MempoolTransaction::new(transaction),
     )?;
-    store.add_blobs_bundle_to_pool(hash, blobs_bundle);
+    store.add_blobs_bundle_to_pool(hash, blobs_bundle)?;
     Ok(hash)
 }
 
@@ -62,7 +62,7 @@ pub fn add_transaction(transaction: Transaction, store: Store) -> Result<H256, M
 
 /// Fetch a blobs bundle from the mempool given its blob transaction hash
 pub fn get_blobs_bundle(tx_hash: H256, store: Store) -> Result<Option<BlobsBundle>, MempoolError> {
-    Ok(store.get_blobs_bundle_from_pool(tx_hash))
+    Ok(store.get_blobs_bundle_from_pool(tx_hash)?)
 }
 
 /// Applies the filter and returns a set of suitable transactions from the mempool.
