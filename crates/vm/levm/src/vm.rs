@@ -625,7 +625,7 @@ impl VM {
             return Ok(OpcodeSuccess::Result(ResultReason::Revert));
         };
         sender_account.info.nonce = new_nonce;
-        sender_account.info.balance -= value_in_wei_to_send;
+        // sender_account.info.balance -= value_in_wei_to_send; // This is done in the generic_call
         let code = Bytes::from(
             current_call_frame
                 .memory
@@ -649,7 +649,7 @@ impl VM {
             return Ok(OpcodeSuccess::Result(ResultReason::Revert));
         }
 
-        let new_account = Account::new(value_in_wei_to_send, code.clone(), 0, Default::default());
+        let new_account = Account::new(U256::zero(), code.clone(), 0, Default::default());
         self.cache.add_account(&new_address, &new_account);
 
         current_call_frame

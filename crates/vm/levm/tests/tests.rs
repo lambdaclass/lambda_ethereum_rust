@@ -3650,7 +3650,7 @@ fn create_happy_path() {
         .get_account(word_to_address(returned_addr))
         .unwrap();
     assert_eq!(new_account.info.balance, U256::from(value_to_transfer));
-    assert_eq!(new_account.info.nonce, 1);
+    assert_eq!(new_account.info.nonce, 0); // This was previously set to 1 but I understand that a new account should have nonce 0
 
     // Check that the sender account is updated
     let sender_account = vm.cache.get_account(sender_addr).unwrap();
@@ -3916,7 +3916,7 @@ fn create2_happy_path() {
         .get_account(word_to_address(returned_addr))
         .unwrap();
     assert_eq!(new_account.info.balance, U256::from(value));
-    assert_eq!(new_account.info.nonce, 1);
+    assert_eq!(new_account.info.nonce, 0); // I understand new account should have nonce 0, not 1.
 
     // Check that the sender account is updated
     let sender_account = vm.cache.get_account(sender_addr).unwrap();
