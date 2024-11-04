@@ -280,10 +280,16 @@ mod tests {
         }
 
         let mut path = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
-        // Go back 4 levels (Go to the root of the project)
+        // Go to the root of the project
+        #[cfg(target_os = "macos")]
         for _ in 0..4 {
             path.pop();
         }
+        #[cfg(target_os = "linux")]
+        for _ in 0..2 {
+            path.pop();
+        }
+
         path.push("test_data");
 
         let chain_file_path = path.join("l2-loadtest.rlp");
