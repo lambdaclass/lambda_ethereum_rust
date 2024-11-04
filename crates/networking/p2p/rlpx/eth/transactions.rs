@@ -1,5 +1,8 @@
 use bytes::BufMut;
-use ethereum_rust_core::{types::Transaction, H256};
+use ethereum_rust_core::{
+    types::{EIP1559Transaction, LegacyTransaction, Transaction},
+    H256,
+};
 use ethereum_rust_rlp::{
     error::{RLPDecodeError, RLPEncodeError},
     structs::{Decoder, Encoder},
@@ -38,9 +41,16 @@ impl RLPxMessage for Transactions {
         let decompressed_data = snappy_decoder
             .decompress_vec(msg_data)
             .map_err(|e| RLPDecodeError::Custom(e.to_string()))?;
-        let decoder = Decoder::new(&decompressed_data)?;
-        let (transactions, _): (Vec<Transaction>, _) = decoder.decode_field("transactions")?;
-
+        let mut decoder = Decoder::new(&decompressed_data)?;
+        let mut transactions: Vec<Transaction> = vec![];
+        // FIXME: Improve this
+        while let Ok((tx, updated_decoder)) = decoder.decode_field::<Transaction>("p2p transaction")
+        {
+            // FIXME: Avoid this clone
+            decoder = updated_decoder;
+            transactions.push(tx);
+        }
+        // FIXME: Check the decoder is empty
         Ok(Self::new(transactions))
     }
 }

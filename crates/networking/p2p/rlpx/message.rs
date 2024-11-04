@@ -4,6 +4,7 @@ use std::fmt::Display;
 
 use super::eth::blocks::{BlockBodies, BlockHeaders, GetBlockBodies, GetBlockHeaders};
 use super::eth::status::StatusMessage;
+use super::eth::transactions::Transactions;
 use super::p2p::{DisconnectMessage, HelloMessage, PingMessage, PongMessage};
 use super::snap::{AccountRange, GetAccountRange};
 
@@ -24,6 +25,7 @@ pub(crate) enum Message {
     // https://github.com/ethereum/devp2p/blob/5713591d0366da78a913a811c7502d9ca91d29a8/caps/eth.md#getblockheaders-0x03
     GetBlockHeaders(GetBlockHeaders),
     BlockHeaders(BlockHeaders),
+    TransactionsMessage(Transactions),
     GetBlockBodies(GetBlockBodies),
     BlockBodies(BlockBodies),
     // snap capability
@@ -49,6 +51,9 @@ impl Message {
             // - https://ethereum.stackexchange.com/questions/37051/ethereum-network-messaging
             // - https://github.com/ethereum/devp2p/blob/master/caps/eth.md#status-0x00
             0x10 => Ok(Message::Status(StatusMessage::decode(msg_data)?)),
+            0x12 => Ok(Message::TransactionsMessage(Transactions::decode(
+                msg_data,
+            )?)),
             0x13 => Ok(Message::GetBlockHeaders(GetBlockHeaders::decode(msg_data)?)),
             0x14 => Ok(Message::BlockHeaders(BlockHeaders::decode(msg_data)?)),
             0x15 => Ok(Message::GetBlockBodies(GetBlockBodies::decode(msg_data)?)),
@@ -65,6 +70,7 @@ impl Message {
             Message::Ping(msg) => msg.encode(buf),
             Message::Pong(msg) => msg.encode(buf),
             Message::Status(msg) => msg.encode(buf),
+            Message::TransactionsMessage(msg) => msg.encode(buf),
             Message::GetBlockHeaders(msg) => {
                 0x13_u8.encode(buf);
                 msg.encode(buf)
@@ -104,6 +110,7 @@ impl Display for Message {
             Message::GetBlockHeaders(_) => "eth:getBlockHeaders".fmt(f),
             Message::BlockHeaders(_) => "eth:BlockHeaders".fmt(f),
             Message::BlockBodies(_) => "eth:BlockBodies".fmt(f),
+            Message::TransactionsMessage(_) => "eth:TransactionsMessage".fmt(f),
             Message::GetBlockBodies(_) => "eth:GetBlockBodies".fmt(f),
             Message::GetAccountRange(_) => "snap:GetAccountRange".fmt(f),
             Message::AccountRange(_) => "snap:AccountRange".fmt(f),
