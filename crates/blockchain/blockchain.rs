@@ -25,6 +25,51 @@ use ethereum_rust_vm::{evm_state, execute_block, spec_id, EvmState, SpecId};
 /// canonical chain/head. Fork choice needs to be updated for that in a separate step.
 ///
 /// Performs pre and post execution validation, and updates the database with the post state.
+#[cfg(not(feature = "levm"))]
+pub fn add_block(block: &Block, storage: &Store) -> Result<(), ChainError> {
+    use ethereum_rust_vm::get_state_transitions;
+
+    let block_hash = block.header.compute_block_hash();
+
+    // Validate if it can be the new head and find the parent
+    let Ok(parent_header) = find_parent_header(&block.header, storage) else {
+        // If the parent is not present, we store it as pending.
+        storage.add_pending_block(block.clone())?;
+        return Err(ChainError::ParentNotFound);
+    };
+    let mut state = evm_state(storage.clone(), block.header.parent_hash);
+
+    // Validate the block pre-execution
+    validate_block(block, &parent_header, &state)?;
+
+    let receipts = execute_block(block, &mut state)?;
+
+    validate_gas_used(&receipts, &block.header)?;
+
+    let account_updates = get_state_transitions(&mut state);
+
+    // Apply the account updates over the last block's state and compute the new state root
+    let new_state_root = state
+        .database()
+        .ok_or(ChainError::StoreError(StoreError::MissingStore))?
+        .apply_account_updates(block.header.parent_hash, &account_updates)?
+        .ok_or(ChainError::ParentStateNotFound)?;
+
+    // Check state root matches the one in block header after execution
+    validate_state_root(&block.header, new_state_root)?;
+
+    store_block(storage, block.clone())?;
+    store_receipts(storage, receipts, block_hash)?;
+
+    Ok(())
+}
+
+/// Adds a new block to the store. It may or may not be canonical, as long as its ancestry links
+/// with the canonical chain and its parent's post-state is calculated. It doesn't modify the
+/// canonical chain/head. Fork choice needs to be updated for that in a separate step.
+///
+/// Performs pre and post execution validation, and updates the database with the post state.
+#[cfg(feature = "levm")]
 pub fn add_block(block: &Block, storage: &Store) -> Result<(), ChainError> {
     let block_hash = block.header.compute_block_hash();
 
