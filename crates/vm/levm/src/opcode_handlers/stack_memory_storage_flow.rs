@@ -144,7 +144,7 @@ impl VM {
     }
 
     // SSTORE operation
-    // TODO: add gas consumption
+    // TODO: add gas REFUNDS
     pub fn op_sstore(
         &mut self,
         current_call_frame: &mut CallFrame,

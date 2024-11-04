@@ -178,7 +178,7 @@ impl VM {
             .stack
             .push(U256::from(current_call_frame.bytecode.len()))?;
 
-        self.env.consumed_gas += gas_cost::CODESIZE;
+        self.increase_consumed_gas(current_call_frame, gas_cost::CODESIZE)?;
 
         Ok(OpcodeSuccess::Continue)
     }
