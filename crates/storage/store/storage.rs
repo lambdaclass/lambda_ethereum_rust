@@ -38,7 +38,7 @@ pub enum EngineType {
     Libmdbx,
 }
 
-#[derive(Default, Debug, Serialize, Deserialize)]
+#[derive(Default, Debug, Serialize, Deserialize, Clone)]
 pub struct AccountUpdate {
     pub address: Address,
     pub removed: bool,

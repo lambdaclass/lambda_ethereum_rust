@@ -22,11 +22,19 @@ pub enum StateFileType {
     AccountUpdates,
 }
 
+#[cfg(not(test))]
 const DEFAULT_DATADIR: &str = "ethereum_rust_l2";
 
+#[cfg(not(test))]
 #[inline(always)]
 fn default_datadir() -> Result<PathBuf, Box<dyn std::error::Error>> {
     create_datadir(DEFAULT_DATADIR)
+}
+
+#[cfg(test)]
+#[inline(always)]
+fn default_datadir() -> Result<PathBuf, Box<dyn std::error::Error>> {
+    create_datadir("test_datadir")
 }
 
 #[inline(always)]
@@ -155,8 +163,9 @@ pub fn read_state_file_for_block_number(
 ) -> Result<StateType, Box<dyn std::error::Error>> {
     // TODO handle path not found
     let block_state_path = get_block_state_path(block_number)?;
+    let file_path: PathBuf = get_state_file_path(&block_state_path, block_number, state_file_type);
 
-    let inner = File::open(block_state_path)?;
+    let inner = File::open(file_path)?;
     let mut reader = BufReader::new(inner);
     let mut buf = String::new();
 
@@ -239,7 +248,6 @@ pub fn path_has_state_file(
     for entry in std::fs::read_dir(path_buf)? {
         let entry = entry?;
         let file_name = entry.file_name();
-        println!("file_name: {file_name:?}");
         let lossy_string = file_name.to_string_lossy();
 
         let matches_prefix = lossy_string.starts_with(file_prefix);
@@ -265,6 +273,12 @@ mod tests {
 
     #[test]
     fn test_state_file_integration() -> Result<(), Box<dyn std::error::Error>> {
+        if let Err(e) = fs::remove_dir_all(default_datadir()?) {
+            if e.kind() != std::io::ErrorKind::NotFound {
+                eprintln!("Directory NotFound: {:?}", default_datadir()?);
+            }
+        }
+
         let mut path = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
         // Go back 4 levels (Go to the root of the project)
         for _ in 0..4 {
@@ -275,6 +289,7 @@ mod tests {
         let chain_file_path = path.join("l2-loadtest.rlp");
         let genesis_file_path = path.join("genesis-l2.json");
 
+        // Create an InMemory Store to later perform an execute_block so we can have the Vec<AccountUpdate>.
         let store = Store::new("memory", EngineType::InMemory).expect("Failed to create Store");
 
         let genesis = test_data_io::read_genesis_file(genesis_file_path.to_str().unwrap());
@@ -285,18 +300,18 @@ mod tests {
             add_block(block, &store).unwrap();
         }
 
-        let mut _account_updates_vec: Vec<AccountUpdate> = Vec::new();
+        let mut account_updates_vec: Vec<Vec<AccountUpdate>> = Vec::new();
 
         // Write all
         for block in &blocks {
             let (_, account_updates) =
                 ExecutionDB::from_exec(blocks.last().unwrap(), &store).unwrap();
 
-            _account_updates_vec = account_updates;
+            account_updates_vec.push(account_updates.clone());
 
             write_state_in_block_state_path(
                 block.header.number,
-                StateType::AccountUpdates(_account_updates_vec),
+                StateType::AccountUpdates(account_updates),
                 StateFileType::AccountUpdates,
             )?;
         }
@@ -331,7 +346,27 @@ mod tests {
             blocks.last().unwrap().header.number - 1
         );
 
-        // Read account_updates back TODO
+        // Read account_updates back
+        let read_account_updates_blk2 =
+            match read_state_file_for_block_number(2, StateFileType::AccountUpdates)? {
+                StateType::Proof(_) => unimplemented!(),
+                StateType::AccountUpdates(a) => a,
+            };
+
+        let og_account_updates_blk2 = account_updates_vec.get(2).unwrap();
+
+        for og_au in og_account_updates_blk2 {
+            // The read_account_updates aren't sorted in the same way as the og_account_updates.
+            let r_au = read_account_updates_blk2
+                .iter()
+                .find(|au| au.address == og_au.address)
+                .unwrap();
+
+            assert_eq!(og_au.added_storage, r_au.added_storage);
+            assert_eq!(og_au.address, r_au.address);
+            assert_eq!(og_au.info, r_au.info);
+            assert_eq!(og_au.code, r_au.code);
+        }
 
         fs::remove_dir_all(default_datadir()?)?;
 
