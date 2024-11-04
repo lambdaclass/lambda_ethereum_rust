@@ -1,9 +1,10 @@
-use super::*;
 use crate::{
+    call_frame::CallFrame,
     constants::{call_opcode, SUCCESS_FOR_RETURN},
-    errors::ResultReason,
-    vm::word_to_address,
+    errors::{OpcodeSuccess, ResultReason, VMError},
+    vm::{word_to_address, VM},
 };
+use ethereum_rust_core::U256;
 
 // System Operations (10)
 // Opcodes: CREATE, CALL, CALLCODE, RETURN, DELEGATECALL, CREATE2, STATICCALL, REVERT, INVALID, SELFDESTRUCT
