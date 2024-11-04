@@ -1,24 +1,10 @@
-use ethereum_types::H32;
-
-use crate::{
-    constants::STACK_LIMIT,
-    errors::VMError,
-    memory::Memory,
-    opcodes::Opcode,
-    primitives::{Address, Bytes, U256},
-};
+use crate::{constants::STACK_LIMIT, errors::VMError, memory::Memory, opcodes::Opcode};
+use bytes::Bytes;
+use ethereum_rust_core::{types::Log, Address, U256};
 use std::collections::HashMap;
 
 /// [EIP-1153]: https://eips.ethereum.org/EIPS/eip-1153#reference-implementation
 pub type TransientStorage = HashMap<(Address, U256), U256>;
-
-#[derive(Clone, Debug, Default, Eq, PartialEq, Hash)]
-/// Data record produced during the execution of a transaction.
-pub struct Log {
-    pub address: Address,
-    pub topics: Vec<H32>,
-    pub data: Bytes,
-}
 
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct Stack {
@@ -62,10 +48,13 @@ pub struct CallFrame {
     pub gas_limit: U256,
     pub gas_used: U256,
     pub pc: usize,
-    pub msg_sender: Address, // Origin address?
+    /// Address of the account that sent the message
+    pub msg_sender: Address,
+    /// Address of the recipient of the message
     pub to: Address,
+    /// Address of the code to execute. Usually the same as `to`, but can be different
     pub code_address: Address,
-    pub delegate: Option<Address>,
+    /// Bytecode to execute
     pub bytecode: Bytes,
     pub msg_value: U256,
     pub stack: Stack, // max 1024 in the future
@@ -98,7 +87,6 @@ impl CallFrame {
         msg_sender: Address,
         to: Address,
         code_address: Address,
-        delegate: Option<Address>,
         bytecode: Bytes,
         msg_value: U256,
         calldata: Bytes,
@@ -112,7 +100,6 @@ impl CallFrame {
             msg_sender,
             to,
             code_address,
-            delegate,
             bytecode,
             msg_value,
             calldata,

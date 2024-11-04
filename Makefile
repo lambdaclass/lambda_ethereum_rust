@@ -16,7 +16,7 @@ SPECTEST_VECTORS_DIR := cmd/ef_tests/vectors
 
 CRATE ?= *
 test: $(SPECTEST_VECTORS_DIR) ## 🧪 Run each crate's tests
-	cargo test -p '$(CRATE)' --workspace
+	cargo test -p '$(CRATE)' --workspace --exclude ethereum_rust-prover
 
 clean: clean-vectors ## 🧹 Remove build artifacts
 	cargo clean
@@ -95,6 +95,9 @@ TEST_PATTERN ?= /
 # For example, to run the rpc-compat suites for eth_chainId & eth_blockNumber you should run:
 # `make run-hive SIMULATION=ethereum/rpc-compat TEST_PATTERN="/eth_chainId|eth_blockNumber"`
 run-hive: build-image setup-hive ## 🧪 Run Hive testing suite
+	cd hive && ./hive --sim $(SIMULATION) --client ethereumrust --sim.limit "$(TEST_PATTERN)"
+
+run-hive-on-latest: setup-hive ## 🧪 Run Hive testing suite with the latest docker image
 	cd hive && ./hive --sim $(SIMULATION) --client ethereumrust --sim.limit "$(TEST_PATTERN)"
 
 run-hive-debug: build-image setup-hive ## 🐞 Run Hive testing suite in debug mode
