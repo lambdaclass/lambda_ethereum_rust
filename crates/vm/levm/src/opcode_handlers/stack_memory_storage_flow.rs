@@ -1,8 +1,11 @@
-use keccak_hash::H256;
-
-use crate::{constants::WORD_SIZE, vm::StorageSlot};
-
-use super::*;
+use crate::{
+    account::StorageSlot,
+    call_frame::CallFrame,
+    constants::{gas_cost, WORD_SIZE},
+    errors::{OpcodeSuccess, VMError},
+    vm::VM,
+};
+use ethereum_rust_core::{H256, U256};
 
 // Stack, Memory, Storage and Flow Operations (15)
 // Opcodes: POP, MLOAD, MSTORE, MSTORE8, SLOAD, SSTORE, JUMP, JUMPI, PC, MSIZE, GAS, JUMPDEST, TLOAD, TSTORE, MCOPY
@@ -162,36 +165,21 @@ impl VM {
 
         let address = current_call_frame.to;
 
-        let mut base_dynamic_gas: U256 = U256::zero();
-
-        let storage_slot = if self.cache.is_slot_cached(&address, key) {
-            self.cache.get_storage_slot(address, key).unwrap()
+        let original_value = if self.cache.is_slot_cached(&address, key) {
+            self.cache
+                .get_storage_slot(address, key)
+                .expect("Storage slot should have been cached")
+                .original_value
         } else {
-            // If slot is cold 2100 is added to base_dynamic_gas
-            base_dynamic_gas += U256::from(2100);
-
-            self.get_storage_slot(&address, key) // it is not in cache because of previous if
+            self.cache_from_db(&address);
+            self.db.get_storage_slot(address, key)
         };
-
-        base_dynamic_gas += if value == storage_slot.current_value {
-            U256::from(100)
-        } else if storage_slot.current_value == storage_slot.original_value {
-            if storage_slot.original_value == U256::zero() {
-                U256::from(20000)
-            } else {
-                U256::from(2900)
-            }
-        } else {
-            U256::from(100)
-        };
-
-        self.increase_consumed_gas(current_call_frame, base_dynamic_gas)?;
 
         self.cache.write_account_storage(
             &address,
             key,
             StorageSlot {
-                original_value: storage_slot.original_value,
+                original_value,
                 current_value: value,
             },
         );
