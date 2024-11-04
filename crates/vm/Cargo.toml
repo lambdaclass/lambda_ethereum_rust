@@ -36,5 +36,6 @@ path = "./vm.rs"
 default = ["libmdbx", "c-kzg", "blst"]
 l2 = []
 c-kzg = ["revm/c-kzg"]
+prover = ["revm/std", "revm/kzg-rs", "revm/serde"]
 blst = ["revm/blst"]
 libmdbx = ["ethereum_rust-storage/default", "ethereum_rust-core/libmdbx"]
