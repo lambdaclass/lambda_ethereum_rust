@@ -1,6 +1,9 @@
 use keccak_hash::H256;
 
-use crate::{constants::{call_opcode::WARM_ADDRESS_ACCESS_COST, COLD_STORAGE_ACCESS_COST, WORD_SIZE}, vm::StorageSlot};
+use crate::{
+    constants::{call_opcode::WARM_ADDRESS_ACCESS_COST, COLD_STORAGE_ACCESS_COST, WORD_SIZE},
+    vm::StorageSlot,
+};
 
 use super::*;
 
@@ -138,7 +141,7 @@ impl VM {
 
             self.cache
                 .get_storage_slot(address, key)
-                .expect("Should be already cached")  // Because entered the if is_slot_cached
+                .expect("Should be already cached") // Because entered the if is_slot_cached
                 .current_value
         } else {
             // If slot is cold (not cached) add 2100 to base_dynamic_gas
