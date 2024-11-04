@@ -22,14 +22,12 @@ use tracing::info;
 mod engines;
 pub mod error;
 mod rlp;
-use std::collections::BTreeMap;
 
 #[derive(Debug, Clone)]
 pub struct Store {
     // TODO: Check if we can remove this mutex and move it to the in_memory::Store struct
     engine: Arc<dyn StoreEngine>,
-    // Address -> (nonce -> Transaction)
-    pub mempool: Arc<Mutex<HashMap<Address, BTreeMap<u64, MempoolTransaction>>>>,
+    pub mempool: Arc<Mutex<HashMap<H256, MempoolTransaction>>>,
     pub blobs_bundle_pool: Arc<Mutex<HashMap<H256, BlobsBundle>>>,
 }
 
@@ -231,21 +229,18 @@ impl Store {
     }
 
     /// Add transaction to the pool
-    pub fn add_transaction_to_pool(&self, transaction: MempoolTransaction) {
-        let mut mempool = self.mempool.lock().unwrap();
-        let maybe_old_value = mempool.get_mut(&transaction.sender());
-        let sender = transaction.sender();
+    pub fn add_transaction_to_pool(
+        &self,
+        hash: H256,
+        transaction: MempoolTransaction,
+    ) -> Result<(), StoreError> {
+        let mut mempool = self
+            .mempool
+            .lock()
+            .map_err(|error| StoreError::Custom(error.to_string()))?;
+        mempool.insert(hash, transaction);
 
-        match maybe_old_value {
-            Some(old_value) => {
-                old_value.insert(transaction.nonce(), transaction);
-            }
-            None => {
-                let mut new_value = BTreeMap::new();
-                new_value.insert(transaction.nonce(), transaction);
-                mempool.insert(sender, new_value);
-            }
-        }
+        Ok(())
     }
 
     /// Add a blobs bundle to the pool by its blob transaction hash
@@ -266,10 +261,12 @@ impl Store {
     }
 
     /// Remove a transaction from the pool
-    pub fn remove_transaction_from_pool(&self, address: Address, nonce: u64) {
-        if let Some(old_value) = self.mempool.lock().unwrap().get_mut(&address) {
-            let tx = old_value.get(&nonce).unwrap();
-
+    pub fn remove_transaction_from_pool(&self, hash: &H256) -> Result<(), StoreError> {
+        let mut mempool = self
+            .mempool
+            .lock()
+            .map_err(|error| StoreError::Custom(error.to_string()))?;
+        if let Some(tx) = mempool.get(hash) {
             if matches!(tx.tx_type(), TxType::EIP4844) {
                 self.blobs_bundle_pool
                     .lock()
@@ -277,8 +274,10 @@ impl Store {
                     .remove(&tx.compute_hash());
             }
 
-            old_value.remove(&nonce);
+            mempool.remove(hash);
         };
+
+        Ok(())
     }
 
     /// Applies the filter and returns a set of suitable transactions from the mempool.
@@ -286,32 +285,24 @@ impl Store {
     pub fn filter_pool_transactions(
         &self,
         filter: &dyn Fn(&Transaction) -> bool,
-    ) -> HashMap<Address, BTreeMap<u64, MempoolTransaction>> {
-        // Go through every address, iterate over every tx in nonce order,
-        // then remove any transaction and its following ones that do not satisfy the filter.
+    ) -> Result<HashMap<Address, Vec<MempoolTransaction>>, StoreError> {
+        let mut txs_by_sender: HashMap<Address, Vec<MempoolTransaction>> = HashMap::new();
+        let mempool = self
+            .mempool
+            .lock()
+            .map_err(|error| StoreError::Custom(error.to_string()))?;
 
-        let mut ret: HashMap<Address, BTreeMap<u64, MempoolTransaction>> = HashMap::new();
-        let mempool = self.mempool.lock().unwrap();
-
-        for (address, txs_by_nonce) in mempool.iter() {
-            let mut account_txs = BTreeMap::new();
-            for (nonce, tx) in txs_by_nonce.iter() {
-                if filter(tx) {
-                    account_txs.insert(*nonce, tx.clone());
-                } else {
-                    // If the tx does not pass the filter then stop right away;
-                    // There's no point in including subsequent transactions since the nonce is
-                    // already going to be invalid for them (a transaction with a lower nonce was rejected).
-                    break;
-                }
-            }
-
-            if !account_txs.is_empty() {
-                ret.insert(*address, account_txs);
+        for (_, tx) in mempool.iter() {
+            if filter(tx) {
+                txs_by_sender
+                    .entry(tx.sender())
+                    .or_default()
+                    .push(tx.clone())
             }
         }
 
-        ret
+        txs_by_sender.iter_mut().for_each(|(_, txs)| txs.sort());
+        Ok(txs_by_sender)
     }
 
     fn add_account_code(&self, code_hash: H256, code: Bytes) -> Result<(), StoreError> {
@@ -796,7 +787,7 @@ mod tests {
         Bloom,
     };
     use ethereum_rust_rlp::decode::RLPDecode;
-    use ethereum_types::{H160, H256, U256};
+    use ethereum_types::{H256, U256};
 
     use super::*;
 
@@ -1090,17 +1081,18 @@ mod tests {
     fn test_filter_mempool_transactions(store: Store) {
         let plain_tx = MempoolTransaction::new(Transaction::decode_canonical(&hex!("f86d80843baa0c4082f618946177843db3138ae69679a54b95cf345ed759450d870aa87bee538000808360306ba0151ccc02146b9b11adf516e6787b59acae3e76544fdcd75e77e67c6b598ce65da064c5dd5aae2fbb535830ebbdad0234975cd7ece3562013b63ea18cc0df6c97d4")).unwrap());
         let blob_tx = MempoolTransaction::new(Transaction::decode_canonical(&hex!("03f88f0780843b9aca008506fc23ac00830186a09400000000000000000000000000000000000001008080c001e1a0010657f37554c781402a22917dee2f75def7ab966d7b770905398eba3c44401401a0840650aa8f74d2b07f40067dc33b715078d73422f01da17abdbd11e02bbdfda9a04b2260f6022bf53eadb337b3e59514936f7317d872defb891a708ee279bdca90")).unwrap());
+        let plain_tx_hash = plain_tx.compute_hash();
+        let blob_tx_hash = blob_tx.compute_hash();
         let filter =
             |tx: &Transaction| -> bool { matches!(tx, Transaction::EIP4844Transaction(_)) };
-        store.add_transaction_to_pool(blob_tx.clone());
-        store.add_transaction_to_pool(plain_tx);
-        let txs = store.filter_pool_transactions(&filter);
-        let mut expected_result: HashMap<H160, BTreeMap<u64, MempoolTransaction>> = HashMap::new();
-        expected_result.insert(
-            blob_tx.sender(),
-            BTreeMap::from([(blob_tx.nonce(), blob_tx)]),
-        );
-        assert_eq!(txs, expected_result);
+        store
+            .add_transaction_to_pool(blob_tx_hash, blob_tx.clone())
+            .unwrap();
+        store
+            .add_transaction_to_pool(plain_tx_hash, plain_tx)
+            .unwrap();
+        let txs = store.filter_pool_transactions(&filter).unwrap();
+        assert_eq!(txs, HashMap::from([(blob_tx.sender(), vec![blob_tx])]));
     }
 
     fn blobs_bundle_loadtest(store: Store) {

@@ -1,4 +1,4 @@
-use std::collections::{BTreeMap, HashMap};
+use std::collections::HashMap;
 
 use crate::{
     constants::{
@@ -15,7 +15,7 @@ use ethereum_rust_core::{
     },
     Address, H256, U256,
 };
-use ethereum_rust_storage::Store;
+use ethereum_rust_storage::{error::StoreError, Store};
 
 /// Add a blob transaction and its blobs bundle to the mempool
 pub fn add_blob_transaction(
@@ -32,7 +32,10 @@ pub fn add_blob_transaction(
 
     // Add transaction and blobs bundle to storage
     let hash = transaction.compute_hash();
-    store.add_transaction_to_pool(MempoolTransaction::new(transaction));
+    store.add_transaction_to_pool(
+        transaction.compute_hash(),
+        MempoolTransaction::new(transaction),
+    )?;
     store.add_blobs_bundle_to_pool(hash, blobs_bundle);
     Ok(hash)
 }
@@ -49,7 +52,10 @@ pub fn add_transaction(transaction: Transaction, store: Store) -> Result<H256, M
     let hash = transaction.compute_hash();
 
     // Add transaction to storage
-    store.add_transaction_to_pool(MempoolTransaction::new(transaction));
+    store.add_transaction_to_pool(
+        transaction.compute_hash(),
+        MempoolTransaction::new(transaction),
+    )?;
 
     Ok(hash)
 }
@@ -64,7 +70,7 @@ pub fn get_blobs_bundle(tx_hash: H256, store: Store) -> Result<Option<BlobsBundl
 pub fn filter_transactions(
     filter: &PendingTxFilter,
     store: &Store,
-) -> HashMap<Address, BTreeMap<u64, MempoolTransaction>> {
+) -> Result<HashMap<Address, Vec<MempoolTransaction>>, StoreError> {
     let filter_tx = |tx: &Transaction| -> bool {
         // Filter by tx type
         let is_blob_tx = matches!(tx, Transaction::EIP4844Transaction(_));
@@ -99,8 +105,8 @@ pub fn filter_transactions(
 }
 
 /// Remove a transaction from the mempool
-pub fn remove_transaction(address: Address, nonce: u64, store: &Store) {
-    store.remove_transaction_from_pool(address, nonce)
+pub fn remove_transaction(hash: &H256, store: &Store) -> Result<(), StoreError> {
+    store.remove_transaction_from_pool(hash)
 }
 
 #[derive(Debug, Default)]
