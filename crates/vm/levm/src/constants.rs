@@ -1,4 +1,4 @@
-use ethereum_types::U256;
+use ethereum_rust_core::U256;
 
 pub const SUCCESS_FOR_CALL: i32 = 1;
 pub const REVERT_FOR_CALL: i32 = 0;
@@ -9,7 +9,7 @@ pub const WORD_SIZE: usize = 32;
 
 /// Contains the gas costs of the EVM instructions (in wei)
 pub mod gas_cost {
-    use ethereum_types::U256;
+    use ethereum_rust_core::U256;
 
     pub const ADD: U256 = U256([3, 0, 0, 0]);
     pub const MUL: U256 = U256([5, 0, 0, 0]);
@@ -47,7 +47,6 @@ pub mod gas_cost {
     pub const RETURNDATACOPY_STATIC: U256 = U256([3, 0, 0, 0]);
     pub const RETURNDATACOPY_DYNAMIC_BASE: U256 = U256([3, 0, 0, 0]);
     pub const ADDRESS: U256 = U256([2, 0, 0, 0]);
-    pub const BALANCE: U256 = U256([100, 0, 0, 0]);
     pub const ORIGIN: U256 = U256([2, 0, 0, 0]);
     pub const CALLER: U256 = U256([2, 0, 0, 0]);
     pub const BLOCKHASH: U256 = U256([20, 0, 0, 0]);
@@ -88,11 +87,14 @@ pub mod gas_cost {
     pub const CODECOPY_DYNAMIC_BASE: U256 = U256([3, 0, 0, 0]);
     pub const GASPRICE: U256 = U256([2, 0, 0, 0]);
     pub const EXTCODECOPY_DYNAMIC_BASE: U256 = U256([3, 0, 0, 0]);
+    pub const SELFDESTRUCT_STATIC: U256 = U256([5000, 0, 0, 0]);
+    pub const SELFDESTRUCT_DYNAMIC: U256 = U256([25000, 0, 0, 0]);
+    pub const COLD_ADDRESS_ACCESS_COST: U256 = U256([2600, 0, 0, 0]);
 }
 
 // Costs in gas for call opcodes (in wei)
 pub mod call_opcode {
-    use ethereum_types::U256;
+    use ethereum_rust_core::U256;
 
     pub const WARM_ADDRESS_ACCESS_COST: U256 = U256([100, 0, 0, 0]);
     pub const COLD_ADDRESS_ACCESS_COST: U256 = U256([2600, 0, 0, 0]);
@@ -127,7 +129,11 @@ pub fn init_code_cost(init_code_length: usize) -> u64 {
 pub const VERSIONED_HASH_VERSION_KZG: u8 = 0x01;
 pub const MAX_BLOB_NUMBER_PER_BLOCK: usize = 6;
 
-// Blob consts
-pub const TARGET_BLOB_GAS_PER_BLOCK: U256 = U256([393216, 0, 0, 0]);
+// Blob constants
+pub const TARGET_BLOB_GAS_PER_BLOCK: U256 = U256([393216, 0, 0, 0]); // TARGET_BLOB_NUMBER_PER_BLOCK * GAS_PER_BLOB
 pub const MIN_BASE_FEE_PER_BLOB_GAS: U256 = U256([1, 0, 0, 0]);
 pub const BLOB_BASE_FEE_UPDATE_FRACTION: U256 = U256([3338477, 0, 0, 0]);
+
+// Block constants
+
+pub const LAST_AVAILABLE_BLOCK_LIMIT: U256 = U256([256, 0, 0, 0]);
