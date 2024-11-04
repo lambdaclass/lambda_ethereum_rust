@@ -31,6 +31,11 @@ Features:
 [CallFrame](./docs/callframe.md)
 
 ### Testing
+
+#### Unit Testing
 To run the project's tests, do `make test`.
+
+#### EF Tests
+To run the EF Tests first download them from [here](https://github.com/ethereum/tests/tree/develop/GeneralStateTests). Then, inside the `tests` folder, create another folder named `ef_testcases` and include all the downloaded folders inside it.
 
 Run `make help` to see available commands

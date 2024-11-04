@@ -165,7 +165,7 @@ fn directory_contents(path: &PathBuf, contents: &mut Vec<String>) {
 
 /// Parses the content of the files into the TestCase struct
 fn parse_files() -> Vec<String> {
-    let paths: Vec<PathBuf> = read_dir("tests/ef_testcases/GeneralStateTests")
+    let paths: Vec<PathBuf> = read_dir("tests/ef_testcases")
         .unwrap()
         .filter_map(|entry| match entry {
             Ok(direntry) => Some(direntry.path()),
