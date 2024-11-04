@@ -43,6 +43,9 @@ pub trait StoreEngine: Debug + Send + Sync + RefUnwindSafe {
         block_hash: BlockHash,
     ) -> Result<Option<BlockHeader>, StoreError>;
 
+    fn add_pending_block(&self, block: Block) -> Result<(), StoreError>;
+    fn get_pending_block(&self, block_hash: BlockHash) -> Result<Option<Block>, StoreError>;
+
     /// Add block number for a given hash
     fn add_block_number(
         &self,
@@ -138,7 +141,7 @@ pub trait StoreEngine: Debug + Send + Sync + RefUnwindSafe {
             Some(body) => body,
             None => return Ok(None),
         };
-        Ok(Some(Block { header, body }))
+        Ok(Some(Block::new(header, body)))
     }
 
     // Get the canonical block hash for a given block number.

@@ -80,6 +80,11 @@ pub fn filter_transactions(
             {
                 return false;
             }
+        // This is a temporary fix to avoid invalid transactions to be included.
+        // This should be removed once https://github.com/lambdaclass/ethereum_rust/issues/680
+        // is addressed.
+        } else if tx.effective_gas_tip(filter.base_fee).is_none() {
+            return false;
         }
 
         // Filter by blob gas fee

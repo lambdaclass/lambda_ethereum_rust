@@ -396,7 +396,7 @@ impl StoreEngine for Store {
             Some(body) => body,
             None => return Ok(None),
         };
-        Ok(Some(Block { header, body }))
+        Ok(Some(Block::new(header, body)))
     }
 
     fn unset_canonical_block(&self, number: BlockNumber) -> Result<(), StoreError> {
@@ -406,6 +406,19 @@ impl StoreEngine for Store {
             .delete::<CanonicalBlockHashes>(number, None)
             .map(|_| ())
             .map_err(StoreError::LibmdbxError)
+    }
+
+    fn add_pending_block(&self, block: Block) -> std::result::Result<(), StoreError> {
+        self.write::<PendingBlocks>(block.header.compute_block_hash().into(), block.into())
+    }
+
+    fn get_pending_block(
+        &self,
+        block_hash: BlockHash,
+    ) -> std::result::Result<Option<Block>, StoreError> {
+        Ok(self
+            .read::<PendingBlocks>(block_hash.into())?
+            .map(|b| b.to()))
     }
 }
 
@@ -480,6 +493,11 @@ table!(
 table!(
     /// payload id to payload block table
     ( Payloads ) u64 => BlockRLP
+);
+
+table!(
+    /// Stores blocks that are pending validation.
+    ( PendingBlocks ) BlockHashRLP => BlockRLP
 );
 
 // Storage values are stored as bytes instead of using their rlp encoding
@@ -579,6 +597,7 @@ pub fn init_db(path: Option<impl AsRef<Path>>) -> Database {
         table_info!(StorageTriesNodes),
         table_info!(CanonicalBlockHashes),
         table_info!(Payloads),
+        table_info!(PendingBlocks),
     ]
     .into_iter()
     .collect();
