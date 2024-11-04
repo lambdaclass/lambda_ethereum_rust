@@ -100,13 +100,32 @@ impl VM {
     ) -> Result<OpcodeSuccess, VMError> {
         self.increase_consumed_gas(current_call_frame, gas_cost::CALLDATALOAD)?;
 
+        println!("calldata: {:?}", current_call_frame.calldata);
+
         let offset: usize = current_call_frame
             .stack
             .pop()?
             .try_into()
             .unwrap_or(usize::MAX);
-        let value = U256::from_big_endian(&current_call_frame.calldata.slice(offset..offset + 32));
-        current_call_frame.stack.push(value)?;
+        
+        // Read calldata from offset to the end
+        let data = current_call_frame.calldata.slice(offset..);
+
+        // Get first 32 bytes of data from offset, if read data is less than 32 bytes, fill the rest with 0
+        let mut final_data = vec![];
+        for i in 0..32 {
+            if i < data.len() {
+                final_data.push(data[i]);
+            }
+            else {
+                final_data.push(0);
+            }
+        }
+        let final_data = Bytes::from(final_data);
+
+        let result = U256::from_big_endian(&final_data);
+        
+        current_call_frame.stack.push(result)?;
 
         Ok(OpcodeSuccess::Continue)
     }
