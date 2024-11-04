@@ -29,6 +29,7 @@ envy = "0.4.2"
 thiserror.workspace = true
 lambdaworks-crypto = "0.11.0"
 lambdaworks-math = "0.11.0"
+sha2 = "0.10.8"
 
 # risc0
 risc0-zkvm = { version = "1.1.2" }

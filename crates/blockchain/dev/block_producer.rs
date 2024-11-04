@@ -3,6 +3,7 @@ use bytes::Bytes;
 use ethereum_rust_rpc::types::fork_choice::{ForkChoiceState, PayloadAttributesV3};
 use ethereum_types::H256;
 use keccak_hash::keccak;
+use sha2::{Digest, Sha256};
 use std::{
     net::SocketAddr,
     time::{SystemTime, UNIX_EPOCH},
@@ -68,9 +69,11 @@ pub async fn start_block_producer(
                     .commitments
                     .iter()
                     .map(|commitment| {
-                        let mut hash = keccak(commitment).0;
+                        let mut hasher = Sha256::new();
+                        hasher.update(commitment);
+                        let mut hash = hasher.finalize();
                         hash[0] = 0x01;
-                        H256::from(hash)
+                        H256::from_slice(&hash)
                     })
                     .collect(),
                 Default::default(),

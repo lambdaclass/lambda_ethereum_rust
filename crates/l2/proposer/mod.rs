@@ -32,6 +32,7 @@ use lambdaworks_math::{
     traits::ByteConversion,
 };
 use libsecp256k1::SecretKey;
+use sha2::{Digest, Sha256};
 use state_diff::{AccountStateDiff, DepositLog, StateDiff, WithdrawalLog};
 use std::{
     collections::HashMap,
@@ -476,7 +477,9 @@ impl Proposer {
     ) -> Result<H256, ProposerError> {
         info!("Sending commitment for block {block_number}");
 
-        let mut blob_versioned_hash = keccak(commitment).0;
+        let mut hasher = Sha256::new();
+        hasher.update(commitment);
+        let mut blob_versioned_hash = hasher.finalize();
         blob_versioned_hash[0] = 0x01; // EIP-4844 versioning
 
         let mut calldata = Vec::with_capacity(132);
@@ -488,17 +491,13 @@ impl Proposer {
         calldata.extend(withdrawal_logs_merkle_root.0);
         calldata.extend(deposit_logs_hash.0);
 
-        // let commit_tx_hash = self
-        //     .send_transaction_with_calldata(self.on_chain_proposer_address, calldata.into())
-        //     .await?;
-
         let mut tx = EIP4844Transaction {
             to: self.on_chain_proposer_address,
             data: Bytes::from(calldata),
             max_fee_per_gas: self.eth_client.get_gas_price().await?.as_u64(),
             nonce: self.eth_client.get_nonce(self.l1_address).await?,
             chain_id: self.eth_client.get_chain_id().await?.as_u64(),
-            blob_versioned_hashes: vec![H256::from(blob_versioned_hash)],
+            blob_versioned_hashes: vec![H256::from_slice(&blob_versioned_hash)],
             max_fee_per_blob_gas: U256::from_dec_str("100000000000000").unwrap(),
             ..Default::default()
         };
