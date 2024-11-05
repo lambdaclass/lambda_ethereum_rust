@@ -111,20 +111,13 @@ impl VM {
         // Read calldata from offset to the end
         let data = current_call_frame.calldata.slice(offset..);
 
-        // Get first 32 bytes of data from offset, if read data is less than 32 bytes, fill the rest with 0
-        let mut final_data = vec![];
-        for i in 0..32 {
-            if i < data.len() {
-                final_data.push(data[i]);
-            }
-            else {
-                final_data.push(0);
-            }
+        // Get the 32 bytes from the data slice, padding with 0 if fewer than 32 bytes are available
+        let mut final_data = [0u8; 32];
+        for (i, byte) in data.iter().take(32).enumerate() {
+            final_data[i] = *byte;
         }
-        let final_data = Bytes::from(final_data);
 
         let result = U256::from_big_endian(&final_data);
-        
         current_call_frame.stack.push(result)?;
 
         Ok(OpcodeSuccess::Continue)
