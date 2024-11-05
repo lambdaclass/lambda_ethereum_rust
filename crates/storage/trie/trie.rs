@@ -11,6 +11,7 @@ mod dumb_nibbles;
 #[cfg(test)]
 mod test_utils;
 
+use dumb_nibbles::DumbNibbles;
 use ethereum_rust_rlp::constants::RLP_NULL;
 use ethereum_types::H256;
 use node::Node;
@@ -23,7 +24,7 @@ pub use self::db::{libmdbx::LibmdbxTrieDB, libmdbx_dupsort::LibmdbxDupsortTrieDB
 pub use self::db::{in_memory::InMemoryTrieDB, TrieDB};
 
 pub use self::error::TrieError;
-use self::{nibble::NibbleSlice, node::LeafNode, state::TrieState, trie_iter::TrieIterator};
+use self::{node::LeafNode, state::TrieState, trie_iter::TrieIterator};
 
 use lazy_static::lazy_static;
 
@@ -76,7 +77,7 @@ impl Trie {
                 .state
                 .get_node(root.clone())?
                 .expect("inconsistent internal tree structure");
-            root_node.get(&self.state, NibbleSlice::new(path))
+            root_node.get(&self.state, DumbNibbles::from_bytes(path))
         } else {
             Ok(None)
         }
@@ -91,13 +92,16 @@ impl Trie {
             .flatten()
         {
             // If the trie is not empty, call the root node's insertion logic
-            let root_node =
-                root_node.insert(&mut self.state, NibbleSlice::new(&path), value.clone())?;
-            self.root = Some(root_node.insert_self(0, &mut self.state)?)
+            let root_node = root_node.insert(
+                &mut self.state,
+                DumbNibbles::from_bytes(&path),
+                value.clone(),
+            )?;
+            self.root = Some(root_node.insert_self(&mut self.state)?)
         } else {
             // If the trie is empty, just add a leaf.
-            let new_leaf = Node::from(LeafNode::new(path.clone(), value));
-            self.root = Some(new_leaf.insert_self(0, &mut self.state)?)
+            let new_leaf = Node::from(LeafNode::new(DumbNibbles::from_bytes(&path), value));
+            self.root = Some(new_leaf.insert_self(&mut self.state)?)
         }
         Ok(())
     }
@@ -112,9 +116,9 @@ impl Trie {
                 .get_node(root)?
                 .expect("inconsistent internal tree structure");
             let (root_node, old_value) =
-                root_node.remove(&mut self.state, NibbleSlice::new(&path))?;
+                root_node.remove(&mut self.state, DumbNibbles::from_bytes(&path))?;
             self.root = root_node
-                .map(|root| root.insert_self(0, &mut self.state))
+                .map(|root| root.insert_self(&mut self.state))
                 .transpose()?;
             Ok(old_value)
         } else {
@@ -150,7 +154,7 @@ impl Trie {
             node_path.push(node.to_vec());
         }
         if let Some(root_node) = self.state.get_node(root.clone())? {
-            root_node.get_path(&self.state, NibbleSlice::new(path), &mut node_path)?;
+            root_node.get_path(&self.state, DumbNibbles::from_bytes(path), &mut node_path)?;
         }
         Ok(node_path)
     }

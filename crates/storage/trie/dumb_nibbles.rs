@@ -1,3 +1,10 @@
+use ethereum_rust_rlp::{
+    decode::RLPDecode,
+    encode::RLPEncode,
+    error::RLPDecodeError,
+    structs::{Decoder, Encoder},
+};
+
 #[derive(Debug, Clone, Default, PartialEq)]
 pub struct DumbNibbles {
     data: Vec<u8>,
@@ -8,7 +15,7 @@ impl DumbNibbles {
         Self { data: hex }
     }
 
-    pub fn from_bytes(bytes: Vec<u8>) -> Self {
+    pub fn from_bytes(bytes: &[u8]) -> Self {
         Self {
             data: bytes
                 .iter()
@@ -65,11 +72,30 @@ impl DumbNibbles {
     pub fn at(&self, i: usize) -> usize {
         self.data[i] as usize
     }
+
+    /// Inserts a nibble at the start
+    pub fn prepend(&mut self, nibble: u8) {
+        self.data.insert(0, nibble);
+    }
 }
 
 impl AsRef<[u8]> for DumbNibbles {
     fn as_ref(&self) -> &[u8] {
         &self.data
+    }
+}
+
+impl RLPEncode for DumbNibbles {
+    fn encode(&self, buf: &mut dyn bytes::BufMut) {
+        Encoder::new(buf).encode_field(&self.data);
+    }
+}
+
+impl RLPDecode for DumbNibbles {
+    fn decode_unfinished(rlp: &[u8]) -> Result<(Self, &[u8]), RLPDecodeError> {
+        let decoder = Decoder::new(rlp)?;
+        let (data, decoder) = decoder.decode_field("data")?;
+        Ok((Self { data }, decoder.finish()?))
     }
 }
 

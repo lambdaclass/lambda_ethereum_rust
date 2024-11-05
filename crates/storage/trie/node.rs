@@ -8,7 +8,7 @@ pub use leaf::LeafNode;
 
 use crate::{dumb_nibbles::DumbNibbles, error::TrieError};
 
-use super::{nibble::NibbleSlice, node_hash::NodeHash, state::TrieState, ValueRLP};
+use super::{node_hash::NodeHash, state::TrieState, ValueRLP};
 
 /// A Node in an Ethereum Compatible Patricia Merkle Trie
 #[derive(Debug, Clone)]
@@ -65,7 +65,7 @@ impl Node {
     pub fn remove(
         self,
         state: &mut TrieState,
-        path: NibbleSlice,
+        path: DumbNibbles,
     ) -> Result<(Option<Node>, Option<ValueRLP>), TrieError> {
         match self {
             Node::Branch(n) => n.remove(state, path),
@@ -80,7 +80,7 @@ impl Node {
     pub fn get_path(
         &self,
         state: &TrieState,
-        path: NibbleSlice,
+        path: DumbNibbles,
         node_path: &mut Vec<Vec<u8>>,
     ) -> Result<(), TrieError> {
         match self {
@@ -90,10 +90,7 @@ impl Node {
         }
     }
 
-    pub fn insert_self(
-        self,
-        state: &mut TrieState,
-    ) -> Result<NodeHash, TrieError> {
+    pub fn insert_self(self, state: &mut TrieState) -> Result<NodeHash, TrieError> {
         match self {
             Node::Branch(n) => n.insert_self(state),
             Node::Extension(n) => n.insert_self(state),

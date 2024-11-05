@@ -48,7 +48,7 @@ macro_rules! pmt_node {
                     $child_type { $( $child_tokens )* }
                     offset offset
                 }.into();
-                choices[$choice as usize] = child_node.insert_self(1, &mut $trie.state).unwrap();
+                choices[$choice as usize] = child_node.insert_self(&mut $trie.state).unwrap();
             )*
             Box::new(choices)
         })
@@ -68,7 +68,7 @@ macro_rules! pmt_node {
                     pmt_node! { @($trie)
                         $child_type { $( $child_tokens )* }
                         offset offset
-                    }).insert_self(1, &mut $trie.state).unwrap();
+                    }).insert_self(&mut $trie.state).unwrap();
             )*
             Box::new(choices)
         }, $value)
@@ -80,23 +80,15 @@ macro_rules! pmt_node {
         $( offset $offset:expr )?
     ) => {{
         #[allow(unused_variables)]
-        let offset = false $( ^ $offset )?;
-        let prefix = $crate::nibble::NibbleVec::from_nibbles(
-            $prefix
-                .into_iter()
-                .map(|x: u8| $crate::nibble::Nibble::try_from(x).unwrap()),
-            offset
-        );
+        let prefix = $crate::dumb_nibbles::DumbNibbles::from_hex($prefix.to_vec());
 
-        let offset = offset  ^ (prefix.len() % 2 != 0);
         $crate::node::ExtensionNode::new(
             prefix.clone(),
             {
                 let child_node = $crate::node::Node::from(pmt_node! { @($trie)
                     $child_type { $( $child_tokens )* }
-                    offset offset
                 });
-                child_node.insert_self(1, &mut $trie.state).unwrap()
+                child_node.insert_self(&mut $trie.state).unwrap()
             }
         )
     }};
@@ -107,7 +99,7 @@ macro_rules! pmt_node {
         $( offset $offset:expr )?
     ) => {
         {
-            $crate::node::LeafNode::new($path, $value)
+            $crate::node::LeafNode::new(DumbNibbles::from_bytes($path), $value)
         }
     };
 }

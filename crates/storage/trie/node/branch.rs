@@ -1,6 +1,6 @@
 use crate::{
+    dumb_nibbles::DumbNibbles,
     error::TrieError,
-    nibble::{Nibble, NibbleSlice, NibbleVec},
     node_hash::{NodeEncoder, NodeHash},
     state::TrieState,
     ValueRLP,
@@ -60,7 +60,7 @@ impl BranchNode {
     pub fn get(
         &self,
         state: &TrieState,
-        mut path: NibbleSlice,
+        mut path: DumbNibbles,
     ) -> Result<Option<ValueRLP>, TrieError> {
         // If path is at the end, return to its own value if present.
         // Otherwise, check the corresponding choice and delegate accordingly if present.
@@ -85,7 +85,7 @@ impl BranchNode {
     pub fn insert(
         mut self,
         state: &mut TrieState,
-        mut path: NibbleSlice,
+        mut path: DumbNibbles,
         value: ValueRLP,
     ) -> Result<Node, TrieError> {
         // If path is at the end, insert or replace its own value.
@@ -94,8 +94,8 @@ impl BranchNode {
             Some(choice) => match &mut self.choices[choice as usize] {
                 // Create new child (leaf node)
                 choice_hash if !choice_hash.is_valid() => {
-                    let new_leaf = LeafNode::new(path.data(), value);
-                    let child_hash = new_leaf.insert_self(path.offset(), state)?;
+                    let new_leaf = LeafNode::new(path.offset(1), value);
+                    let child_hash = new_leaf.insert_self(state)?;
                     *choice_hash = child_hash;
                 }
                 // Insert into existing child and then update it
@@ -104,8 +104,8 @@ impl BranchNode {
                         .get_node(choice_hash.clone())?
                         .expect("inconsistent internal tree structure");
 
-                    let child_node = child_node.insert(state, path.clone(), value)?;
-                    *choice_hash = child_node.insert_self(path.offset(), state)?;
+                    let child_node = child_node.insert(state, path.offset(1), value)?;
+                    *choice_hash = child_node.insert_self(state)?;
                 }
             },
             None => {
@@ -122,7 +122,7 @@ impl BranchNode {
     pub fn remove(
         mut self,
         state: &mut TrieState,
-        mut path: NibbleSlice,
+        mut path: DumbNibbles,
     ) -> Result<(Option<Node>, Option<ValueRLP>), TrieError> {
         /* Possible flow paths:
             Step 1: Removal
@@ -143,8 +143,6 @@ impl BranchNode {
         */
 
         // Step 1: Remove value
-
-        let path_offset = path.offset();
         // Check if the value is located in a child subtrie
         let value = match path.next() {
             Some(choice_index) => {
@@ -156,8 +154,7 @@ impl BranchNode {
                     let (child_node, old_value) = child_node.remove(state, path.clone())?;
                     if let Some(child_node) = child_node {
                         // Update child node
-                        self.choices[choice_index as usize] =
-                            child_node.insert_self(path.offset(), state)?;
+                        self.choices[choice_index as usize] = child_node.insert_self(state)?;
                     } else {
                         // Remove child hash if the child subtrie was removed in the process
                         self.choices[choice_index as usize] = NodeHash::default();
@@ -202,7 +199,6 @@ impl BranchNode {
 
         let child_hash = match choice_count {
             Ok(Some((choice_index, child_hash))) => {
-                let choice_index = Nibble::try_from(choice_index as u8).unwrap();
                 let child_node = state
                     .get_node(child_hash.clone())?
                     .expect("inconsistent internal tree structure");
@@ -212,7 +208,7 @@ impl BranchNode {
                     // The extension node will then replace self if self has no value
                     Node::Branch(_) => {
                         let extension_node = ExtensionNode::new(
-                            NibbleVec::from_single(choice_index, path_offset % 2 != 0),
+                            DumbNibbles::from_hex(vec![choice_index as u8]),
                             child_hash.clone(),
                         );
                         *child_hash = extension_node.insert_self(state)?
@@ -220,7 +216,7 @@ impl BranchNode {
                     // Replace self with the child extension node, updating its path in the process
                     Node::Extension(mut extension_node) => {
                         debug_assert!(self.value.is_empty()); // Sanity check
-                        extension_node.prefix.prepend(choice_index);
+                        extension_node.prefix.prepend(choice_index as u8);
                         // Return node here so we don't have to update it in the state and then fetch it
                         return Ok((Some(extension_node.into()), value));
                     }
@@ -236,7 +232,7 @@ impl BranchNode {
             // If this node still has a child and value return the updated node
             (Some(_), true) => Some(self.into()),
             // If this node still has a value but no longer has children, convert it into a leaf node
-            (None, true) => Some(LeafNode::new(path.data(), self.value).into()),
+            (None, true) => Some(LeafNode::new(DumbNibbles::from_hex(vec![16]), self.value).into()),
             // If this node doesn't have a value, replace it with its child node
             (Some(x), false) => Some(
                 state
@@ -312,7 +308,7 @@ impl BranchNode {
     pub fn get_path(
         &self,
         state: &TrieState,
-        mut path: NibbleSlice,
+        mut path: DumbNibbles,
         node_path: &mut Vec<Vec<u8>>,
     ) -> Result<(), TrieError> {
         // Add self to node_path (if not inlined in parent)
@@ -382,17 +378,19 @@ mod test {
         let mut trie = Trie::new_temp();
         let node = pmt_node! { @(trie)
             branch {
-                0 => leaf { vec![0x00] => vec![0x12, 0x34, 0x56, 0x78] },
-                1 => leaf { vec![0x10] => vec![0x34, 0x56, 0x78, 0x9A] },
+                0 => leaf { &[0x00] => vec![0x12, 0x34, 0x56, 0x78] },
+                1 => leaf { &[0x10] => vec![0x34, 0x56, 0x78, 0x9A] },
             }
         };
 
         assert_eq!(
-            node.get(&trie.state, NibbleSlice::new(&[0x00])).unwrap(),
+            node.get(&trie.state, DumbNibbles::from_bytes(&[0x00]))
+                .unwrap(),
             Some(vec![0x12, 0x34, 0x56, 0x78]),
         );
         assert_eq!(
-            node.get(&trie.state, NibbleSlice::new(&[0x10])).unwrap(),
+            node.get(&trie.state, DumbNibbles::from_bytes(&[0x10]))
+                .unwrap(),
             Some(vec![0x34, 0x56, 0x78, 0x9A]),
         );
     }
@@ -402,13 +400,14 @@ mod test {
         let mut trie = Trie::new_temp();
         let node = pmt_node! { @(trie)
             branch {
-                0 => leaf { vec![0x00] => vec![0x12, 0x34, 0x56, 0x78] },
-                1 => leaf { vec![0x10] => vec![0x34, 0x56, 0x78, 0x9A] },
+                0 => leaf { &[0x00] => vec![0x12, 0x34, 0x56, 0x78] },
+                1 => leaf { &[0x10] => vec![0x34, 0x56, 0x78, 0x9A] },
             }
         };
 
         assert_eq!(
-            node.get(&trie.state, NibbleSlice::new(&[0x20])).unwrap(),
+            node.get(&trie.state, DumbNibbles::from_bytes(&[0x20]))
+                .unwrap(),
             None,
         );
     }
@@ -418,11 +417,11 @@ mod test {
         let mut trie = Trie::new_temp();
         let node = pmt_node! { @(trie)
             branch {
-                0 => leaf { vec![0x00] => vec![0x12, 0x34, 0x56, 0x78] },
-                1 => leaf { vec![0x10] => vec![0x34, 0x56, 0x78, 0x9A] },
+                0 => leaf { &[0x00] => vec![0x12, 0x34, 0x56, 0x78] },
+                1 => leaf { &[0x10] => vec![0x34, 0x56, 0x78, 0x9A] },
             }
         };
-        let path = NibbleSlice::new(&[0x2]);
+        let path = DumbNibbles::from_bytes(&[0x2]);
         let value = vec![0x3];
 
         let node = node
@@ -438,12 +437,12 @@ mod test {
         let mut trie = Trie::new_temp();
         let node = pmt_node! { @(trie)
             branch {
-                0 => leaf { vec![0x00] => vec![0x12, 0x34, 0x56, 0x78] },
-                1 => leaf { vec![0x10] => vec![0x34, 0x56, 0x78, 0x9A] },
+                0 => leaf { &[0x00] => vec![0x12, 0x34, 0x56, 0x78] },
+                1 => leaf { &[0x10] => vec![0x34, 0x56, 0x78, 0x9A] },
             }
         };
 
-        let path = NibbleSlice::new(&[0x20]);
+        let path = DumbNibbles::from_bytes(&[0x20]);
         let value = vec![0x21];
 
         let node = node
@@ -459,14 +458,13 @@ mod test {
         let mut trie = Trie::new_temp();
         let node = pmt_node! { @(trie)
             branch {
-                0 => leaf { vec![0x00] => vec![0x12, 0x34, 0x56, 0x78] },
-                1 => leaf { vec![0x10] => vec![0x34, 0x56, 0x78, 0x9A] },
+                0 => leaf { &[0x00] => vec![0x12, 0x34, 0x56, 0x78] },
+                1 => leaf { &[0x10] => vec![0x34, 0x56, 0x78, 0x9A] },
             }
         };
 
         // The extension node is ignored since it's irrelevant in this test.
-        let mut path = NibbleSlice::new(&[0x00]);
-        path.offset_add(2);
+        let path = DumbNibbles::from_bytes(&[0x00]).offset(2);
         let value = vec![0x1];
 
         let new_node = node
@@ -488,13 +486,13 @@ mod test {
         let mut trie = Trie::new_temp();
         let node = pmt_node! { @(trie)
             branch {
-                0 => leaf { vec![0x00] => vec![0x00] },
-                1 => leaf { vec![0x10] => vec![0x10] },
+                0 => leaf { &[0x00] => vec![0x00] },
+                1 => leaf { &[0x10] => vec![0x10] },
             }
         };
 
         let (node, value) = node
-            .remove(&mut trie.state, NibbleSlice::new(&[0x00]))
+            .remove(&mut trie.state, DumbNibbles::from_bytes(&[0x00]))
             .unwrap();
 
         assert!(matches!(node, Some(Node::Leaf(_))));
@@ -506,14 +504,14 @@ mod test {
         let mut trie = Trie::new_temp();
         let node = pmt_node! { @(trie)
             branch {
-                0 => leaf { vec![0x00] => vec![0x00] },
-                1 => leaf { vec![0x10] => vec![0x10] },
-                2 => leaf { vec![0x10] => vec![0x10] },
+                0 => leaf { &[0x00] => vec![0x00] },
+                1 => leaf { &[0x10] => vec![0x10] },
+                2 => leaf { &[0x10] => vec![0x10] },
             }
         };
 
         let (node, value) = node
-            .remove(&mut trie.state, NibbleSlice::new(&[0x00]))
+            .remove(&mut trie.state, DumbNibbles::from_bytes(&[0x00]))
             .unwrap();
 
         assert!(matches!(node, Some(Node::Branch(_))));
@@ -525,12 +523,12 @@ mod test {
         let mut trie = Trie::new_temp();
         let node = pmt_node! { @(trie)
             branch {
-                0 => leaf { vec![0x00] => vec![0x00] },
-            } with_leaf { vec![0x01] => vec![0xFF] }
+                0 => leaf { &[0x00] => vec![0x00] },
+            } with_leaf { &[0x01] => vec![0xFF] }
         };
 
         let (node, value) = node
-            .remove(&mut trie.state, NibbleSlice::new(&[0x00]))
+            .remove(&mut trie.state, DumbNibbles::from_bytes(&[0x00]))
             .unwrap();
 
         assert!(matches!(node, Some(Node::Leaf(_))));
@@ -542,11 +540,13 @@ mod test {
         let mut trie = Trie::new_temp();
         let node = pmt_node! { @(trie)
             branch {
-                0 => leaf { vec![0x00] => vec![0x00] },
-            } with_leaf { vec![0x1] => vec![0xFF] }
+                0 => leaf { &[0x00] => vec![0x00] },
+            } with_leaf { &[0x1] => vec![0xFF] }
         };
 
-        let (node, value) = node.remove(&mut trie.state, NibbleSlice::new(&[])).unwrap();
+        let (node, value) = node
+            .remove(&mut trie.state, DumbNibbles::from_bytes(&[]))
+            .unwrap();
 
         assert!(matches!(node, Some(Node::Leaf(_))));
         assert_eq!(value, Some(vec![0xFF]));
@@ -557,12 +557,14 @@ mod test {
         let mut trie = Trie::new_temp();
         let node = pmt_node! { @(trie)
             branch {
-                0 => leaf { vec![0x00] => vec![0x00] },
-                1 => leaf { vec![0x10] => vec![0x10] },
-            } with_leaf { vec![0x1] => vec![0xFF] }
+                0 => leaf { &[0x00] => vec![0x00] },
+                1 => leaf { &[0x10] => vec![0x10] },
+            } with_leaf { &[0x1] => vec![0xFF] }
         };
 
-        let (node, value) = node.remove(&mut trie.state, NibbleSlice::new(&[])).unwrap();
+        let (node, value) = node
+            .remove(&mut trie.state, DumbNibbles::from_bytes(&[]))
+            .unwrap();
 
         assert!(matches!(node, Some(Node::Branch(_))));
         assert_eq!(value, Some(vec![0xFF]));
@@ -573,8 +575,8 @@ mod test {
         let mut trie = Trie::new_temp();
         let node = pmt_node! { @(trie)
             branch {
-                2 => leaf { vec![0x20] => vec![0x20] },
-                4 => leaf { vec![0x40] => vec![0x40] },
+                2 => leaf { &[0x20] => vec![0x20] },
+                4 => leaf { &[0x40] => vec![0x40] },
             }
         };
 
@@ -592,22 +594,22 @@ mod test {
         let mut trie = Trie::new_temp();
         let node = pmt_node! { @(trie)
             branch {
-                0x0 => leaf { vec![0x00] => vec![0x00] },
-                0x1 => leaf { vec![0x10] => vec![0x10] },
-                0x2 => leaf { vec![0x20] => vec![0x20] },
-                0x3 => leaf { vec![0x30] => vec![0x30] },
-                0x4 => leaf { vec![0x40] => vec![0x40] },
-                0x5 => leaf { vec![0x50] => vec![0x50] },
-                0x6 => leaf { vec![0x60] => vec![0x60] },
-                0x7 => leaf { vec![0x70] => vec![0x70] },
-                0x8 => leaf { vec![0x80] => vec![0x80] },
-                0x9 => leaf { vec![0x90] => vec![0x90] },
-                0xA => leaf { vec![0xA0] => vec![0xA0] },
-                0xB => leaf { vec![0xB0] => vec![0xB0] },
-                0xC => leaf { vec![0xC0] => vec![0xC0] },
-                0xD => leaf { vec![0xD0] => vec![0xD0] },
-                0xE => leaf { vec![0xE0] => vec![0xE0] },
-                0xF => leaf { vec![0xF0] => vec![0xF0] },
+                0x0 => leaf { &[0x00] => vec![0x00] },
+                0x1 => leaf { &[0x10] => vec![0x10] },
+                0x2 => leaf { &[0x20] => vec![0x20] },
+                0x3 => leaf { &[0x30] => vec![0x30] },
+                0x4 => leaf { &[0x40] => vec![0x40] },
+                0x5 => leaf { &[0x50] => vec![0x50] },
+                0x6 => leaf { &[0x60] => vec![0x60] },
+                0x7 => leaf { &[0x70] => vec![0x70] },
+                0x8 => leaf { &[0x80] => vec![0x80] },
+                0x9 => leaf { &[0x90] => vec![0x90] },
+                0xA => leaf { &[0xA0] => vec![0xA0] },
+                0xB => leaf { &[0xB0] => vec![0xB0] },
+                0xC => leaf { &[0xC0] => vec![0xC0] },
+                0xD => leaf { &[0xD0] => vec![0xD0] },
+                0xE => leaf { &[0xE0] => vec![0xE0] },
+                0xF => leaf { &[0xF0] => vec![0xF0] },
             }
         };
 
@@ -626,9 +628,9 @@ mod test {
         let mut trie = Trie::new_temp();
         let node = pmt_node! { @(trie)
             branch {
-                2 => leaf { vec![0x20] => vec![0x20] },
-                4 => leaf { vec![0x40] => vec![0x40] },
-            } with_leaf { vec![0x1] => vec![0x1] }
+                2 => leaf { &[0x20] => vec![0x20] },
+                4 => leaf { &[0x40] => vec![0x40] },
+            } with_leaf { &[0x1] => vec![0x1] }
         };
 
         assert_eq!(
@@ -645,23 +647,23 @@ mod test {
         let mut trie = Trie::new_temp();
         let node = pmt_node! { @(trie)
             branch {
-                0x0 => leaf { vec![0x00] => vec![0x00] },
-                0x1 => leaf { vec![0x10] => vec![0x10] },
-                0x2 => leaf { vec![0x20] => vec![0x20] },
-                0x3 => leaf { vec![0x30] => vec![0x30] },
-                0x4 => leaf { vec![0x40] => vec![0x40] },
-                0x5 => leaf { vec![0x50] => vec![0x50] },
-                0x6 => leaf { vec![0x60] => vec![0x60] },
-                0x7 => leaf { vec![0x70] => vec![0x70] },
-                0x8 => leaf { vec![0x80] => vec![0x80] },
-                0x9 => leaf { vec![0x90] => vec![0x90] },
-                0xA => leaf { vec![0xA0] => vec![0xA0] },
-                0xB => leaf { vec![0xB0] => vec![0xB0] },
-                0xC => leaf { vec![0xC0] => vec![0xC0] },
-                0xD => leaf { vec![0xD0] => vec![0xD0] },
-                0xE => leaf { vec![0xE0] => vec![0xE0] },
-                0xF => leaf { vec![0xF0] => vec![0xF0] },
-            } with_leaf { vec![0x1] => vec![0x1] }
+                0x0 => leaf { &[0x00] => vec![0x00] },
+                0x1 => leaf { &[0x10] => vec![0x10] },
+                0x2 => leaf { &[0x20] => vec![0x20] },
+                0x3 => leaf { &[0x30] => vec![0x30] },
+                0x4 => leaf { &[0x40] => vec![0x40] },
+                0x5 => leaf { &[0x50] => vec![0x50] },
+                0x6 => leaf { &[0x60] => vec![0x60] },
+                0x7 => leaf { &[0x70] => vec![0x70] },
+                0x8 => leaf { &[0x80] => vec![0x80] },
+                0x9 => leaf { &[0x90] => vec![0x90] },
+                0xA => leaf { &[0xA0] => vec![0xA0] },
+                0xB => leaf { &[0xB0] => vec![0xB0] },
+                0xC => leaf { &[0xC0] => vec![0xC0] },
+                0xD => leaf { &[0xD0] => vec![0xD0] },
+                0xE => leaf { &[0xE0] => vec![0xE0] },
+                0xF => leaf { &[0xF0] => vec![0xF0] },
+            } with_leaf { &[0x1] => vec![0x1] }
         };
 
         assert_eq!(

@@ -53,7 +53,7 @@ impl TrieIterator {
                 (!branch_node.value.is_empty()).then_some((vec![], branch_node.value))
             }
             Node::Extension(_) => None,
-            Node::Leaf(leaf_node) => Some((leaf_node.path, leaf_node.value)),
+            Node::Leaf(leaf_node) => Some((vec![], leaf_node.value)),
         })
     }
 }
