@@ -1,5 +1,11 @@
 use crate::{
-    rlpx::{eth::{backend, blocks::BlockHeaders}, handshake::encode_ack_message, message::Message, p2p, utils::id2pubkey},
+    rlpx::{
+        eth::{backend, blocks::BlockHeaders},
+        handshake::encode_ack_message,
+        message::Message,
+        p2p,
+        utils::id2pubkey,
+    },
     snap::{
         process_account_range_request, process_byte_codes_request, process_storage_ranges_request,
     },
