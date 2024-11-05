@@ -125,7 +125,7 @@ fn decrypt_message(
     Ok(decoded)
 }
 
-pub(crate) fn encrypt_message(
+fn encrypt_message(
     remote_static_pubkey: &PublicKey,
     mut encoded_msg: Vec<u8>,
 ) -> Result<Vec<u8>, RLPxError> {
