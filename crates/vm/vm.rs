@@ -211,9 +211,14 @@ cfg_if::cfg_if! {
             vm.transact()
         }
     } else if #[cfg(not(feature = "levm"))] {
+        /// Executes all transactions in a block and returns their receipts.
         pub fn execute_block(block: &Block, state: &mut EvmState) -> Result<Vec<Receipt>, EvmError> {
             let block_header = &block.header;
             let spec_id = spec_id(&state.chain_config()?, block_header.timestamp);
+            //eip 4788: execute beacon_root_contract_call before block transactions
+            if block_header.parent_beacon_block_root.is_some() && spec_id == SpecId::CANCUN {
+                beacon_root_contract_call(state, block_header, spec_id)?;
+            }
             let mut receipts = Vec::new();
             let mut cumulative_gas_used = 0;
 
