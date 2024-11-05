@@ -222,14 +222,22 @@ impl GetBlockBodies {
     pub fn fetch_blocks(&self, storage: &Store) -> Vec<BlockBody> {
         let mut block_bodies = vec![];
         for block_hash in &self.block_hashes {
-            let Some(block_body) = storage.get_block_body_by_hash(*block_hash).ok().flatten()
-            else {
-                break;
-            };
-            block_bodies.push(block_body);
-            // TODO: Implement a limit based on byte size, if possible.
-            if block_bodies.len() >= BLOCK_BODY_LIMIT {
-                break;
+            match storage.get_block_body_by_hash(*block_hash) {
+                Ok(Some(block)) => {
+                    block_bodies.push(block);
+                    if block_bodies.len() >= BLOCK_BODY_LIMIT {
+                        break;
+                    }
+                }
+                Ok(None) => {
+                    continue;
+                }
+                Err(err) => {
+                    tracing::error!(
+                        "Error accessing DB while building block bodies response for peer: {err}"
+                    );
+                    return vec![];
+                }
             }
         }
         block_bodies
