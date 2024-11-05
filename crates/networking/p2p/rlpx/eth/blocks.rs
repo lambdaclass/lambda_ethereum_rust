@@ -115,8 +115,7 @@ impl GetBlockHeaders {
                     current_block += block_skip
                 }
                 Ok(None) => {
-                    tracing::error!("Peer asked for block header with number {current_block} but it wasn't found");
-                    return vec![];
+                    break;
                 }
                 // TODO(#1073)
                 // Research what we should do when an error is found in a P2P request.
