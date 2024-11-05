@@ -4,7 +4,6 @@ use ethereum_rust_core::{
     U256,
 };
 use ethereum_rust_rlp::{
-    encode::RLPEncode,
     error::{RLPDecodeError, RLPEncodeError},
     structs::{Decoder, Encoder},
 };
@@ -14,38 +13,16 @@ use crate::rlpx::{message::RLPxMessage, utils::snappy_encode};
 
 #[derive(Debug)]
 pub(crate) struct StatusMessage {
-    eth_version: u32,
-    network_id: u64,
-    total_difficulty: U256,
-    block_hash: BlockHash,
-    genesis: BlockHash,
-    fork_id: ForkId,
-}
-
-impl StatusMessage {
-    pub fn new(
-        eth_version: u32,
-        network_id: u64,
-        total_difficulty: U256,
-        block_hash: BlockHash,
-        genesis: BlockHash,
-        fork_id: ForkId,
-    ) -> Self {
-        Self {
-            eth_version,
-            network_id,
-            total_difficulty,
-            block_hash,
-            genesis,
-            fork_id,
-        }
-    }
+    pub(crate) eth_version: u32,
+    pub(crate) network_id: u64,
+    pub(crate) total_difficulty: U256,
+    pub(crate) block_hash: BlockHash,
+    pub(crate) genesis: BlockHash,
+    pub(crate) fork_id: ForkId,
 }
 
 impl RLPxMessage for StatusMessage {
     fn encode(&self, buf: &mut dyn BufMut) -> Result<(), RLPEncodeError> {
-        16_u8.encode(buf); // msg_id
-
         let mut encoded_data = vec![];
         Encoder::new(&mut encoded_data)
             .encode_field(&self.eth_version)
@@ -72,25 +49,20 @@ impl RLPxMessage for StatusMessage {
         assert_eq!(eth_version, 68, "only eth version 68 is supported");
 
         let (network_id, decoder): (u64, _) = decoder.decode_field("networkId")?;
-
         let (total_difficulty, decoder): (U256, _) = decoder.decode_field("totalDifficulty")?;
-
         let (block_hash, decoder): (BlockHash, _) = decoder.decode_field("blockHash")?;
-
         let (genesis, decoder): (BlockHash, _) = decoder.decode_field("genesis")?;
-
         let (fork_id, decoder): (ForkId, _) = decoder.decode_field("forkId")?;
-
         // Implementations must ignore any additional list elements
         let _padding = decoder.finish_unchecked();
 
-        Ok(Self::new(
+        Ok(Self {
             eth_version,
             network_id,
             total_difficulty,
             block_hash,
             genesis,
             fork_id,
-        ))
+        })
     }
 }

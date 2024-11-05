@@ -62,7 +62,6 @@ impl HelloMessage {
 
 impl RLPxMessage for HelloMessage {
     fn encode(&self, mut buf: &mut dyn BufMut) -> Result<(), RLPEncodeError> {
-        0_u8.encode(buf); //msg_id
         Encoder::new(&mut buf)
             .encode_field(&5_u8) // protocolVersion
             .encode_field(&"Ethereum(++)/1.0.0") // clientId
@@ -113,8 +112,6 @@ impl DisconnectMessage {
 
 impl RLPxMessage for DisconnectMessage {
     fn encode(&self, buf: &mut dyn BufMut) -> Result<(), RLPEncodeError> {
-        1_u8.encode(buf); //msg_id
-
         let mut encoded_data = vec![];
         // Disconnect msg_data is reason or none
         match self.reason {
@@ -161,8 +158,6 @@ impl PingMessage {
 
 impl RLPxMessage for PingMessage {
     fn encode(&self, buf: &mut dyn BufMut) -> Result<(), RLPEncodeError> {
-        2_u8.encode(buf); // msg_id
-
         let mut encoded_data = vec![];
         // Ping msg_data is only []
         Vec::<u8>::new().encode(&mut encoded_data);
@@ -194,8 +189,6 @@ impl PongMessage {
 
 impl RLPxMessage for PongMessage {
     fn encode(&self, buf: &mut dyn BufMut) -> Result<(), RLPEncodeError> {
-        2_u8.encode(buf); // msg_id
-
         let mut encoded_data = vec![];
         // Pong msg_data is only []
         Vec::<u8>::new().encode(&mut encoded_data);

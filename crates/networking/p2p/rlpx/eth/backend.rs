@@ -26,12 +26,12 @@ pub fn get_status(storage: &Store) -> Result<StatusMessage, RLPxError> {
     let genesis = genesis_header.compute_block_hash();
     let block_hash = block_header.compute_block_hash();
     let fork_id = ForkId::new(chain_config, genesis, block_header.timestamp, block_number);
-    Ok(StatusMessage::new(
-        ETH_VERSION,
+    Ok(StatusMessage {
+        eth_version: ETH_VERSION,
         network_id,
         total_difficulty,
         block_hash,
         genesis,
         fork_id,
-    ))
+    })
 }
