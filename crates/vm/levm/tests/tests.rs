@@ -2258,11 +2258,9 @@ fn jumpi_for_zero() {
 
 // This test is just for trying things out, not a real test. But it is useful to have this as an example for conversions between bytes and u256.
 #[test]
-fn testing_bytes_u256_conversion(){
+fn testing_bytes_u256_conversion() {
     // From Bytes to U256 to Bytes again
-    let data: Bytes = vec![
-        0x11, 0x22, 0x33, 0x44
-    ].into();
+    let data: Bytes = vec![0x11, 0x22, 0x33, 0x44].into();
     println!("{:?}", data);
 
     let result = U256::from_big_endian(&data);
@@ -2277,8 +2275,7 @@ fn testing_bytes_u256_conversion(){
     while i < temp_bytes.len() {
         if temp_bytes[i] == 0 {
             temp_bytes.remove(i);
-        }
-        else {
+        } else {
             i += 1;
         }
     }
@@ -2292,8 +2289,7 @@ fn testing_bytes_u256_conversion(){
     for i in 0..32 {
         if i < temp_bytes.len() {
             final_data.push(temp_bytes[i]);
-        }
-        else {
+        } else {
             final_data.push(0);
         }
     }
@@ -2304,7 +2300,6 @@ fn testing_bytes_u256_conversion(){
     let result = U256::from_big_endian(&final_data);
     println!("{:?}", result);
 }
-
 
 #[test]
 fn calldataload() {
@@ -2331,7 +2326,9 @@ fn calldataload() {
     assert_eq!(
         top_of_stack,
         U256::from_big_endian(&[
-            0x22, 0x33, 0x44, 0x55, 0x66, 0x77, 0x88, 0x99, 0xAA, 0xBB, 0xCC, 0xDD, 0xEE, 0xFF, 0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00
+            0x22, 0x33, 0x44, 0x55, 0x66, 0x77, 0x88, 0x99, 0xAA, 0xBB, 0xCC, 0xDD, 0xEE, 0xFF,
+            0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09, 0x00, 0x00, 0x00, 0x00,
+            0x00, 0x00, 0x00, 0x00
         ])
     );
     assert_eq!(vm.env.consumed_gas, TX_BASE_COST + 6);

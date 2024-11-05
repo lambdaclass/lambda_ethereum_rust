@@ -107,7 +107,7 @@ impl VM {
             .pop()?
             .try_into()
             .unwrap_or(usize::MAX);
-        
+
         // Read calldata from offset to the end
         let data = current_call_frame.calldata.slice(offset..);
 
