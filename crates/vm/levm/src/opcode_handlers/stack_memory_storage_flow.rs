@@ -120,7 +120,7 @@ impl VM {
     }
 
     // SLOAD operation
-    // TODO: add gas consumption
+    // TODO: Add tests about gas usage
     pub fn op_sload(
         &mut self,
         current_call_frame: &mut CallFrame,
@@ -133,14 +133,24 @@ impl VM {
         key.to_big_endian(&mut bytes);
         let key = H256::from(bytes);
 
+        let mut base_dynamic_gas: U256 = U256::zero();
+
         let current_value = if self.cache.is_slot_cached(&address, key) {
+            // If slot is warm (cached) add 100 to base_dynamic_gas
+            base_dynamic_gas += U256::from(100);
+
             self.cache
                 .get_storage_slot(address, key)
-                .unwrap_or_default()
+                .expect("Should be already cached") // Because entered the if is_slot_cached
                 .current_value
         } else {
-            self.db.get_storage_slot(address, key)
+            // If slot is cold (not cached) add 2100 to base_dynamic_gas
+            base_dynamic_gas += U256::from(2100);
+
+            self.get_storage_slot(&address, key).current_value
         };
+
+        self.increase_consumed_gas(current_call_frame, base_dynamic_gas)?;
 
         current_call_frame.stack.push(current_value)?;
         Ok(OpcodeSuccess::Continue)
