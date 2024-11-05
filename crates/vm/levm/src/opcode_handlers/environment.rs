@@ -100,8 +100,6 @@ impl VM {
     ) -> Result<OpcodeSuccess, VMError> {
         self.increase_consumed_gas(current_call_frame, gas_cost::CALLDATALOAD)?;
 
-        println!("calldata: {:?}", current_call_frame.calldata);
-
         let offset: usize = current_call_frame
             .stack
             .pop()?
