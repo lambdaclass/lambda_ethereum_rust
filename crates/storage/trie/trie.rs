@@ -7,6 +7,7 @@ mod node_hash;
 mod rlp;
 mod state;
 mod trie_iter;
+mod proof;
 
 #[cfg(test)]
 mod test_utils;
@@ -162,20 +163,7 @@ impl Trie {
     pub fn compute_hash_from_unsorted_iter(
         iter: impl Iterator<Item = (PathRLP, ValueRLP)>,
     ) -> H256 {
-        // We will only be using the trie's cache so we don't need a working DB
-        struct NullTrieDB;
-
-        impl TrieDB for NullTrieDB {
-            fn get(&self, _key: Vec<u8>) -> Result<Option<Vec<u8>>, TrieError> {
-                Ok(None)
-            }
-
-            fn put(&self, _key: Vec<u8>, _value: Vec<u8>) -> Result<(), TrieError> {
-                Ok(())
-            }
-        }
-
-        let mut trie = Trie::new(Box::new(NullTrieDB));
+        let mut trie = Trie::stateless();
         for (path, value) in iter {
             // Unwraping here won't panic as our in_memory trie DB won't fail
             trie.insert(path, value).unwrap();
@@ -260,6 +248,25 @@ impl Trie {
             }
             Node::Leaf(_) => Ok(vec![]),
         }
+    }
+
+    /// Creates a new stateless trie. This trie won't be able to store any nodes so all data will be lost after calculating the hash
+    /// Only use it for proof verification or computing a hash from an iterator
+    pub(crate) fn stateless() -> Trie {
+        // We will only be using the trie's cache so we don't need a working DB
+        struct NullTrieDB;
+
+        impl TrieDB for NullTrieDB {
+            fn get(&self, _key: Vec<u8>) -> Result<Option<Vec<u8>>, TrieError> {
+                Ok(None)
+            }
+
+            fn put(&self, _key: Vec<u8>, _value: Vec<u8>) -> Result<(), TrieError> {
+                Ok(())
+            }
+        }
+
+        Trie::new(Box::new(NullTrieDB))
     }
 
     #[cfg(all(test, feature = "libmdbx"))]
