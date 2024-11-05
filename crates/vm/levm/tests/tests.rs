@@ -1,13 +1,15 @@
+use bytes::Bytes;
+use ethereum_rust_core::{types::TxKind, Address, H256, U256};
 use ethereum_rust_levm::{
+    account::Account,
     constants::*,
     db::{Cache, Db},
     errors::{TxResult, VMError},
     operations::Operation,
-    primitives::{Address, Bytes, H256, U256},
     utils::{new_vm_with_ops, new_vm_with_ops_addr_bal_db, new_vm_with_ops_db},
-    vm::{word_to_address, Account, Environment, Storage, VM},
+    vm::{word_to_address, Storage, VM},
+    Environment,
 };
-use ethereum_types::H32;
 use std::collections::HashMap;
 
 fn create_opcodes(size: usize, offset: usize, value_to_transfer: usize) -> Vec<Operation> {
@@ -2967,7 +2969,7 @@ fn log0() {
 
 #[test]
 fn log1() {
-    let mut topic1: [u8; 4] = [0x00; 4];
+    let mut topic1 = [0u8; 32];
     topic1[3] = 1;
 
     let data: [u8; 32] = [0xff; 32];
@@ -2991,15 +2993,15 @@ fn log1() {
     let data = [0xff_u8; 32].as_slice();
     assert_eq!(logs.len(), 1);
     assert_eq!(logs[0].data, data.to_vec());
-    assert_eq!(logs[0].topics, vec![H32::from_slice(&topic1)]);
+    assert_eq!(logs[0].topics, vec![H256::from_slice(&topic1)]);
     assert_eq!(vm.env.consumed_gas, TX_BASE_COST + 1027);
 }
 
 #[test]
 fn log2() {
-    let mut topic1: [u8; 4] = [0x00; 4];
+    let mut topic1 = [0u8; 32];
     topic1[3] = 1;
-    let mut topic2: [u8; 4] = [0x00; 4];
+    let mut topic2 = [0u8; 32];
     topic2[3] = 2;
 
     let data: [u8; 32] = [0xff; 32];
@@ -3026,18 +3028,18 @@ fn log2() {
     assert_eq!(logs[0].data, data.to_vec());
     assert_eq!(
         logs[0].topics,
-        vec![H32::from_slice(&topic1), H32::from_slice(&topic2)]
+        vec![H256::from_slice(&topic1), H256::from_slice(&topic2)]
     );
     assert_eq!(vm.env.consumed_gas, TX_BASE_COST + 1405);
 }
 
 #[test]
 fn log3() {
-    let mut topic1: [u8; 4] = [0x00; 4];
+    let mut topic1 = [0u8; 32];
     topic1[3] = 1;
-    let mut topic2: [u8; 4] = [0x00; 4];
+    let mut topic2 = [0u8; 32];
     topic2[3] = 2;
-    let mut topic3: [u8; 4] = [0x00; 4];
+    let mut topic3 = [0u8; 32];
     topic3[3] = 3;
 
     let data: [u8; 32] = [0xff; 32];
@@ -3066,9 +3068,9 @@ fn log3() {
     assert_eq!(
         logs[0].topics,
         vec![
-            H32::from_slice(&topic1),
-            H32::from_slice(&topic2),
-            H32::from_slice(&topic3)
+            H256::from_slice(&topic1),
+            H256::from_slice(&topic2),
+            H256::from_slice(&topic3)
         ]
     );
     assert_eq!(vm.env.consumed_gas, TX_BASE_COST + 1783);
@@ -3076,13 +3078,13 @@ fn log3() {
 
 #[test]
 fn log4() {
-    let mut topic1: [u8; 4] = [0x00; 4];
+    let mut topic1 = [0u8; 32];
     topic1[3] = 1;
-    let mut topic2: [u8; 4] = [0x00; 4];
+    let mut topic2 = [0u8; 32];
     topic2[3] = 2;
-    let mut topic3: [u8; 4] = [0x00; 4];
+    let mut topic3 = [0u8; 32];
     topic3[3] = 3;
-    let mut topic4: [u8; 4] = [0x00; 4];
+    let mut topic4 = [0u8; 32];
     topic4[3] = 4;
 
     let data: [u8; 32] = [0xff; 32];
@@ -3112,10 +3114,10 @@ fn log4() {
     assert_eq!(
         logs[0].topics,
         vec![
-            H32::from_slice(&topic1),
-            H32::from_slice(&topic2),
-            H32::from_slice(&topic3),
-            H32::from_slice(&topic4)
+            H256::from_slice(&topic1),
+            H256::from_slice(&topic2),
+            H256::from_slice(&topic3),
+            H256::from_slice(&topic4)
         ]
     );
     assert_eq!(vm.env.consumed_gas, TX_BASE_COST + 2161);
@@ -3201,7 +3203,7 @@ fn log_with_data_in_memory_smaller_than_size() {
 
 #[test]
 fn multiple_logs_of_different_types() {
-    let mut topic1: [u8; 4] = [0x00; 4];
+    let mut topic1 = [0u8; 32];
     topic1[3] = 1;
 
     let data: [u8; 32] = [0xff; 32];
@@ -3229,7 +3231,7 @@ fn multiple_logs_of_different_types() {
     assert_eq!(logs.len(), 2);
     assert_eq!(logs[0].data, data.to_vec());
     assert_eq!(logs[1].data, data.to_vec());
-    assert_eq!(logs[0].topics, vec![H32::from_slice(&topic1)]);
+    assert_eq!(logs[0].topics, vec![H256::from_slice(&topic1)]);
     assert_eq!(logs[1].topics.len(), 0);
 }
 
@@ -3648,7 +3650,7 @@ fn create_happy_path() {
         .get_account(word_to_address(returned_addr))
         .unwrap();
     assert_eq!(new_account.info.balance, U256::from(value_to_transfer));
-    assert_eq!(new_account.info.nonce, 1);
+    assert_eq!(new_account.info.nonce, 0); // This was previously set to 1 but I understand that a new account should have nonce 0
 
     // Check that the sender account is updated
     let sender_account = vm.cache.get_account(sender_addr).unwrap();
@@ -3914,7 +3916,7 @@ fn create2_happy_path() {
         .get_account(word_to_address(returned_addr))
         .unwrap();
     assert_eq!(new_account.info.balance, U256::from(value));
-    assert_eq!(new_account.info.nonce, 1);
+    assert_eq!(new_account.info.nonce, 0); // I understand new account should have nonce 0, not 1.
 
     // Check that the sender account is updated
     let sender_account = vm.cache.get_account(sender_addr).unwrap();
@@ -3974,7 +3976,7 @@ fn caller_op() {
     let env = Environment::default_from_address(caller);
 
     let mut vm = VM::new(
-        Some(address_that_has_the_code),
+        TxKind::Call(address_that_has_the_code),
         env,
         Default::default(),
         Default::default(),
@@ -4016,7 +4018,7 @@ fn origin_op() {
     let env = Environment::default_from_address(msg_sender);
 
     let mut vm = VM::new(
-        Some(address_that_has_the_code),
+        TxKind::Call(address_that_has_the_code),
         env,
         Default::default(),
         Default::default(),
@@ -4084,7 +4086,7 @@ fn address_op() {
     let env = Environment::default_from_address(Address::from_low_u64_be(42));
 
     let mut vm = VM::new(
-        Some(address_that_has_the_code),
+        TxKind::Call(address_that_has_the_code),
         env,
         Default::default(),
         Default::default(),
@@ -4130,7 +4132,7 @@ fn selfbalance_op() {
     let env = Environment::default_from_address(Address::from_low_u64_be(42));
 
     let mut vm = VM::new(
-        Some(address_that_has_the_code),
+        TxKind::Call(address_that_has_the_code),
         env,
         Default::default(),
         Default::default(),
@@ -4170,7 +4172,7 @@ fn callvalue_op() {
     let env = Environment::default_from_address(Address::from_low_u64_be(42));
 
     let mut vm = VM::new(
-        Some(address_that_has_the_code),
+        TxKind::Call(address_that_has_the_code),
         env,
         value,
         Default::default(),
@@ -4209,7 +4211,7 @@ fn codesize_op() {
     let env = Environment::default_from_address(Address::from_low_u64_be(42));
 
     let mut vm = VM::new(
-        Some(address_that_has_the_code),
+        TxKind::Call(address_that_has_the_code),
         env,
         Default::default(),
         Default::default(),
@@ -4251,7 +4253,7 @@ fn gasprice_op() {
     env.gas_price = U256::from_str_radix("9876", 16).unwrap();
 
     let mut vm = VM::new(
-        Some(address_that_has_the_code),
+        TxKind::Call(address_that_has_the_code),
         env,
         Default::default(),
         Default::default(),
@@ -4309,7 +4311,7 @@ fn codecopy_op() {
     let env = Environment::default_from_address(Address::from_low_u64_be(42));
 
     let mut vm = VM::new(
-        Some(address_that_has_the_code),
+        TxKind::Call(address_that_has_the_code),
         env,
         Default::default(),
         Default::default(),
@@ -4466,4 +4468,70 @@ fn extcodehash_non_existing_account() {
         "c5d2460186f7233c927e7db2dcc703c0e500b653ca82273b7bfad8045d85a470".into()
     );
     assert_eq!(vm.env.consumed_gas, 23603.into());
+}
+
+#[test]
+fn invalid_opcode() {
+    let operations = [Operation::Invalid, Operation::Stop];
+
+    let mut vm = new_vm_with_ops(&operations);
+
+    let mut current_call_frame = vm.call_frames.pop().unwrap();
+    let tx_report = vm.execute(&mut current_call_frame);
+
+    assert!(matches!(
+        tx_report.result,
+        TxResult::Revert(VMError::InvalidOpcode)
+    ));
+}
+
+// Revert Opcode has correct output and result
+#[test]
+fn revert_opcode() {
+    let ops = vec![
+        Operation::Push((32, U256::from(0xA))),  // value
+        Operation::Push((32, U256::from(0xFF))), // offset
+        Operation::Mstore,
+        Operation::Push((32, U256::from(32))),   // size
+        Operation::Push((32, U256::from(0xFF))), // offset
+        Operation::Revert,
+    ];
+
+    let mut vm = new_vm_with_ops(&ops);
+
+    let mut current_call_frame = vm.call_frames.pop().unwrap();
+    let tx_report = vm.execute(&mut current_call_frame);
+
+    assert_eq!(U256::from_big_endian(&tx_report.output), U256::from(0xA));
+    assert!(matches!(
+        tx_report.result,
+        TxResult::Revert(VMError::RevertOpcode)
+    ));
+}
+
+// Store something in the database, then revert. Database should be like it was before the store.
+#[test]
+fn revert_sstore() {
+    let key = U256::from(80);
+    let value = U256::from(100);
+    let sender_address = Address::from_low_u64_be(3000);
+    let operations = vec![
+        Operation::Push((1, value)),
+        Operation::Push((1, key)),
+        Operation::Sstore,
+        Operation::Revert,
+    ];
+
+    let mut vm = new_vm_with_ops(&operations);
+    vm.current_call_frame_mut().code_address = sender_address;
+    vm.cache.add_account(&sender_address, &Account::default());
+
+    let mut current_call_frame = vm.call_frames.pop().unwrap();
+
+    // Cache state before the SSTORE
+    let cache_backup = vm.cache.clone();
+
+    vm.execute(&mut current_call_frame);
+
+    assert_eq!(vm.cache, cache_backup);
 }

@@ -1,15 +1,14 @@
 use crate::{
     rlpx::{
-        eth::{
-            backend,
-            blocks::{BlockBodies, BlockHeaders},
-        },
+        eth::{backend, blocks::BlockHeaders},
         handshake::encode_ack_message,
         message::Message,
         p2p,
         utils::id2pubkey,
     },
-    snap::process_account_range_request,
+    snap::{
+        process_account_range_request, process_byte_codes_request, process_storage_ranges_request,
+    },
     MAX_DISC_PACKET_SIZE,
 };
 
@@ -172,6 +171,15 @@ impl<S: AsyncWrite + AsyncRead + std::marker::Unpin> RLPxConnection<S> {
                                 block_bodies: msg_data.fetch_blocks(&self.storage),
                             };
                             self.send(Message::BlockBodies(response)).await;
+                        }
+                        Message::GetStorageRanges(req) => {
+                            let response =
+                                process_storage_ranges_request(req, self.storage.clone())?;
+                            self.send(Message::StorageRanges(response)).await
+                        }
+                        Message::GetByteCodes(req) => {
+                            let response = process_byte_codes_request(req, self.storage.clone())?;
+                            self.send(Message::ByteCodes(response)).await
                         }
                         // TODO: Add new message types and handlers as they are implemented
                         message => return Err(RLPxError::UnexpectedMessage(message)),

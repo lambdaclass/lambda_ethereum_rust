@@ -1,3 +1,4 @@
+use crate::rlpx::{message::RLPxMessage, utils::snappy_encode};
 use bytes::BufMut;
 use ethereum_rust_core::types::{BlockBody, BlockHash, BlockHeader, BlockNumber};
 use ethereum_rust_rlp::{
@@ -8,8 +9,7 @@ use ethereum_rust_rlp::{
 };
 use ethereum_rust_storage::Store;
 use snap::raw::Decoder as SnappyDecoder;
-
-use crate::rlpx::{message::RLPxMessage, utils::snappy_encode};
+use tracing::error;
 
 pub const HASH_FIRST_BYTE_DECODER: u8 = 160;
 
@@ -63,6 +63,9 @@ pub(crate) struct GetBlockHeaders {
     pub reverse: bool,
 }
 
+// Limit taken from here: https://github.com/ethereum/go-ethereum/blob/20bf543a64d7c2a590b18a1e1d907cae65707013/eth/protocols/eth/handler.go#L40
+pub const BLOCK_HEADER_LIMIT: u64 = 1024;
+
 impl GetBlockHeaders {
     pub fn new(id: u64, startblock: HashOrNumber, limit: u64, skip: u64, reverse: bool) -> Self {
         Self {
@@ -76,34 +79,52 @@ impl GetBlockHeaders {
     pub fn fetch_headers(&self, storage: &Store) -> Vec<BlockHeader> {
         let start_block = match self.startblock {
             // Check we have the given block hash and fetch its number
-            HashOrNumber::Hash(block_hash) => storage.get_block_number(block_hash).ok().flatten(),
+            HashOrNumber::Hash(block_hash) => {
+                // TODO(#1073)
+                // Research what we should do when an error is found in a P2P request.
+                if let Ok(Some(block_number)) = storage.get_block_number(block_hash) {
+                    block_number
+                } else {
+                    error!("Could not fetch block number for hash {block_hash}");
+                    return vec![];
+                }
+            }
             // Don't check if the block number is available
             // because if it it's not, the loop below will
             // break early and return an empty vec.
-            HashOrNumber::Number(block_num) => Some(block_num),
+            HashOrNumber::Number(block_num) => block_num,
         };
 
         let mut headers = vec![];
 
-        if let Some(start_block) = start_block {
-            let mut current_block = start_block as i64;
-            let block_skip = if self.reverse {
-                -((self.skip + 1) as i64)
-            } else {
-                (self.skip + 1) as i64
-            };
-            // Limit taken from here: https://github.com/ethereum/go-ethereum/blob/20bf543a64d7c2a590b18a1e1d907cae65707013/eth/protocols/eth/handler.go#L40
-            let limit = if self.limit > 1024 { 1024 } else { self.limit };
-            for _ in 0..limit {
-                let Some(block_header) = storage
-                    .get_block_header(current_block as u64)
-                    .ok()
-                    .flatten()
-                else {
+        let mut current_block = start_block as i64;
+        let block_skip = if self.reverse {
+            -((self.skip + 1) as i64)
+        } else {
+            (self.skip + 1) as i64
+        };
+        let limit = if self.limit > BLOCK_HEADER_LIMIT {
+            BLOCK_HEADER_LIMIT
+        } else {
+            self.limit
+        };
+        for _ in 0..limit {
+            match storage.get_block_header(current_block as u64) {
+                Ok(Some(block_header)) => {
+                    headers.push(block_header);
+                    current_block += block_skip
+                }
+                Ok(None) => {
                     break;
-                };
-                headers.push(block_header);
-                current_block += block_skip
+                }
+                // TODO(#1073)
+                // Research what we should do when an error is found in a P2P request.
+                Err(err) => {
+                    tracing::error!(
+                        "Error accessing DB while building header response for peer: {err}"
+                    );
+                    return vec![];
+                }
             }
         }
         headers
