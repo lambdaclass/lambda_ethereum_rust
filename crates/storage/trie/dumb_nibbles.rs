@@ -1,3 +1,4 @@
+#[derive(Debug, Clone, Default, PartialEq)]
 pub struct DumbNibbles {
     data: Vec<u8>,
 }
@@ -47,6 +48,22 @@ impl DumbNibbles {
     /// Removes and returns the first nibble
     pub fn next(&mut self) -> Option<u8> {
         (!self.is_empty()).then_some(self.data.remove(0))
+    }
+
+    pub fn offset(&self, offset: usize) -> DumbNibbles {
+        self.slice(offset, self.len())
+    }
+
+    pub fn slice(&self, start: usize, end: usize) -> DumbNibbles {
+        DumbNibbles::from_hex(self.data[start..end].to_vec())
+    }
+
+    pub fn extend(&mut self, other: &DumbNibbles) {
+        self.data.extend_from_slice(other.as_ref());
+    }
+
+    pub fn at(&self, i: usize) -> usize {
+        self.data[i] as usize
     }
 }
 

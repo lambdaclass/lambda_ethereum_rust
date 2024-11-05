@@ -1,3 +1,4 @@
+use crate::dumb_nibbles::DumbNibbles;
 use crate::error::TrieError;
 use crate::nibble::NibbleSlice;
 use crate::nibble::NibbleVec;
@@ -11,13 +12,13 @@ use super::{BranchNode, LeafNode, Node};
 /// Contains the node's prefix and a its child node hash, doesn't store any value
 #[derive(Debug, Clone)]
 pub struct ExtensionNode {
-    pub prefix: NibbleVec,
+    pub prefix: DumbNibbles,
     pub child: NodeHash,
 }
 
 impl ExtensionNode {
     /// Creates a new extension node given its child hash and prefix
-    pub(crate) fn new(prefix: NibbleVec, child: NodeHash) -> Self {
+    pub(crate) fn new(prefix: DumbNibbles, child: NodeHash) -> Self {
         Self { prefix, child }
     }
 

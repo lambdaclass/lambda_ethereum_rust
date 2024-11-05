@@ -1,4 +1,5 @@
 use crate::{
+    dumb_nibbles::DumbNibbles,
     error::TrieError,
     nibble::NibbleSlice,
     node::BranchNode,
@@ -12,19 +13,19 @@ use super::{ExtensionNode, Node};
 /// Contains the node's hash, value & path
 #[derive(Debug, Clone, Default)]
 pub struct LeafNode {
-    pub path: PathRLP,
+    pub partial: DumbNibbles,
     pub value: ValueRLP,
 }
 
 impl LeafNode {
     /// Creates a new leaf node and stores the given (path, value) pair
-    pub fn new(path: PathRLP, value: ValueRLP) -> Self {
-        Self { path, value }
+    pub fn new(partial: DumbNibbles, value: ValueRLP) -> Self {
+        Self { partial, value }
     }
 
     /// Returns the stored value if the given path matches the stored path
-    pub fn get(&self, path: NibbleSlice) -> Result<Option<ValueRLP>, TrieError> {
-        if path.cmp_rest(&self.path) {
+    pub fn get(&self, path: DumbNibbles) -> Result<Option<ValueRLP>, TrieError> {
+        if self.partial == path {
             Ok(Some(self.value.clone()))
         } else {
             Ok(None)
@@ -35,72 +36,53 @@ impl LeafNode {
     pub fn insert(
         mut self,
         state: &mut TrieState,
-        path: NibbleSlice,
+        path: DumbNibbles,
         value: ValueRLP,
     ) -> Result<Node, TrieError> {
         /* Possible flow paths:
-            Leaf { SelfPath, SelfValue } -> Leaf { SelfPath, Value }
-            Leaf { SelfPath, SelfValue } -> Extension { Branch { [Self,...] Path, Value } }
-            Leaf { SelfPath, SelfValue } -> Extension { Branch { [ Leaf { Path, Value } , ... ], SelfPath, SelfValue} }
-            Leaf { SelfPath, SelfValue } -> Branch { [ Leaf { Path, Value }, Self, ... ], None, None}
+            Leaf { SelfValue } -> Leaf { Value }
+            Leaf { SelfValue } -> Extension { Branch { [Self,...] Value } }
+            Leaf { SelfValue } -> Extension { Branch { [ Leaf { Value } , ... ], SelfValue} }
+            Leaf { SelfValue } -> Branch { [ Leaf { Value }, Self, ... ], None, None}
         */
         // If the path matches the stored path, update the value and return self
-        if path.cmp_rest(&self.path) {
+        if self.partial == path {
             self.value = value;
             Ok(self.into())
         } else {
-            let offset = path.count_prefix_slice(&{
-                let mut value_path = NibbleSlice::new(&self.path);
-                value_path.offset_add(path.offset());
-                value_path
-            });
-
-            let mut path_branch = path.clone();
-            path_branch.offset_add(offset);
-
-            let absolute_offset = path_branch.offset();
-            // The offset that will be used when computing the hash of newly created leaf nodes
-            let leaf_offset = absolute_offset + 1;
-            let branch_node = if absolute_offset == 2 * path.as_ref().len() {
-                // Create a branch node with self as a child and store the value in the branch node
-                // Branch { [Self,...] Path, Value }
+            let match_index = path.count_prefix(&self.partial);
+            let branch_node = if self.partial.at(match_index) == 16 {
+                // Create a new leaf node and store the value in it
+                // Create a new branch node with the leaf as a child and store self's value
+                // Branch { [ Leaf { Value } , ... ], SelfValue}
+                let new_leaf = LeafNode::new(path.offset(match_index + 1), value);
                 let mut choices = BranchNode::EMPTY_CHOICES;
-                choices[NibbleSlice::new(self.path.as_ref())
-                    .nth(absolute_offset)
-                    .unwrap() as usize] = self.clone().insert_self(leaf_offset, state)?;
-
-                BranchNode::new_with_value(Box::new(choices), value)
-            } else if absolute_offset == 2 * self.path.len() {
-                // Create a new leaf node and store the path and value in it
-                // Create a new branch node with the leaf as a child and store self's path and value
-                // Branch { [ Leaf { Path, Value } , ... ], SelfPath, SelfValue}
-                let new_leaf = LeafNode::new(path.data(), value);
-                let mut choices = BranchNode::EMPTY_CHOICES;
-                choices[path_branch.next().unwrap() as usize] =
-                    new_leaf.insert_self(leaf_offset, state)?;
-
+                choices[path.at(match_index)] = new_leaf.insert_self(state)?;
                 BranchNode::new_with_value(Box::new(choices), self.value)
+            } else if path.at(match_index) == 16 {
+                // Create a branch node with self as a child and store the value in the branch node
+                // Branch { [Self,...], Value }
+                let mut choices = BranchNode::EMPTY_CHOICES;
+                choices[self.partial.at(match_index)] = self.clone().insert_self(state)?;
+                BranchNode::new_with_value(Box::new(choices), value)
             } else {
                 // Create a new leaf node and store the path and value in it
                 // Create a new branch node with the leaf and self as children
                 // Branch { [ Leaf { Path, Value }, Self, ... ], None, None}
-                let new_leaf = LeafNode::new(path.data(), value);
-                let child_hash = new_leaf.insert_self(leaf_offset, state)?;
+                let new_leaf = LeafNode::new(path.offset(match_index + 1), value);
                 let mut choices = BranchNode::EMPTY_CHOICES;
-                choices[NibbleSlice::new(self.path.as_ref())
-                    .nth(absolute_offset)
-                    .unwrap() as usize] = self.clone().insert_self(leaf_offset, state)?;
-                choices[path_branch.next().unwrap() as usize] = child_hash;
+                choices[path.at(match_index)] = new_leaf.insert_self(state)?;
+                choices[self.partial.at(match_index)] = self.clone().insert_self(state)?;
                 BranchNode::new(Box::new(choices))
             };
 
-            let final_node = if offset != 0 {
+            let final_node = if match_index == 0 {
+                branch_node.into()
+            } else {
                 // Create an extension node with the branch node as child
                 // Extension { BranchNode }
-                let branch_hash = branch_node.insert_self(state)?;
-                ExtensionNode::new(path.split_to_vec(offset), branch_hash).into()
-            } else {
-                branch_node.into()
+                ExtensionNode::new(path.slice(0, match_index), branch_node.insert_self(state)?)
+                    .into()
             };
 
             Ok(final_node)
@@ -144,12 +126,9 @@ impl LeafNode {
 
     /// Inserts the node into the state and returns its hash
     /// Receives the offset that needs to be traversed to reach the leaf node from the canonical root, used to compute the node hash
-    pub fn insert_self(
-        self,
-        path_offset: usize,
-        state: &mut TrieState,
-    ) -> Result<NodeHash, TrieError> {
-        let hash = self.compute_hash(path_offset);
+    pub fn insert_self(self, state: &mut TrieState) -> Result<NodeHash, TrieError> {
+        // TODO: Fix
+        let hash = self.compute_hash(0);
         state.insert_node(self.into(), hash.clone());
         Ok(hash)
     }
