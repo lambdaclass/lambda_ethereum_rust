@@ -29,7 +29,7 @@ impl VM {
             .ok_or(VMError::StackUnderflow)?;
         current_call_frame
             .stack
-            .swap(stack_top_index - 1, to_swap_index - 1);
+            .swap(stack_top_index - 1, to_swap_index - 1)?;
 
         Ok(OpcodeSuccess::Continue)
     }
