@@ -666,6 +666,11 @@ impl VM {
                 .memory
                 .load_range(code_offset_in_memory, code_size_in_memory),
         );
+        let hex_string: String = code.iter()
+        .map(|b| format!("{:02x}", b)) // Formatear cada byte a hexadecimal con dos dígitos
+        .collect::<Vec<String>>() // Recoger los resultados en un Vec de Strings
+        .join(""); // Unirlos en un solo String
+        println!("{}", hex_string); 
 
         let new_address = match salt {
             Some(salt) => {
