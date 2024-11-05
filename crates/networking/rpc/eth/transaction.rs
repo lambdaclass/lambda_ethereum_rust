@@ -541,12 +541,12 @@ fn simulate_tx(
         &mut evm_state(storage, block_header.compute_block_hash()),
         spec_id,
     )? {
-        // ExecutionResult::Revert {
-        //     gas_used: _,
-        //     output,
-        // } => Err(RpcErr::Revert {
-        //     data: format!("0x{:#x}", output),
-        // }),
+        ExecutionResult::Revert {
+            gas_used: _,
+            output,
+        } => Err(RpcErr::Revert {
+            data: format!("0x{:#x}", output),
+        }),
         ExecutionResult::Halt { reason, gas_used } => Err(RpcErr::Halt { reason, gas_used }),
         success => Ok(success),
     }
