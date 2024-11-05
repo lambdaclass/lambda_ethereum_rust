@@ -11,7 +11,7 @@ use crate::error::TrieError;
 use super::{nibble::NibbleSlice, node_hash::NodeHash, state::TrieState, ValueRLP};
 
 /// A Node in an Ethereum Compatible Patricia Merkle Trie
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum Node {
     Branch(BranchNode),
     Extension(ExtensionNode),

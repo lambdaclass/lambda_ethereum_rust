@@ -9,7 +9,7 @@ use super::{BranchNode, LeafNode, Node};
 
 /// Extension Node of an an Ethereum Compatible Patricia Merkle Trie
 /// Contains the node's prefix and a its child node hash, doesn't store any value
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct ExtensionNode {
     pub prefix: NibbleVec,
     pub child: NodeHash,

@@ -1,8 +1,11 @@
-use ethereum_rust_rlp::{decode::RLPDecode, encode::RLPEncode};
+use ethereum_rust_rlp::{decode::{self, RLPDecode}, encode::RLPEncode, error::RLPDecodeError};
 use ethereum_types::H256;
+use hex::decode;
 #[cfg(feature = "libmdbx")]
 use libmdbx::orm::{Decodable, Encodable};
 use sha3::{Digest, Keccak256};
+
+use crate::node::{LeafNode, Node};
 
 use super::nibble::{NibbleSlice, NibbleVec};
 
@@ -257,5 +260,57 @@ impl NodeEncoder {
 
     pub fn finalize(self) -> Vec<u8> {
         self.encoded
+    }
+}
+
+pub fn decode_raw(encoded_node: Vec<u8>) -> Result<Node, RLPDecodeError> {
+    // Decode List
+    if let Ok((true, list, &[])) = decode::decode_rlp_item(&encoded_node) {
+        // Decode inner values
+        // Try to decode as leaf/extension
+        if let (false, path_slice, rest) = decode::decode_rlp_item(&list)? {
+            // Check the path slice
+            match path_slice.first() {
+                // Extension
+                Some(0x00) => todo!(),
+                // Leaf Node 
+                Some(_) => {
+                    let (value, _) = decode::decode_bytes(rest)?;
+                    Ok(LeafNode {
+                        path: path_slice[1..].to_vec(),
+                        value: value.to_vec(),
+                    }.into())
+                },
+                // Branch?
+                _ => todo!(),
+            }
+        } else {
+            todo!()
+        }
+    } else {
+        todo!()
+    }
+    }
+
+#[cfg(test)]
+mod tests {
+    use crate::node::LeafNode;
+
+    use super::*;
+
+    #[test]
+    fn decode_raw_leaf() {
+        let leaf_node = LeafNode::new([6;32].to_vec(), [7;32].to_vec());
+        let encoded_leaf_node = leaf_node.encode_raw(0);
+        let decoded_leaf_node = decode_raw(encoded_leaf_node).unwrap();
+        assert_eq!(Into::<Node>::into(leaf_node), decoded_leaf_node);
+    }
+
+    #[test]
+    fn decode_raw_leaf_with_offset() {
+        let leaf_node = LeafNode::new([6;32].to_vec(), [7;32].to_vec());
+        let encoded_leaf_node = leaf_node.encode_raw(7);
+        let decoded_leaf_node = decode_raw(encoded_leaf_node).unwrap();
+        assert_eq!(Into::<Node>::into(leaf_node), decoded_leaf_node);
     }
 }

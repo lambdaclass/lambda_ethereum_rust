@@ -10,7 +10,7 @@ use super::{ExtensionNode, LeafNode, Node};
 
 /// Branch Node of an an Ethereum Compatible Patricia Merkle Trie
 /// Contains the node's hash, value, path, and the hash of its children nodes
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct BranchNode {
     // TODO: check if switching to hashmap is a better solution
     pub choices: Box<[NodeHash; 16]>,

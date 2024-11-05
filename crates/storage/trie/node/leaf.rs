@@ -10,7 +10,7 @@ use crate::{
 use super::{ExtensionNode, Node};
 /// Leaf Node of an an Ethereum Compatible Patricia Merkle Trie
 /// Contains the node's hash, value & path
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Clone, Default, PartialEq)]
 pub struct LeafNode {
     pub path: PathRLP,
     pub value: ValueRLP,
