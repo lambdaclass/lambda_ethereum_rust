@@ -1,6 +1,13 @@
-use crate::{constants::WORD_SIZE, vm::StorageSlot};
-
-use super::*;
+use crate::{
+    account::StorageSlot,
+    call_frame::CallFrame,
+    constants::{
+        call_opcode::WARM_ADDRESS_ACCESS_COST, gas_cost, COLD_STORAGE_ACCESS_COST, WORD_SIZE,
+    },
+    errors::{OpcodeSuccess, VMError},
+    vm::VM,
+};
+use ethereum_rust_core::{H256, U256};
 
 // Stack, Memory, Storage and Flow Operations (15)
 // Opcodes: POP, MLOAD, MSTORE, MSTORE8, SLOAD, SSTORE, JUMP, JUMPI, PC, MSIZE, GAS, JUMPDEST, TLOAD, TSTORE, MCOPY
@@ -115,26 +122,44 @@ impl VM {
     }
 
     // SLOAD operation
+    // TODO: Add tests about gas usage
     pub fn op_sload(
         &mut self,
         current_call_frame: &mut CallFrame,
     ) -> Result<OpcodeSuccess, VMError> {
         let key = current_call_frame.stack.pop()?;
-        let address = current_call_frame
-            .delegate
-            .unwrap_or(current_call_frame.code_address);
-        let current_value = self
-            .db
-            .read_account_storage(&address, &key)
-            .unwrap_or_default()
-            .current_value;
+
+        let address = current_call_frame.to;
+
+        let mut bytes = [0u8; 32];
+        key.to_big_endian(&mut bytes);
+        let key = H256::from(bytes);
+
+        let mut base_dynamic_gas: U256 = U256::zero();
+
+        let current_value = if self.cache.is_slot_cached(&address, key) {
+            // If slot is warm (cached) add 100 to base_dynamic_gas
+            base_dynamic_gas += WARM_ADDRESS_ACCESS_COST;
+
+            self.cache
+                .get_storage_slot(address, key)
+                .expect("Should be already cached") // Because entered the if is_slot_cached
+                .current_value
+        } else {
+            // If slot is cold (not cached) add 2100 to base_dynamic_gas
+            base_dynamic_gas += COLD_STORAGE_ACCESS_COST;
+
+            self.get_storage_slot(&address, key).current_value
+        };
+
+        self.increase_consumed_gas(current_call_frame, base_dynamic_gas)?;
 
         current_call_frame.stack.push(current_value)?;
-
         Ok(OpcodeSuccess::Continue)
     }
 
     // SSTORE operation
+    // TODO: add gas consumption
     pub fn op_sstore(
         &mut self,
         current_call_frame: &mut CallFrame,
@@ -145,23 +170,29 @@ impl VM {
 
         let key = current_call_frame.stack.pop()?;
         let value = current_call_frame.stack.pop()?;
-        let address = current_call_frame
-            .delegate
-            .unwrap_or(current_call_frame.code_address);
 
-        let slot = self.db.read_account_storage(&address, &key);
-        let (original_value, _) = match slot {
-            Some(slot) => (slot.original_value, slot.current_value),
-            None => (value, value),
+        let mut bytes = [0u8; 32];
+        key.to_big_endian(&mut bytes);
+        let key = H256::from(bytes);
+
+        let address = current_call_frame.to;
+
+        let original_value = if self.cache.is_slot_cached(&address, key) {
+            self.cache
+                .get_storage_slot(address, key)
+                .expect("Storage slot should have been cached")
+                .original_value
+        } else {
+            self.cache_from_db(&address);
+            self.db.get_storage_slot(address, key)
         };
 
-        self.db.write_account_storage(
+        self.cache.write_account_storage(
             &address,
             key,
             StorageSlot {
                 original_value,
                 current_value: value,
-                is_cold: false,
             },
         );
 

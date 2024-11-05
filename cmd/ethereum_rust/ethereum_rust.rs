@@ -1,6 +1,7 @@
 use bytes::Bytes;
 use directories::ProjectDirs;
 use ethereum_rust_blockchain::add_block;
+use ethereum_rust_blockchain::fork_choice::apply_fork_choice;
 use ethereum_rust_core::types::{Block, Genesis};
 use ethereum_rust_core::H256;
 use ethereum_rust_net::bootnode::BootNode;
@@ -19,7 +20,7 @@ use std::{
     net::{Ipv4Addr, SocketAddr, ToSocketAddrs},
 };
 use tokio_util::task::TaskTracker;
-use tracing::{info, warn};
+use tracing::{error, info, warn};
 use tracing_subscriber::filter::Directive;
 use tracing_subscriber::{EnvFilter, FmtSubscriber};
 mod cli;
@@ -123,18 +124,37 @@ async fn main() {
     if let Some(chain_rlp_path) = matches.get_one::<String>("import") {
         let blocks = read_chain_file(chain_rlp_path);
         let size = blocks.len();
-        for block in blocks {
-            let hash = block.header.compute_block_hash();
+        for block in &blocks {
+            let hash = block.hash();
             info!(
                 "Adding block {} with hash {:#x}.",
                 block.header.number, hash
             );
-            if add_block(&block, &store).is_err() {
+            let result = add_block(block, &store);
+            if let Some(error) = result.err() {
                 warn!(
-                    "Failed to add block {} with hash {:#x}.",
-                    block.header.number, hash
+                    "Failed to add block {} with hash {:#x}: {}.",
+                    block.header.number, hash, error
                 );
             }
+            if store
+                .update_latest_block_number(block.header.number)
+                .is_err()
+            {
+                error!("Fatal: added block {} but could not update the block number -- aborting block import", block.header.number);
+                break;
+            };
+            if store
+                .set_canonical_block(block.header.number, hash)
+                .is_err()
+            {
+                error!("Fatal: added block {} but could not set it as canonical -- aborting block import", block.header.number);
+                break;
+            };
+        }
+        if let Some(last_block) = blocks.last() {
+            let hash = last_block.hash();
+            apply_fork_choice(&store, hash, hash, hash).unwrap();
         }
         info!("Added {} blocks to blockchain", size);
     }

@@ -54,14 +54,6 @@ pub fn add_transaction(transaction: Transaction, store: Store) -> Result<H256, M
     Ok(hash)
 }
 
-/// Fetch a transaction from the mempool
-pub fn get_transaction(
-    hash: H256,
-    store: Store,
-) -> Result<Option<MempoolTransaction>, MempoolError> {
-    Ok(store.get_transaction_from_pool(hash)?)
-}
-
 /// Fetch a blobs bundle from the mempool given its blob transaction hash
 pub fn get_blobs_bundle(tx_hash: H256, store: Store) -> Result<Option<BlobsBundle>, MempoolError> {
     Ok(store.get_blobs_bundle_from_pool(tx_hash)?)
@@ -79,6 +71,7 @@ pub fn filter_transactions(
         if filter.only_plain_txs && is_blob_tx || filter.only_blob_txs && !is_blob_tx {
             return false;
         }
+
         // Filter by tip & base_fee
         if let Some(min_tip) = filter.min_tip {
             if !tx
@@ -87,7 +80,13 @@ pub fn filter_transactions(
             {
                 return false;
             }
+        // This is a temporary fix to avoid invalid transactions to be included.
+        // This should be removed once https://github.com/lambdaclass/ethereum_rust/issues/680
+        // is addressed.
+        } else if tx.effective_gas_tip(filter.base_fee).is_none() {
+            return false;
         }
+
         // Filter by blob gas fee
         if let (true, Some(blob_fee)) = (is_blob_tx, filter.blob_fee) {
             if !tx.max_fee_per_blob_gas().is_some_and(|fee| fee >= blob_fee) {
@@ -100,7 +99,7 @@ pub fn filter_transactions(
 }
 
 /// Remove a transaction from the mempool
-pub fn remove_transaction(hash: H256, store: &Store) -> Result<(), StoreError> {
+pub fn remove_transaction(hash: &H256, store: &Store) -> Result<(), StoreError> {
     store.remove_transaction_from_pool(hash)
 }
 
@@ -276,9 +275,7 @@ mod tests {
         TX_DATA_ZERO_GAS_COST, TX_GAS_COST, TX_INIT_CODE_WORD_GAS_COST,
     };
 
-    use super::{
-        add_transaction, get_transaction, transaction_intrinsic_gas, validate_transaction,
-    };
+    use super::{transaction_intrinsic_gas, validate_transaction};
     use ethereum_rust_core::types::{
         BlockHeader, ChainConfig, EIP1559Transaction, EIP4844Transaction, Transaction, TxKind,
     };
@@ -296,16 +293,6 @@ mod tests {
         store.set_chain_config(&config)?;
 
         Ok(store)
-    }
-
-    fn tx_equal(t1: &Transaction, t2: &Transaction) -> bool {
-        t1.nonce() == t2.nonce()
-            && t1.max_priority_fee().unwrap_or_default()
-                == t2.max_priority_fee().unwrap_or_default()
-            && t1.max_fee_per_gas().unwrap_or_default() == t2.max_fee_per_gas().unwrap_or_default()
-            && t1.gas_limit() == t2.gas_limit()
-            && t1.value() == t2.value()
-            && *t1.data() == *t2.data()
     }
 
     fn build_basic_config_and_header(
@@ -327,43 +314,6 @@ mod tests {
         };
 
         (config, header)
-    }
-
-    #[test]
-    fn store_and_fetch_transaction_happy_path() {
-        let config = ChainConfig {
-            shanghai_time: Some(10),
-            ..Default::default()
-        };
-
-        let header = BlockHeader {
-            number: 123,
-            gas_limit: 30_000_000,
-            gas_used: 0,
-            timestamp: 20,
-            ..Default::default()
-        };
-
-        let store = setup_storage(config, header).expect("Setup failed: ");
-
-        let tx = EIP1559Transaction {
-            nonce: 3,
-            max_priority_fee_per_gas: 0,
-            max_fee_per_gas: 0,
-            gas_limit: 100_000,
-            to: TxKind::Call(Address::from_low_u64_be(1)),
-            value: U256::zero(),
-            data: Bytes::default(),
-            access_list: Default::default(),
-            ..Default::default()
-        };
-
-        let tx = Transaction::EIP1559Transaction(tx);
-        let hash = add_transaction(tx.clone(), store.clone()).expect("Add transaction");
-        let ret_tx = get_transaction(hash, store).expect("Get transaction");
-        assert!(ret_tx.is_some());
-        let ret_tx = ret_tx.unwrap();
-        assert!(tx_equal(&tx, &ret_tx))
     }
 
     #[test]

@@ -1,8 +1,14 @@
-use super::*;
 use crate::{
-    constants::{call_opcode, WORD_SIZE},
-    vm::word_to_address,
+    call_frame::CallFrame,
+    constants::{
+        call_opcode::{COLD_ADDRESS_ACCESS_COST, WARM_ADDRESS_ACCESS_COST},
+        gas_cost, WORD_SIZE,
+    },
+    errors::{OpcodeSuccess, VMError},
+    vm::{word_to_address, VM},
 };
+use bytes::Bytes;
+use ethereum_rust_core::U256;
 use sha3::{Digest, Keccak256};
 
 // Environmental Information (16)
@@ -16,11 +22,7 @@ impl VM {
     ) -> Result<OpcodeSuccess, VMError> {
         self.increase_consumed_gas(current_call_frame, gas_cost::ADDRESS)?;
 
-        let addr = if current_call_frame.delegate.is_some() {
-            current_call_frame.msg_sender
-        } else {
-            current_call_frame.code_address
-        };
+        let addr = current_call_frame.to; // The recipient of the current call.
 
         current_call_frame.stack.push(U256::from(addr.as_bytes()))?;
 
@@ -32,13 +34,18 @@ impl VM {
         &mut self,
         current_call_frame: &mut CallFrame,
     ) -> Result<OpcodeSuccess, VMError> {
-        self.increase_consumed_gas(current_call_frame, gas_cost::BALANCE)?;
+        let address = &word_to_address(current_call_frame.stack.pop()?);
 
-        let addr = current_call_frame.stack.pop()?;
+        if self.cache.is_account_cached(address) {
+            self.increase_consumed_gas(current_call_frame, WARM_ADDRESS_ACCESS_COST)?;
+        } else {
+            self.increase_consumed_gas(current_call_frame, COLD_ADDRESS_ACCESS_COST)?;
+            self.cache_from_db(address);
+        };
 
-        let balance = self.db.balance(&word_to_address(addr));
+        let balance = self.cache.get_account(*address).unwrap().info.balance;
+
         current_call_frame.stack.push(balance)?;
-
         Ok(OpcodeSuccess::Continue)
     }
 
@@ -237,17 +244,23 @@ impl VM {
         current_call_frame: &mut CallFrame,
     ) -> Result<OpcodeSuccess, VMError> {
         let address = word_to_address(current_call_frame.stack.pop()?);
-        let gas_cost = if self.accrued_substate.warm_addresses.contains(&address) {
-            call_opcode::WARM_ADDRESS_ACCESS_COST
+
+        if self.cache.is_account_cached(&address) {
+            self.increase_consumed_gas(current_call_frame, WARM_ADDRESS_ACCESS_COST)?;
         } else {
-            call_opcode::COLD_ADDRESS_ACCESS_COST
+            self.increase_consumed_gas(current_call_frame, COLD_ADDRESS_ACCESS_COST)?;
+            self.cache_from_db(&address);
         };
 
-        self.increase_consumed_gas(current_call_frame, gas_cost)?;
+        let bytecode = self
+            .cache
+            .get_account(address)
+            .unwrap()
+            .info
+            .bytecode
+            .clone();
 
-        let code_size = self.db.get_account_bytecode(&address).len();
-        current_call_frame.stack.push(code_size.into())?;
-
+        current_call_frame.stack.push(bytecode.len().into())?;
         Ok(OpcodeSuccess::Continue)
     }
 
@@ -277,26 +290,32 @@ impl VM {
         let memory_expansion_cost = current_call_frame
             .memory
             .expansion_cost(dest_offset + size)?;
-        let address_access_cost = if self.accrued_substate.warm_addresses.contains(&address) {
-            call_opcode::WARM_ADDRESS_ACCESS_COST
+        let gas_cost =
+            gas_cost::EXTCODECOPY_DYNAMIC_BASE * minimum_word_size + memory_expansion_cost;
+
+        if self.cache.is_account_cached(&address) {
+            self.increase_consumed_gas(current_call_frame, gas_cost + WARM_ADDRESS_ACCESS_COST)?;
         } else {
-            call_opcode::COLD_ADDRESS_ACCESS_COST
+            self.increase_consumed_gas(current_call_frame, gas_cost + COLD_ADDRESS_ACCESS_COST)?;
+            self.cache_from_db(&address);
         };
-        let gas_cost = gas_cost::EXTCODECOPY_DYNAMIC_BASE * minimum_word_size
-            + memory_expansion_cost
-            + address_access_cost;
 
-        self.increase_consumed_gas(current_call_frame, gas_cost)?;
+        let mut bytecode = self
+            .cache
+            .get_account(address)
+            .unwrap()
+            .info
+            .bytecode
+            .clone();
 
-        let mut code = self.db.get_account_bytecode(&address);
-        if code.len() < offset + size {
-            let mut extended_code = code.to_vec();
+        if bytecode.len() < offset + size {
+            let mut extended_code = bytecode.to_vec();
             extended_code.resize(offset + size, 0);
-            code = Bytes::from(extended_code);
+            bytecode = Bytes::from(extended_code);
         }
         current_call_frame
             .memory
-            .store_bytes(dest_offset, &code[offset..offset + size]);
+            .store_bytes(dest_offset, &bytecode[offset..offset + size]);
 
         Ok(OpcodeSuccess::Continue)
     }
@@ -364,17 +383,24 @@ impl VM {
         current_call_frame: &mut CallFrame,
     ) -> Result<OpcodeSuccess, VMError> {
         let address = word_to_address(current_call_frame.stack.pop()?);
-        let gas_cost = if self.accrued_substate.warm_addresses.contains(&address) {
-            call_opcode::WARM_ADDRESS_ACCESS_COST
+
+        if self.cache.is_account_cached(&address) {
+            self.increase_consumed_gas(current_call_frame, WARM_ADDRESS_ACCESS_COST)?;
         } else {
-            call_opcode::COLD_ADDRESS_ACCESS_COST
+            self.increase_consumed_gas(current_call_frame, COLD_ADDRESS_ACCESS_COST)?;
+            self.cache_from_db(&address);
         };
 
-        self.increase_consumed_gas(current_call_frame, gas_cost)?;
+        let bytecode = self
+            .cache
+            .get_account(address)
+            .unwrap()
+            .info
+            .bytecode
+            .clone();
 
-        let code = self.db.get_account_bytecode(&address);
         let mut hasher = Keccak256::new();
-        hasher.update(code);
+        hasher.update(bytecode);
         let result = hasher.finalize();
         current_call_frame
             .stack

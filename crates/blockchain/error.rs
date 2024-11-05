@@ -1,10 +1,8 @@
-use thiserror::Error;
-
 use ethereum_rust_core::types::InvalidBlockHeaderError;
 use ethereum_rust_storage::error::StoreError;
 use ethereum_rust_vm::EvmError;
 
-#[derive(Debug, Error)]
+#[derive(Debug, thiserror::Error)]
 pub enum ChainError {
     #[error("Invalid Block: {0}")]
     InvalidBlock(#[from] InvalidBlockError),
@@ -12,15 +10,15 @@ pub enum ChainError {
     ParentNotFound,
     //TODO: If a block with block_number greater than latest plus one is received
     //maybe we are missing data and should wait for syncing
-    #[error("Block number is not child of a canonical block.")]
-    NonCanonicalParent,
+    #[error("The post-state of the parent-block.")]
+    ParentStateNotFound,
     #[error("DB error: {0}")]
     StoreError(#[from] StoreError),
     #[error("EVM error: {0}")]
     EvmError(#[from] EvmError),
 }
 
-#[derive(Debug, Error)]
+#[derive(Debug, thiserror::Error)]
 pub enum InvalidBlockError {
     #[error("World State Root does not match the one in the header after executing")]
     StateRootMismatch,
@@ -34,9 +32,11 @@ pub enum InvalidBlockError {
     GasUsedMismatch,
     #[error("Blob gas used doesn't match value in header")]
     BlobGasUsedMismatch,
+    #[error("Invalid transaction: {0}")]
+    InvalidTransaction(String),
 }
 
-#[derive(Debug, Error)]
+#[derive(Debug, thiserror::Error)]
 pub enum MempoolError {
     #[error("No block header")]
     NoBlockHeaderError,
@@ -67,7 +67,7 @@ pub enum ForkChoiceElement {
     Finalized,
 }
 
-#[derive(Debug, Error)]
+#[derive(Debug, thiserror::Error)]
 pub enum InvalidForkChoice {
     #[error("DB error: {0}")]
     StoreError(#[from] StoreError),
@@ -85,4 +85,6 @@ pub enum InvalidForkChoice {
     Unordered,
     #[error("The following blocks are not connected between each other: {:?}, {:?}", ._0, ._1)]
     Disconnected(ForkChoiceElement, ForkChoiceElement),
+    #[error("Requested head is an invalid block.")]
+    InvalidHead,
 }
