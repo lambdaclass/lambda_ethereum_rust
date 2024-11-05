@@ -19,16 +19,22 @@ use ethereum_rust_storage::Store;
 use ethereum_rust_vm::{evm_state, execute_block, get_state_transitions};
 use ethereum_types::{Address, H256, U256};
 use keccak_hash::keccak;
-use lambdaworks_crypto::commitments::kzg::StructuredReferenceString;
+use lambdaworks_crypto::commitments::{
+    kzg::{KateZaveruchaGoldberg, StructuredReferenceString},
+    traits::IsCommitmentScheme,
+};
 use lambdaworks_math::{
     elliptic_curve::short_weierstrass::{
         curves::bls12_381::{
-            curve::BLS12381Curve, default_types::FrElement, twist::BLS12381TwistCurve,
+            curve::BLS12381Curve,
+            default_types::{FrElement, FrField},
+            pairing::BLS12381AtePairing,
+            twist::BLS12381TwistCurve,
         },
         point::ShortWeierstrassProjectivePoint,
         traits::Compress,
     },
-    msm::pippenger::msm,
+    polynomial::Polynomial,
     traits::ByteConversion,
 };
 use libsecp256k1::SecretKey;
@@ -186,7 +192,7 @@ impl Proposer {
             let state_diff =
                 self.prepare_state_diff(&block, store.clone(), withdrawals, deposits)?;
 
-            let blob_commitment = self.prepare_blob_commitment(state_diff.clone())?;
+            let (blob_commitment, blob_proof) = self.prepare_blob_commitment(state_diff.clone())?;
 
             match self
                 .send_commitment(
@@ -194,6 +200,7 @@ impl Proposer {
                     withdrawal_logs_merkle_root,
                     deposit_logs_hash,
                     blob_commitment,
+                    blob_proof,
                     state_diff.encode()?,
                 )
                 .await
@@ -430,41 +437,37 @@ impl Proposer {
     pub fn prepare_blob_commitment(
         &self,
         state_diff: StateDiff,
-    ) -> Result<[u8; 48], ProposerError> {
+    ) -> Result<([u8; 48], [u8; 48]), ProposerError> {
         let blob_data = state_diff.encode().map_err(ProposerError::from)?;
 
         let mut field_elements = vec![];
-        blob_data
-            .chunks(32)
-            .try_for_each::<_, Result<(), ProposerError>>(|chunk| {
-                let x = if chunk.len() < 32 {
-                    let mut padded = [0u8; 32];
-                    padded[..chunk.len()].copy_from_slice(chunk);
-                    &padded.clone()
-                } else {
-                    chunk
-                };
-                field_elements.push(
-                    FrElement::from_bytes_be(x)
-                        .map_err(ProposerError::from)?
-                        .representative(),
-                );
-                Ok(())
-            })?;
+        for chunk in blob_data.chunks(32) {
+            let x = if chunk.len() < 32 {
+                let mut padded = [0u8; 32];
+                padded[..chunk.len()].copy_from_slice(chunk);
+                &padded.clone()
+            } else {
+                chunk
+            };
+            field_elements.push(FrElement::from_bytes_be(x).map_err(ProposerError::from)?);
+        }
 
         if field_elements.len() > 4096 {
             return Err(ProposerError::BlobTooLong);
         }
 
-        let commitment = BLS12381Curve::compress_g1_point(
-            &msm(
-                field_elements.iter().as_slice(),
-                &self.srs.powers_main_group[..field_elements.len()],
-            )?
-            .to_affine(),
-        );
+        let kzg: KateZaveruchaGoldberg<FrField, BLS12381AtePairing> =
+            KateZaveruchaGoldberg::new(self.srs.clone());
+        let pol = Polynomial::new(field_elements.as_slice());
+        let commitment = kzg.commit(&pol);
+        let x = -FrElement::one();
+        let y = pol.evaluate(&x);
+        let proof = &kzg.open(&x, &y, &pol);
 
-        Ok(commitment)
+        Ok((
+            BLS12381Curve::compress_g1_point(&commitment.to_affine()),
+            BLS12381Curve::compress_g1_point(&proof.to_affine()),
+        ))
     }
 
     pub async fn send_commitment(
@@ -473,6 +476,7 @@ impl Proposer {
         withdrawal_logs_merkle_root: H256,
         deposit_logs_hash: H256,
         commitment: [u8; 48],
+        proof: [u8; 48],
         blob: Bytes,
     ) -> Result<H256, ProposerError> {
         info!("Sending commitment for block {block_number}");
@@ -519,7 +523,7 @@ impl Proposer {
             blobs_bundle: BlobsBundle {
                 blobs: vec![buf],
                 commitments: vec![commitment],
-                proofs: vec![commitment],
+                proofs: vec![proof],
             },
         };
 
