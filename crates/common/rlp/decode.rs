@@ -336,13 +336,9 @@ impl<T1: RLPDecode, T2: RLPDecode, T3: RLPDecode> RLPDecode for (T1, T2, T3) {
     }
 }
 
-impl<
-        T1: RLPDecode + std::fmt::Debug,
-        T2: RLPDecode + std::fmt::Debug,
-        T3: RLPDecode + std::fmt::Debug,
-        T4: RLPDecode + std::fmt::Debug,
-    > RLPDecode for (T1, T2, T3, T4)
-{
+// This implementation is useful when the message is a list with elements of mixed types
+// for example, the P2P message 'GetBlockHeaders', mixes hashes and numbers.
+impl<T1: RLPDecode, T2: RLPDecode, T3: RLPDecode, T4: RLPDecode> RLPDecode for (T1, T2, T3, T4) {
     fn decode_unfinished(rlp: &[u8]) -> Result<(Self, &[u8]), RLPDecodeError> {
         if rlp.is_empty() {
             return Err(RLPDecodeError::InvalidLength);
