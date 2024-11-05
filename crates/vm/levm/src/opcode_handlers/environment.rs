@@ -111,15 +111,15 @@ impl VM {
         // This check is because if offset is larger than the calldata then we should push 0 to the stack.
         let result = if offset < current_call_frame.calldata.len() {
             // Read calldata from offset to the end
-            let data = current_call_frame.calldata.slice(offset..);
+            let calldata = current_call_frame.calldata.slice(offset..);
 
             // Get the 32 bytes from the data slice, padding with 0 if fewer than 32 bytes are available
-            let mut final_data = [0u8; 32];
-            for (i, byte) in data.iter().take(32).enumerate() {
-                final_data[i] = *byte;
+            let mut padded_calldata = [0u8; 32];
+            for (i, byte) in calldata.iter().take(32).enumerate() {
+                padded_calldata[i] = *byte;
             }
 
-            U256::from_big_endian(&final_data)
+            U256::from_big_endian(&padded_calldata)
         } else {
             U256::zero()
         };
