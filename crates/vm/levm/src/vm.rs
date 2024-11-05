@@ -448,10 +448,12 @@ impl VM {
             self.cache.add_account(&contract_address, &created_contract);
         }
 
-        let sender_account = self.get_account(&sender);
+        let mut sender_account = self.get_account(&sender);
         let coinbase_address = self.env.coinbase;
 
         sender_account
+            .info
+            .balance = sender_account
             .info
             .balance
             .checked_sub(U256::from(report.gas_used) * self.env.gas_price)
