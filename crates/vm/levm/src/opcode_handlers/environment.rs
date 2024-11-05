@@ -113,9 +113,9 @@ impl VM {
 
             // Get the 32 bytes from the data slice, padding with 0 if fewer than 32 bytes are available
             let mut padded_calldata = [0u8; 32];
-            for (i, byte) in calldata.iter().take(32).enumerate() {
-                padded_calldata[i] = *byte;
-            }
+            let data_len_to_copy = calldata.len().min(32);
+
+            padded_calldata[..data_len_to_copy].copy_from_slice(&calldata[..data_len_to_copy]);
 
             U256::from_big_endian(&padded_calldata)
         } else {
