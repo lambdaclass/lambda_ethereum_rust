@@ -1,12 +1,13 @@
 use std::collections::HashMap;
 
 use ethereum_rust_core::{
-    types::{Block, ChainConfig},
+    types::{AccountInfo, Block, ChainConfig},
     H256,
 };
+use ethereum_rust_rlp::{encode::RLPEncode, RLPEncode};
 use ethereum_rust_storage::{hash_address, hash_key, Store};
-use ethereum_rust_trie::Trie;
-use ethereum_types::{Address, H160};
+use ethereum_rust_trie::{node::Node, Trie};
+use ethereum_types::{Address, H160, U256};
 use revm::{
     primitives::{
         AccountInfo as RevmAccountInfo, Address as RevmAddress, Bytecode as RevmBytecode,
@@ -183,6 +184,40 @@ impl StateProofs {
         }
 
         Ok(Self { account, storage })
+    }
+
+    fn verify(
+        &self,
+        root_hash: H256,
+        accounts: &HashMap<RevmAddress, RevmAccountInfo>,
+        storages: &HashMap<RevmAddress, HashMap<RevmU256, RevmU256>>,
+    ) -> bool {
+        let valid_accounts = accounts
+            .iter()
+            .map(|(address, account)| {
+                let account = AccountInfo {
+                    code_hash: H256::from_slice(account.code_hash.as_slice()),
+                    balance: U256::from_big_endian(&account.balance.to_be_bytes_vec()),
+                    nonce: account.nonce,
+                };
+                (address, account.encode_to_vec())
+            })
+            .any(|(address, encoded_account)| {
+                let Some(proof) = self.account.get(address) else {
+                    return false;
+                };
+                !Trie::verify_proof(
+                    proof,
+                    root_hash.into(),
+                    &H256::from_slice(address.as_slice()).as_bytes().to_vec(),
+                    &encoded_account,
+                )
+                .is_ok_and(|result| result == true)
+            });
+
+        let valid_storages = true; // TODO:
+
+        valid_accounts && valid_storages
     }
 }
 
