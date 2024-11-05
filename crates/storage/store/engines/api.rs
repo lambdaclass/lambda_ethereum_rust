@@ -2,7 +2,7 @@ use bytes::Bytes;
 use ethereum_rust_core::types::{
     Block, BlockBody, BlockHash, BlockHeader, BlockNumber, ChainConfig, Index, Receipt, Transaction,
 };
-use ethereum_types::{Address, H256, U256};
+use ethereum_types::{H256, U256};
 use std::{fmt::Debug, panic::RefUnwindSafe};
 
 use crate::error::StoreError;
