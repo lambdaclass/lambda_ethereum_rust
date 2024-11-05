@@ -43,6 +43,11 @@ impl DumbNibbles {
             .take_while(|(a, b)| a == b)
             .count()
     }
+
+    /// Removes and returns the first nibble
+    pub fn next(&mut self) -> Option<u8> {
+        (!self.is_empty()).then_some(self.data.remove(0))
+    }
 }
 
 impl AsRef<[u8]> for DumbNibbles {
