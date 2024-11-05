@@ -1,5 +1,5 @@
 use ethereum_rust_blockchain::constants::MIN_GAS_LIMIT;
-use tracing::error;
+use tracing::{error, warn};
 
 use crate::utils::RpcErr;
 use crate::{RpcApiContext, RpcHandler};
@@ -78,8 +78,27 @@ impl RpcHandler for GasPrice {
             results.extend(gas_price_samples.into_iter().take(TXS_SAMPLE_SIZE));
         }
         results.sort();
+        
+        let mut default_gas: u64 = 0;
 
-        let sample_gas = results.get(results.len() / 2).unwrap_or(&MIN_GAS_LIMIT);
+        // If we don't have enough samples, we'll return the base fee.
+        let sample_gas = results.get(results.len() / 2).unwrap_or_else(|| {
+            default_gas =
+                context
+                    .storage
+                    .get_block_header(latest_block_number)
+                    .ok()
+                    .flatten()
+                    .and_then(|header| header.base_fee_per_gas)
+                    .unwrap_or(MIN_GAS_LIMIT);
+
+            warn!(
+                "Not enough samples to estimate gas price, returning base fee or min gas limit: {}",
+                default_gas
+            );
+
+            &default_gas
+        });
 
         let gas_as_hex = format!("0x{:x}", sample_gas);
         Ok(serde_json::Value::String(gas_as_hex))
