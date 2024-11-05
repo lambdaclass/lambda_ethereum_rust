@@ -5,7 +5,7 @@ use crate::{
     node::BranchNode,
     node_hash::{NodeEncoder, NodeHash, PathKind},
     state::TrieState,
-    PathRLP, ValueRLP,
+    ValueRLP,
 };
 
 use super::{ExtensionNode, Node};
@@ -90,8 +90,8 @@ impl LeafNode {
     }
 
     /// Removes own value if the path matches own path and returns self and the value if it was removed
-    pub fn remove(self, path: NibbleSlice) -> Result<(Option<Node>, Option<ValueRLP>), TrieError> {
-        Ok(if path.cmp_rest(&self.path) {
+    pub fn remove(self, path: DumbNibbles) -> Result<(Option<Node>, Option<ValueRLP>), TrieError> {
+        Ok(if self.partial == path {
             (None, Some(self.value))
         } else {
             (Some(self.into()), None)
@@ -104,9 +104,10 @@ impl LeafNode {
     }
 
     /// Encodes the node given the offset in the path traversed before reaching this node
+    /// TODO: Fix
     pub fn encode_raw(&self, offset: usize) -> Vec<u8> {
         let encoded_value = &self.value;
-        let encoded_path = &self.path;
+        let encoded_path = &vec![];
 
         let mut path = NibbleSlice::new(encoded_path);
         path.offset_add(offset);

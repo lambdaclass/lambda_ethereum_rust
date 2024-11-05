@@ -6,7 +6,7 @@ pub use branch::BranchNode;
 pub use extension::ExtensionNode;
 pub use leaf::LeafNode;
 
-use crate::error::TrieError;
+use crate::{dumb_nibbles::DumbNibbles, error::TrieError};
 
 use super::{nibble::NibbleSlice, node_hash::NodeHash, state::TrieState, ValueRLP};
 
@@ -38,7 +38,7 @@ impl From<LeafNode> for Node {
 
 impl Node {
     /// Retrieves a value from the subtrie originating from this node given its path
-    pub fn get(&self, state: &TrieState, path: NibbleSlice) -> Result<Option<ValueRLP>, TrieError> {
+    pub fn get(&self, state: &TrieState, path: DumbNibbles) -> Result<Option<ValueRLP>, TrieError> {
         match self {
             Node::Branch(n) => n.get(state, path),
             Node::Extension(n) => n.get(state, path),
@@ -50,7 +50,7 @@ impl Node {
     pub fn insert(
         self,
         state: &mut TrieState,
-        path: NibbleSlice,
+        path: DumbNibbles,
         value: ValueRLP,
     ) -> Result<Node, TrieError> {
         match self {
@@ -92,13 +92,12 @@ impl Node {
 
     pub fn insert_self(
         self,
-        path_offset: usize,
         state: &mut TrieState,
     ) -> Result<NodeHash, TrieError> {
         match self {
             Node::Branch(n) => n.insert_self(state),
             Node::Extension(n) => n.insert_self(state),
-            Node::Leaf(n) => n.insert_self(path_offset, state),
+            Node::Leaf(n) => n.insert_self(state),
         }
     }
 }

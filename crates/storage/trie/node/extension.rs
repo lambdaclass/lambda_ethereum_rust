@@ -1,7 +1,6 @@
 use crate::dumb_nibbles::DumbNibbles;
 use crate::error::TrieError;
 use crate::nibble::NibbleSlice;
-use crate::nibble::NibbleVec;
 use crate::node_hash::{NodeEncoder, NodeHash, PathKind};
 use crate::state::TrieState;
 use crate::ValueRLP;
@@ -26,7 +25,7 @@ impl ExtensionNode {
     pub fn get(
         &self,
         state: &TrieState,
-        mut path: NibbleSlice,
+        mut path: DumbNibbles,
     ) -> Result<Option<ValueRLP>, TrieError> {
         // If the path is prefixed by this node's prefix, delegate to its child.
         // Otherwise, no value is present.
@@ -42,12 +41,14 @@ impl ExtensionNode {
     }
 
     /// Inserts a value into the subtrie originating from this node and returns the new root of the subtrie
+    /// TODO: Code changed a lot, check and rewrite doc
     pub fn insert(
         mut self,
         state: &mut TrieState,
-        mut path: NibbleSlice,
+        mut path: DumbNibbles,
         value: ValueRLP,
     ) -> Result<Node, TrieError> {
+        // OUTDATED
         /* Possible flow paths (there are duplicates between different prefix lengths):
             Extension { prefix, child } -> Extension { prefix , child' } (insert into child)
             Extension { prefixL+C+prefixR, child } -> Extension { prefixL, Branch { [ Extension { prefixR, child }, ..], Path, Value} } (if path fully traversed)
@@ -57,61 +58,39 @@ impl ExtensionNode {
             Extension { None+C+prefixR } -> Branch { [ Extension { prefixR, child } , ..], Path, Value} (if path fully traversed)
             Extension { None+C+prefixR } -> Branch { [ Extension { prefixR, child } , Leaf { Path, Value } , ... ], None, None} (if path not fully traversed)
         */
-
-        if path.skip_prefix(&self.prefix) {
-            // Insert into child node
-            let child_node = state
-                .get_node(self.child)?
-                .expect("inconsistent internal tree structure");
-            let child_node = child_node.insert(state, path.clone(), value.clone())?;
-            // Child node will never be a leaf, so the path_offset is not used
-            self.child = child_node.insert_self(0, state)?;
-
+        let match_index = path.count_prefix(&self.prefix);
+        if match_index == self.prefix.len() {
+             // Insert into child node
+             let child_node = state
+             .get_node(self.child)?
+             .expect("inconsistent internal tree structure");
+            let new_child_node = child_node.insert(state, path.offset(match_index), value.clone())?;
+            self.child = new_child_node.insert_self(state)?;
             Ok(self.into())
-        } else {
-            let offset = path.clone().count_prefix_vec(&self.prefix);
-            path.offset_add(offset);
-            // Offset used when computing the hash of the new child
-            let child_offset = path.offset() + 1;
-            // Split prefix into left_prefix and right_prefix
-            let (left_prefix, choice, right_prefix) = self.prefix.split_extract_at(offset);
-
-            let left_prefix = (!left_prefix.is_empty()).then_some(left_prefix);
-            let right_prefix = (!right_prefix.is_empty()).then_some(right_prefix);
-
-            // Create right prefix node:
-            // If there is a right prefix the node will be Extension { prefixR, Self.child }
-            // If there is no right prefix the node will be Self.child
-            let right_prefix_node = if let Some(right_prefix) = right_prefix {
-                let extension_node = ExtensionNode::new(right_prefix, self.child);
-                extension_node.insert_self(state)?
-            } else {
+        } else if match_index == 0 {
+            let new_node = if self.prefix.len() == 1 {
                 self.child
-            };
-
-            // Create a branch node:
-            // If the path hasn't been traversed: Branch { [ RPrefixNode, Leaf { Path, Value }, ... ], None, None }
-            // If the path has been fully traversed: Branch { [ RPrefixNode, ... ], Path, Value }
-            let mut choices = BranchNode::EMPTY_CHOICES;
-            choices[choice as usize] = right_prefix_node;
-            let branch_node = if let Some(c) = path.next() {
-                let new_leaf = LeafNode::new(path.data(), value);
-                choices[c as usize] = new_leaf.insert_self(child_offset, state)?;
-                BranchNode::new(Box::new(choices))
             } else {
-                BranchNode::new_with_value(Box::new(choices), value)
+                ExtensionNode::new(self.prefix.offset(1), self.child).insert_self(state)?
             };
-
-            // Create a final node, then return it:
-            // If there is a left_prefix: Extension { left_prefix , Branch }
-            // If there is no left_prefix: Branch
-            match left_prefix {
-                Some(left_prefix) => {
-                    let branch_hash = branch_node.insert_self(state)?;
-                    Ok(ExtensionNode::new(left_prefix, branch_hash).into())
+            let mut choices = BranchNode::EMPTY_CHOICES;
+            let branch_node = if self.prefix.at(0) == 16 {
+                match state.get_node(new_node)? {
+                    Node::Leaf(leaf) => BranchNode::new_with_value(choices, leaf.value),
+                    _ => panic!("inconsistent internal tree structure")
                 }
-                None => Ok(branch_node.into()),
-            }
+            } else {
+                choices[self.prefix.at(0)] = new_node;
+                BranchNode::new(choices)
+            };
+            return branch_node.insert(state, path, value);
+        } else {
+            let new_extension = ExtensionNode::new(self.prefix.offset(match_index), self.child);
+            let new_node = new_extension.insert(state, path.offset(match_index), value)?;
+            self.prefix = self.prefix.slice(0, match_index);
+            self.child = new_node.insert_self(state)?;
+            Ok(self.into())
+        }
         }
     }
 
