@@ -125,7 +125,7 @@ impl VM {
         };
 
         current_call_frame.stack.push(result)?;
-        
+
         Ok(OpcodeSuccess::Continue)
     }
 
