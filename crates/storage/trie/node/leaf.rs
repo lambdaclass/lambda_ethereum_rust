@@ -1,9 +1,8 @@
 use crate::{
     dumb_nibbles::DumbNibbles,
     error::TrieError,
-    nibble::NibbleSlice,
     node::BranchNode,
-    node_hash::{NodeEncoder, NodeHash, PathKind},
+    node_hash::{NodeEncoder, NodeHash},
     state::TrieState,
     ValueRLP,
 };
@@ -99,29 +98,23 @@ impl LeafNode {
     }
 
     /// Computes the node's hash given the offset in the path traversed before reaching this node
-    pub fn compute_hash(&self, offset: usize) -> NodeHash {
-        NodeHash::from_encoded_raw(self.encode_raw(offset))
+    pub fn compute_hash(&self) -> NodeHash {
+        NodeHash::from_encoded_raw(self.encode_raw())
     }
 
     /// Encodes the node given the offset in the path traversed before reaching this node
     /// TODO: Fix
-    pub fn encode_raw(&self, offset: usize) -> Vec<u8> {
-        let encoded_value = &self.value;
-        let encoded_path = &[];
-
-        let mut path = NibbleSlice::new(encoded_path);
-        path.offset_add(offset);
-
-        let path_len = NodeEncoder::path_len(path.len());
+    pub fn encode_raw(&self) -> Vec<u8> {
+        let path_len = NodeEncoder::path_len(self.partial.len());
         let value_len = NodeEncoder::bytes_len(
-            encoded_value.len(),
-            encoded_value.first().copied().unwrap_or_default(),
+            self.value.len(),
+            self.value.first().copied().unwrap_or_default(),
         );
 
         let mut encoder = crate::node_hash::NodeEncoder::new();
         encoder.write_list_header(path_len + value_len);
-        encoder.write_path_slice(&path, PathKind::Leaf);
-        encoder.write_bytes(encoded_value);
+        encoder.write_path_slice(&self.partial);
+        encoder.write_bytes(&self.value);
         encoder.finalize()
     }
 
@@ -129,18 +122,14 @@ impl LeafNode {
     /// Receives the offset that needs to be traversed to reach the leaf node from the canonical root, used to compute the node hash
     pub fn insert_self(self, state: &mut TrieState) -> Result<NodeHash, TrieError> {
         // TODO: Fix
-        let hash = self.compute_hash(0);
+        let hash = self.compute_hash();
         state.insert_node(self.into(), hash.clone());
         Ok(hash)
     }
 
     /// Encodes the node and appends it to `node_path` if the encoded node is 32 or more bytes long
-    pub fn get_path(
-        &self,
-        path: DumbNibbles,
-        node_path: &mut Vec<Vec<u8>>,
-    ) -> Result<(), TrieError> {
-        let encoded = self.encode_raw(0);
+    pub fn get_path(&self, node_path: &mut Vec<Vec<u8>>) -> Result<(), TrieError> {
+        let encoded = self.encode_raw();
         if encoded.len() >= 32 {
             node_path.push(encoded);
         }
@@ -291,9 +280,7 @@ mod test {
             DumbNibbles::from_bytes(&[0x12, 0x34]),
             vec![0x12, 0x34, 0x56, 0x78],
         );
-        let (node, value) = node
-            .remove(DumbNibbles::from_bytes(&[0x12, 0x34]))
-            .unwrap();
+        let (node, value) = node.remove(DumbNibbles::from_bytes(&[0x12, 0x34])).unwrap();
 
         assert!(node.is_none());
         assert_eq!(value, Some(vec![0x12, 0x34, 0x56, 0x78]));
@@ -313,9 +300,9 @@ mod test {
     }
 
     #[test]
-    fn compute_hash() {
+    fn compute_hash_x() {
         let node = LeafNode::new(DumbNibbles::from_bytes(b"key".as_ref()), b"value".to_vec());
-        let node_hash_ref = node.compute_hash(0);
+        let node_hash_ref = node.compute_hash();
         assert_eq!(
             node_hash_ref.as_ref(),
             &[0xCB, 0x84, 0x20, 0x6B, 0x65, 0x79, 0x85, 0x76, 0x61, 0x6C, 0x75, 0x65],
@@ -329,7 +316,7 @@ mod test {
             b"a comparatively long value".to_vec(),
         );
 
-        let node_hash_ref = node.compute_hash(0);
+        let node_hash_ref = node.compute_hash();
         assert_eq!(
             node_hash_ref.as_ref(),
             &[

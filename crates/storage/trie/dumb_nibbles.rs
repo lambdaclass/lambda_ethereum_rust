@@ -16,12 +16,13 @@ impl DumbNibbles {
     }
 
     pub fn from_bytes(bytes: &[u8]) -> Self {
-        Self {
-            data: bytes
-                .iter()
-                .flat_map(|byte| [(byte >> 4 & 0x0F), byte & 0x0F])
-                .collect(),
-        }
+        let mut data: Vec<u8> = bytes
+            .iter()
+            .flat_map(|byte| [(byte >> 4 & 0x0F), byte & 0x0F])
+            .collect();
+        data.push(16);
+
+        Self { data }
     }
 
     pub fn len(&self) -> usize {
@@ -76,6 +77,41 @@ impl DumbNibbles {
     /// Inserts a nibble at the start
     pub fn prepend(&mut self, nibble: u8) {
         self.data.insert(0, nibble);
+    }
+
+    /// Taken from https://github.com/citahub/cita_trie/blob/master/src/nibbles.rs#L56
+    pub fn encode_compact(&self) -> Vec<u8> {
+        let mut compact = vec![];
+        let is_leaf = self.is_leaf();
+        let mut hex = if is_leaf {
+            &self.data[0..self.data.len() - 1]
+        } else {
+            &self.data[0..]
+        };
+        // node type    path length    |    prefix    hexchar
+        // --------------------------------------------------
+        // extension    even           |    0000      0x0
+        // extension    odd            |    0001      0x1
+        // leaf         even           |    0010      0x2
+        // leaf         odd            |    0011      0x3
+        let v = if hex.len() % 2 == 1 {
+            let v = 0x10 + hex[0];
+            hex = &hex[1..];
+            v
+        } else {
+            0x00
+        };
+
+        compact.push(v + if is_leaf { 0x20 } else { 0x00 });
+        for i in 0..(hex.len() / 2) {
+            compact.push((hex[i * 2] * 16) + (hex[i * 2 + 1]));
+        }
+
+        compact
+    }
+
+    pub fn is_leaf(&self) -> bool {
+        self.data[self.data.len() - 1] == 16
     }
 }
 

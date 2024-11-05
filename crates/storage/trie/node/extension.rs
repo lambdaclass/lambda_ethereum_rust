@@ -447,8 +447,8 @@ mod test {
             vec![0x56, 0x78],
         );
         let mut choices = BranchNode::EMPTY_CHOICES;
-        choices[0] = leaf_node_a.compute_hash(0);
-        choices[1] = leaf_node_b.compute_hash(0);
+        choices[0] = leaf_node_a.compute_hash();
+        choices[1] = leaf_node_b.compute_hash();
         let branch_node = BranchNode::new(Box::new(choices));
         let node = ExtensionNode::new(
             DumbNibbles::from_hex(vec![0, 0]),
@@ -485,8 +485,8 @@ mod test {
             vec![0x34, 0x56, 0x78, 0x9A, 0xBC],
         );
         let mut choices = BranchNode::EMPTY_CHOICES;
-        choices[0] = leaf_node_a.compute_hash(3);
-        choices[1] = leaf_node_b.compute_hash(3);
+        choices[0] = leaf_node_a.compute_hash();
+        choices[1] = leaf_node_b.compute_hash();
         let branch_node = BranchNode::new(Box::new(choices));
         let node = ExtensionNode::new(
             DumbNibbles::from_hex(vec![0, 0]),

@@ -4,7 +4,9 @@ use ethereum_types::H256;
 use libmdbx::orm::{Decodable, Encodable};
 use sha3::{Digest, Keccak256};
 
-use super::nibble::{NibbleSlice, NibbleVec};
+use crate::dumb_nibbles::DumbNibbles;
+
+use super::nibble::NibbleVec;
 
 /// Struct representing a trie node hash
 /// If the encoded node is less than 32 bits, contains the encoded node itself
@@ -198,28 +200,8 @@ impl NodeEncoder {
         self.encoded.extend_from_slice(value);
     }
 
-    pub fn write_path_slice(&mut self, value: &NibbleSlice, kind: PathKind) {
-        let mut flag = kind.into_flag();
-
-        // TODO: Do not use iterators.
-        let nibble_count = value.clone().count();
-        let nibble_iter = if nibble_count & 0x01 != 0 {
-            let mut iter = value.clone();
-            flag |= 0x10;
-            flag |= iter.next().unwrap() as u8;
-            iter
-        } else {
-            value.clone()
-        };
-
-        let i2 = nibble_iter.clone().skip(1).step_by(2);
-        if nibble_count > 1 {
-            self.write_len(0x80, 0xB7, (nibble_count >> 1) + 1);
-        }
-        self.write_raw(&[flag]);
-        for (a, b) in nibble_iter.step_by(2).zip(i2) {
-            self.write_raw(&[((a as u8) << 4) | (b as u8)]);
-        }
+    pub fn write_path_slice(&mut self, value: &DumbNibbles) {
+        self.write_bytes(&value.encode_compact());
     }
 
     pub fn write_path_vec(&mut self, value: &NibbleVec, kind: PathKind) {
