@@ -7,6 +7,7 @@ mod rlp;
 mod state;
 mod trie_iter;
 
+mod dumb_nibbles;
 #[cfg(test)]
 mod test_utils;
 
