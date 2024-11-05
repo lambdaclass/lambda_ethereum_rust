@@ -176,9 +176,13 @@ impl VM {
             return Ok(OpcodeSuccess::Continue);
         }
 
-        let data = current_call_frame
-            .calldata
-            .slice(calldata_offset..calldata_offset + size);
+        let calldata_length = current_call_frame.calldata.len();
+
+        let mut data = vec![0u8; size];
+        data.copy_from_slice(
+            &current_call_frame.calldata
+                [calldata_offset..(calldata_offset + size).min(calldata_length)],
+        );
         current_call_frame.memory.store_bytes(dest_offset, &data);
 
         Ok(OpcodeSuccess::Continue)
