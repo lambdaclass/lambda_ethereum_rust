@@ -439,11 +439,11 @@ mod test {
         }
         */
         let leaf_node_a = LeafNode::new(
-            DumbNibbles::from_hex(vec![0x00, 0x00]).offset(3),
+            DumbNibbles::from_bytes(&[0x00, 0x00]).offset(3),
             vec![0x12, 0x34],
         );
         let leaf_node_b = LeafNode::new(
-            DumbNibbles::from_hex(vec![0x00, 0x10]).offset(3),
+            DumbNibbles::from_bytes(&[0x00, 0x10]).offset(3),
             vec![0x56, 0x78],
         );
         let mut choices = BranchNode::EMPTY_CHOICES;

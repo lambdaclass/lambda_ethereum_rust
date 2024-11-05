@@ -16,11 +16,17 @@ impl DumbNibbles {
     }
 
     pub fn from_bytes(bytes: &[u8]) -> Self {
+        Self::from_raw(bytes, true)
+    }
+
+    pub fn from_raw(bytes: &[u8], is_leaf: bool) -> Self {
         let mut data: Vec<u8> = bytes
             .iter()
             .flat_map(|byte| [(byte >> 4 & 0x0F), byte & 0x0F])
             .collect();
-        data.push(16);
+        if is_leaf {
+            data.push(16);
+        }
 
         Self { data }
     }
@@ -123,7 +129,7 @@ impl AsRef<[u8]> for DumbNibbles {
 
 impl RLPEncode for DumbNibbles {
     fn encode(&self, buf: &mut dyn bytes::BufMut) {
-        Encoder::new(buf).encode_field(&self.data);
+        Encoder::new(buf).encode_field(&self.data).finish();
     }
 }
 
