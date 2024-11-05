@@ -69,7 +69,7 @@ impl LeafNode {
                     .nth(absolute_offset)
                     .unwrap() as usize] = self.clone().insert_self(leaf_offset, state)?;
 
-                BranchNode::new_with_value(Box::new(choices), path.data(), value)
+                BranchNode::new_with_value(Box::new(choices), value)
             } else if absolute_offset == 2 * self.path.len() {
                 // Create a new leaf node and store the path and value in it
                 // Create a new branch node with the leaf as a child and store self's path and value
@@ -79,7 +79,7 @@ impl LeafNode {
                 choices[path_branch.next().unwrap() as usize] =
                     new_leaf.insert_self(leaf_offset, state)?;
 
-                BranchNode::new_with_value(Box::new(choices), self.path, self.value)
+                BranchNode::new_with_value(Box::new(choices), self.value)
             } else {
                 // Create a new leaf node and store the path and value in it
                 // Create a new branch node with the leaf and self as children

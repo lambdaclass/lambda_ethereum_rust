@@ -98,7 +98,7 @@ impl ExtensionNode {
                 choices[c as usize] = new_leaf.insert_self(child_offset, state)?;
                 BranchNode::new(Box::new(choices))
             } else {
-                BranchNode::new_with_value(Box::new(choices), path.data(), value)
+                BranchNode::new_with_value(Box::new(choices), value)
             };
 
             // Create a final node, then return it:

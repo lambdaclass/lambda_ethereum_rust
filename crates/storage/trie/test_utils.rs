@@ -71,7 +71,7 @@ macro_rules! pmt_node {
                     }).insert_self(1, &mut $trie.state).unwrap();
             )*
             Box::new(choices)
-        }, $path, $value)
+        }, $value)
     }};
 
     (

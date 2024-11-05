@@ -3,7 +3,7 @@ use crate::{
     nibble::{Nibble, NibbleSlice, NibbleVec},
     node_hash::{NodeEncoder, NodeHash},
     state::TrieState,
-    PathRLP, ValueRLP,
+    ValueRLP,
 };
 
 use super::{ExtensionNode, LeafNode, Node};
@@ -14,7 +14,6 @@ use super::{ExtensionNode, LeafNode, Node};
 pub struct BranchNode {
     // TODO: check if switching to hashmap is a better solution
     pub choices: Box<[NodeHash; 16]>,
-    pub path: PathRLP,
     pub value: ValueRLP,
 }
 
@@ -43,23 +42,17 @@ impl BranchNode {
     pub fn new(choices: Box<[NodeHash; 16]>) -> Self {
         Self {
             choices,
-            path: Default::default(),
             value: Default::default(),
         }
     }
 
     /// Creates a new branch node given its children and stores the given (path, value) pair
-    pub fn new_with_value(choices: Box<[NodeHash; 16]>, path: PathRLP, value: ValueRLP) -> Self {
-        Self {
-            choices,
-            path,
-            value,
-        }
+    pub fn new_with_value(choices: Box<[NodeHash; 16]>, value: ValueRLP) -> Self {
+        Self { choices, value }
     }
 
     /// Updates the node's path and value
-    pub fn update(&mut self, new_path: PathRLP, new_value: ValueRLP) {
-        self.path = new_path;
+    pub fn update(&mut self, new_value: ValueRLP) {
         self.value = new_value;
     }
 
@@ -117,7 +110,7 @@ impl BranchNode {
             },
             None => {
                 // Insert into self
-                self.update(path.data(), value);
+                self.update(value);
             }
         };
 
@@ -176,9 +169,8 @@ impl BranchNode {
             }
             None => {
                 // Remove own value (if it has one) and return it
-                if !self.path.is_empty() {
+                if !self.value.is_empty() {
                     let value = self.value;
-                    self.path = Default::default();
                     self.value = Default::default();
 
                     (!value.is_empty()).then_some(value)
@@ -227,7 +219,7 @@ impl BranchNode {
                     }
                     // Replace self with the child extension node, updating its path in the process
                     Node::Extension(mut extension_node) => {
-                        debug_assert!(self.path.is_empty()); // Sanity check
+                        debug_assert!(self.value.is_empty()); // Sanity check
                         extension_node.prefix.prepend(choice_index);
                         // Return node here so we don't have to update it in the state and then fetch it
                         return Ok((Some(extension_node.into()), value));
@@ -240,11 +232,11 @@ impl BranchNode {
             _ => None,
         };
 
-        let new_node = match (child_hash, !self.path.is_empty()) {
+        let new_node = match (child_hash, !self.value.is_empty()) {
             // If this node still has a child and value return the updated node
             (Some(_), true) => Some(self.into()),
             // If this node still has a value but no longer has children, convert it into a leaf node
-            (None, true) => Some(LeafNode::new(self.path, self.value).into()),
+            (None, true) => Some(LeafNode::new(path.data(), self.value).into()),
             // If this node doesn't have a value, replace it with its child node
             (Some(x), false) => Some(
                 state
@@ -488,7 +480,6 @@ mod test {
         };
 
         assert_eq!(new_node.choices, node.choices);
-        assert_eq!(new_node.path, path.data());
         assert_eq!(new_node.value, value);
     }
 
