@@ -1,7 +1,6 @@
 use crate::utils::{config::errors::ConfigError, eth_client::errors::EthClientError};
 use ethereum_rust_dev::utils::engine_client::errors::EngineClientError;
 use ethereum_rust_vm::EvmError;
-use lambdaworks_math::{errors::ByteConversionError, msm::naive::MSMError};
 
 #[derive(Debug, thiserror::Error)]
 pub enum L1WatcherError {
@@ -41,20 +40,10 @@ pub enum ProposerError {
     FailedToEncodeStateDiff(#[from] StateDiffError),
     #[error("Proposer failed to open Points file: {0}")]
     FailedToOpenPointsFile(#[from] std::io::Error),
-    #[error("Proposer failed to parse Points file")]
-    FailedToParsePointsFile(ByteConversionError),
     #[error("Proposer failed to re-execute block: {0}")]
     FailedToReExecuteBlock(#[from] EvmError),
-    #[error("Proposer failed to do msm operation: {0}")]
-    FailedToDoMsmOperation(#[from] MSMError),
     #[error("Blob is too long")]
     BlobTooLong,
-}
-
-impl From<ByteConversionError> for ProposerError {
-    fn from(e: ByteConversionError) -> Self {
-        ProposerError::FailedToParsePointsFile(e)
-    }
 }
 
 #[derive(Debug, thiserror::Error)]

@@ -4,6 +4,7 @@ use crate::utils::{
     merkle_tree::merkelize,
 };
 use bytes::Bytes;
+use c_kzg::{Blob, Bytes48, KzgSettings};
 use errors::ProposerError;
 use ethereum_rust_blockchain::constants::TX_GAS_COST;
 use ethereum_rust_core::types::{
@@ -19,31 +20,11 @@ use ethereum_rust_storage::Store;
 use ethereum_rust_vm::{evm_state, execute_block, get_state_transitions};
 use ethereum_types::{Address, H256, U256};
 use keccak_hash::keccak;
-use lambdaworks_crypto::commitments::{
-    kzg::{KateZaveruchaGoldberg, StructuredReferenceString},
-    traits::IsCommitmentScheme,
-};
-use lambdaworks_math::{
-    elliptic_curve::short_weierstrass::{
-        curves::bls12_381::{
-            curve::BLS12381Curve,
-            default_types::{FrElement, FrField},
-            pairing::BLS12381AtePairing,
-            twist::BLS12381TwistCurve,
-        },
-        point::ShortWeierstrassProjectivePoint,
-        traits::Compress,
-    },
-    polynomial::Polynomial,
-    traits::ByteConversion,
-};
 use libsecp256k1::SecretKey;
 use sha2::{Digest, Sha256};
 use state_diff::{AccountStateDiff, DepositLog, StateDiff, WithdrawalLog};
 use std::{
     collections::HashMap,
-    fs::File,
-    io::{BufReader, Read},
     time::{Duration, SystemTime, UNIX_EPOCH},
 };
 use tokio::time::sleep;
@@ -65,10 +46,7 @@ pub struct Proposer {
     l1_address: Address,
     l1_private_key: SecretKey,
     block_production_interval: Duration,
-    srs: StructuredReferenceString<
-        ShortWeierstrassProjectivePoint<BLS12381Curve>,
-        ShortWeierstrassProjectivePoint<BLS12381TwistCurve>,
-    >,
+    kzg_settings: &'static KzgSettings,
 }
 
 pub async fn start_proposer(store: Store) {
@@ -104,48 +82,12 @@ pub async fn start_proposer(store: Store) {
     tokio::try_join!(l1_watcher, prover_server, proposer).expect("tokio::try_join");
 }
 
-fn load_g1_points(
-    path: &str,
-) -> Result<Vec<ShortWeierstrassProjectivePoint<BLS12381Curve>>, ProposerError> {
-    let file = File::open(path).map_err(ProposerError::from)?;
-    let mut reader = BufReader::new(file);
-    let mut g1_points = vec![];
-    let mut buf = [0u8; 48];
-    while reader.read_exact(&mut buf).is_ok() {
-        g1_points.push(BLS12381Curve::decompress_g1_point(&mut buf).map_err(ProposerError::from)?);
-    }
-
-    Ok(g1_points)
-}
-
-fn load_g2_points(
-    path: &str,
-) -> Result<Vec<ShortWeierstrassProjectivePoint<BLS12381TwistCurve>>, ProposerError> {
-    let file = File::open(path).map_err(ProposerError::from)?;
-    let mut reader = BufReader::new(file);
-    let mut buf = [0u8; 96];
-    let mut g2_points = vec![];
-    while reader.read_exact(&mut buf).is_ok() {
-        g2_points.push(BLS12381Curve::decompress_g2_point(&mut buf).map_err(ProposerError::from)?);
-    }
-
-    Ok(g2_points)
-}
-
 impl Proposer {
     pub fn new_from_config(
         proposer_config: &ProposerConfig,
         eth_config: EthConfig,
         engine_config: EngineApiConfig,
     ) -> Result<Self, ProposerError> {
-        let g1_points = load_g1_points(&proposer_config.g1_points_path)?;
-        let g2_points = load_g2_points(&proposer_config.g2_points_path)?;
-
-        let srs = StructuredReferenceString::new(
-            g1_points.as_slice(),
-            &[g2_points[0].clone(), g2_points[1].clone()],
-        );
-
         Ok(Self {
             eth_client: EthClient::new(&eth_config.rpc_url),
             engine_client: EngineClient::new_from_config(engine_config)?,
@@ -153,7 +95,7 @@ impl Proposer {
             l1_address: proposer_config.l1_address,
             l1_private_key: proposer_config.l1_private_key,
             block_production_interval: Duration::from_millis(proposer_config.interval_ms),
-            srs,
+            kzg_settings: c_kzg::ethereum_kzg_settings(),
         })
     }
 
@@ -432,42 +374,35 @@ impl Proposer {
         Ok(state_diff)
     }
 
-    /// Prepare the KZG commitment for the blob. This commitment can then be used
-    /// to generate the blob versioned hash necessary for the EIP-4844 transaction.
+    /// Generate the KZG commitment and proof for the blob. This commitment can then be used
+    /// to calculate the blob versioned hash, necessary for the EIP-4844 transaction.
     pub fn prepare_blob_commitment(
         &self,
         state_diff: StateDiff,
     ) -> Result<([u8; 48], [u8; 48]), ProposerError> {
         let blob_data = state_diff.encode().map_err(ProposerError::from)?;
 
-        let mut field_elements = vec![];
-        for chunk in blob_data.chunks(32) {
-            let x = if chunk.len() < 32 {
-                let mut padded = [0u8; 32];
-                padded[..chunk.len()].copy_from_slice(chunk);
-                &padded.clone()
-            } else {
-                chunk
-            };
-            field_elements.push(FrElement::from_bytes_be(x).map_err(ProposerError::from)?);
-        }
-
-        if field_elements.len() > 4096 {
+        if blob_data.len() > BYTES_PER_BLOB {
             return Err(ProposerError::BlobTooLong);
         }
 
-        let kzg: KateZaveruchaGoldberg<FrField, BLS12381AtePairing> =
-            KateZaveruchaGoldberg::new(self.srs.clone());
-        let pol = Polynomial::new(field_elements.as_slice());
-        let commitment = kzg.commit(&pol);
-        let x = -FrElement::one();
-        let y = pol.evaluate(&x);
-        let proof = &kzg.open(&x, &y, &pol);
+        let mut buf = [0u8; BYTES_PER_BLOB];
+        buf[..blob_data.len()].copy_from_slice(&blob_data);
+        let blob = Blob::from_bytes(&buf).unwrap();
 
-        Ok((
-            BLS12381Curve::compress_g1_point(&commitment.to_affine()),
-            BLS12381Curve::compress_g1_point(&proof.to_affine()),
-        ))
+        let commitment =
+            c_kzg::KzgCommitment::blob_to_kzg_commitment(&blob, self.kzg_settings).unwrap();
+        let commitment_bytes = Bytes48::from_bytes(commitment.as_slice()).unwrap();
+        let proof =
+            c_kzg::KzgProof::compute_blob_kzg_proof(&blob, &commitment_bytes, self.kzg_settings)
+                .unwrap();
+
+        let mut commitment_bytes = [0u8; 48];
+        commitment_bytes.copy_from_slice(commitment.as_slice());
+        let mut proof_bytes = [0u8; 48];
+        proof_bytes.copy_from_slice(proof.as_slice());
+
+        Ok((commitment_bytes, proof_bytes))
     }
 
     pub async fn send_commitment(

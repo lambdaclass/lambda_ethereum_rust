@@ -130,12 +130,8 @@ impl EthClient {
         wrapped_tx.tx.signature_y_parity = signature.1.serialize() != 0;
 
         let mut encoded_tx = wrapped_tx.encode_to_vec();
-        // wrapped_tx.tx.encode(&mut encoded_tx);
+        encoded_tx.insert(0, TxType::EIP4844 as u8);
 
-        // let mut data = vec![TxType::EIP4844 as u8];
-        // data.append(&mut encoded_tx);
-
-        encoded_tx.insert(0, 0x03);
         self.send_raw_transaction(encoded_tx.as_slice()).await
     }
 

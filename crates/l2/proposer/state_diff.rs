@@ -5,6 +5,7 @@ use ethereum_types::{Address, H256, U256};
 
 use super::errors::StateDiffError;
 
+#[derive(Clone)]
 pub struct AccountStateDiff {
     pub new_balance: Option<U256>,
     pub nonce_diff: Option<u16>,
@@ -21,17 +22,20 @@ pub enum AccountStateDiffType {
     BytecodeHash = 16,
 }
 
+#[derive(Clone)]
 pub struct WithdrawalLog {
     pub address: Address,
     pub amount: U256,
     pub tx_hash: H256,
 }
 
+#[derive(Clone)]
 pub struct DepositLog {
     pub address: Address,
     pub amount: U256,
 }
 
+#[derive(Clone)]
 pub struct StateDiff {
     pub version: u8,
     pub modified_accounts: HashMap<Address, AccountStateDiff>,
