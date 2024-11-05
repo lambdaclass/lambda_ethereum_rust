@@ -12,7 +12,7 @@ use ethereum_rust_core::types::{
 use ethereum_rust_rlp::decode::RLPDecode;
 use ethereum_rust_rlp::encode::RLPEncode;
 use ethereum_rust_trie::{LibmdbxDupsortTrieDB, LibmdbxTrieDB, Trie};
-use ethereum_types::{Address, H256, U256};
+use ethereum_types::{H256, U256};
 use libmdbx::orm::{Decodable, Encodable, Table};
 use libmdbx::{
     dupsort,
