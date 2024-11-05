@@ -12,6 +12,7 @@ mod test_utils;
 
 use ethereum_rust_rlp::constants::RLP_NULL;
 use ethereum_types::H256;
+use nibble::Nibble;
 use node::Node;
 use node_hash::NodeHash;
 use sha3::{Digest, Keccak256};
@@ -174,8 +175,8 @@ impl Trie {
             return Ok(node_path);
         };
         if let Some(root_node) = self.state.get_node(root.clone())? {
-            node_path.push(root_node.clone());
-            root_node.get_path(&self.state, NibbleSlice::new(path), &mut node_path)?;
+            node_path.push(root_node.clone()); // TODO: add if inlined only (if self.encode_raw().len() >= 32)
+            root_node.get_path(&self.state, NibbleSlice::new(&path), &mut node_path)?;
         }
         Ok(node_path)
     }
@@ -205,39 +206,30 @@ impl Trie {
 
         let mut trie = Trie::new(Box::new(NullTrieDB));
 
-        // Only the last node of the proof is a leaf node (by definition because the proof is a
-        // path to the leaf), so that's the only node that will need an offset for inserting.
-        // Then, we leave the offset to be constant for all nodes, as the other ones will not use
-        // it.
-        let leaf_offset = 2 * path.len(); // offset in nibbles
-        dbg!(&leaf_offset);
+        let path_offset = 0;
 
         // Insert root into trie
         let mut proof = proof.into_iter();
         // TODO: this should be an error, the proof can be whatever.
         let root_node = proof.next().expect("inconsistent internal tree structure");
-        trie.root = Some(root_node.insert_self(leaf_offset, &mut trie.state)?);
+        trie.root = Some(root_node.insert_self(path_offset, &mut trie.state)?);
 
         // Insert rest of nodes
         for node in proof {
-            dbg!(&node);
-            node.insert_self(leaf_offset, &mut trie.state)?;
+            node.insert_self(path_offset, &mut trie.state)?;
         }
         let expected_root_hash = trie.hash_no_commit()?.into();
 
         // Check key exists
         let Some(retrieved_value) = trie.get(path)? else {
-            dbg!("key does not exists");
             return Ok(false);
         };
         // Check value is correct
         if retrieved_value != *value {
-            dbg!("value not correct");
             return Ok(false);
         }
         // Check root hash
         if root_hash != expected_root_hash {
-            dbg!("wrong root hash");
             return Ok(false);
         }
 
@@ -1086,12 +1078,8 @@ mod test {
 
     #[test]
     fn verify_proof_one_leaf() {
-        // Trie -> Leaf["duck"]
         let mut trie = Trie::new_temp();
         trie.insert(b"duck".to_vec(), b"duckling".to_vec()).unwrap();
-        //trie.insert(b"duc".to_vec(), b"duckling".to_vec()).unwrap();
-        dbg!(&trie.root);
-        //dbg!(&trie.state.cache);
 
         let root_hash = trie.hash_no_commit().unwrap().into();
         let trie_proof = trie.get_proof(&b"duck".to_vec()).unwrap();
