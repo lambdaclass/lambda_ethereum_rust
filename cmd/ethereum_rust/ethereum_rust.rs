@@ -20,7 +20,7 @@ use std::{
     net::{Ipv4Addr, SocketAddr, ToSocketAddrs},
 };
 use tokio_util::task::TaskTracker;
-use tracing::{error, info, warn};
+use tracing::{info, warn};
 use tracing_subscriber::filter::Directive;
 use tracing_subscriber::{EnvFilter, FmtSubscriber};
 mod cli;
