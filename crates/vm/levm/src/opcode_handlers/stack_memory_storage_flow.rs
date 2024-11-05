@@ -1,7 +1,9 @@
 use crate::{
     account::StorageSlot,
     call_frame::CallFrame,
-    constants::{gas_cost, WORD_SIZE},
+    constants::{
+        call_opcode::WARM_ADDRESS_ACCESS_COST, gas_cost, COLD_STORAGE_ACCESS_COST, WORD_SIZE,
+    },
     errors::{OpcodeSuccess, VMError},
     vm::VM,
 };
@@ -137,7 +139,7 @@ impl VM {
 
         let current_value = if self.cache.is_slot_cached(&address, key) {
             // If slot is warm (cached) add 100 to base_dynamic_gas
-            base_dynamic_gas += U256::from(100);
+            base_dynamic_gas += WARM_ADDRESS_ACCESS_COST;
 
             self.cache
                 .get_storage_slot(address, key)
@@ -145,7 +147,7 @@ impl VM {
                 .current_value
         } else {
             // If slot is cold (not cached) add 2100 to base_dynamic_gas
-            base_dynamic_gas += U256::from(2100);
+            base_dynamic_gas += COLD_STORAGE_ACCESS_COST;
 
             self.get_storage_slot(&address, key).current_value
         };
