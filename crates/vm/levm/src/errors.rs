@@ -42,6 +42,7 @@ pub enum VMError {
     CreationCostIsTooHigh,
     NonceUnderflow,
     GasCostOverflow,
+    PCUnderflow,
 }
 
 pub enum OpcodeSuccess {
