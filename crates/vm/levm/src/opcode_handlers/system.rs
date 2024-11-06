@@ -43,11 +43,20 @@ impl VM {
             return Err(VMError::OpcodeNotAllowedInStaticContext);
         }
 
-        let memory_byte_size = (args_offset + args_size).max(ret_offset + ret_size);
+        let memory_byte_size = (args_offset
+            .checked_add(args_size)
+            .ok_or(VMError::VeryLargeNumber)?)
+        .max(
+            ret_offset
+                .checked_add(ret_size)
+                .ok_or(VMError::VeryLargeNumber)?,
+        );
         let memory_expansion_cost = current_call_frame.memory.expansion_cost(memory_byte_size)?;
 
         let positive_value_cost = if !value.is_zero() {
-            call_opcode::NON_ZERO_VALUE_COST + call_opcode::BASIC_FALLBACK_FUNCTION_STIPEND
+            call_opcode::NON_ZERO_VALUE_COST
+                .checked_add(call_opcode::BASIC_FALLBACK_FUNCTION_STIPEND)
+                .ok_or(VMError::OverflowInArithmeticOp)?
         } else {
             U256::zero()
         };
@@ -67,9 +76,12 @@ impl VM {
         };
 
         let gas_cost = memory_expansion_cost
-            + address_access_cost
-            + positive_value_cost
-            + value_to_empty_account_cost;
+            .checked_add(address_access_cost)
+            .ok_or(VMError::GasCostOverflow)?
+            .checked_add(positive_value_cost)
+            .ok_or(VMError::GasCostOverflow)?
+            .checked_add(value_to_empty_account_cost)
+            .ok_or(VMError::GasCostOverflow)?;
 
         self.increase_consumed_gas(current_call_frame, gas_cost)?;
 
@@ -160,7 +172,11 @@ impl VM {
             .try_into()
             .unwrap_or(usize::MAX);
 
-        let gas_cost = current_call_frame.memory.expansion_cost(offset + size)?;
+        let gas_cost = current_call_frame.memory.expansion_cost(
+            offset
+                .checked_add(size)
+                .ok_or(VMError::OverflowInArithmeticOp)?,
+        )?;
 
         self.increase_consumed_gas(current_call_frame, gas_cost)?;
 
@@ -325,7 +341,11 @@ impl VM {
 
         let size = current_call_frame.stack.pop()?.as_usize();
 
-        let gas_cost = current_call_frame.memory.expansion_cost(offset + size)?;
+        let gas_cost = current_call_frame.memory.expansion_cost(
+            offset
+                .checked_add(size)
+                .ok_or(VMError::OverflowInArithmeticOp)?,
+        )?;
 
         self.increase_consumed_gas(current_call_frame, gas_cost)?;
 
@@ -378,14 +398,22 @@ impl VM {
         // 3 & 4. Get target account and add the balance of the current account to it
         // TODO: If address is cold, there is an additional cost of 2600.
         if !self.cache.is_account_cached(&target_address) {
-            gas_cost += cold_gas_cost;
+            gas_cost = gas_cost
+                .checked_add(cold_gas_cost)
+                .ok_or(VMError::GasCostOverflow)?;
         }
 
         let mut target_account = self.get_account(&target_address);
         if target_account.is_empty() {
-            gas_cost += dynamic_gas_cost;
+            gas_cost = gas_cost
+                .checked_add(dynamic_gas_cost)
+                .ok_or(VMError::GasCostOverflow)?;
         }
-        target_account.info.balance += current_account_balance;
+        target_account.info.balance = target_account
+            .info
+            .balance
+            .checked_add(current_account_balance)
+            .ok_or(VMError::BalanceOverflow)?;
 
         // 5. Register account to be destroyed in accrued substate IF executed in the same transaction a contract was created
         if self.tx_kind == TxKind::Create {

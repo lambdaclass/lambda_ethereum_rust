@@ -41,6 +41,7 @@ pub enum VMError {
     CoinbaseFeeOverflow,
     CreationCostIsTooHigh,
     NonceUnderflow,
+    GasCostOverflow,
 }
 
 pub enum OpcodeSuccess {
