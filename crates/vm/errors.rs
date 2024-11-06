@@ -61,6 +61,14 @@ pub enum StateProofsError {
     Trie(#[from] TrieError),
     #[error("Storage trie for address {0} not found")]
     StorageTrieNotFound(H160),
+    #[error("Storage for address {0} not found")]
+    StorageNotFound(RevmAddress),
+    #[error("Account proof for address {0} not found")]
+    AccountProofNotFound(RevmAddress),
+    #[error("Storage proofs for address {0} not found")]
+    StorageProofsNotFound(RevmAddress),
+    #[error("Storage proof for address {0} and key {1} not found")]
+    StorageProofNotFound(RevmAddress, RevmU256),
 }
 
 impl From<RevmError<StoreError>> for EvmError {

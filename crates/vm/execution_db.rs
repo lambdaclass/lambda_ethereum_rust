@@ -1,12 +1,12 @@
 use std::collections::HashMap;
 
 use ethereum_rust_core::{
-    types::{AccountInfo, Block, ChainConfig},
+    types::{AccountState, Block, ChainConfig},
     H256,
 };
-use ethereum_rust_rlp::{encode::RLPEncode, RLPEncode};
+use ethereum_rust_rlp::encode::RLPEncode;
 use ethereum_rust_storage::{hash_address, hash_key, Store};
-use ethereum_rust_trie::{node::Node, Trie};
+use ethereum_rust_trie::Trie;
 use ethereum_types::{Address, H160, U256};
 use revm::{
     primitives::{
@@ -30,7 +30,7 @@ use crate::{
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct ExecutionDB {
     /// indexed by account address
-    accounts: HashMap<RevmAddress, RevmAccountInfo>,
+    accounts: HashMap<RevmAddress, AccountState>,
     /// indexed by code hash
     code: HashMap<RevmB256, RevmBytecode>,
     /// indexed by account address and storage key
@@ -61,10 +61,6 @@ impl ExecutionDB {
 
         // Execute and obtain account updates
         let mut state = evm_state(store.clone(), block.header.parent_hash);
-        let mut store_wrapper = StoreWrapper {
-            store: store.clone(),
-            block_hash: block.header.parent_hash,
-        };
         let chain_config = store.get_chain_config()?;
         execute_block(block, &mut state).map_err(Box::new)?;
         let account_updates = get_state_transitions(&mut state);
@@ -79,10 +75,10 @@ impl ExecutionDB {
 
         for account_update in account_updates.iter() {
             let address = RevmAddress::from_slice(account_update.address.as_bytes());
-            let account_info = store_wrapper
-                .basic(address)?
+            let account_state = store
+                .get_account_state(block.header.number, H160::from_slice(address.as_slice()))?
                 .ok_or(ExecutionDBError::NewMissingAccountInfo(address))?;
-            accounts.insert(address, account_info);
+            accounts.insert(address, account_state);
 
             let account_storage = account_update
                 .added_storage
@@ -188,36 +184,53 @@ impl StateProofs {
 
     fn verify(
         &self,
-        root_hash: H256,
-        accounts: &HashMap<RevmAddress, RevmAccountInfo>,
+        state_root: H256,
+        accounts: &HashMap<RevmAddress, AccountState>,
         storages: &HashMap<RevmAddress, HashMap<RevmU256, RevmU256>>,
-    ) -> bool {
-        let valid_accounts = accounts
-            .iter()
-            .map(|(address, account)| {
-                let account = AccountInfo {
-                    code_hash: H256::from_slice(account.code_hash.as_slice()),
-                    balance: U256::from_big_endian(&account.balance.to_be_bytes_vec()),
-                    nonce: account.nonce,
-                };
-                (address, account.encode_to_vec())
-            })
-            .any(|(address, encoded_account)| {
-                let Some(proof) = self.account.get(address) else {
-                    return false;
-                };
-                !Trie::verify_proof(
-                    proof,
-                    root_hash.into(),
-                    &H256::from_slice(address.as_slice()).as_bytes().to_vec(),
-                    &encoded_account,
-                )
-                .is_ok_and(|result| result == true)
-            });
+    ) -> Result<bool, StateProofsError> {
+        // check accounts inclusion in the state root
+        for (address, account) in accounts {
+            let proof = self
+                .account
+                .get(address)
+                .ok_or(StateProofsError::AccountProofNotFound(*address))?;
 
-        let valid_storages = true; // TODO:
+            let hashed_address = hash_address(&H160::from_slice(address.as_slice()));
+            let mut encoded_account = Vec::new();
+            account.encode(&mut encoded_account);
 
-        valid_accounts && valid_storages
+            if !Trie::verify_proof(proof, state_root.into(), &hashed_address, &encoded_account)? {
+                return Ok(false);
+            }
+        }
+        // so all account storage roots are valid at this point.
+
+        for (address, storage) in storages {
+            let storage_root = accounts
+                .get(address)
+                .map(|account| account.storage_root)
+                .ok_or(StateProofsError::StorageNotFound(*address))?;
+
+            let storage_proofs = self
+                .storage
+                .get(address)
+                .ok_or(StateProofsError::StorageProofsNotFound(*address))?;
+
+            for (key, value) in storage {
+                let proof = storage_proofs
+                    .get(key)
+                    .ok_or(StateProofsError::StorageProofNotFound(*address, *key))?;
+
+                let hashed_key = hash_key(&H256::from_slice(&key.to_be_bytes_vec()));
+                let encoded_value = U256::from_big_endian(&value.to_be_bytes_vec()).encode_to_vec();
+
+                if !Trie::verify_proof(proof, storage_root.into(), &hashed_key, &encoded_value)? {
+                    return Ok(false);
+                }
+            }
+        }
+
+        Ok(true)
     }
 }
 
@@ -227,7 +240,20 @@ impl DatabaseRef for ExecutionDB {
 
     /// Get basic account information.
     fn basic_ref(&self, address: RevmAddress) -> Result<Option<RevmAccountInfo>, Self::Error> {
-        Ok(self.accounts.get(&address).cloned())
+        let Some(account_state) = self.accounts.get(&address) else {
+            return Ok(None);
+        };
+
+        Ok(Some(RevmAccountInfo {
+            balance: {
+                let mut balance_bytes = [0; 32];
+                account_state.balance.to_big_endian(&mut balance_bytes);
+                RevmU256::from_be_bytes(balance_bytes)
+            },
+            nonce: account_state.nonce,
+            code_hash: RevmB256::from_slice(account_state.code_hash.as_bytes()),
+            code: None,
+        }))
     }
 
     /// Get account code by its hash.
