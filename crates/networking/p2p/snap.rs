@@ -2,7 +2,10 @@ use bytes::Bytes;
 use ethereum_rust_rlp::encode::RLPEncode;
 use ethereum_rust_storage::{error::StoreError, Store};
 
-use crate::rlpx::snap::{AccountRange, AccountRangeUnit, AccountStateSlim, GetAccountRange};
+use crate::rlpx::snap::{
+    AccountRange, AccountRangeUnit, AccountStateSlim, ByteCodes, GetAccountRange, GetByteCodes,
+    GetStorageRanges, StorageRanges, StorageSlot,
+};
 
 pub fn process_account_range_request(
     request: GetAccountRange,
@@ -33,6 +36,86 @@ pub fn process_account_range_request(
         id: request.id,
         accounts,
         proof,
+    })
+}
+
+pub fn process_storage_ranges_request(
+    request: GetStorageRanges,
+    store: Store,
+) -> Result<StorageRanges, StoreError> {
+    let mut slots = vec![];
+    let mut proof = vec![];
+    let mut bytes_used = 0;
+
+    for hashed_address in request.account_hashes {
+        let mut account_slots = vec![];
+        let mut res_capped = false;
+
+        if let Some(storage_iter) = store.iter_storage(request.root_hash, hashed_address)? {
+            for (hash, data) in storage_iter {
+                if hash >= request.starting_hash {
+                    bytes_used += 64_u64; // slot size
+                    account_slots.push(StorageSlot { hash, data });
+                }
+                if hash >= request.limit_hash || bytes_used >= request.response_bytes {
+                    if bytes_used >= request.response_bytes {
+                        res_capped = true;
+                    }
+                    break;
+                }
+            }
+        }
+
+        // Generate proofs only if the response doesn't contain the full storage range for the account
+        // Aka if the starting hash is not zero or if the response was capped due to byte limit
+        if !request.starting_hash.is_zero() || res_capped && !account_slots.is_empty() {
+            proof.extend(
+                store
+                    .get_storage_range_proof(
+                        request.root_hash,
+                        hashed_address,
+                        request.starting_hash,
+                        account_slots.last().map(|acc| acc.hash),
+                    )?
+                    .unwrap_or_default()
+                    .iter()
+                    .map(|bytes| Bytes::copy_from_slice(bytes)),
+            );
+        }
+
+        if !account_slots.is_empty() {
+            slots.push(account_slots);
+        }
+
+        if bytes_used >= request.response_bytes {
+            break;
+        }
+    }
+    Ok(StorageRanges {
+        id: request.id,
+        slots,
+        proof,
+    })
+}
+
+pub fn process_byte_codes_request(
+    request: GetByteCodes,
+    store: Store,
+) -> Result<ByteCodes, StoreError> {
+    let mut codes = vec![];
+    let mut bytes_used = 0;
+    for code_hash in request.hashes {
+        if let Some(code) = store.get_account_code(code_hash)? {
+            bytes_used += code.len() as u64;
+            codes.push(code);
+        }
+        if bytes_used >= request.bytes {
+            break;
+        }
+    }
+    Ok(ByteCodes {
+        id: request.id,
+        codes,
     })
 }
 
