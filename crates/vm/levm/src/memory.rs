@@ -78,7 +78,7 @@ impl Memory {
 
         temp.copy_from_slice(&self.data.get(src_offset..src_offset + size).ok_or(VMError::SlicingError)?);
 
-        self.data[dest_offset..dest_offset + size].copy_from_slice(&temp);
+        self.data.get_mut(dest_offset..dest_offset + size).ok_or(VMError::SlicingError)?.copy_from_slice(&temp);
         Ok(())
     }
 
