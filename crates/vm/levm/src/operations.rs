@@ -174,25 +174,29 @@ impl Operation {
                 let mut word_buffer = [0; 32];
                 value.to_big_endian(&mut word_buffer);
                 // extract the last n bytes to push
-                let value_to_push = &word_buffer[((32 - *n) as usize)..];
+                let value_to_push = &word_buffer[(32_u8.checked_sub(*n).ok_or(VMError::Internal)? as usize)..];
                 assert_eq!(value_to_push.len(), *n as usize);
-                let opcode = Opcode::try_from(Opcode::PUSH0 as u8 + *n)?;
+                let opcode = Opcode::try_from((Opcode::PUSH0 as u8).checked_add(*n).ok_or(VMError::Internal)?)?;
                 let mut bytes = vec![opcode as u8];
                 bytes.extend_from_slice(value_to_push);
 
                 Bytes::copy_from_slice(&bytes)
             }
             Operation::Dup(n) => {
+                assert!(*n >= 1, "DUP1 is the min");
                 assert!(*n <= 16, "DUP16 is the max");
-                Bytes::copy_from_slice(&[Opcode::DUP1 as u8 + n - 1])
+                Bytes::copy_from_slice(&[(Opcode::DUP1 as u8).checked_add(*n).ok_or(VMError::Internal)?.checked_sub(1).ok_or(VMError::Internal)?])
             }
             Operation::Swap(n) => {
+                assert!(*n >= 1, "SWAP1 is the min");
                 assert!(*n <= 16, "SWAP16 is the max");
-                Bytes::copy_from_slice(&[Opcode::SWAP1 as u8 + n - 1])
+                Bytes::copy_from_slice(&[(Opcode::SWAP1 as u8).checked_add(*n).ok_or(VMError::Internal)?.checked_sub(1).ok_or(VMError::Internal)?])
             }
             Operation::Log(n) => {
                 assert!(*n <= 4, "LOG4 is the max");
-                Bytes::copy_from_slice(&[Opcode::LOG0 as u8 + n])
+                Bytes::copy_from_slice(&[(Opcode::LOG0 as u8)
+                    .checked_add(*n)
+                    .ok_or(VMError::Internal)?])
             }
             Operation::Create => Bytes::copy_from_slice(&[Opcode::CREATE as u8]),
             Operation::Call => Bytes::copy_from_slice(&[Opcode::CALL as u8]),
