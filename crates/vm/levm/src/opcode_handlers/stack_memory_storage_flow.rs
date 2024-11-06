@@ -128,7 +128,6 @@ impl VM {
     }
 
     // SLOAD operation
-    // TODO: Add tests about gas usage
     pub fn op_sload(
         &mut self,
         current_call_frame: &mut CallFrame,
@@ -165,7 +164,7 @@ impl VM {
     }
 
     // SSTORE operation
-    // TODO: add gas REFUNDS
+    // TODO: https://github.com/lambdaclass/lambda_ethereum_rust/issues/1087
     pub fn op_sstore(
         &mut self,
         current_call_frame: &mut CallFrame,
