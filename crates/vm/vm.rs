@@ -160,8 +160,6 @@ cfg_if::cfg_if! {
             block_header: &BlockHeader,
             db: Arc<dyn LevmDatabase>,
         ) -> Result<TransactionReport, VMError> {
-            dbg!(&tx.tx_type());
-
             let gas_price: U256 = match tx.tx_type() {
                 TxType::Legacy => tx.gas_price().into(),
                 TxType::EIP2930 => tx.gas_price().into(),

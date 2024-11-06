@@ -143,8 +143,9 @@ impl VM {
 
         loop {
             let opcode = current_call_frame.next_opcode().unwrap_or(Opcode::STOP);
-            dbg!(&current_call_frame.gas_used);
-            dbg!(&opcode);
+            // Note: these are commented because they're still being used in development.
+            // dbg!(&current_call_frame.gas_used);
+            // dbg!(&opcode);
             let op_result: Result<OpcodeSuccess, VMError> = match opcode {
                 Opcode::STOP => Ok(OpcodeSuccess::Result(ResultReason::Stop)),
                 Opcode::ADD => self.op_add(current_call_frame),
@@ -457,7 +458,8 @@ impl VM {
             .checked_sub(U256::from(report.gas_used) * self.env.gas_price)
             .ok_or(VMError::OutOfGas)?;
 
-        dbg!(&report.gas_refunded);
+        // Note: this is commented because it is still being used in development.
+        // dbg!(&report.gas_refunded);
 
         self.cache.add_account(&sender, &sender_account);
 
