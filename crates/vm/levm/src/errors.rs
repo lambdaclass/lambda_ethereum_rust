@@ -36,6 +36,7 @@ pub enum VMError {
     SlicingError,
     IndexingError,
     FatalUnwrap, // I will use this generic error for things that shouldn't fail
+    AccountShouldHaveBeenCached,
 }
 
 pub enum OpcodeSuccess {
