@@ -64,6 +64,11 @@ impl DumbNibbles {
         (!self.is_empty()).then_some(self.data.remove(0))
     }
 
+    /// Removes and returns the first nibble if it is a suitable choice index (aka < 16)
+    pub fn next_choice(&mut self) -> Option<usize> {
+        self.next().filter(|choice| *choice < 16).map(usize::from)
+    }
+
     pub fn offset(&self, offset: usize) -> DumbNibbles {
         self.slice(offset, self.len())
     }

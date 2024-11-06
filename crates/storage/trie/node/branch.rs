@@ -64,23 +64,20 @@ impl BranchNode {
     ) -> Result<Option<ValueRLP>, TrieError> {
         // If path is at the end, return to its own value if present.
         // Otherwise, check the corresponding choice and delegate accordingly if present.
-        match path.next().map(usize::from) {
-            Some(choice) if choice < 16 => {
-                // Delegate to children if present
-                let child_hash = &self.choices[choice];
-                if child_hash.is_valid() {
-                    let child_node = state
-                        .get_node(child_hash.clone())?
-                        .expect("inconsistent internal tree structure");
-                    child_node.get(state, path)
-                } else {
-                    Ok(None)
-                }
+        if let Some(choice) = path.next_choice() {
+            // Delegate to children if present
+            let child_hash = &self.choices[choice];
+            if child_hash.is_valid() {
+                let child_node = state
+                    .get_node(child_hash.clone())?
+                    .expect("inconsistent internal tree structure");
+                child_node.get(state, path)
+            } else {
+                Ok(None)
             }
-            _ => {
-                // Return internal value if present.
-                Ok((!self.value.is_empty()).then_some(self.value.clone()))
-            }
+        } else {
+            // Return internal value if present.
+            Ok((!self.value.is_empty()).then_some(self.value.clone()))
         }
     }
 
@@ -93,8 +90,8 @@ impl BranchNode {
     ) -> Result<Node, TrieError> {
         // If path is at the end, insert or replace its own value.
         // Otherwise, check the corresponding choice and insert or delegate accordingly.
-        match path.next() {
-            Some(choice) if choice < 16 => match &mut self.choices[choice as usize] {
+        if let Some(choice) = path.next_choice() {
+            match &mut self.choices[choice as usize] {
                 // Create new child (leaf node)
                 choice_hash if !choice_hash.is_valid() => {
                     let new_leaf = LeafNode::new(path, value);
@@ -110,12 +107,11 @@ impl BranchNode {
                     let child_node = child_node.insert(state, path, value)?;
                     *choice_hash = child_node.insert_self(state)?;
                 }
-            },
-            _ => {
-                // Insert into self
-                self.update(value);
             }
-        };
+        } else {
+            // Insert into self
+            self.update(value);
+        }
 
         Ok(self.into())
     }
@@ -147,36 +143,33 @@ impl BranchNode {
 
         // Step 1: Remove value
         // Check if the value is located in a child subtrie
-        let value = match path.next() {
-            Some(choice_index) if choice_index < 16 => {
-                if self.choices[choice_index as usize].is_valid() {
-                    let child_node = state
-                        .get_node(self.choices[choice_index as usize].clone())?
-                        .expect("inconsistent internal tree structure");
-                    // Remove value from child node
-                    let (child_node, old_value) = child_node.remove(state, path.clone())?;
-                    if let Some(child_node) = child_node {
-                        // Update child node
-                        self.choices[choice_index as usize] = child_node.insert_self(state)?;
-                    } else {
-                        // Remove child hash if the child subtrie was removed in the process
-                        self.choices[choice_index as usize] = NodeHash::default();
-                    }
-                    old_value
+        let value = if let Some(choice_index) = path.next_choice() {
+            if self.choices[choice_index as usize].is_valid() {
+                let child_node = state
+                    .get_node(self.choices[choice_index as usize].clone())?
+                    .expect("inconsistent internal tree structure");
+                // Remove value from child node
+                let (child_node, old_value) = child_node.remove(state, path.clone())?;
+                if let Some(child_node) = child_node {
+                    // Update child node
+                    self.choices[choice_index as usize] = child_node.insert_self(state)?;
                 } else {
-                    None
+                    // Remove child hash if the child subtrie was removed in the process
+                    self.choices[choice_index as usize] = NodeHash::default();
                 }
+                old_value
+            } else {
+                None
             }
-            _ => {
-                // Remove own value (if it has one) and return it
-                if !self.value.is_empty() {
-                    let value = self.value;
-                    self.value = Default::default();
+        } else {
+            // Remove own value (if it has one) and return it
+            if !self.value.is_empty() {
+                let value = self.value;
+                self.value = Default::default();
 
-                    (!value.is_empty()).then_some(value)
-                } else {
-                    None
-                }
+                (!value.is_empty()).then_some(value)
+            } else {
+                None
             }
         };
 
@@ -199,7 +192,6 @@ impl BranchNode {
                     (Some((i, x)), false) => Some((i, x)),
                 })
             });
-
         let child_hash = match choice_count {
             Ok(Some((choice_index, child_hash))) => {
                 let child_node = state
@@ -324,7 +316,7 @@ impl BranchNode {
             node_path.push(encoded);
         };
         // Check the corresponding choice and delegate accordingly if present.
-        if let Some(choice) = path.next().map(usize::from) {
+        if let Some(choice) = path.next_choice() {
             // Continue to child
             let child_hash = &self.choices[choice];
             if child_hash.is_valid() {
