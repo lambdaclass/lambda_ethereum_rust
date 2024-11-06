@@ -437,6 +437,7 @@ impl Proposer {
             nonce: self.eth_client.get_nonce(self.l1_address).await?,
             chain_id: self.eth_client.get_chain_id().await?.as_u64(),
             blob_versioned_hashes: vec![H256::from_slice(&blob_versioned_hash)],
+            // TODO: Set the correct gas limit
             max_fee_per_blob_gas: U256::from_dec_str("100000000000000").unwrap(),
             ..Default::default()
         };
