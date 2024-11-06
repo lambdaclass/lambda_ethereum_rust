@@ -56,7 +56,10 @@ impl VM {
             current_call_frame.stack.push(U256::zero())?;
             return Ok(OpcodeSuccess::Continue);
         }
-        let quotient = dividend / divisor;
+        let Some(quotient) = dividend.checked_div(divisor) else {
+            current_call_frame.stack.push(U256::zero())?;
+            return Ok(OpcodeSuccess::Continue);
+        };
         current_call_frame.stack.push(quotient)?;
 
         Ok(OpcodeSuccess::Continue)
@@ -88,7 +91,10 @@ impl VM {
         } else {
             divisor
         };
-        let quotient = dividend / divisor;
+        let Some(quotient) = dividend.checked_div(divisor) else {
+            current_call_frame.stack.push(U256::zero())?;
+            return Ok(OpcodeSuccess::Continue);
+        };
         let quotient_is_negative = dividend_is_negative ^ divisor_is_negative;
         let quotient = if quotient_is_negative {
             negate(quotient)
