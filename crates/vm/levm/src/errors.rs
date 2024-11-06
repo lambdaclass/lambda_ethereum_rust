@@ -34,6 +34,7 @@ pub enum VMError {
     MemoryStoreOutOfBounds,
     GasLimitPriceProductOverflow,
     SlicingError,
+    IndexingError
 }
 
 pub enum OpcodeSuccess {
