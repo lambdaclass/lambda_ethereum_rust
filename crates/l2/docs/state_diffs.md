@@ -65,3 +65,6 @@ The sequencer will then make a commitment to this encoded state diff (explained 
 
 - Through calldata, the state diff commitment (which is part of the public input to the proof).
 - Through the blob, the encoded state diff.
+
+> [!NOTE]
+> As the blob is encoded as 4096 BLS12-381 field elements, every 32-bytes chunk cannot be greater than the subgroup `r` size: `0x73eda753299d7d483339d80809a1d80553bda402fffe5bfeffffffff00000001`. _i.e._, the most significant byte must be less than `0x73`. To avoid conflicts, we insert a `0x00` byte before every 31-bytes chunk to ensure this condition is met.
