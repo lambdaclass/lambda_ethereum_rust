@@ -57,3 +57,50 @@ impl TrieIterator {
         })
     }
 }
+
+pub fn print_trie(trie: &Trie) {
+    let stack = if let Some(root) = &trie.root {
+        vec![root.clone()]
+    } else {
+        vec![]
+    };
+    print_trie_inner(stack, trie);
+}
+
+pub fn print_trie_inner(mut stack: Vec<NodeHash>, trie: &Trie) {
+    if stack.is_empty() {
+        return;
+    };
+    // Fetch the last node in the stack
+    let next_node_hash = stack.pop().unwrap();
+    let next_node = trie.state.get_node(next_node_hash).ok().unwrap().unwrap();
+    match &next_node {
+        Node::Branch(branch_node) => {
+            // Add all children to the stack (in reverse order so we process first child frist)
+            print!("BranchNode {{ Children: [");
+            for (i, child) in branch_node.choices.iter().enumerate().rev() {
+                print!("{i}: {:?}", child.as_ref());
+                if child.is_valid() {
+                    stack.push(child.clone())
+                }
+            }
+            print!("] Value: {:?} }}\n", branch_node.value);
+        }
+        Node::Extension(extension_node) => {
+            // Add child to the stack
+            println!(
+                "ExtensionNode {{ Prefix: {:?} Child: {:?}}}",
+                extension_node.prefix,
+                extension_node.child.as_ref()
+            );
+            stack.push(extension_node.child.clone());
+        }
+        Node::Leaf(leaf) => {
+            println!(
+                "LeafNode {{ Partial: {:?} Value: {:?}}}",
+                leaf.partial.as_ref(),
+                leaf.value
+            );
+        }
+    }
+}
