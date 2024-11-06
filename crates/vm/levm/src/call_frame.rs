@@ -148,6 +148,10 @@ impl CallFrame {
     }
 
     fn opcode_at(&self, offset: usize) -> Option<Opcode> {
-        self.bytecode.get(offset).copied().map(Opcode::from)
+        self.bytecode
+            .get(offset)
+            .copied()
+            .map(Opcode::try_from)?
+            .ok()
     }
 }
