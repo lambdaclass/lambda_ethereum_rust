@@ -106,15 +106,6 @@ impl Trie {
             let new_leaf = Node::from(LeafNode::new(DumbNibbles::from_bytes(&path), value));
             self.root = Some(new_leaf.insert_self(&mut self.state)?)
         }
-        if let Some(root_node) = self
-            .root
-            .clone()
-            .map(|root| self.state.get_node(root))
-            .transpose()?
-            .flatten()
-        {
-            dbg!(&root_node);
-        }
         print_trie(&self);
         Ok(())
     }
@@ -1013,5 +1004,34 @@ mod test {
         let cita_proof = cita_trie.get_proof(&a).unwrap();
         let trie_proof = trie.get_proof(&a).unwrap();
         assert_eq!(cita_proof, trie_proof);
+    }
+
+    #[test]
+    fn jijo() {
+        let mut trie = Trie::new_temp();
+        let mut data = vec![(vec![0, 0, 0, 0, 0], false), (vec![0, 0, 0, 0, 1], true)];
+        // Remove duplicate values with different expected status
+        data.sort_by_key(|(val, _)| val.clone());
+        data.dedup_by_key(|(val, _)| val.clone());
+        // Insertions
+        for (val, _) in data.iter() {
+            trie.insert(val.clone(), val.clone()).unwrap();
+        }
+        // Removals
+        for (val, should_remove) in data.iter() {
+            if *should_remove {
+                let removed = trie.remove(val.clone()).unwrap();
+                assert_eq!(removed, Some(val.clone()));
+            }
+        }
+        // Check trie values
+        for (val, removed) in data.iter() {
+            let item = trie.get(val).unwrap();
+            if !removed {
+                assert_eq!(item, Some(val.clone()));
+            } else {
+                assert!(item.is_none());
+            }
+        }
     }
 }

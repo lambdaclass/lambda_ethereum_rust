@@ -59,48 +59,27 @@ impl TrieIterator {
 }
 
 pub fn print_trie(trie: &Trie) {
-    let stack = if let Some(root) = &trie.root {
-        vec![root.clone()]
-    } else {
-        vec![]
-    };
-    print_trie_inner(stack, trie);
+    let Some(root) = &trie.root else { return };
+    print_node(trie, root.clone());
+    print!("\n")
 }
 
-pub fn print_trie_inner(mut stack: Vec<NodeHash>, trie: &Trie) {
-    if stack.is_empty() {
-        return;
-    };
-    // Fetch the last node in the stack
-    let next_node_hash = stack.pop().unwrap();
-    let next_node = trie.state.get_node(next_node_hash).ok().unwrap().unwrap();
-    match &next_node {
-        Node::Branch(branch_node) => {
-            // Add all children to the stack (in reverse order so we process first child frist)
-            print!("BranchNode {{ Children: [");
-            for (i, child) in branch_node.choices.iter().enumerate().rev() {
-                print!("{i}: {:?}", child.as_ref());
+pub fn print_node(trie: &Trie, node_hash: NodeHash) {
+    match trie.state.get_node(node_hash).unwrap().unwrap() {
+        Node::Branch(n) => {
+            print!("Branch{:?} [", n.value);
+            for (i, child) in n.choices.iter().enumerate() {
                 if child.is_valid() {
-                    stack.push(child.clone())
+                    print!(" {i}: ");
+                    print_node(trie, child.clone());
                 }
             }
-            print!("] Value: {:?} }}\n", branch_node.value);
+            print!(" ]")
         }
-        Node::Extension(extension_node) => {
-            // Add child to the stack
-            println!(
-                "ExtensionNode {{ Prefix: {:?} Child: {:?}}}",
-                extension_node.prefix,
-                extension_node.child.as_ref()
-            );
-            stack.push(extension_node.child.clone());
+        Node::Extension(n) => {
+            print!("Ext{:?} -> ", n.prefix.as_ref());
+            print_node(trie, n.child);
         }
-        Node::Leaf(leaf) => {
-            println!(
-                "LeafNode {{ Partial: {:?} Value: {:?}}}",
-                leaf.partial.as_ref(),
-                leaf.value
-            );
-        }
+        Node::Leaf(n) => print!("Leaf{:?}", n.value),
     }
 }
