@@ -1,0 +1,156 @@
+warning: slicing may panic
+  --> crates/vm/levm/src/memory.rs:79:31
+   |
+79 |         temp.copy_from_slice(&self.data[src_offset..src_offset + size]);
+   |                               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+   = help: consider using `.get(n..m)` or `.get_mut(n..m)` instead
+   = help: for further information visit https://rust-lang.github.io/rust-clippy/master/index.html#indexing_slicing
+   = note: requested on the command line with `-W clippy::indexing-slicing`
+
+warning: slicing may panic
+  --> crates/vm/levm/src/memory.rs:81:9
+   |
+81 |         self.data[dest_offset..dest_offset + size].copy_from_slice(&temp);
+   |         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+   = help: consider using `.get(n..m)` or `.get_mut(n..m)` instead
+   = help: for further information visit https://rust-lang.github.io/rust-clippy/master/index.html#indexing_slicing
+
+warning: slicing may panic
+   --> crates/vm/levm/src/opcode_handlers/environment.rs:118:13
+    |
+118 |             padded_calldata[..data_len_to_copy].copy_from_slice(&calldata[..data_len_to_copy]);
+    |             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |
+    = help: consider using `.get(..n)`or `.get_mut(..n)` instead
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/master/index.html#indexing_slicing
+
+warning: slicing may panic
+   --> crates/vm/levm/src/opcode_handlers/environment.rs:118:66
+    |
+118 |             padded_calldata[..data_len_to_copy].copy_from_slice(&calldata[..data_len_to_copy]);
+    |                                                                  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |
+    = help: consider using `.get(..n)`or `.get_mut(..n)` instead
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/master/index.html#indexing_slicing
+
+warning: slicing may panic
+   --> crates/vm/levm/src/opcode_handlers/environment.rs:188:13
+    |
+188 |             padded_calldata[..data_len_to_copy].copy_from_slice(&calldata[..data_len_to_copy]);
+    |             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |
+    = help: consider using `.get(..n)`or `.get_mut(..n)` instead
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/master/index.html#indexing_slicing
+
+warning: slicing may panic
+   --> crates/vm/levm/src/opcode_handlers/environment.rs:188:66
+    |
+188 |             padded_calldata[..data_len_to_copy].copy_from_slice(&calldata[..data_len_to_copy]);
+    |                                                                  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |
+    = help: consider using `.get(..n)`or `.get_mut(..n)` instead
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/master/index.html#indexing_slicing
+
+warning: slicing may panic
+   --> crates/vm/levm/src/opcode_handlers/environment.rs:356:40
+    |
+356 |             .store_bytes(dest_offset, &bytecode[offset..offset + size])?;
+    |                                        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |
+    = help: consider using `.get(n..m)` or `.get_mut(n..m)` instead
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/master/index.html#indexing_slicing
+
+warning: slicing may panic
+   --> crates/vm/levm/src/operations.rs:177:38
+    |
+177 |                 let value_to_push = &word_buffer[((32 - *n) as usize)..];
+    |                                      ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |
+    = help: consider using `.get(n..)` or .get_mut(n..)` instead
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/master/index.html#indexing_slicing
+
+warning: indexing may panic
+   --> crates/vm/levm/src/vm.rs:334:18
+    |
+334 |         let to = self.call_frames[0].to;
+    |                  ^^^^^^^^^^^^^^^^^^^
+    |
+    = help: consider using `.get(n)` or `.get_mut(n)` instead
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/master/index.html#indexing_slicing
+
+warning: indexing may panic
+   --> crates/vm/levm/src/vm.rs:351:42
+    |
+351 |         if sender_account.info.balance < self.call_frames[0].msg_value {
+    |                                          ^^^^^^^^^^^^^^^^^^^
+    |
+    = help: consider using `.get(n)` or `.get_mut(n)` instead
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/master/index.html#indexing_slicing
+
+warning: indexing may panic
+   --> crates/vm/levm/src/vm.rs:355:40
+    |
+355 |         sender_account.info.balance -= self.call_frames[0].msg_value;
+    |                                        ^^^^^^^^^^^^^^^^^^^
+    |
+    = help: consider using `.get(n)` or `.get_mut(n)` instead
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/master/index.html#indexing_slicing
+
+warning: indexing may panic
+   --> crates/vm/levm/src/vm.rs:356:42
+    |
+356 |         receiver_account.info.balance += self.call_frames[0].msg_value;
+    |                                          ^^^^^^^^^^^^^^^^^^^
+    |
+    = help: consider using `.get(n)` or `.get_mut(n)` instead
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/master/index.html#indexing_slicing
+
+warning: indexing may panic
+   --> crates/vm/levm/src/vm.rs:406:22
+    |
+406 |         for byte in &self.call_frames[0].calldata {
+    |                      ^^^^^^^^^^^^^^^^^^^
+    |
+    = help: consider using `.get(n)` or `.get_mut(n)` instead
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/master/index.html#indexing_slicing
+
+warning: indexing may panic
+   --> crates/vm/levm/src/vm.rs:433:16
+    |
+433 |             if contract_code[0] == INVALID_CONTRACT_PREFIX {
+    |                ^^^^^^^^^^^^^^^^
+    |
+    = help: consider using `.get(n)` or `.get_mut(n)` instead
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/master/index.html#indexing_slicing
+
+warning: indexing may panic
+   --> crates/vm/levm/src/vm.rs:445:35
+    |
+445 |             let number_of_words = self.call_frames[0].calldata.chunks(32).len() as u64;
+    |                                   ^^^^^^^^^^^^^^^^^^^
+    |
+    = help: consider using `.get(n)` or `.get_mut(n)` instead
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/master/index.html#indexing_slicing
+
+warning: slicing may panic
+   --> crates/vm/levm/src/vm.rs:605:30
+    |
+605 |         Address::from_slice(&hasher.finalize()[12..])
+    |                              ^^^^^^^^^^^^^^^^^^^^^^^
+    |
+    = help: consider using `.get(n..)` or .get_mut(n..)` instead
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/master/index.html#indexing_slicing
+
+warning: slicing may panic
+   --> crates/vm/levm/src/vm.rs:628:30
+    |
+628 |         Address::from_slice(&hasher.finalize()[12..])
+    |                              ^^^^^^^^^^^^^^^^^^^^^^^
+    |
+    = help: consider using `.get(n..)` or .get_mut(n..)` instead
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/master/index.html#indexing_slicing
+
+warning: `ethereum_rust_levm` (lib) generated 17 warnings
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 0.12s
