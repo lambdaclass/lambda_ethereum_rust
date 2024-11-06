@@ -231,10 +231,26 @@ impl VM {
     ) -> Result<OpcodeSuccess, VMError> {
         let gas = current_call_frame.stack.pop()?;
         let code_address = word_to_address(current_call_frame.stack.pop()?);
-        let args_offset = current_call_frame.stack.pop()?.try_into().unwrap();
-        let args_size = current_call_frame.stack.pop()?.try_into().unwrap();
-        let ret_offset = current_call_frame.stack.pop()?.try_into().unwrap();
-        let ret_size = current_call_frame.stack.pop()?.try_into().unwrap();
+        let args_offset = current_call_frame
+            .stack
+            .pop()?
+            .try_into()
+            .map_err(|_err| VMError::VeryLargeNumber)?;
+        let args_size = current_call_frame
+            .stack
+            .pop()?
+            .try_into()
+            .map_err(|_err| VMError::VeryLargeNumber)?;
+        let ret_offset = current_call_frame
+            .stack
+            .pop()?
+            .try_into()
+            .map_err(|_err| VMError::VeryLargeNumber)?;
+        let ret_size = current_call_frame
+            .stack
+            .pop()?
+            .try_into()
+            .map_err(|_err| VMError::VeryLargeNumber)?;
 
         let value = U256::zero();
         let msg_sender = current_call_frame.to; // The new sender will be the current contract.
