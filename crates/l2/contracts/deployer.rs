@@ -105,7 +105,7 @@ fn download_contract_deps() {
         .expect("Failed to wait for git");
 
     // The openzeppelin's import statements inside the risc0's contracts
-    // has to be changed to match the donwloaded contracts.
+    // has to be changed to match the donwloaded oz's repo location.
     let risc_zero_groth16_verifier =
         "./contracts/lib/risc0-ethereum/contracts/src/groth16/RiscZeroGroth16Verifier.sol";
     let struct_hash = "./contracts/lib/risc0-ethereum/contracts/src/StructHash.sol";
@@ -221,6 +221,9 @@ async fn deploy_contracts(
         bridge_address, bridge_deployment_tx_hash
     );
 
+    // If the DEPLOYER_ENABLE_L1_VERIFIER envar is set to true, the contract will be deployed.
+    // Else, the address is set to address(0xAA), which means that the verification process is skipped.
+    // see `contracts/src/l1/OnchainProposer.sol`
     let r0_groth16_verifier_address = if flag_enable_l1_verifier {
         let (r0_groth16_verifier_deployment_tx_hash, r0_groth16_verifier_address) =
             deploy_r0_groth16_verifier(deployer, deployer_private_key, overrides, eth_client).await;
