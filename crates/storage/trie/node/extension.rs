@@ -160,10 +160,14 @@ impl ExtensionNode {
 
         let mut encoder = NodeEncoder::new();
         encoder.write_list_header(prefix_len + child_len);
-        encoder.write_path_vec(&NibbleVec::default(), PathKind::Extension);
+        encoder.write_path_slice(&self.prefix);
         match child_hash {
-            NodeHash::Inline(x) => encoder.write_raw(x),
-            NodeHash::Hashed(x) => encoder.write_bytes(&x.0),
+            NodeHash::Inline(x) => {
+                encoder.write_raw(x);
+            }
+            NodeHash::Hashed(x) => {
+                encoder.write_bytes(&x.0);
+            }
         }
         encoder.finalize()
     }
