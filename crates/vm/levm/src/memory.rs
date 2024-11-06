@@ -71,14 +71,26 @@ impl Memory {
         U256::from(self.data.len())
     }
 
-    pub fn copy(&mut self, src_offset: usize, dest_offset: usize, size: usize) -> Result<(), VMError>{
+    pub fn copy(
+        &mut self,
+        src_offset: usize,
+        dest_offset: usize,
+        size: usize,
+    ) -> Result<(), VMError> {
         let max_size = std::cmp::max(src_offset + size, dest_offset + size);
         self.resize(max_size);
         let mut temp = vec![0u8; size];
 
-        temp.copy_from_slice(self.data.get(src_offset..src_offset + size).ok_or(VMError::SlicingError)?);
+        temp.copy_from_slice(
+            self.data
+                .get(src_offset..src_offset + size)
+                .ok_or(VMError::SlicingError)?,
+        );
 
-        self.data.get_mut(dest_offset..dest_offset + size).ok_or(VMError::SlicingError)?.copy_from_slice(&temp);
+        self.data
+            .get_mut(dest_offset..dest_offset + size)
+            .ok_or(VMError::SlicingError)?
+            .copy_from_slice(&temp);
         Ok(())
     }
 

@@ -175,7 +175,9 @@ impl Operation {
                 let mut word_buffer = [0; 32];
                 value.to_big_endian(&mut word_buffer);
                 // extract the last n bytes to push
-                let value_to_push = &word_buffer.get((32 - n_usize)..).ok_or(VMError::SlicingError)?;
+                let value_to_push = &word_buffer
+                    .get((32 - n_usize)..)
+                    .ok_or(VMError::SlicingError)?;
                 assert_eq!(value_to_push.len(), n_usize);
                 let opcode = Opcode::try_from(Opcode::PUSH0.to_u8() + *n)?;
                 let mut bytes = vec![opcode.to_u8()];

@@ -1,5 +1,10 @@
 use crate::{
-    account::{Account, AccountInfo}, db::{Cache, Db}, environment::Environment, errors::VMError, operations::Operation, vm::VM
+    account::{Account, AccountInfo},
+    db::{Cache, Db},
+    environment::Environment,
+    errors::VMError,
+    operations::Operation,
+    vm::VM,
 };
 use bytes::Bytes;
 use ethereum_rust_core::{types::TxKind, Address, U256};
@@ -8,12 +13,12 @@ use std::{collections::HashMap, sync::Arc};
 pub fn ops_to_bytecode(operations: &[Operation]) -> Result<Bytes, VMError> {
     let mut bytecode = Vec::new();
     for op in operations {
-        bytecode.extend_from_slice(&op.to_bytecode().map_err(|_|VMError::FatalUnwrap)?);
+        bytecode.extend_from_slice(&op.to_bytecode().map_err(|_| VMError::FatalUnwrap)?);
     }
     Ok(bytecode.into())
 }
 
-pub fn new_vm_with_bytecode(bytecode: Bytes) -> Result<VM,VMError> {
+pub fn new_vm_with_bytecode(bytecode: Bytes) -> Result<VM, VMError> {
     new_vm_with_ops_addr_bal_db(
         bytecode,
         Address::from_low_u64_be(100),
@@ -23,7 +28,7 @@ pub fn new_vm_with_bytecode(bytecode: Bytes) -> Result<VM,VMError> {
     )
 }
 
-pub fn new_vm_with_ops(operations: &[Operation]) -> Result<VM,VMError> {
+pub fn new_vm_with_ops(operations: &[Operation]) -> Result<VM, VMError> {
     let bytecode = ops_to_bytecode(operations)?;
     new_vm_with_ops_addr_bal_db(
         bytecode,
@@ -34,7 +39,7 @@ pub fn new_vm_with_ops(operations: &[Operation]) -> Result<VM,VMError> {
     )
 }
 
-pub fn new_vm_with_ops_db(operations: &[Operation], db: Db) -> Result<VM,VMError> {
+pub fn new_vm_with_ops_db(operations: &[Operation], db: Db) -> Result<VM, VMError> {
     let bytecode = ops_to_bytecode(operations)?;
     new_vm_with_ops_addr_bal_db(
         bytecode,

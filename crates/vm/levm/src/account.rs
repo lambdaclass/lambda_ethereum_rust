@@ -50,7 +50,8 @@ impl Account {
 
     pub fn has_code(&self) -> Result<bool, VMError> {
         Ok(!(self.info.bytecode.is_empty()
-            || self.bytecode_hash() == H256::from_str(EMPTY_CODE_HASH_STR).map_err(|_| VMError::FatalUnwrap)?))
+            || self.bytecode_hash()
+                == H256::from_str(EMPTY_CODE_HASH_STR).map_err(|_| VMError::FatalUnwrap)?))
     }
 
     pub fn bytecode_hash(&self) -> H256 {

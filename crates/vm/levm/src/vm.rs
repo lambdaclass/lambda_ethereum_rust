@@ -13,7 +13,9 @@ use ethereum_rust_rlp;
 use ethereum_rust_rlp::encode::RLPEncode;
 use sha3::{Digest, Keccak256};
 use std::{
-    collections::{HashMap, HashSet}, str::FromStr, sync::Arc
+    collections::{HashMap, HashSet},
+    str::FromStr,
+    sync::Arc,
 };
 
 pub type Storage = HashMap<U256, H256>;
@@ -61,7 +63,7 @@ impl VM {
         calldata: Bytes,
         db: Arc<dyn Database>,
         mut cache: Cache,
-    ) -> Result<Self,VMError> {
+    ) -> Result<Self, VMError> {
         // Maybe this decision should be made in an upper layer
 
         match to {
@@ -96,7 +98,8 @@ impl VM {
 
                 // (2)
                 let new_contract_address =
-                    VM::calculate_create_address(env.origin, sender_account_info.nonce).map_err(|_| VMError::FatalUnwrap)?;
+                    VM::calculate_create_address(env.origin, sender_account_info.nonce)
+                        .map_err(|_| VMError::FatalUnwrap)?;
 
                 // (3)
                 let created_contract = Account::new(value, calldata.clone(), 1, HashMap::new());
@@ -346,12 +349,26 @@ impl VM {
             return Err(VMError::SenderAccountShouldNotHaveBytecode);
         }
         // (6)
-        if sender_account.info.balance < self.call_frames.first().ok_or(VMError::IndexingError)?.msg_value {
+        if sender_account.info.balance
+            < self
+                .call_frames
+                .first()
+                .ok_or(VMError::IndexingError)?
+                .msg_value
+        {
             return Err(VMError::SenderBalanceShouldContainTransferValue);
         }
         // TODO: This belongs elsewhere.
-        sender_account.info.balance -= self.call_frames.first().ok_or(VMError::IndexingError)?.msg_value;
-        receiver_account.info.balance += self.call_frames.first().ok_or(VMError::IndexingError)?.msg_value;
+        sender_account.info.balance -= self
+            .call_frames
+            .first()
+            .ok_or(VMError::IndexingError)?
+            .msg_value;
+        receiver_account.info.balance += self
+            .call_frames
+            .first()
+            .ok_or(VMError::IndexingError)?
+            .msg_value;
 
         self.cache.add_account(&origin, &sender_account);
         self.cache.add_account(&to, &receiver_account);
@@ -369,7 +386,11 @@ impl VM {
 
     fn revert_create(&mut self) -> Result<(), VMError> {
         // Note: currently working with copies
-        let sender = self.call_frames.first().ok_or(VMError::FatalUnwrap)?.msg_sender;
+        let sender = self
+            .call_frames
+            .first()
+            .ok_or(VMError::FatalUnwrap)?
+            .msg_sender;
         let mut sender_account = self.get_account(&sender);
 
         sender_account.info.nonce -= 1;
@@ -396,12 +417,21 @@ impl VM {
         let mut current_call_frame = self.call_frames.pop().ok_or(VMError::FatalUnwrap)?;
 
         let mut report = self.execute(&mut current_call_frame);
-        let sender = self.call_frames.first().ok_or(VMError::FatalUnwrap)?.msg_sender;
+        let sender = self
+            .call_frames
+            .first()
+            .ok_or(VMError::FatalUnwrap)?
+            .msg_sender;
 
         // This cost applies both for call and create
         // 4 gas for each zero byte in the transaction data 16 gas for each non-zero byte in the transaction.
         let mut calldata_cost = 0;
-        for byte in &self.call_frames.first().ok_or(VMError::IndexingError)?.calldata {
+        for byte in &self
+            .call_frames
+            .first()
+            .ok_or(VMError::IndexingError)?
+            .calldata
+        {
             if *byte != 0 {
                 calldata_cost += 16;
             } else {
@@ -434,14 +464,25 @@ impl VM {
 
             // If the initialization code completes successfully, a final contract-creation cost is paid,
             // the code-deposit cost, c, proportional to the size of the created contract’s code
-            let code_length: u64 = contract_code.len().try_into().map_err(|_| VMError::ConversionError)?;
+            let code_length: u64 = contract_code
+                .len()
+                .try_into()
+                .map_err(|_| VMError::ConversionError)?;
             let mut creation_cost = 200 * code_length;
             creation_cost += 32000;
             report.gas_used += creation_cost;
             // Charge 22100 gas for each storage variable set
 
             // GInitCodeword * number_of_words rounded up. GinitCodeWord = 2
-            let number_of_words: u64 = self.call_frames.first().ok_or(VMError::IndexingError)?.calldata.chunks(32).len().try_into().map_err(|_| VMError::ConversionError)?;
+            let number_of_words: u64 = self
+                .call_frames
+                .first()
+                .ok_or(VMError::IndexingError)?
+                .calldata
+                .chunks(32)
+                .len()
+                .try_into()
+                .map_err(|_| VMError::ConversionError)?;
             report.gas_used += number_of_words * 2;
 
             let contract_address = self.call_frames.first().ok_or(VMError::FatalUnwrap)?.to;
@@ -596,12 +637,17 @@ impl VM {
     /// Calculates the address of a new conctract using the CREATE opcode as follow
     ///
     /// address = keccak256(rlp([sender_address,sender_nonce]))[12:]
-    pub fn calculate_create_address(sender_address: Address, sender_nonce: u64) -> Result<Address, VMError> {
+    pub fn calculate_create_address(
+        sender_address: Address,
+        sender_nonce: u64,
+    ) -> Result<Address, VMError> {
         let mut encoded = Vec::new();
         (sender_address, sender_nonce).encode(&mut encoded);
         let mut hasher = Keccak256::new();
         hasher.update(encoded);
-        Ok(Address::from_slice(hasher.finalize().get(12..).ok_or(VMError::SlicingError)?))
+        Ok(Address::from_slice(
+            hasher.finalize().get(12..).ok_or(VMError::SlicingError)?,
+        ))
     }
 
     /// Calculates the address of a new contract using the CREATE2 opcode as follow
@@ -624,7 +670,9 @@ impl VM {
         hasher.update(sender_address.as_bytes());
         hasher.update(salt_bytes);
         hasher.update(initialization_code_hash);
-        Ok(Address::from_slice(hasher.finalize().get(12..).ok_or(VMError::SlicingError)?))
+        Ok(Address::from_slice(
+            hasher.finalize().get(12..).ok_or(VMError::SlicingError)?,
+        ))
     }
 
     /// Common behavior for CREATE and CREATE2 opcodes

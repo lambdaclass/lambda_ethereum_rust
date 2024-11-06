@@ -115,8 +115,14 @@ impl VM {
             let mut padded_calldata = [0u8; 32];
             let data_len_to_copy = calldata.len().min(32);
 
-            padded_calldata.get_mut(..data_len_to_copy).ok_or(VMError::SlicingError)?.copy_from_slice(calldata.get(..data_len_to_copy).ok_or(VMError::SlicingError)?);
-
+            padded_calldata
+                .get_mut(..data_len_to_copy)
+                .ok_or(VMError::SlicingError)?
+                .copy_from_slice(
+                    calldata
+                        .get(..data_len_to_copy)
+                        .ok_or(VMError::SlicingError)?,
+                );
 
             U256::from_big_endian(&padded_calldata)
         } else {
@@ -186,7 +192,14 @@ impl VM {
             let mut padded_calldata = vec![0u8; size];
             let data_len_to_copy = calldata.len().min(size);
 
-            padded_calldata.get_mut(..data_len_to_copy).ok_or(VMError::SlicingError)?.copy_from_slice(calldata.get(..data_len_to_copy).ok_or(VMError::SlicingError)?);
+            padded_calldata
+                .get_mut(..data_len_to_copy)
+                .ok_or(VMError::SlicingError)?
+                .copy_from_slice(
+                    calldata
+                        .get(..data_len_to_copy)
+                        .ok_or(VMError::SlicingError)?,
+                );
 
             padded_calldata
         } else {
@@ -352,9 +365,12 @@ impl VM {
             extended_code.resize(offset + size, 0);
             bytecode = Bytes::from(extended_code);
         }
-        current_call_frame
-            .memory
-            .store_bytes(dest_offset, bytecode.get(offset..offset + size).ok_or(VMError::SlicingError)?)?;
+        current_call_frame.memory.store_bytes(
+            dest_offset,
+            bytecode
+                .get(offset..offset + size)
+                .ok_or(VMError::SlicingError)?,
+        )?;
 
         Ok(OpcodeSuccess::Continue)
     }

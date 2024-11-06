@@ -110,7 +110,11 @@ impl VM {
         &mut self,
         current_call_frame: &mut CallFrame,
     ) -> Result<OpcodeSuccess, VMError> {
-        let offset = current_call_frame.stack.pop()?.try_into().map_err(|_|VMError::FatalUnwrap)?;
+        let offset = current_call_frame
+            .stack
+            .pop()?
+            .try_into()
+            .map_err(|_| VMError::FatalUnwrap)?;
         let memory_expansion_cost = current_call_frame.memory.expansion_cost(offset + 1)?;
         let gas_cost = gas_cost::MSTORE8_STATIC + memory_expansion_cost;
 
@@ -146,8 +150,7 @@ impl VM {
             // If slot is warm (cached) add 100 to base_dynamic_gas
             base_dynamic_gas += WARM_ADDRESS_ACCESS_COST;
 
-            self.get_storage_slot(&address, key)
-                .current_value
+            self.get_storage_slot(&address, key).current_value
         } else {
             // If slot is cold (not cached) add 2100 to base_dynamic_gas
             base_dynamic_gas += COLD_STORAGE_ACCESS_COST;
@@ -183,7 +186,9 @@ impl VM {
         let mut base_dynamic_gas: U256 = U256::zero();
 
         let storage_slot = if self.cache.is_slot_cached(&address, key) {
-            self.cache.get_storage_slot(address, key).ok_or(VMError::FatalUnwrap)?
+            self.cache
+                .get_storage_slot(address, key)
+                .ok_or(VMError::FatalUnwrap)?
         } else {
             // If slot is cold 2100 is added to base_dynamic_gas
             base_dynamic_gas += U256::from(2100);
