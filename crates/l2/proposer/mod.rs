@@ -340,10 +340,8 @@ impl Proposer {
                 account_update.address,
                 AccountStateDiff {
                     new_balance: account_update.info.clone().map(|info| info.balance),
-                    // TODO: Change this with the diff
                     nonce_diff: account_update.info.clone().map(|info| info.nonce as u16),
                     storage: account_update.added_storage.clone().into_iter().collect(),
-                    // TODO: Check if bytecode is already known
                     bytecode: account_update.code.clone(),
                     bytecode_hash: None,
                 },
@@ -437,7 +435,6 @@ impl Proposer {
             nonce: self.eth_client.get_nonce(self.l1_address).await?,
             chain_id: self.eth_client.get_chain_id().await?.as_u64(),
             blob_versioned_hashes: vec![H256::from_slice(&blob_versioned_hash)],
-            // TODO: Set the correct gas limit
             max_fee_per_blob_gas: U256::from_dec_str("100000000000000").unwrap(),
             ..Default::default()
         };
