@@ -23,23 +23,29 @@ const SALT: H256 = H256::zero();
 
 #[tokio::main]
 async fn main() {
-    let (deployer, deployer_private_key, eth_client) = setup();
+    let (deployer, deployer_private_key, flag_enable_l1_verifier, eth_client) = setup();
     download_contract_deps();
     compile_contracts();
-    let (on_chain_proposer, bridge_address, _r0_groth16_verifier) =
-        deploy_contracts(deployer, deployer_private_key, &eth_client).await;
+    let (on_chain_proposer, bridge_address, verifier_address) = deploy_contracts(
+        deployer,
+        deployer_private_key,
+        flag_enable_l1_verifier,
+        &eth_client,
+    )
+    .await;
 
     initialize_contracts(
         deployer,
         deployer_private_key,
         on_chain_proposer,
         bridge_address,
+        verifier_address,
         &eth_client,
     )
     .await;
 }
 
-fn setup() -> (Address, SecretKey, EthClient) {
+fn setup() -> (Address, SecretKey, bool, EthClient) {
     read_env_file().expect("Failed to read .env file");
     let eth_client = EthClient::new(&std::env::var("ETH_RPC_URL").expect("ETH_RPC_URL not set"));
     let deployer = std::env::var("DEPLOYER_ADDRESS")
@@ -58,7 +64,21 @@ fn setup() -> (Address, SecretKey, EthClient) {
     )
     .expect("Malformed DEPLOYER_PRIVATE_KEY (SecretKey::parse)");
 
-    (deployer, deployer_private_key, eth_client)
+    let input =
+        std::env::var("DEPLOYER_ENABLE_L1_VERIFIER").expect("DEPLOYER_ENABLE_L1_VERIFIER not set");
+
+    let deployer_enable_l1_verifier = match input.trim().to_lowercase().as_str() {
+        "true" | "1" => true,
+        "false" | "0" => false,
+        _ => panic!("{}", format!("Invalid boolean string: {}", input)),
+    };
+
+    (
+        deployer,
+        deployer_private_key,
+        deployer_enable_l1_verifier,
+        eth_client,
+    )
 }
 
 fn download_contract_deps() {
@@ -167,6 +187,7 @@ fn compile_contracts() {
 async fn deploy_contracts(
     deployer: Address,
     deployer_private_key: SecretKey,
+    flag_enable_l1_verifier: bool,
     eth_client: &EthClient,
 ) -> (Address, Address, Address) {
     let overrides = Overrides {
@@ -200,12 +221,17 @@ async fn deploy_contracts(
         bridge_address, bridge_deployment_tx_hash
     );
 
-    let (r0_groth16_verifier_deployment_tx_hash, r0_groth16_verifier_address) =
-        deploy_r0_groth16_verifier(deployer, deployer_private_key, overrides, eth_client).await;
-    println!(
-        "R0Groth16Verifier deployed at address {:#x} with tx hash {:#x}",
-        r0_groth16_verifier_address, r0_groth16_verifier_deployment_tx_hash
-    );
+    let r0_groth16_verifier_address = if flag_enable_l1_verifier {
+        let (r0_groth16_verifier_deployment_tx_hash, r0_groth16_verifier_address) =
+            deploy_r0_groth16_verifier(deployer, deployer_private_key, overrides, eth_client).await;
+        println!(
+            "R0Groth16Verifier deployed at address {:#x} with tx hash {:#x}",
+            r0_groth16_verifier_address, r0_groth16_verifier_deployment_tx_hash
+        );
+        r0_groth16_verifier_address
+    } else {
+        H160::from_str("0x00000000000000000000000000000000000000AA").expect("H160::from_str")
+    };
 
     (
         on_chain_proposer_address,
@@ -343,12 +369,14 @@ async fn initialize_contracts(
     deployer: Address,
     deployer_private_key: SecretKey,
     on_chain_proposer: Address,
+    verifier: Address,
     bridge: Address,
     eth_client: &EthClient,
 ) {
     initialize_on_chain_proposer(
         on_chain_proposer,
         bridge,
+        verifier,
         deployer,
         deployer_private_key,
         eth_client,
@@ -367,11 +395,12 @@ async fn initialize_contracts(
 async fn initialize_on_chain_proposer(
     on_chain_proposer: Address,
     bridge: Address,
+    verifier: Address,
     deployer: Address,
     deployer_private_key: SecretKey,
     eth_client: &EthClient,
 ) {
-    let on_chain_proposer_initialize_selector = keccak(b"initialize(address)")
+    let on_chain_proposer_initialize_selector = keccak(b"initialize(address,address)")
         .as_bytes()
         .get(..4)
         .expect("Failed to get initialize selector")
@@ -383,10 +412,18 @@ async fn initialize_on_chain_proposer(
         encoded_bridge
     };
 
+    let encoded_verifier = {
+        let offset = 32 - verifier.as_bytes().len() % 32;
+        let mut encoded_verifier = vec![0; offset];
+        encoded_verifier.extend_from_slice(bridge.as_bytes());
+        encoded_verifier
+    };
+
     let mut on_chain_proposer_initialization_calldata = Vec::new();
     on_chain_proposer_initialization_calldata
         .extend_from_slice(&on_chain_proposer_initialize_selector);
     on_chain_proposer_initialization_calldata.extend_from_slice(&encoded_bridge);
+    on_chain_proposer_initialization_calldata.extend_from_slice(&encoded_verifier);
 
     let initialize_tx_hash = eth_client
         .send(
