@@ -103,19 +103,17 @@ pub fn remove_transaction(hash: &H256, store: &Store) -> Result<(), StoreError> 
     store.remove_transaction_from_pool(hash)
 }
 
-pub fn get_nonce(address: &Address, store: &Store) -> Result<u64, MempoolError> {
+pub fn get_nonce(address: &Address, store: &Store) -> Result<Option<u64>, MempoolError> {
     let pending_filter = PendingTxFilter {
-        only_plain_txs: true,
-        only_blob_txs: true,
         ..Default::default()
     };
 
     let pending_txs = filter_transactions(&pending_filter, store)?;
     let empty_vec = vec![];
     let txs = pending_txs.get(address).unwrap_or(&empty_vec);
-    let nonce = txs.iter().map(|tx| tx.nonce()).max().unwrap_or(0);
+    let higher_nonce = txs.last().map(|tx| tx.nonce());
 
-    Ok(nonce)
+    Ok(higher_nonce)
 }
 
 #[derive(Debug, Default)]
