@@ -82,7 +82,11 @@ impl VM {
         &mut self,
         current_call_frame: &mut CallFrame,
     ) -> Result<OpcodeSuccess, VMError> {
-        let offset = current_call_frame.stack.pop()?.try_into().unwrap();
+        let offset = current_call_frame
+            .stack
+            .pop()?
+            .try_into()
+            .map_err(|_err| VMError::VeryLargeNumber)?;
         let memory_expansion_cost = current_call_frame
             .memory
             .expansion_cost(offset + WORD_SIZE)?;
