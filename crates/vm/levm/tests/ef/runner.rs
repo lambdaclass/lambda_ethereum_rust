@@ -7,20 +7,10 @@ use ethereum_rust_levm::{
 };
 use keccak_hash::keccak;
 use spinoff::{spinners::Dots, Color, Spinner};
-use std::{error::Error, process::Command, sync::Arc};
-
-fn download_ef_tests() {
-    Command::new("git")
-        .args(["clone", "https://github.com/ethereum/tests.git"])
-        .spawn()
-        .expect("Failed to clone Ethereum tests repository")
-        .wait()
-        .expect("Failed to clone Ethereum tests repository");
-}
+use std::{error::Error, sync::Arc};
 
 pub fn run_ef_tests() -> Result<EFTestsReport, Box<dyn Error>> {
     let mut report = EFTestsReport::default();
-    download_ef_tests();
     let cargo_manifest_dir = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"));
     let ef_general_state_tests_path = cargo_manifest_dir.join("tests/ef/tests/GeneralStateTests");
     let mut spinner = Spinner::new(Dots, report.to_string(), Color::Cyan);
