@@ -37,7 +37,7 @@ impl Memory {
             .get(offset..offset + 32)
             .ok_or(VMError::MemoryLoadOutOfBounds)?
             .try_into()
-            .unwrap();
+            .map_err(|_| VMError::FatalUnwrap)?;
         Ok(U256::from(value_bytes))
     }
 

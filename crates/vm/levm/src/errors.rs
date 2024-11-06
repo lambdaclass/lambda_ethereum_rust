@@ -34,7 +34,8 @@ pub enum VMError {
     MemoryStoreOutOfBounds,
     GasLimitPriceProductOverflow,
     SlicingError,
-    IndexingError
+    IndexingError,
+    FatalUnwrap, // I will use this generic error for things that shouldn't fail
 }
 
 pub enum OpcodeSuccess {

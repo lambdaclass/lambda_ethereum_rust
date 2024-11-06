@@ -43,7 +43,7 @@ impl VM {
             self.cache_from_db(address);
         };
 
-        let balance = self.cache.get_account(*address).unwrap().info.balance;
+        let balance = self.get_account(address).info.balance;
 
         current_call_frame.stack.push(balance)?;
         Ok(OpcodeSuccess::Continue)
@@ -294,7 +294,7 @@ impl VM {
         let bytecode = self
             .cache
             .get_account(address)
-            .unwrap()
+            .ok_or(VMError::FatalUnwrap)?
             .info
             .bytecode
             .clone();
@@ -342,7 +342,7 @@ impl VM {
         let mut bytecode = self
             .cache
             .get_account(address)
-            .unwrap()
+            .ok_or(VMError::FatalUnwrap)?
             .info
             .bytecode
             .clone();
@@ -439,7 +439,7 @@ impl VM {
         let bytecode = self
             .cache
             .get_account(address)
-            .unwrap()
+            .ok_or(VMError::FatalUnwrap)?
             .info
             .bytecode
             .clone();

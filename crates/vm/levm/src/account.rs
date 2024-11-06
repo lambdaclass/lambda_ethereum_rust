@@ -4,7 +4,7 @@ use bytes::Bytes;
 use ethereum_rust_core::{H256, U256};
 use keccak_hash::keccak;
 
-use crate::constants::EMPTY_CODE_HASH_STR;
+use crate::{constants::EMPTY_CODE_HASH_STR, errors::VMError};
 
 #[derive(Clone, Default, Debug, PartialEq, Eq)]
 pub struct AccountInfo {
@@ -48,9 +48,9 @@ impl Account {
         }
     }
 
-    pub fn has_code(&self) -> bool {
-        !(self.info.bytecode.is_empty()
-            || self.bytecode_hash() == H256::from_str(EMPTY_CODE_HASH_STR).unwrap())
+    pub fn has_code(&self) -> Result<bool, VMError> {
+        Ok(!(self.info.bytecode.is_empty()
+            || self.bytecode_hash() == H256::from_str(EMPTY_CODE_HASH_STR).map_err(|_| VMError::FatalUnwrap)?))
     }
 
     pub fn bytecode_hash(&self) -> H256 {

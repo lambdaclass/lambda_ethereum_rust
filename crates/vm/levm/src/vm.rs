@@ -40,9 +40,9 @@ pub struct VM {
     pub tx_kind: TxKind,
 }
 
-fn address_to_word(address: Address) -> U256 {
+fn address_to_word(address: Address) -> Result<U256, VMError> {
     // This unwrap can't panic, as Address are 20 bytes long and U256 use 32 bytes
-    U256::from_str(&format!("{address:?}")).unwrap()
+    U256::from_str(&format!("{address:?}")).map_err(|_| VMError::FatalUnwrap)
 }
 
 pub fn word_to_address(word: U256) -> Address {
@@ -61,7 +61,7 @@ impl VM {
         calldata: Bytes,
         db: Arc<dyn Database>,
         mut cache: Cache,
-    ) -> Self {
+    ) -> Result<Self,VMError> {
         // Maybe this decision should be made in an upper layer
 
         match to {
@@ -80,14 +80,14 @@ impl VM {
                     0,
                 );
 
-                Self {
+                Ok(Self {
                     call_frames: vec![initial_call_frame],
                     db,
                     env,
                     accrued_substate: Substate::default(),
                     cache,
                     tx_kind: to,
-                }
+                })
             }
             TxKind::Create => {
                 // CREATE tx
@@ -96,7 +96,7 @@ impl VM {
 
                 // (2)
                 let new_contract_address =
-                    VM::calculate_create_address(env.origin, sender_account_info.nonce).unwrap();
+                    VM::calculate_create_address(env.origin, sender_account_info.nonce).map_err(|_| VMError::FatalUnwrap)?;
 
                 // (3)
                 let created_contract = Account::new(value, calldata.clone(), 1, HashMap::new());
@@ -118,14 +118,14 @@ impl VM {
                     0,
                 );
 
-                Self {
+                Ok(Self {
                     call_frames: vec![initial_call_frame],
                     db,
                     env,
                     accrued_substate: Substate::default(),
                     cache,
                     tx_kind: TxKind::Create,
-                }
+                })
             }
         }
         // TODO: https://github.com/lambdaclass/lambda_ethereum_rust/issues/1088
@@ -297,7 +297,7 @@ impl VM {
         self.env.refunded_gas = backup_refunded_gas;
     }
 
-    // let account = self.db.accounts.get(&self.env.origin).unwrap();
+    // let account = self.db.accounts.get(&self.env.origin).ok_or(VMError::FatalUnwrap)?;
     /// Based on Ethereum yellow paper's initial tests of intrinsic validity (Section 6). The last version is
     /// Shanghai, so there are probably missing Cancun validations. The intrinsic validations are:
     ///
@@ -322,7 +322,7 @@ impl VM {
             // If address is already in db, there's an error
             let new_address_acc = self
                 .db
-                .get_account_info(self.call_frames.first().unwrap().to);
+                .get_account_info(self.call_frames.first().ok_or(VMError::FatalUnwrap)?.to);
             if !new_address_acc.is_empty() {
                 return Err(VMError::AddressAlreadyOccupied);
             }
@@ -342,7 +342,7 @@ impl VM {
             .ok_or(VMError::NonceOverflow)?;
 
         // (4)
-        if sender_account.has_code() {
+        if sender_account.has_code()? {
             return Err(VMError::SenderAccountShouldNotHaveBytecode);
         }
         // (6)
@@ -369,19 +369,19 @@ impl VM {
 
     fn revert_create(&mut self) -> Result<(), VMError> {
         // Note: currently working with copies
-        let sender = self.call_frames.first().unwrap().msg_sender;
+        let sender = self.call_frames.first().ok_or(VMError::FatalUnwrap)?.msg_sender;
         let mut sender_account = self.get_account(&sender);
 
         sender_account.info.nonce -= 1;
 
-        let new_contract_address = self.call_frames.first().unwrap().to;
+        let new_contract_address = self.call_frames.first().ok_or(VMError::FatalUnwrap)?.to;
 
         if self.cache.accounts.remove(&new_contract_address).is_none() {
             return Err(VMError::AddressDoesNotMatchAnAccount); // Should not be this error
         }
 
         // Should revert this?
-        // sender_account.info.balance -= self.call_frames.first().unwrap().msg_value;
+        // sender_account.info.balance -= self.call_frames.first().ok_or(VMError::FatalUnwrap)?.msg_value;
 
         Ok(())
     }
@@ -393,10 +393,10 @@ impl VM {
 
         self.env.consumed_gas = initial_gas;
 
-        let mut current_call_frame = self.call_frames.pop().unwrap();
+        let mut current_call_frame = self.call_frames.pop().ok_or(VMError::FatalUnwrap)?;
 
         let mut report = self.execute(&mut current_call_frame);
-        let sender = self.call_frames.first().unwrap().msg_sender;
+        let sender = self.call_frames.first().ok_or(VMError::FatalUnwrap)?.msg_sender;
 
         // This cost applies both for call and create
         // 4 gas for each zero byte in the transaction data 16 gas for each non-zero byte in the transaction.
@@ -443,7 +443,7 @@ impl VM {
             let number_of_words = self.call_frames.first().ok_or(VMError::IndexingError)?.calldata.chunks(32).len() as u64;
             report.gas_used += number_of_words * 2;
 
-            let contract_address = self.call_frames.first().unwrap().to;
+            let contract_address = self.call_frames.first().ok_or(VMError::FatalUnwrap)?.to;
             let mut created_contract = self.get_account(&contract_address);
 
             created_contract.info.bytecode = contract_code;
@@ -483,8 +483,8 @@ impl VM {
         Ok(report)
     }
 
-    pub fn current_call_frame_mut(&mut self) -> &mut CallFrame {
-        self.call_frames.last_mut().unwrap()
+    pub fn current_call_frame_mut(&mut self) -> Result<&mut CallFrame, VMError> {
+        self.call_frames.last_mut().ok_or(VMError::FatalUnwrap)
     }
 
     // TODO: Improve and test REVERT behavior for XCALL opcodes. Issue: https://github.com/lambdaclass/lambda_ethereum_rust/issues/1061
@@ -662,7 +662,7 @@ impl VM {
         let sender_account = self
             .cache
             .get_mut_account(current_call_frame.msg_sender)
-            .unwrap();
+            .ok_or(VMError::FatalUnwrap)?;
 
         if sender_account.info.balance < value_in_wei_to_send {
             current_call_frame
@@ -711,7 +711,7 @@ impl VM {
 
         current_call_frame
             .stack
-            .push(address_to_word(new_address))?;
+            .push(address_to_word(new_address)?)?;
 
         self.generic_call(
             current_call_frame,
