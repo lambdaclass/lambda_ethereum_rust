@@ -94,10 +94,10 @@ impl BranchNode {
         // If path is at the end, insert or replace its own value.
         // Otherwise, check the corresponding choice and insert or delegate accordingly.
         match path.next() {
-            Some(choice) => match &mut self.choices[choice as usize] {
+            Some(choice) if choice < 16 => match &mut self.choices[choice as usize] {
                 // Create new child (leaf node)
                 choice_hash if !choice_hash.is_valid() => {
-                    let new_leaf = LeafNode::new(path.offset(1), value);
+                    let new_leaf = LeafNode::new(path, value);
                     let child_hash = new_leaf.insert_self(state)?;
                     *choice_hash = child_hash;
                 }
@@ -107,11 +107,11 @@ impl BranchNode {
                         .get_node(choice_hash.clone())?
                         .expect("inconsistent internal tree structure");
 
-                    let child_node = child_node.insert(state, path.offset(1), value)?;
+                    let child_node = child_node.insert(state, path, value)?;
                     *choice_hash = child_node.insert_self(state)?;
                 }
             },
-            None => {
+            _ => {
                 // Insert into self
                 self.update(value);
             }
