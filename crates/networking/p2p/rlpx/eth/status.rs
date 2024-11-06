@@ -1,3 +1,7 @@
+use crate::rlpx::{
+    message::RLPxMessage,
+    utils::{snappy_compress, snappy_decompress},
+};
 use bytes::BufMut;
 use ethereum_rust_core::{
     types::{BlockHash, ForkId},
@@ -7,9 +11,6 @@ use ethereum_rust_rlp::{
     error::{RLPDecodeError, RLPEncodeError},
     structs::{Decoder, Encoder},
 };
-use snap::raw::Decoder as SnappyDecoder;
-
-use crate::rlpx::{message::RLPxMessage, utils::snappy_encode};
 
 #[derive(Debug)]
 pub(crate) struct StatusMessage {
@@ -33,16 +34,13 @@ impl RLPxMessage for StatusMessage {
             .encode_field(&self.fork_id)
             .finish();
 
-        let msg_data = snappy_encode(encoded_data)?;
+        let msg_data = snappy_compress(encoded_data)?;
         buf.put_slice(&msg_data);
         Ok(())
     }
 
     fn decode(msg_data: &[u8]) -> Result<Self, RLPDecodeError> {
-        let mut snappy_decoder = SnappyDecoder::new();
-        let decompressed_data = snappy_decoder
-            .decompress_vec(msg_data)
-            .map_err(|e| RLPDecodeError::Custom(e.to_string()))?;
+        let decompressed_data = snappy_decompress(msg_data)?;
         let decoder = Decoder::new(&decompressed_data)?;
         let (eth_version, decoder): (u32, _) = decoder.decode_field("protocolVersion")?;
 

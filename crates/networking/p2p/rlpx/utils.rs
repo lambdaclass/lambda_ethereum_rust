@@ -1,10 +1,10 @@
 use ethereum_rust_core::H512;
-use ethereum_rust_rlp::error::RLPEncodeError;
+use ethereum_rust_rlp::error::{RLPDecodeError, RLPEncodeError};
 use k256::{
     elliptic_curve::sec1::{FromEncodedPoint, ToEncodedPoint},
     EncodedPoint, PublicKey, SecretKey,
 };
-use snap::raw::{max_compress_len, Encoder as SnappyEncoder};
+use snap::raw::{max_compress_len, Decoder as SnappyDecoder, Encoder as SnappyEncoder};
 
 pub fn sha256(data: &[u8]) -> [u8; 32] {
     use k256::sha2::Digest;
@@ -50,15 +50,18 @@ pub fn id2pubkey(id: H512) -> Option<PublicKey> {
     PublicKey::from_encoded_point(&point).into_option()
 }
 
-pub fn snappy_encode(encoded_data: Vec<u8>) -> Result<Vec<u8>, RLPEncodeError> {
+pub fn snappy_compress(encoded_data: Vec<u8>) -> Result<Vec<u8>, RLPEncodeError> {
     let mut snappy_encoder = SnappyEncoder::new();
     let mut msg_data = vec![0; max_compress_len(encoded_data.len()) + 1];
-    let compressed_size = snappy_encoder
-        .compress(&encoded_data, &mut msg_data)
-        .map_err(|_| RLPEncodeError::InvalidCompression)?;
+    let compressed_size = snappy_encoder.compress(&encoded_data, &mut msg_data)?;
 
     msg_data.truncate(compressed_size);
     Ok(msg_data)
+}
+
+pub fn snappy_decompress(msg_data: &[u8]) -> Result<Vec<u8>, RLPDecodeError> {
+    let mut snappy_decoder = SnappyDecoder::new();
+    Ok(snappy_decoder.decompress_vec(msg_data)?)
 }
 
 #[cfg(test)]
