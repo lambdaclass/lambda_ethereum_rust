@@ -329,7 +329,7 @@ impl VM {
         }
 
         let origin = self.env.origin;
-        let to = self.call_frames[0].to;
+        let to = self.call_frames.first().ok_or(VMError::IndexingError)?.to;
 
         let mut receiver_account = self.get_account(&to);
         let mut sender_account = self.get_account(&origin);
@@ -346,12 +346,12 @@ impl VM {
             return Err(VMError::SenderAccountShouldNotHaveBytecode);
         }
         // (6)
-        if sender_account.info.balance < self.call_frames[0].msg_value {
+        if sender_account.info.balance < self.call_frames.first().ok_or(VMError::IndexingError)?.msg_value {
             return Err(VMError::SenderBalanceShouldContainTransferValue);
         }
         // TODO: This belongs elsewhere.
-        sender_account.info.balance -= self.call_frames[0].msg_value;
-        receiver_account.info.balance += self.call_frames[0].msg_value;
+        sender_account.info.balance -= self.call_frames.first().ok_or(VMError::IndexingError)?.msg_value;
+        receiver_account.info.balance += self.call_frames.first().ok_or(VMError::IndexingError)?.msg_value;
 
         self.cache.add_account(&origin, &sender_account);
         self.cache.add_account(&to, &receiver_account);
@@ -401,7 +401,7 @@ impl VM {
         // This cost applies both for call and create
         // 4 gas for each zero byte in the transaction data 16 gas for each non-zero byte in the transaction.
         let mut calldata_cost = 0;
-        for byte in &self.call_frames[0].calldata {
+        for byte in &self.call_frames.first().ok_or(VMError::IndexingError)?.calldata {
             if *byte != 0 {
                 calldata_cost += 16;
             } else {
@@ -428,7 +428,7 @@ impl VM {
                 return Err(VMError::ContractOutputTooBig);
             }
             // Supposing contract code has contents
-            if contract_code[0] == INVALID_CONTRACT_PREFIX {
+            if *contract_code.first().ok_or(VMError::IndexingError)? == INVALID_CONTRACT_PREFIX {
                 return Err(VMError::InvalidInitialByte);
             }
 
@@ -440,7 +440,7 @@ impl VM {
             // Charge 22100 gas for each storage variable set
 
             // GInitCodeword * number_of_words rounded up. GinitCodeWord = 2
-            let number_of_words = self.call_frames[0].calldata.chunks(32).len() as u64;
+            let number_of_words = self.call_frames.first().ok_or(VMError::IndexingError)?.calldata.chunks(32).len() as u64;
             report.gas_used += number_of_words * 2;
 
             let contract_address = self.call_frames.first().unwrap().to;
