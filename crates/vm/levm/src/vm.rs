@@ -63,7 +63,7 @@ impl VM {
         calldata: Bytes,
         db: Arc<dyn Database>,
         mut cache: Cache,
-    ) -> Result<Self,VMError> {
+    ) -> Result<Self, VMError> {
         // Maybe this decision should be made in an upper layer
 
         match to {
@@ -371,7 +371,11 @@ impl VM {
 
     fn revert_create(&mut self) -> Result<(), VMError> {
         // Note: currently working with copies
-        let sender = self.call_frames.first().ok_or(VMError::FatalUnwrap)?.msg_sender;
+        let sender = self
+            .call_frames
+            .first()
+            .ok_or(VMError::FatalUnwrap)?
+            .msg_sender;
         let mut sender_account = self.get_account(&sender);
 
         sender_account.info.nonce -= 1;
@@ -398,7 +402,11 @@ impl VM {
         let mut current_call_frame = self.call_frames.pop().ok_or(VMError::FatalUnwrap)?;
 
         let mut report = self.execute(&mut current_call_frame);
-        let sender = self.call_frames.first().ok_or(VMError::FatalUnwrap)?.msg_sender;
+        let sender = self
+            .call_frames
+            .first()
+            .ok_or(VMError::FatalUnwrap)?
+            .msg_sender;
 
         // This cost applies both for call and create
         // 4 gas for each zero byte in the transaction data 16 gas for each non-zero byte in the transaction.
