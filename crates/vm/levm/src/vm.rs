@@ -267,9 +267,12 @@ impl VM {
 
                     // Unless error is from Revert opcode, all gas is consumed
                     if error != VMError::RevertOpcode {
-                        let left_gas = current_call_frame.gas_limit - current_call_frame.gas_used;
-                        current_call_frame.gas_used += left_gas;
-                        self.env.consumed_gas += left_gas;
+                        let left_gas = current_call_frame
+                            .gas_limit
+                            .saturating_sub(current_call_frame.gas_used);
+                        current_call_frame.gas_used =
+                            current_call_frame.gas_used.saturating_add(left_gas);
+                        self.env.consumed_gas = self.env.consumed_gas.saturating_add(left_gas);
                     }
 
                     self.restore_state(backup_db, backup_substate, backup_refunded_gas);
@@ -347,13 +350,19 @@ impl VM {
         if sender_account.has_code() {
             return Err(VMError::SenderAccountShouldNotHaveBytecode);
         }
+
         // (6)
-        if sender_account.info.balance < self.call_frames[0].msg_value {
-            return Err(VMError::SenderBalanceShouldContainTransferValue);
-        }
         // TODO: This belongs elsewhere.
-        sender_account.info.balance -= self.call_frames[0].msg_value;
-        receiver_account.info.balance += self.call_frames[0].msg_value;
+        sender_account.info.balance = sender_account
+            .info
+            .balance
+            .checked_sub(self.call_frames[0].msg_value)
+            .ok_or(VMError::SenderBalanceShouldContainTransferValue)?;
+        receiver_account.info.balance = receiver_account
+            .info
+            .balance
+            .checked_add(self.call_frames[0].msg_value)
+            .ok_or(VMError::BalanceOverflow)?;
 
         self.cache.add_account(&origin, &sender_account);
         self.cache.add_account(&to, &receiver_account);
@@ -374,7 +383,11 @@ impl VM {
         let sender = self.call_frames.first().unwrap().msg_sender;
         let mut sender_account = self.get_account(&sender);
 
-        sender_account.info.nonce -= 1;
+        sender_account.info.nonce = sender_account
+            .info
+            .nonce
+            .checked_sub(1)
+            .ok_or(VMError::NonceUnderflow)?;
 
         let new_contract_address = self.call_frames.first().unwrap().to;
 
@@ -402,15 +415,22 @@ impl VM {
 
         // This cost applies both for call and create
         // 4 gas for each zero byte in the transaction data 16 gas for each non-zero byte in the transaction.
-        let mut calldata_cost = 0;
+        let mut calldata_cost: u64 = 0;
         for byte in &self.call_frames[0].calldata {
             if *byte != 0 {
-                calldata_cost += 16;
+                calldata_cost = calldata_cost
+                    .checked_add(16)
+                    .ok_or(VMError::VeryLargeNumber)?;
             } else {
-                calldata_cost += 4;
+                calldata_cost = calldata_cost
+                    .checked_add(4)
+                    .ok_or(VMError::VeryLargeNumber)?;
             }
         }
-        report.gas_used += calldata_cost;
+        report.gas_used = report
+            .gas_used
+            .checked_add(calldata_cost)
+            .ok_or(VMError::ConsumedGasOverflow)?;
 
         if self.is_create() {
             // If create should check if transaction failed. If failed should revert (delete created contract, )
@@ -436,14 +456,29 @@ impl VM {
 
             // If the initialization code completes successfully, a final contract-creation cost is paid,
             // the code-deposit cost, c, proportional to the size of the created contract’s code
-            let mut creation_cost = 200 * contract_code.len() as u64;
-            creation_cost += 32000;
-            report.gas_used += creation_cost;
-            // Charge 22100 gas for each storage variable set
+            let mut creation_cost = contract_code
+                .len()
+                .checked_mul(200)
+                .ok_or(VMError::CreationCostIsTooHigh)? as u64;
+            creation_cost = creation_cost
+                .checked_add(32000)
+                .ok_or(VMError::CreationCostIsTooHigh)?;
+            report.gas_used = report
+                .gas_used
+                .checked_add(creation_cost)
+                .ok_or(VMError::ConsumedGasOverflow)?; //GasUsedOverflow??;
+                                                       // Charge 22100 gas for each storage variable set
 
             // GInitCodeword * number_of_words rounded up. GinitCodeWord = 2
             let number_of_words = self.call_frames[0].calldata.chunks(32).len() as u64;
-            report.gas_used += number_of_words * 2;
+            report.gas_used = report
+                .gas_used
+                .checked_add(
+                    number_of_words
+                        .checked_mul(2)
+                        .ok_or(VMError::VeryLargeNumber)?,
+                )
+                .ok_or(VMError::ConsumedGasOverflow)?; //GasUsedOverflow??
 
             let contract_address = self.call_frames.first().unwrap().to;
             let mut created_contract = self.get_account(&contract_address);
@@ -472,11 +507,21 @@ impl VM {
         self.cache.add_account(&sender, &sender_account);
 
         // Send coinbase fee
-        let priority_fee_per_gas = self.env.gas_price - self.env.base_fee_per_gas;
-        let coinbase_fee = (U256::from(report.gas_used)) * priority_fee_per_gas;
+        let priority_fee_per_gas = self
+            .env
+            .gas_price
+            .checked_sub(self.env.base_fee_per_gas)
+            .ok_or(VMError::GasPriceIsLowerThanBaseFee)?;
+        let coinbase_fee = (U256::from(report.gas_used))
+            .checked_mul(priority_fee_per_gas)
+            .ok_or(VMError::CoinbaseFeeOverflow)?;
 
         let mut coinbase_account = self.get_account(&coinbase_address);
-        coinbase_account.info.balance += coinbase_fee;
+        coinbase_account.info.balance = coinbase_account
+            .info
+            .balance
+            .checked_add(coinbase_fee)
+            .ok_or(VMError::BalanceOverflow)?;
 
         self.cache.add_account(&coinbase_address, &coinbase_account);
 
@@ -516,8 +561,16 @@ impl VM {
         let mut recipient_account = self.get_account(&to);
 
         // transfer value
-        sender_account.info.balance -= value;
-        recipient_account.info.balance += value;
+        sender_account.info.balance = sender_account
+            .info
+            .balance
+            .checked_sub(value)
+            .ok_or(VMError::BalanceUnderflow)?;
+        recipient_account.info.balance = recipient_account
+            .info
+            .balance
+            .checked_add(value)
+            .ok_or(VMError::BalanceOverflow)?;
 
         let code_address_bytecode = self.get_account(&code_address).info.bytecode;
 
@@ -536,11 +589,25 @@ impl VM {
             .into();
 
         // I don't know if this gas limit should be calculated before or after consuming gas
-        let gas_limit = std::cmp::min(gas_limit, {
-            let remaining_gas = current_call_frame.gas_limit - current_call_frame.gas_used;
-            remaining_gas - remaining_gas / 64
-        });
+        let mut potential_remaining_gas = current_call_frame
+            .gas_limit
+            .checked_sub(current_call_frame.gas_used)
+            .ok_or(VMError::RemainingGasUnderflow)?;
+        potential_remaining_gas = potential_remaining_gas
+            .checked_sub(
+                potential_remaining_gas
+                    .checked_div(64.into())
+                    .ok_or(VMError::Internal)?,
+            )
+            .ok_or(VMError::RemainingGasUnderflow)?;
+        let gas_limit = std::cmp::min(gas_limit, potential_remaining_gas);
 
+        let new_depth = match current_call_frame.depth.checked_add(1) {
+            Some(depth) => depth,
+            None => {
+                return Err(VMError::StackOverflow); // Maybe could be depthOverflow but in concept is quite similar
+            }
+        };
         let mut new_call_frame = CallFrame::new(
             msg_sender,
             to,
@@ -551,7 +618,7 @@ impl VM {
             is_static,
             gas_limit,
             U256::zero(),
-            current_call_frame.depth + 1,
+            new_depth,
         );
 
         // EIP-7686 + log((gaslimit + 6300) / 6400) / log(64/63) = 537
@@ -571,7 +638,16 @@ impl VM {
         // self.call_frames.push(new_call_frame.clone());
         let tx_report = self.execute(&mut new_call_frame);
 
-        current_call_frame.gas_used += tx_report.gas_used.into(); // Add gas used by the sub-context to the current one after it's execution.
+        // Add gas used by the sub-context to the current one after it's execution.
+        current_call_frame.gas_used = match current_call_frame
+            .gas_used
+            .checked_add(tx_report.gas_used.into())
+        {
+            Some(gas) => gas,
+            None => {
+                return Err(VMError::ConsumedGasOverflow);
+            }
+        };
         current_call_frame.logs.extend(tx_report.logs);
         current_call_frame
             .memory
@@ -737,11 +813,23 @@ impl VM {
         current_call_frame: &mut CallFrame,
         gas: U256,
     ) -> Result<(), VMError> {
-        if current_call_frame.gas_used + gas > current_call_frame.gas_limit {
+        let potential_consumed_gas = match current_call_frame.gas_used.checked_add(gas) {
+            Some(gas) => gas,
+            None => {
+                return Err(VMError::ConsumedGasOverflow);
+            }
+        };
+        if potential_consumed_gas > current_call_frame.gas_limit {
             return Err(VMError::OutOfGas);
         }
-        current_call_frame.gas_used += gas;
-        self.env.consumed_gas += gas;
+
+        current_call_frame.gas_used = potential_consumed_gas;
+        self.env.consumed_gas = match self.env.consumed_gas.checked_add(gas) {
+            Some(gas) => gas,
+            None => {
+                return Err(VMError::ConsumedGasOverflow);
+            }
+        };
         Ok(())
     }
 

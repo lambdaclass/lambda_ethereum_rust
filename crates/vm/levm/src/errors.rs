@@ -33,6 +33,14 @@ pub enum VMError {
     MemoryLoadOutOfBounds,
     MemoryStoreOutOfBounds,
     GasLimitPriceProductOverflow,
+    ConsumedGasOverflow,
+    RemainingGasUnderflow,
+    Internal,
+    BalanceUnderflow,
+    BalanceOverflow,
+    CoinbaseFeeOverflow,
+    CreationCostIsTooHigh,
+    NonceUnderflow,
 }
 
 pub enum OpcodeSuccess {
