@@ -1,0 +1,36 @@
+name: L2 Contracts CI
+on:
+  push:
+    branches: ["main"]
+    paths:
+      - "crates/l2/contracts/**"
+  pull_request:
+    branches: ["**"]
+    paths:
+      - "crates/l2/contracts/**"
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.head_ref || github.run_id }}
+  cancel-in-progress: true
+
+jobs:
+  deployer:
+    name: L2 Contracts CI
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: true
+      matrix:
+        action:
+          - command: check
+          - command: clippy
+            args: --all-targets
+          - command: test
+    steps:
+      - name: Checkout sources
+        uses: actions/checkout@v4
+      - name: Add Rust Cache
+        uses: Swatinem/rust-cache@v2
+      - name: ${{ matrix.action.command }} Command
+        run: |
+          cd crates/l2/contracts
+          cargo ${{ matrix.action.command }} ${{ matrix.action.args }}

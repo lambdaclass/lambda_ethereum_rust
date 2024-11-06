@@ -7,7 +7,12 @@ use ethereum_rust_l2::utils::{
 use ethereum_types::{Address, H160, H256};
 use keccak_hash::keccak;
 use libsecp256k1::SecretKey;
-use std::{process::Command, str::FromStr};
+use std::{
+    fs::{self, OpenOptions},
+    io::Write,
+    process::Command,
+    str::FromStr,
+};
 
 // 0x4e59b44847b379578588920cA78FbF26c0B4956C
 const DETERMINISTIC_CREATE2_ADDRESS: Address = H160([
@@ -21,8 +26,9 @@ async fn main() {
     let (deployer, deployer_private_key, eth_client) = setup();
     download_contract_deps();
     compile_contracts();
-    let (on_chain_proposer, bridge_address) =
+    let (on_chain_proposer, bridge_address, _r0_groth16_verifier) =
         deploy_contracts(deployer, deployer_private_key, &eth_client).await;
+
     initialize_contracts(
         deployer,
         deployer_private_key,
@@ -65,6 +71,49 @@ fn download_contract_deps() {
         .expect("Failed to spawn git")
         .wait()
         .expect("Failed to wait for git");
+
+    Command::new("git")
+        .arg("clone")
+        .arg("--branch")
+        .arg("v1.1.2")
+        .arg("--single-branch")
+        .arg("https://github.com/risc0/risc0-ethereum.git")
+        .arg("contracts/lib/risc0-ethereum")
+        .spawn()
+        .expect("Failed to spawn git")
+        .wait()
+        .expect("Failed to wait for git");
+
+    // The openzeppelin's import statements inside the risc0's contracts
+    // has to be changed to match the donwloaded contracts.
+    let risc_zero_groth16_verifier =
+        "./contracts/lib/risc0-ethereum/contracts/src/groth16/RiscZeroGroth16Verifier.sol";
+    let struct_hash = "./contracts/lib/risc0-ethereum/contracts/src/StructHash.sol";
+
+    let mut contents_struct_hash = fs::read_to_string(struct_hash).expect("Failed to read file");
+    contents_struct_hash = contents_struct_hash.replace("import {SafeCast} from \"openzeppelin/contracts/utils/math/SafeCast.sol\";", "import {SafeCast} from \"../../../openzeppelin-contracts/contracts/utils/math/SafeCast.sol\";");
+
+    let mut contents_verifier =
+        fs::read_to_string(risc_zero_groth16_verifier).expect("Failed to read file");
+    contents_verifier = contents_verifier.replace("import {SafeCast} from \"openzeppelin/contracts/utils/math/SafeCast.sol\";", "import {SafeCast} from \"../../../../openzeppelin-contracts/contracts/utils/math/SafeCast.sol\";");
+
+    let mut file_risc_zero_groth16_verifier = OpenOptions::new()
+        .write(true)
+        .truncate(true)
+        .open(risc_zero_groth16_verifier)
+        .expect("Failed to open file");
+    file_risc_zero_groth16_verifier
+        .write_all(contents_verifier.as_bytes())
+        .expect("Failed to rewrite file");
+
+    let mut file_struct_hash = OpenOptions::new()
+        .write(true)
+        .truncate(true)
+        .open(struct_hash)
+        .expect("Failed to open file");
+    file_struct_hash
+        .write_all(contents_struct_hash.as_bytes())
+        .expect("Failed to rewrite file");
 }
 
 fn compile_contracts() {
@@ -98,13 +147,28 @@ fn compile_contracts() {
             .success(),
         "Failed to compile CommonBridge.sol"
     );
+
+    assert!(
+        Command::new("solc")
+            .arg("--bin")
+            .arg("./contracts/src/l1/R0Groth16Verifier.sol")
+            .arg("-o")
+            .arg("contracts/solc_out")
+            .arg("--overwrite")
+            .spawn()
+            .expect("Failed to spawn solc")
+            .wait()
+            .expect("Failed to wait for solc")
+            .success(),
+        "Failed to compile R0Groth16Verifier.sol"
+    );
 }
 
 async fn deploy_contracts(
     deployer: Address,
     deployer_private_key: SecretKey,
     eth_client: &EthClient,
-) -> (Address, Address) {
+) -> (Address, Address, Address) {
     let overrides = Overrides {
         gas_limit: Some(GAS_LIMIT_MINIMUM * GAS_LIMIT_ADJUSTMENT_FACTOR),
         gas_price: Some(1_000_000_000),
@@ -124,14 +188,30 @@ async fn deploy_contracts(
         on_chain_proposer_address, on_chain_proposer_deployment_tx_hash
     );
 
-    let (bridge_deployment_tx_hash, bridge_address) =
-        deploy_bridge(deployer, deployer_private_key, overrides, eth_client).await;
+    let (bridge_deployment_tx_hash, bridge_address) = deploy_bridge(
+        deployer,
+        deployer_private_key,
+        overrides.clone(),
+        eth_client,
+    )
+    .await;
     println!(
         "Bridge deployed at address {:#x} with tx hash {:#x}",
         bridge_address, bridge_deployment_tx_hash
     );
 
-    (on_chain_proposer_address, bridge_address)
+    let (r0_groth16_verifier_deployment_tx_hash, r0_groth16_verifier_address) =
+        deploy_r0_groth16_verifier(deployer, deployer_private_key, overrides, eth_client).await;
+    println!(
+        "R0Groth16Verifier deployed at address {:#x} with tx hash {:#x}",
+        r0_groth16_verifier_address, r0_groth16_verifier_deployment_tx_hash
+    );
+
+    (
+        on_chain_proposer_address,
+        bridge_address,
+        r0_groth16_verifier_address,
+    )
 }
 
 async fn deploy_on_chain_proposer(
@@ -184,6 +264,30 @@ async fn deploy_bridge(
         deployer,
         deployer_private_key,
         &bridge_init_code.into(),
+        overrides,
+        eth_client,
+    )
+    .await;
+
+    (deploy_tx_hash, bridge_address)
+}
+
+async fn deploy_r0_groth16_verifier(
+    deployer: Address,
+    deployer_private_key: SecretKey,
+    overrides: Overrides,
+    eth_client: &EthClient,
+) -> (H256, Address) {
+    let r0_groth16_verifier_init_code = hex::decode(
+        std::fs::read_to_string("./contracts/solc_out/R0Groth16Verifier.bin")
+            .expect("Failed to read r0_groth16_verifier_init_code"),
+    )
+    .expect("Failed to decode r0_groth16_verifier_init_code");
+
+    let (deploy_tx_hash, bridge_address) = create2_deploy(
+        deployer,
+        deployer_private_key,
+        &r0_groth16_verifier_init_code.into(),
         overrides,
         eth_client,
     )
@@ -347,5 +451,26 @@ async fn wait_for_transaction_receipt(tx_hash: H256, eth_client: &EthClient) {
         .is_none()
     {
         tokio::time::sleep(std::time::Duration::from_secs(1)).await;
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use crate::{compile_contracts, download_contract_deps};
+    use std::env;
+
+    #[test]
+    fn test_contract_compilation() {
+        let binding = env::current_dir().unwrap();
+        let parent_dir = binding.parent().unwrap();
+        env::set_current_dir(parent_dir).expect("Failed to change directory");
+
+        download_contract_deps();
+        compile_contracts();
+
+        let solc_out = parent_dir.join("contracts/solc_out");
+        let lib = parent_dir.join("contracts/lib");
+        std::fs::remove_dir_all(solc_out).unwrap();
+        std::fs::remove_dir_all(lib).unwrap();
     }
 }
