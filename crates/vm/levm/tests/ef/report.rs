@@ -27,7 +27,7 @@ impl EFTestsReport {
 
 impl fmt::Display for EFTestsReport {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        let title = "Ethereum Foundation Tests Run Report".bold();
+        let title = "Ethereum Foundation Tests Run".bold();
         let passed = format!("{} passed", self.passed).green().bold();
         let failed = format!("{} failed", self.failed).red().bold();
         let total = format!("{} total run", self.total).blue().bold();
