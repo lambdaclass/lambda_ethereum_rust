@@ -42,9 +42,9 @@ pub fn run_ef_tests() -> Result<EFTestsReport, Box<dyn Error>> {
                 continue;
             }
         }
-        spinner.update_text(report.to_string());
+        spinner.update_text(report.progress());
     }
-
+    spinner.success(&report.to_string());
     Ok(report)
 }
 
