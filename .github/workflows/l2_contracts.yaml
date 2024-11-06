@@ -23,7 +23,9 @@ jobs:
         action:
           - command: check
           - command: clippy
-            args: -- -D warnings
+          # clippy::large_enum_variant warning for the EvmState enum
+          # from rust 1.82.0
+            args: -- -D warnings -A clippy::large_enum_variant
           - command: fmt
             args: --all -- --check
     steps:
