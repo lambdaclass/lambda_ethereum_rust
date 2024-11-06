@@ -70,4 +70,8 @@ impl TransactionReport {
         self.gas_used = self.gas_used.saturating_add(gas);
         self.gas_used = self.gas_used.min(max);
     }
+
+    pub fn is_success(&self) -> bool {
+        matches!(self.result, TxResult::Success)
+    }
 }

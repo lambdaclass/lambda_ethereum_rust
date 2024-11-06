@@ -330,9 +330,7 @@ impl VM {
         }
 
         let origin = self.env.origin;
-        let to = self.call_frames[0].to;
 
-        let mut receiver_account = self.get_account(&to);
         let mut sender_account = self.get_account(&origin);
 
         // See if it's raised in upper layers
@@ -351,12 +349,8 @@ impl VM {
         if sender_account.info.balance < self.call_frames[0].msg_value {
             return Err(VMError::SenderBalanceShouldContainTransferValue);
         }
-        // TODO: This belongs elsewhere.
-        sender_account.info.balance -= self.call_frames[0].msg_value;
-        receiver_account.info.balance += self.call_frames[0].msg_value;
 
         self.cache.add_account(&origin, &sender_account);
-        self.cache.add_account(&to, &receiver_account);
 
         // (7)
         if self.env.gas_price < self.env.base_fee_per_gas {
@@ -458,10 +452,23 @@ impl VM {
             .balance
             .checked_sub(U256::from(report.gas_used) * self.env.gas_price)
             .ok_or(VMError::OutOfGas)?;
+        
+        let receiver_address = self.call_frames.first().unwrap().to;
+        let mut receiver_account = self.get_account(&receiver_address);
+
+        // If execution was successful we want to do the transfer of value from sender to receiver
+        if report.is_success() {
+            // Substract to the caller the gas sent
+            let value = self.call_frames.first().unwrap().msg_value;
+            sender_account.info.balance = sender_account.info.balance.checked_sub(value).ok_or(VMError::OutOfGas)?; // This error shouldn't be OutOfGas
+
+            receiver_account.info.balance = receiver_account.info.balance.checked_add(value).ok_or(VMError::OutOfGas)?; // This error shouldn't be OutOfGas
+        }
 
         dbg!(&report.gas_refunded);
 
         self.cache.add_account(&sender, &sender_account);
+        self.cache.add_account(&receiver_address, &receiver_account);
 
         // Send coinbase fee
         let priority_fee_per_gas = self.env.gas_price - self.env.base_fee_per_gas;
