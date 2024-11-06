@@ -115,8 +115,7 @@ impl ExtensionNode {
                 .get_node(self.child)?
                 .expect("inconsistent internal tree structure");
             // Remove value from child subtrie
-            let (child_node, old_value) =
-                child_node.remove(state, path.offset(self.prefix.len()))?;
+            let (child_node, old_value) = child_node.remove(state, path)?;
             // Restructure node based on removal
             let node = match child_node {
                 // If there is no subtrie remove the node

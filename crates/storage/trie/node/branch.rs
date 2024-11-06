@@ -148,7 +148,7 @@ impl BranchNode {
         // Step 1: Remove value
         // Check if the value is located in a child subtrie
         let value = match path.next() {
-            Some(choice_index) => {
+            Some(choice_index) if choice_index < 16 => {
                 if self.choices[choice_index as usize].is_valid() {
                     let child_node = state
                         .get_node(self.choices[choice_index as usize].clone())?
@@ -167,7 +167,7 @@ impl BranchNode {
                     None
                 }
             }
-            None => {
+            _ => {
                 // Remove own value (if it has one) and return it
                 if !self.value.is_empty() {
                     let value = self.value;
