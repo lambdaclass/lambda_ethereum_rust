@@ -32,7 +32,7 @@ fn callee_return_bytecode(return_value: U256) -> Bytes {
         Operation::Return,
     ];
 
-    ops_to_bytecode(&ops)
+    ops_to_bytecode(&ops).unwrap()
 }
 
 pub fn store_data_in_memory_operations(data: &[u8], memory_offset: usize) -> Vec<Operation> {
@@ -50,7 +50,7 @@ fn add_op() {
         Operation::Push((32, U256::zero())),
         Operation::Add,
         Operation::Stop,
-    ]);
+    ]).unwrap();
 
     let mut current_call_frame = vm.call_frames.pop().unwrap();
     vm.execute(&mut current_call_frame);
@@ -61,12 +61,7 @@ fn add_op() {
 
 #[test]
 fn mul_op() {
-    let mut vm = new_vm_with_ops(&[
-        Operation::Push((1, U256::from(2))),
-        Operation::Push((1, U256::from(4))),
-        Operation::Mul,
-        Operation::Stop,
-    ]);
+    let mut vm = new_vm_with_ops(&[Operation::Push((1, U256::from(2))),Operation::Push((1, U256::from(4))),Operation::Mul,Operation::Stop,]);
 
     let mut current_call_frame = vm.call_frames.pop().unwrap();
     vm.execute(&mut current_call_frame);
@@ -1275,7 +1270,7 @@ fn keccak256_zero_offset_size_four() {
         Operation::Stop,
     ];
 
-    let mut vm = new_vm_with_ops(&operations);
+    let mut vm = new_vm_with_ops(&operations).unwrap();
 
     let mut current_call_frame = vm.call_frames.pop().unwrap();
     vm.execute(&mut current_call_frame);
@@ -1305,7 +1300,7 @@ fn keccak256_zero_offset_size_bigger_than_actual_memory() {
         Operation::Stop,
     ];
 
-    let mut vm = new_vm_with_ops(&operations);
+    let mut vm = new_vm_with_ops(&operations).unwrap();
 
     let mut current_call_frame = vm.call_frames.pop().unwrap();
     vm.execute(&mut current_call_frame);
@@ -1327,7 +1322,7 @@ fn keccak256_zero_offset_zero_size() {
         Operation::Stop,
     ];
 
-    let mut vm = new_vm_with_ops(&operations);
+    let mut vm = new_vm_with_ops(&operations).unwrap();
 
     let mut current_call_frame = vm.call_frames.pop().unwrap();
     vm.execute(&mut current_call_frame);
@@ -1357,7 +1352,7 @@ fn keccak256_offset_four_size_four() {
         Operation::Stop,
     ];
 
-    let mut vm = new_vm_with_ops(&operations);
+    let mut vm = new_vm_with_ops(&operations).unwrap();
 
     let mut current_call_frame = vm.call_frames.pop().unwrap();
     vm.execute(&mut current_call_frame);
@@ -1422,7 +1417,7 @@ fn mstore8() {
         Operation::Stop,
     ];
 
-    let mut vm = new_vm_with_ops(&operations);
+    let mut vm = new_vm_with_ops(&operations).unwrap();
 
     let mut current_call_frame = vm.call_frames.pop().unwrap();
     vm.execute(&mut current_call_frame);
@@ -1450,7 +1445,7 @@ fn mcopy() {
         Operation::Stop,
     ];
 
-    let mut vm = new_vm_with_ops(&operations);
+    let mut vm = new_vm_with_ops(&operations).unwrap();
 
     let mut current_call_frame = vm.call_frames.pop().unwrap();
     vm.execute(&mut current_call_frame);
@@ -1474,7 +1469,7 @@ fn mload() {
         Operation::Stop,
     ];
 
-    let mut vm = new_vm_with_ops(&operations);
+    let mut vm = new_vm_with_ops(&operations).unwrap();
 
     let mut current_call_frame = vm.call_frames.pop().unwrap();
     vm.execute(&mut current_call_frame);
@@ -1488,7 +1483,7 @@ fn mload() {
 fn msize() {
     let operations = [Operation::Msize, Operation::Stop];
 
-    let mut vm = new_vm_with_ops(&operations);
+    let mut vm = new_vm_with_ops(&operations).unwrap();
 
     let mut current_call_frame = vm.call_frames.pop().unwrap();
     vm.execute(&mut current_call_frame);
@@ -1505,7 +1500,7 @@ fn msize() {
         Operation::Stop,
     ];
 
-    let mut vm = new_vm_with_ops(&operations);
+    let mut vm = new_vm_with_ops(&operations).unwrap();
 
     let mut current_call_frame = vm.call_frames.pop().unwrap();
     vm.execute(&mut current_call_frame);
@@ -1522,7 +1517,7 @@ fn msize() {
         Operation::Stop,
     ];
 
-    let mut vm = new_vm_with_ops(&operations);
+    let mut vm = new_vm_with_ops(&operations).unwrap();
 
     let mut current_call_frame = vm.call_frames.pop().unwrap();
     vm.execute(&mut current_call_frame);
@@ -1544,7 +1539,7 @@ fn mstore_mload_offset_not_multiple_of_32() {
         Operation::Stop,
     ];
 
-    let mut vm = new_vm_with_ops(&operations);
+    let mut vm = new_vm_with_ops(&operations).unwrap();
 
     let mut current_call_frame = vm.call_frames.pop().unwrap();
     vm.execute(&mut current_call_frame);
@@ -1568,7 +1563,7 @@ fn mstore_mload_offset_not_multiple_of_32() {
         Operation::Stop,
     ];
 
-    let mut vm = new_vm_with_ops(&operations);
+    let mut vm = new_vm_with_ops(&operations).unwrap();
 
     let mut current_call_frame = vm.call_frames.pop().unwrap();
     vm.execute(&mut current_call_frame);
@@ -1590,7 +1585,7 @@ fn mload_uninitialized_memory() {
         Operation::Stop,
     ];
 
-    let mut vm = new_vm_with_ops(&operations);
+    let mut vm = new_vm_with_ops(&operations).unwrap();
 
     let mut current_call_frame = vm.call_frames.pop().unwrap();
     vm.execute(&mut current_call_frame);
@@ -1875,7 +1870,7 @@ fn staticcall_changes_callframe_is_static() {
 fn pop_on_empty_stack() {
     let operations = [Operation::Pop, Operation::Stop];
 
-    let mut vm = new_vm_with_ops(&operations);
+    let mut vm = new_vm_with_ops(&operations).unwrap();
 
     let mut current_call_frame = vm.call_frames.pop().unwrap();
     let tx_report = vm.execute(&mut current_call_frame);
@@ -1892,7 +1887,7 @@ fn pop_on_empty_stack() {
 #[test]
 fn pc_op() {
     let operations = [Operation::PC, Operation::Stop];
-    let mut vm = new_vm_with_ops(&operations);
+    let mut vm = new_vm_with_ops(&operations).unwrap();
 
     let mut current_call_frame = vm.call_frames.pop().unwrap();
     vm.execute(&mut current_call_frame);
@@ -1912,7 +1907,7 @@ fn pc_op_with_push_offset() {
         Operation::Stop,
     ];
 
-    let mut vm = new_vm_with_ops(&operations);
+    let mut vm = new_vm_with_ops(&operations).unwrap();
 
     let mut current_call_frame = vm.call_frames.pop().unwrap();
     vm.execute(&mut current_call_frame);
@@ -2188,7 +2183,7 @@ fn jump_position_bigger_than_program_bytecode_size() {
         Operation::Stop,
     ];
 
-    let mut vm = new_vm_with_ops(&operations);
+    let mut vm = new_vm_with_ops(&operations).unwrap();
 
     let mut current_call_frame = vm.call_frames.pop().unwrap();
     let tx_report = vm.execute(&mut current_call_frame);
@@ -2210,7 +2205,7 @@ fn jumpi_not_zero() {
         Operation::Push((32, U256::from(10))),
         Operation::Stop,
     ];
-    let mut vm = new_vm_with_ops(&operations);
+    let mut vm = new_vm_with_ops(&operations).unwrap();
 
     let mut current_call_frame = vm.call_frames.pop().unwrap();
     vm.execute(&mut current_call_frame);
@@ -2235,7 +2230,7 @@ fn jumpi_for_zero() {
         Operation::Stop,
     ];
 
-    let mut vm = new_vm_with_ops(&operations);
+    let mut vm = new_vm_with_ops(&operations).unwrap();
 
     let mut current_call_frame = vm.call_frames.pop().unwrap();
     vm.execute(&mut current_call_frame);
@@ -2305,7 +2300,7 @@ fn calldataload() {
         Operation::CallDataLoad,
         Operation::Stop,
     ];
-    let mut vm = new_vm_with_ops(&ops);
+    let mut vm = new_vm_with_ops(&ops).unwrap();
 
     vm.current_call_frame_mut().calldata = calldata;
     let mut current_call_frame = vm.call_frames.pop().unwrap();
@@ -2400,7 +2395,7 @@ fn calldataload_being_set_by_parent() {
 fn calldatasize() {
     let calldata = vec![0x11, 0x22, 0x33].into();
     let ops = vec![Operation::CallDataSize, Operation::Stop];
-    let mut vm = new_vm_with_ops(&ops);
+    let mut vm = new_vm_with_ops(&ops).unwrap();
 
     vm.current_call_frame_mut().calldata = calldata;
 
@@ -2423,7 +2418,7 @@ fn calldatacopy() {
         Operation::CallDataCopy,
         Operation::Stop,
     ];
-    let mut vm = new_vm_with_ops(&ops);
+    let mut vm = new_vm_with_ops(&ops).unwrap();
 
     vm.current_call_frame_mut().calldata = calldata;
 
@@ -2440,7 +2435,7 @@ fn calldatacopy() {
 fn returndatasize() {
     let returndata = vec![0xAA, 0xBB, 0xCC].into();
     let ops = vec![Operation::ReturnDataSize, Operation::Stop];
-    let mut vm = new_vm_with_ops(&ops);
+    let mut vm = new_vm_with_ops(&ops).unwrap();
 
     vm.current_call_frame_mut().sub_return_data = returndata;
 
@@ -2463,7 +2458,7 @@ fn returndatacopy() {
         Operation::ReturnDataCopy,
         Operation::Stop,
     ];
-    let mut vm = new_vm_with_ops(&ops);
+    let mut vm = new_vm_with_ops(&ops).unwrap();
 
     vm.current_call_frame_mut().sub_return_data = returndata;
 
@@ -2574,7 +2569,7 @@ fn blockhash_same_block_number() {
         Operation::Stop,
     ];
 
-    let mut vm = new_vm_with_ops(&operations);
+    let mut vm = new_vm_with_ops(&operations).unwrap();
     let mut storage = Storage::default();
     storage.insert(block_number, H256::from_low_u64_be(block_hash));
     // vm.world_state.insert(
@@ -2634,7 +2629,7 @@ fn coinbase_op() {
 
     let operations = [Operation::Coinbase, Operation::Stop];
 
-    let mut vm = new_vm_with_ops(&operations);
+    let mut vm = new_vm_with_ops(&operations).unwrap();
     vm.env.coinbase = Address::from_low_u64_be(coinbase_address);
 
     let mut current_call_frame = vm.call_frames.pop().unwrap();
@@ -2653,7 +2648,7 @@ fn timestamp_op() {
 
     let operations = [Operation::Timestamp, Operation::Stop];
 
-    let mut vm = new_vm_with_ops(&operations);
+    let mut vm = new_vm_with_ops(&operations).unwrap();
     vm.env.timestamp = timestamp;
 
     let mut current_call_frame = vm.call_frames.pop().unwrap();
@@ -2669,7 +2664,7 @@ fn number_op() {
 
     let operations = [Operation::Number, Operation::Stop];
 
-    let mut vm = new_vm_with_ops(&operations);
+    let mut vm = new_vm_with_ops(&operations).unwrap();
     vm.env.block_number = block_number;
 
     let mut current_call_frame = vm.call_frames.pop().unwrap();
@@ -2688,7 +2683,7 @@ fn prevrandao_op() {
 
     let operations = [Operation::Prevrandao, Operation::Stop];
 
-    let mut vm = new_vm_with_ops(&operations);
+    let mut vm = new_vm_with_ops(&operations).unwrap();
     vm.env.prev_randao = Some(prevrandao);
 
     let mut current_call_frame = vm.call_frames.pop().unwrap();
@@ -2707,7 +2702,7 @@ fn gaslimit_op() {
 
     let operations = [Operation::Gaslimit, Operation::Stop];
 
-    let mut vm = new_vm_with_ops(&operations);
+    let mut vm = new_vm_with_ops(&operations).unwrap();
     vm.env.gas_limit = gas_limit;
 
     let mut current_call_frame = vm.call_frames.pop().unwrap();
@@ -2723,7 +2718,7 @@ fn chain_id_op() {
 
     let operations = [Operation::Chainid, Operation::Stop];
 
-    let mut vm = new_vm_with_ops(&operations);
+    let mut vm = new_vm_with_ops(&operations).unwrap();
     vm.env.chain_id = chain_id;
 
     let mut current_call_frame = vm.call_frames.pop().unwrap();
@@ -2739,7 +2734,7 @@ fn basefee_op() {
 
     let operations = [Operation::Basefee, Operation::Stop];
 
-    let mut vm = new_vm_with_ops(&operations);
+    let mut vm = new_vm_with_ops(&operations).unwrap();
     vm.env.base_fee_per_gas = base_fee_per_gas;
 
     let mut current_call_frame = vm.call_frames.pop().unwrap();
@@ -2757,7 +2752,7 @@ fn basefee_op() {
 fn blobbasefee_op() {
     let operations = [Operation::BlobBaseFee, Operation::Stop];
 
-    let mut vm = new_vm_with_ops(&operations);
+    let mut vm = new_vm_with_ops(&operations).unwrap();
     vm.env.block_excess_blob_gas = Some(TARGET_BLOB_GAS_PER_BLOCK * 8);
     vm.env.block_blob_gas_used = Some(U256::zero());
 
@@ -2776,7 +2771,7 @@ fn blobbasefee_op() {
 fn blobbasefee_minimum_cost() {
     let operations = [Operation::BlobBaseFee, Operation::Stop];
 
-    let mut vm = new_vm_with_ops(&operations);
+    let mut vm = new_vm_with_ops(&operations).unwrap();
     vm.env.block_excess_blob_gas = Some(U256::zero());
     vm.env.block_blob_gas_used = Some(U256::zero());
 
@@ -2799,7 +2794,7 @@ fn pop_op() {
         Operation::Stop,
     ];
 
-    let mut vm = new_vm_with_ops(&operations);
+    let mut vm = new_vm_with_ops(&operations).unwrap();
 
     let mut current_call_frame = vm.call_frames.pop().unwrap();
     vm.execute(&mut current_call_frame);
@@ -2822,7 +2817,7 @@ fn jump_op() {
         Operation::Stop,
     ];
 
-    let mut vm = new_vm_with_ops(&operations);
+    let mut vm = new_vm_with_ops(&operations).unwrap();
 
     let mut current_call_frame = vm.call_frames.pop().unwrap();
     vm.execute(&mut current_call_frame);
@@ -2845,7 +2840,7 @@ fn jump_not_jumpdest_position() {
         Operation::Stop,
     ];
 
-    let mut vm = new_vm_with_ops(&operations);
+    let mut vm = new_vm_with_ops(&operations).unwrap();
 
     let mut current_call_frame = vm.call_frames.pop().unwrap();
     let tx_report = vm.execute(&mut current_call_frame);
@@ -2870,7 +2865,7 @@ fn sstore_op() {
 
     // We don't need to add address to database because if it doesn't exist it returns and empty account, so no problem there.
 
-    let mut vm = new_vm_with_ops(&operations);
+    let mut vm = new_vm_with_ops(&operations).unwrap();
     vm.current_call_frame_mut().to = sender_address;
     vm.current_call_frame_mut().code_address = sender_address;
 
@@ -2898,7 +2893,7 @@ fn sstore_reverts_when_called_in_static() {
         Operation::Stop,
     ];
 
-    let mut vm = new_vm_with_ops(&operations);
+    let mut vm = new_vm_with_ops(&operations).unwrap();
     vm.current_call_frame_mut().is_static = true;
     let mut current_call_frame = vm.call_frames.pop().unwrap();
     let tx_report = vm.execute(&mut current_call_frame);
@@ -2962,7 +2957,7 @@ fn sload_on_not_existing_account() {
     let sender_address = Address::from_low_u64_be(3000);
     let operations = vec![Operation::Push((2, key)), Operation::Sload, Operation::Stop];
 
-    let mut vm = new_vm_with_ops(&operations);
+    let mut vm = new_vm_with_ops(&operations).unwrap();
     vm.current_call_frame_mut().msg_sender = sender_address;
 
     let mut current_call_frame = vm.call_frames.pop().unwrap();
@@ -2988,7 +2983,7 @@ fn log0() {
     ];
     operations.append(&mut log_operations);
 
-    let mut vm = new_vm_with_ops(&operations);
+    let mut vm = new_vm_with_ops(&operations).unwrap();
     let mut current_call_frame = vm.call_frames.pop().unwrap();
     vm.execute(&mut current_call_frame);
 
@@ -3018,7 +3013,7 @@ fn log1() {
     ];
     operations.append(&mut log_operations);
 
-    let mut vm = new_vm_with_ops(&operations);
+    let mut vm = new_vm_with_ops(&operations).unwrap();
     let mut current_call_frame = vm.call_frames.pop().unwrap();
     vm.execute(&mut current_call_frame);
 
@@ -3051,7 +3046,7 @@ fn log2() {
     ];
     operations.append(&mut log_operations);
 
-    let mut vm = new_vm_with_ops(&operations);
+    let mut vm = new_vm_with_ops(&operations).unwrap();
     let mut current_call_frame = vm.call_frames.pop().unwrap();
     vm.execute(&mut current_call_frame);
 
@@ -3090,7 +3085,7 @@ fn log3() {
     ];
     operations.append(&mut log_operations);
 
-    let mut vm = new_vm_with_ops(&operations);
+    let mut vm = new_vm_with_ops(&operations).unwrap();
     let mut current_call_frame = vm.call_frames.pop().unwrap();
     vm.execute(&mut current_call_frame);
 
@@ -3136,7 +3131,7 @@ fn log4() {
     ];
     operations.append(&mut log_operations);
 
-    let mut vm = new_vm_with_ops(&operations);
+    let mut vm = new_vm_with_ops(&operations).unwrap();
     let mut current_call_frame = vm.call_frames.pop().unwrap();
     vm.execute(&mut current_call_frame);
 
@@ -3170,7 +3165,7 @@ fn log_with_0_data_size() {
     ];
     operations.append(&mut log_operations);
 
-    let mut vm = new_vm_with_ops(&operations);
+    let mut vm = new_vm_with_ops(&operations).unwrap();
     let mut current_call_frame = vm.call_frames.pop().unwrap();
     vm.execute(&mut current_call_frame);
 
@@ -3195,7 +3190,7 @@ fn cant_create_log_in_static_context() {
     ];
     operations.append(&mut log_operations);
 
-    let mut vm: VM = new_vm_with_ops(&operations);
+    let mut vm: VM = new_vm_with_ops(&operations).unwrap();
     vm.current_call_frame_mut().is_static = true;
     let mut current_call_frame = vm.call_frames.pop().unwrap();
     let tx_report = vm.execute(&mut current_call_frame);
@@ -3220,7 +3215,7 @@ fn log_with_data_in_memory_smaller_than_size() {
     ];
     operations.append(&mut log_operations);
 
-    let mut vm = new_vm_with_ops(&operations);
+    let mut vm = new_vm_with_ops(&operations).unwrap();
     let mut current_call_frame = vm.call_frames.pop().unwrap();
     vm.execute(&mut current_call_frame);
 
@@ -3255,7 +3250,7 @@ fn multiple_logs_of_different_types() {
     ];
     operations.append(&mut log_operations);
 
-    let mut vm = new_vm_with_ops(&operations);
+    let mut vm = new_vm_with_ops(&operations).unwrap();
     let mut current_call_frame = vm.call_frames.pop().unwrap();
     vm.execute(&mut current_call_frame);
 
@@ -3370,7 +3365,7 @@ fn logs_from_multiple_callers() {
 
 #[test]
 fn push0_ok() {
-    let mut vm = new_vm_with_ops(&[Operation::Push0, Operation::Stop]);
+    let mut vm = new_vm_with_ops(&[Operation::Push0, Operation::Stop]).unwrap();
 
     let mut current_call_frame = vm.call_frames.pop().unwrap();
     vm.execute(&mut current_call_frame);
@@ -3383,7 +3378,7 @@ fn push0_ok() {
 fn push1_ok() {
     let to_push = U256::from_big_endian(&[0xff]);
     let operations = [Operation::Push((1, to_push)), Operation::Stop];
-    let mut vm = new_vm_with_ops(&operations);
+    let mut vm = new_vm_with_ops(&operations).unwrap();
 
     let mut current_call_frame = vm.call_frames.pop().unwrap();
     vm.execute(&mut current_call_frame);
@@ -3396,7 +3391,7 @@ fn push1_ok() {
 fn push5_ok() {
     let to_push = U256::from_big_endian(&[0xff, 0xff, 0xff, 0xff, 0xff]);
     let operations = [Operation::Push((5, to_push)), Operation::Stop];
-    let mut vm = new_vm_with_ops(&operations);
+    let mut vm = new_vm_with_ops(&operations).unwrap();
 
     let mut current_call_frame = vm.call_frames.pop().unwrap();
     vm.execute(&mut current_call_frame);
@@ -3409,7 +3404,7 @@ fn push5_ok() {
 fn push31_ok() {
     let to_push = U256::from_big_endian(&[0xff; 31]);
     let operations = [Operation::Push((31, to_push)), Operation::Stop];
-    let mut vm = new_vm_with_ops(&operations);
+    let mut vm = new_vm_with_ops(&operations).unwrap();
 
     let mut current_call_frame = vm.call_frames.pop().unwrap();
     vm.execute(&mut current_call_frame);
@@ -3422,7 +3417,7 @@ fn push31_ok() {
 fn push32_ok() {
     let to_push = U256::from_big_endian(&[0xff; 32]);
     let operations = [Operation::Push((32, to_push)), Operation::Stop];
-    let mut vm = new_vm_with_ops(&operations);
+    let mut vm = new_vm_with_ops(&operations).unwrap();
 
     let mut current_call_frame = vm.call_frames.pop().unwrap();
     vm.execute(&mut current_call_frame);
@@ -3439,7 +3434,7 @@ fn dup1_ok() {
         Operation::Dup(1),
         Operation::Stop,
     ];
-    let mut vm = new_vm_with_ops(&operations);
+    let mut vm = new_vm_with_ops(&operations).unwrap();
 
     let mut current_call_frame = vm.call_frames.pop().unwrap();
     vm.execute(&mut current_call_frame);
@@ -3465,7 +3460,7 @@ fn dup16_ok() {
     operations.extend(vec![Operation::Push0; 15]);
     operations.extend(vec![Operation::Dup(16), Operation::Stop]);
 
-    let mut vm = new_vm_with_ops(&operations);
+    let mut vm = new_vm_with_ops(&operations).unwrap();
 
     let mut current_call_frame = vm.call_frames.pop().unwrap();
     vm.execute(&mut current_call_frame);
@@ -3487,7 +3482,7 @@ fn dup16_ok() {
 #[test]
 fn dup_halts_if_stack_underflow() {
     let operations = [Operation::Dup(5), Operation::Stop];
-    let mut vm = new_vm_with_ops(&operations);
+    let mut vm = new_vm_with_ops(&operations).unwrap();
 
     let mut current_call_frame = vm.call_frames.pop().unwrap();
     let tx_report = vm.execute(&mut current_call_frame);
@@ -3508,7 +3503,7 @@ fn swap1_ok() {
         Operation::Swap(1),
         Operation::Stop,
     ];
-    let mut vm = new_vm_with_ops(&operations);
+    let mut vm = new_vm_with_ops(&operations).unwrap();
     let mut current_call_frame = vm.call_frames.pop().unwrap();
     vm.execute(&mut current_call_frame);
 
@@ -3527,7 +3522,7 @@ fn swap16_ok() {
     operations.extend(vec![Operation::Push((1, top))]);
     operations.extend(vec![Operation::Swap(16), Operation::Stop]);
 
-    let mut vm = new_vm_with_ops(&operations);
+    let mut vm = new_vm_with_ops(&operations).unwrap();
 
     let mut current_call_frame = vm.call_frames.pop().unwrap();
     vm.execute(&mut current_call_frame);
@@ -3548,7 +3543,7 @@ fn swap16_ok() {
 #[test]
 fn swap_halts_if_stack_underflow() {
     let operations = [Operation::Swap(5), Operation::Stop];
-    let mut vm = new_vm_with_ops(&operations);
+    let mut vm = new_vm_with_ops(&operations).unwrap();
 
     let mut current_call_frame = vm.call_frames.pop().unwrap();
     let tx_report = vm.execute(&mut current_call_frame);
@@ -3571,7 +3566,7 @@ fn transient_store() {
         Operation::Stop,
     ];
 
-    let mut vm = new_vm_with_ops(&operations);
+    let mut vm = new_vm_with_ops(&operations).unwrap();
 
     let current_call_frame = vm.current_call_frame_mut();
 
@@ -3595,7 +3590,7 @@ fn transient_store() {
 fn transient_store_stack_underflow() {
     let operations = [Operation::Tstore, Operation::Stop];
 
-    let mut vm = new_vm_with_ops(&operations);
+    let mut vm = new_vm_with_ops(&operations).unwrap();
     assert!(vm.current_call_frame_mut().transient_storage.is_empty());
 
     let mut current_call_frame = vm.call_frames.pop().unwrap();
@@ -3618,7 +3613,7 @@ fn transient_load() {
         Operation::Stop,
     ];
 
-    let mut vm = new_vm_with_ops(&operations);
+    let mut vm = new_vm_with_ops(&operations).unwrap();
 
     let caller = vm.current_call_frame_mut().msg_sender;
 
@@ -3846,7 +3841,7 @@ fn cant_create_if_sender_nonce_would_overflow() {
 //     ]
 //     .concat();
 
-//     let mut vm = new_vm_with_ops(&operations);
+//     let mut vm = new_vm_with_ops(&operations).unwrap();
 //     vm.db.accounts.insert(
 //         sender_addr,
 //         Account::default()
@@ -3878,7 +3873,7 @@ fn cant_create_if_sender_nonce_would_overflow() {
 //     // after a happy create, we do again a create with same inputs, this should revert as we will create
 //     // an account with the same address
 //     sender_account.nonce = sender_nonce;
-//     let mut new_vm = new_vm_with_ops(&operations);
+//     let mut new_vm = new_vm_with_ops(&operations).unwrap();
 //     new_vm.db = vm.db.clone();
 //     new_vm.db.accounts = vm.db.accounts.clone();
 //     new_vm.current_call_frame_mut().msg_sender = sender_addr;
@@ -4375,7 +4370,7 @@ fn extcodesize_non_existing_account() {
         Operation::Stop,
     ];
 
-    let mut vm = new_vm_with_ops(&operations);
+    let mut vm = new_vm_with_ops(&operations).unwrap();
 
     let mut current_call_frame = vm.call_frames.pop().unwrap();
     vm.execute(&mut current_call_frame);
@@ -4431,7 +4426,7 @@ fn extcodecopy_non_existing_account() {
         Operation::Stop,
     ];
 
-    let mut vm = new_vm_with_ops(&operations);
+    let mut vm = new_vm_with_ops(&operations).unwrap();
 
     let mut current_call_frame = vm.call_frames.pop().unwrap();
     vm.execute(&mut current_call_frame);
@@ -4477,7 +4472,7 @@ fn extcodehash_non_existing_account() {
         Operation::Stop,
     ];
 
-    let mut vm = new_vm_with_ops(&operations);
+    let mut vm = new_vm_with_ops(&operations).unwrap();
 
     let mut current_call_frame = vm.call_frames.pop().unwrap();
     vm.execute(&mut current_call_frame);
@@ -4492,7 +4487,7 @@ fn extcodehash_non_existing_account() {
 fn invalid_opcode() {
     let operations = [Operation::Invalid, Operation::Stop];
 
-    let mut vm = new_vm_with_ops(&operations);
+    let mut vm = new_vm_with_ops(&operations).unwrap();
 
     let mut current_call_frame = vm.call_frames.pop().unwrap();
     let tx_report = vm.execute(&mut current_call_frame);
@@ -4515,7 +4510,7 @@ fn revert_opcode() {
         Operation::Revert,
     ];
 
-    let mut vm = new_vm_with_ops(&ops);
+    let mut vm = new_vm_with_ops(&ops).unwrap();
 
     let mut current_call_frame = vm.call_frames.pop().unwrap();
     let tx_report = vm.execute(&mut current_call_frame);
@@ -4540,7 +4535,7 @@ fn revert_sstore() {
         Operation::Revert,
     ];
 
-    let mut vm = new_vm_with_ops(&operations);
+    let mut vm = new_vm_with_ops(&operations).unwrap();
     vm.current_call_frame_mut().code_address = sender_address;
     vm.cache.add_account(&sender_address, &Account::default());
 
