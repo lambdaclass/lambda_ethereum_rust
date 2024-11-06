@@ -67,8 +67,7 @@ pub struct TransactionReport {
 impl TransactionReport {
     /// Function to add gas to report without exceeding the maximum gas limit
     pub fn add_gas_with_max(&mut self, gas: u64, max: u64) {
-        self.gas_used = self.gas_used.saturating_add(gas);
-        self.gas_used = self.gas_used.min(max);
+        self.gas_used = self.gas_used.saturating_add(gas).min(max);
     }
 
     pub fn is_success(&self) -> bool {
