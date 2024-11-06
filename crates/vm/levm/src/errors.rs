@@ -33,6 +33,7 @@ pub enum VMError {
     MemoryLoadOutOfBounds,
     MemoryStoreOutOfBounds,
     GasLimitPriceProductOverflow,
+    AccountShouldHaveBeenCached,
 }
 
 pub enum OpcodeSuccess {
