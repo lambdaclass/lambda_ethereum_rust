@@ -185,7 +185,8 @@ impl RpcHandler for GetTransactionCountRequest {
             }
         };
 
-        serde_json::to_value(format!("0x{:x}", nonce))
+        // This endpoint returns the amount of transactions, so it needs to return the nonce + 1
+        serde_json::to_value(format!("0x{:x}", nonce + 1))
             .map_err(|error| RpcErr::Internal(error.to_string()))
     }
 }
