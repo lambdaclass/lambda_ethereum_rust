@@ -23,8 +23,9 @@ jobs:
         action:
           - command: check
           - command: clippy
-            args: --all-targets
-          - command: test
+            args: --all-targets -- -D warnings
+          - command: cargo fmt
+            args: --all -- --check
     steps:
       - name: Checkout sources
         uses: actions/checkout@v4
@@ -34,3 +35,20 @@ jobs:
         run: |
           cd crates/l2/contracts
           cargo ${{ matrix.action.command }} ${{ matrix.action.args }}
+
+  test_compilation:
+    name: Compile Contracts
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout sources
+        uses: actions/checkout@v4
+      - name: Rust toolchain install
+        uses: dtolnay/rust-toolchain@stable
+      - name: Install solc
+        uses: pontem-network/get-solc@master
+      - name: Caching
+        uses: Swatinem/rust-cache@v2
+      - name: Build prover and zkVM
+        run: |
+          cd crates/l2/contracts
+          cargo test
