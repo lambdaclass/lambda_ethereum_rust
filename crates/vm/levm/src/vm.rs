@@ -458,7 +458,11 @@ impl VM {
         sender_account.info.balance = sender_account
             .info
             .balance
-            .checked_sub(U256::from(report.gas_used) * self.env.gas_price)
+            .checked_sub(
+                U256::from(report.gas_used)
+                    .checked_mul(self.env.gas_price)
+                    .ok_or(VMError::GasLimitPriceProductOverflow)?,
+            )
             .ok_or(VMError::OutOfGas)?;
 
         dbg!(&report.gas_refunded);

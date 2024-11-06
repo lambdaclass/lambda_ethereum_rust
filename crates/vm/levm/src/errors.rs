@@ -32,6 +32,7 @@ pub enum VMError {
     NonceOverflow,
     MemoryLoadOutOfBounds,
     MemoryStoreOutOfBounds,
+    GasLimitPriceProductOverflow,
 }
 
 pub enum OpcodeSuccess {
