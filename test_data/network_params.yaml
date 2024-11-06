@@ -3,6 +3,7 @@ participants:
     cl_type: lighthouse
     validator_count: 32
   - el_type: geth
+    el_image: local-geth
     cl_type: lighthouse
     validator_count: 32
   - el_type: geth
@@ -22,4 +23,4 @@ assertoor_params:
   tests:
     - 'https://raw.githubusercontent.com/lambdaclass/lambda_ethereum_rust/refs/heads/main/test_data/el-stability-check.yml'
 tx_spammer_params:
-  tx_spammer_extra_args: ["--accounts=10", --txcount=10]
+  tx_spammer_extra_args: [--accounts=7, --txcount=7]
