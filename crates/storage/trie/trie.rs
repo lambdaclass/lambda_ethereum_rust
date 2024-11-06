@@ -1082,9 +1082,9 @@ mod test {
         trie.insert(b"duck".to_vec(), b"duckling".to_vec()).unwrap();
 
         let root_hash = trie.hash_no_commit().unwrap().into();
-        let trie_proof = trie.get_proof(&b"duck".to_vec()).unwrap();
+        let trie_proof = trie.get_encoded_proof(&b"duck".to_vec()).unwrap();
         assert!(Trie::verify_proof(
-            trie_proof,
+            &trie_proof,
             root_hash,
             &b"duck".to_vec(),
             &b"duckling".to_vec(),
