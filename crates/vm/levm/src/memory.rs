@@ -76,7 +76,7 @@ impl Memory {
         self.resize(max_size);
         let mut temp = vec![0u8; size];
 
-        temp.copy_from_slice(&self.data.get(src_offset..src_offset + size).ok_or(VMError::SlicingError)?);
+        temp.copy_from_slice(self.data.get(src_offset..src_offset + size).ok_or(VMError::SlicingError)?);
 
         self.data.get_mut(dest_offset..dest_offset + size).ok_or(VMError::SlicingError)?.copy_from_slice(&temp);
         Ok(())
