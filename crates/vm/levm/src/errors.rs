@@ -33,6 +33,11 @@ pub enum VMError {
     MemoryLoadOutOfBounds,
     MemoryStoreOutOfBounds,
     GasLimitPriceProductOverflow,
+    SlicingError,
+    IndexingError,
+    FatalUnwrap, // I will use this generic error for things that shouldn't fail
+    AccountShouldHaveBeenCached,
+    ConversionError,
 }
 
 pub enum OpcodeSuccess {

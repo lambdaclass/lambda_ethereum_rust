@@ -214,7 +214,8 @@ impl VM {
         let base = current_call_frame.stack.pop()?;
         let exponent = current_call_frame.stack.pop()?;
 
-        let exponent_byte_size = (exponent.bits() as u64 + 7) / 8;
+        let exponent_bits: u64 = exponent.bits().try_into().map_err(|_| VMError::ConversionError)?;
+        let exponent_byte_size = (exponent_bits + 7) / 8;
         let gas_cost = gas_cost::EXP_STATIC + gas_cost::EXP_DYNAMIC_BASE * exponent_byte_size;
 
         self.increase_consumed_gas(current_call_frame, gas_cost)?;

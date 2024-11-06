@@ -1,5 +1,7 @@
 use ethereum_rust_core::U256;
 
+use crate::errors::VMError;
+
 pub const SUCCESS_FOR_CALL: i32 = 1;
 pub const REVERT_FOR_CALL: i32 = 0;
 pub const HALT_FOR_CALL: i32 = 2;
@@ -120,10 +122,11 @@ pub const MAX_CREATE_CODE_SIZE: usize = 2 * MAX_CODE_SIZE;
 pub const INVALID_CONTRACT_PREFIX: u8 = 0xef;
 
 // Costs in gas for init word and init code (in wei)
-pub const INIT_WORD_COST: i64 = 2;
+pub const INIT_WORD_COST: u64 = 2;
 
-pub fn init_code_cost(init_code_length: usize) -> u64 {
-    INIT_WORD_COST as u64 * (init_code_length as u64 + 31) / 32
+pub fn init_code_cost(init_code_length: usize) -> Result<u64, VMError> {
+    let length_u64 = u64::try_from(init_code_length).map_err(|_| VMError::ConversionError)?;
+    Ok(INIT_WORD_COST * (length_u64 + 31) / 32)
 }
 
 pub const VERSIONED_HASH_VERSION_KZG: u8 = 0x01;

@@ -17,6 +17,7 @@ impl VM {
         op: Opcode,
     ) -> Result<OpcodeSuccess, VMError> {
         // Calculate the depth based on the opcode
+
         let depth = (op as u8) - (Opcode::DUP1 as u8) + 1;
 
         // Increase the consumed gas
