@@ -1,10 +1,10 @@
 use crate::utils::{
     config::{eth::EthConfig, proposer::ProposerConfig, read_env_file},
-    eth_client::EthClient,
+    eth_client::{transaction::blob_from_bytes, EthClient},
     merkle_tree::merkelize,
 };
 use bytes::Bytes;
-use c_kzg::{Blob, Bytes48, KzgSettings};
+use c_kzg::{Bytes48, KzgSettings};
 use errors::ProposerError;
 use ethereum_rust_blockchain::constants::TX_GAS_COST;
 use ethereum_rust_core::types::{
@@ -387,13 +387,7 @@ impl Proposer {
     ) -> Result<([u8; 48], [u8; 48]), ProposerError> {
         let blob_data = state_diff.encode().map_err(ProposerError::from)?;
 
-        if blob_data.len() > BYTES_PER_BLOB {
-            return Err(ProposerError::BlobTooLong);
-        }
-
-        let mut buf = [0u8; BYTES_PER_BLOB];
-        buf[..blob_data.len()].copy_from_slice(&blob_data);
-        let blob = Blob::from_bytes(&buf).unwrap();
+        let blob = blob_from_bytes(blob_data).unwrap();
 
         let commitment =
             c_kzg::KzgCommitment::blob_to_kzg_commitment(&blob, self.kzg_settings).unwrap();
@@ -417,7 +411,7 @@ impl Proposer {
         deposit_logs_hash: H256,
         commitment: [u8; 48],
         proof: [u8; 48],
-        blob: Bytes,
+        blob_data: Bytes,
     ) -> Result<H256, ProposerError> {
         info!("Sending commitment for block {block_number}");
 
@@ -456,7 +450,7 @@ impl Proposer {
             .saturating_add(TX_GAS_COST);
 
         let mut buf = [0u8; BYTES_PER_BLOB];
-        buf[..blob.len()].copy_from_slice(blob.as_ref());
+        buf.copy_from_slice(blob_from_bytes(blob_data).unwrap().iter().as_slice());
 
         let mut wrapped_tx = WrappedEIP4844Transaction {
             tx,

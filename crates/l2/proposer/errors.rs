@@ -42,8 +42,6 @@ pub enum ProposerError {
     FailedToOpenPointsFile(#[from] std::io::Error),
     #[error("Proposer failed to re-execute block: {0}")]
     FailedToReExecuteBlock(#[from] EvmError),
-    #[error("Blob is too long")]
-    BlobTooLong,
 }
 
 #[derive(Debug, thiserror::Error)]

@@ -2,7 +2,6 @@ use crate::utils::engine_client::EngineClient;
 use bytes::Bytes;
 use ethereum_rust_rpc::types::fork_choice::{ForkChoiceState, PayloadAttributesV3};
 use ethereum_types::H256;
-use keccak_hash::keccak;
 use sha2::{Digest, Sha256};
 use std::{
     net::SocketAddr,
