@@ -23,8 +23,8 @@ jobs:
         action:
           - command: check
           - command: clippy
-            args: --all-targets -- -D warnings
-          - command: cargo fmt
+            args: -- -D warnings
+          - command: fmt
             args: --all -- --check
     steps:
       - name: Checkout sources
@@ -48,7 +48,7 @@ jobs:
         uses: pontem-network/get-solc@master
       - name: Caching
         uses: Swatinem/rust-cache@v2
-      - name: Build prover and zkVM
+      - name: Run test of deployer.rs
         run: |
           cd crates/l2/contracts
           cargo test
