@@ -57,7 +57,7 @@ impl VM {
 
         current_call_frame
             .stack
-            .push(address_to_word(self.env.coinbase))?;
+            .push(address_to_word(self.env.coinbase)?)?;
 
         Ok(OpcodeSuccess::Continue)
     }
@@ -186,13 +186,13 @@ impl VM {
         Ok(OpcodeSuccess::Continue)
     }
 
-    fn get_blob_gasprice(&mut self) -> U256 {
-        fake_exponential(
+    fn get_blob_gasprice(&mut self) -> Result<U256, VMError> {
+        Ok(fake_exponential(
             MIN_BASE_FEE_PER_BLOB_GAS.into(),
             // Use unwrap because env should have a Some value in excess_blob_gas attribute
-            self.env.block_excess_blob_gas.unwrap(),
+            self.env.block_excess_blob_gas.ok_or(VMError::FatalUnwrap)?,
             BLOB_BASE_FEE_UPDATE_FRACTION.into(),
-        )
+        ))
     }
 
     // BLOBBASEFEE operation
@@ -202,7 +202,7 @@ impl VM {
     ) -> Result<OpcodeSuccess, VMError> {
         self.increase_consumed_gas(current_call_frame, gas_cost::BLOBBASEFEE)?;
 
-        let blob_base_fee = self.get_blob_gasprice();
+        let blob_base_fee = self.get_blob_gasprice()?;
 
         current_call_frame.stack.push(blob_base_fee)?;
 
@@ -210,9 +210,9 @@ impl VM {
     }
 }
 
-fn address_to_word(address: Address) -> U256 {
+fn address_to_word(address: Address) -> Result<U256, VMError> {
     // This unwrap can't panic, as Address are 20 bytes long and U256 use 32 bytes
-    U256::from_str(&format!("{address:?}")).unwrap()
+    U256::from_str(&format!("{address:?}")).map_err(|_| VMError::FatalUnwrap)
 }
 
 // Fuction inspired in EIP 4844 helpers. Link: https://eips.ethereum.org/EIPS/eip-4844#helpers
