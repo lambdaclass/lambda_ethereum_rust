@@ -231,8 +231,8 @@ impl VM {
         current_call_frame: &mut CallFrame,
     ) -> Result<OpcodeSuccess, VMError> {
         let value_in_wei_to_send = current_call_frame.stack.pop()?;
-        let code_offset_in_memory = current_call_frame.stack.pop()?.try_into().unwrap();
-        let code_size_in_memory = current_call_frame.stack.pop()?.try_into().unwrap();
+        let code_offset_in_memory = current_call_frame.stack.pop()?;
+        let code_size_in_memory = current_call_frame.stack.pop()?;
 
         self.create(
             value_in_wei_to_send,
