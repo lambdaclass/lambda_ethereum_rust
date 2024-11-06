@@ -453,16 +453,15 @@ impl VM {
             .checked_sub(U256::from(report.gas_used) * self.env.gas_price)
             .ok_or(VMError::OutOfGas)?;
         
-        let receiver_address = self.call_frames.first().unwrap().to;
+        let call_frame = self.call_frames.first().ok_or(VMError::InternalError)?.clone();
+
+        let receiver_address = call_frame.to;
         let mut receiver_account = self.get_account(&receiver_address);
-
-        // If execution was successful we want to do the transfer of value from sender to receiver
+        // If execution was successful we want to transfer value from sender to receiver
         if report.is_success() {
-            // Substract to the caller the gas sent
-            let value = self.call_frames.first().unwrap().msg_value;
-            sender_account.info.balance = sender_account.info.balance.checked_sub(value).ok_or(VMError::OutOfGas)?; // This error shouldn't be OutOfGas
-
-            receiver_account.info.balance = receiver_account.info.balance.checked_add(value).ok_or(VMError::OutOfGas)?; // This error shouldn't be OutOfGas
+            // Subtract to the caller the gas sent
+            sender_account.info.balance = sender_account.info.balance.checked_sub(call_frame.msg_value).ok_or(VMError::OutOfGas)?; // This error shouldn't be OutOfGas
+            receiver_account.info.balance = receiver_account.info.balance.checked_add(call_frame.msg_value).ok_or(VMError::OutOfGas)?; // This error shouldn't be OutOfGas
         }
 
         dbg!(&report.gas_refunded);
