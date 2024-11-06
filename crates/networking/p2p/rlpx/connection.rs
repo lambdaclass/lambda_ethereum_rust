@@ -326,7 +326,7 @@ impl<S: AsyncWrite + AsyncRead + std::marker::Unpin> RLPxConnection<S> {
         self.stream
             .write_all(msg)
             .await
-            .map_err(|_| RLPxError::HandshakeError("Could not send message".to_string()))?;
+            .map_err(|_| RLPxError::ConnectionError("Could not send message".to_string()))?;
         Ok(())
     }
 
@@ -337,7 +337,7 @@ impl<S: AsyncWrite + AsyncRead + std::marker::Unpin> RLPxConnection<S> {
         self.stream
             .read_exact(&mut buf[..2])
             .await
-            .map_err(|_| RLPxError::HandshakeError("Connection dropped".to_string()))?;
+            .map_err(|_| RLPxError::ConnectionError("Connection dropped".to_string()))?;
         let ack_data = [buf[0], buf[1]];
         let msg_size = u16::from_be_bytes(ack_data) as usize;
 
@@ -345,7 +345,7 @@ impl<S: AsyncWrite + AsyncRead + std::marker::Unpin> RLPxConnection<S> {
         self.stream
             .read_exact(&mut buf[2..msg_size + 2])
             .await
-            .map_err(|_| RLPxError::HandshakeError("Connection dropped".to_string()))?;
+            .map_err(|_| RLPxError::ConnectionError("Connection dropped".to_string()))?;
         let ack_bytes = &buf[..msg_size + 2];
         Ok(ack_bytes.to_vec())
     }
@@ -355,7 +355,7 @@ impl<S: AsyncWrite + AsyncRead + std::marker::Unpin> RLPxConnection<S> {
             RLPxConnectionState::Established(state) => {
                 let mut frame_buffer = vec![];
                 message.encode(&mut frame_buffer)?;
-                frame::write(frame_buffer, state, &mut self.stream).await;
+                frame::write(frame_buffer, state, &mut self.stream).await?;
                 Ok(())
             }
             _ => Err(RLPxError::InvalidState()),
@@ -365,7 +365,7 @@ impl<S: AsyncWrite + AsyncRead + std::marker::Unpin> RLPxConnection<S> {
     async fn receive(&mut self) -> Result<rlpx::Message, RLPxError> {
         match &mut self.state {
             RLPxConnectionState::Established(state) => {
-                let frame_data = frame::read(state, &mut self.stream).await;
+                let frame_data = frame::read(state, &mut self.stream).await?;
                 let (msg_id, msg_data): (u8, _) = RLPDecode::decode_unfinished(&frame_data)?;
                 Ok(rlpx::Message::decode(msg_id, msg_data)?)
             }

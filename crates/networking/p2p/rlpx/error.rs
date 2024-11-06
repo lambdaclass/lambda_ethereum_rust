@@ -7,6 +7,8 @@ use thiserror::Error;
 pub(crate) enum RLPxError {
     #[error("{0}")]
     HandshakeError(String),
+    #[error("{0}")]
+    ConnectionError(String),
     #[error("Invalid connection state")]
     InvalidState(),
     #[error("Not Found: {0}")]

@@ -58,7 +58,7 @@ pub(crate) fn decode_auth_message(
     let (auth, _padding) = AuthMessage::decode_unfinished(&payload)?;
 
     // Derive a shared secret from the static keys.
-    let peer_pk = id2pubkey(auth.node_id).ok_or(RLPxError::NotFound("Node id".to_string()))?;
+    let peer_pk = id2pubkey(auth.node_id).ok_or(RLPxError::InvalidPeerId())?;
     let static_shared_secret = ecdh_xchng(static_key, &peer_pk);
     let remote_ephemeral_key =
         retrieve_remote_ephemeral_key(static_shared_secret.into(), auth.nonce, auth.signature)?;
