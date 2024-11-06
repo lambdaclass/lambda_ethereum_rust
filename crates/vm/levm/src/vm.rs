@@ -13,9 +13,7 @@ use ethereum_rust_rlp;
 use ethereum_rust_rlp::encode::RLPEncode;
 use sha3::{Digest, Keccak256};
 use std::{
-    collections::{HashMap, HashSet},
-    str::FromStr,
-    sync::Arc,
+    collections::{HashMap, HashSet}, str::FromStr, sync::Arc
 };
 
 pub type Storage = HashMap<U256, H256>;
@@ -98,7 +96,7 @@ impl VM {
 
                 // (2)
                 let new_contract_address =
-                    VM::calculate_create_address(env.origin, sender_account_info.nonce);
+                    VM::calculate_create_address(env.origin, sender_account_info.nonce).unwrap();
 
                 // (3)
                 let created_contract = Account::new(value, calldata.clone(), 1, HashMap::new());
@@ -597,12 +595,12 @@ impl VM {
     /// Calculates the address of a new conctract using the CREATE opcode as follow
     ///
     /// address = keccak256(rlp([sender_address,sender_nonce]))[12:]
-    pub fn calculate_create_address(sender_address: Address, sender_nonce: u64) -> Address {
+    pub fn calculate_create_address(sender_address: Address, sender_nonce: u64) -> Result<Address, VMError> {
         let mut encoded = Vec::new();
         (sender_address, sender_nonce).encode(&mut encoded);
         let mut hasher = Keccak256::new();
         hasher.update(encoded);
-        Address::from_slice(&hasher.finalize()[12..])
+        Ok(Address::from_slice(hasher.finalize().get(12..).ok_or(VMError::SlicingError)?))
     }
 
     /// Calculates the address of a new contract using the CREATE2 opcode as follow
@@ -614,7 +612,7 @@ impl VM {
         sender_address: Address,
         initialization_code: &Bytes,
         salt: U256,
-    ) -> Address {
+    ) -> Result<Address, VMError> {
         let mut hasher = Keccak256::new();
         hasher.update(initialization_code.clone());
         let initialization_code_hash = hasher.finalize();
@@ -625,7 +623,7 @@ impl VM {
         hasher.update(sender_address.as_bytes());
         hasher.update(salt_bytes);
         hasher.update(initialization_code_hash);
-        Address::from_slice(&hasher.finalize()[12..])
+        Ok(Address::from_slice(hasher.finalize().get(12..).ok_or(VMError::SlicingError)?))
     }
 
     /// Common behavior for CREATE and CREATE2 opcodes
@@ -693,12 +691,12 @@ impl VM {
 
         let new_address = match salt {
             Some(salt) => {
-                Self::calculate_create2_address(current_call_frame.msg_sender, &code, salt)
+                Self::calculate_create2_address(current_call_frame.msg_sender, &code, salt)?
             }
             None => Self::calculate_create_address(
                 current_call_frame.msg_sender,
                 sender_account.info.nonce,
-            ),
+            )?,
         };
 
         if self.cache.accounts.contains_key(&new_address) {
