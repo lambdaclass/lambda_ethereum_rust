@@ -18,20 +18,20 @@ impl VM {
     ) -> Result<OpcodeSuccess, VMError> {
         // Calculate the depth based on the opcode
 
-        let depth = (op as u8) - (Opcode::DUP1 as u8) + 1;
+        let depth = op.to_usize() - Opcode::DUP1.to_usize() + 1;
 
         // Increase the consumed gas
         self.increase_consumed_gas(current_call_frame, gas_cost::DUPN)?;
 
         // Ensure the stack has enough elements to duplicate
-        if current_call_frame.stack.len() < depth as usize {
+        if current_call_frame.stack.len() < depth {
             return Err(VMError::StackUnderflow);
         }
 
         // Get the value at the specified depth
         let value_at_depth = current_call_frame
             .stack
-            .get(current_call_frame.stack.len() - depth as usize)?;
+            .get(current_call_frame.stack.len() - depth)?;
 
         // Push the duplicated value onto the stack
         current_call_frame.stack.push(*value_at_depth)?;

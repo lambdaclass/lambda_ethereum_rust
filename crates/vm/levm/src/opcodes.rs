@@ -333,3 +333,15 @@ impl TryFrom<u8> for Opcode {
         Ok(op)
     }
 }
+
+impl Opcode {
+    #[allow(clippy::as_conversions)]
+    pub fn to_usize(self) -> usize {
+        self as usize
+    }
+
+    #[allow(clippy::as_conversions)]
+    pub fn to_u8(self) -> u8 {
+        self as u8
+    }
+}
