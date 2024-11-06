@@ -42,6 +42,8 @@ pub enum ProposerError {
     FailedToOpenPointsFile(#[from] std::io::Error),
     #[error("Proposer failed to re-execute block: {0}")]
     FailedToReExecuteBlock(#[from] EvmError),
+    #[error("Proposer failed to make KZG operations: {0}")]
+    KZGError(#[from] c_kzg::Error),
 }
 
 #[derive(Debug, thiserror::Error)]

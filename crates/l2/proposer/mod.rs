@@ -387,14 +387,15 @@ impl Proposer {
     ) -> Result<([u8; 48], [u8; 48]), ProposerError> {
         let blob_data = state_diff.encode().map_err(ProposerError::from)?;
 
-        let blob = blob_from_bytes(blob_data).unwrap();
+        let blob = blob_from_bytes(blob_data).map_err(ProposerError::from)?;
 
-        let commitment =
-            c_kzg::KzgCommitment::blob_to_kzg_commitment(&blob, self.kzg_settings).unwrap();
-        let commitment_bytes = Bytes48::from_bytes(commitment.as_slice()).unwrap();
+        let commitment = c_kzg::KzgCommitment::blob_to_kzg_commitment(&blob, self.kzg_settings)
+            .map_err(ProposerError::from)?;
+        let commitment_bytes =
+            Bytes48::from_bytes(commitment.as_slice()).map_err(ProposerError::from)?;
         let proof =
             c_kzg::KzgProof::compute_blob_kzg_proof(&blob, &commitment_bytes, self.kzg_settings)
-                .unwrap();
+                .map_err(ProposerError::from)?;
 
         let mut commitment_bytes = [0u8; 48];
         commitment_bytes.copy_from_slice(commitment.as_slice());
@@ -450,7 +451,12 @@ impl Proposer {
             .saturating_add(TX_GAS_COST);
 
         let mut buf = [0u8; BYTES_PER_BLOB];
-        buf.copy_from_slice(blob_from_bytes(blob_data).unwrap().iter().as_slice());
+        buf.copy_from_slice(
+            blob_from_bytes(blob_data)
+                .map_err(ProposerError::from)?
+                .iter()
+                .as_slice(),
+        );
 
         let mut wrapped_tx = WrappedEIP4844Transaction {
             tx,
