@@ -94,7 +94,7 @@ impl VM {
     }
 
     // CALLCODE operation
-    // TODO: Add gas consumption
+    // TODO: https://github.com/lambdaclass/lambda_ethereum_rust/issues/1086
     pub fn op_callcode(
         &mut self,
         current_call_frame: &mut CallFrame,
@@ -158,7 +158,7 @@ impl VM {
     }
 
     // DELEGATECALL operation
-    // TODO: Add gas consumption
+    // TODO: https://github.com/lambdaclass/lambda_ethereum_rust/issues/1086
     pub fn op_delegatecall(
         &mut self,
         current_call_frame: &mut CallFrame,
@@ -192,7 +192,7 @@ impl VM {
     }
 
     // STATICCALL operation
-    // TODO: Add gas consumption
+    // TODO: https://github.com/lambdaclass/lambda_ethereum_rust/issues/1086
     pub fn op_staticcall(
         &mut self,
         current_call_frame: &mut CallFrame,
@@ -225,7 +225,7 @@ impl VM {
     }
 
     // CREATE operation
-    // TODO: Add gas consumption
+    // TODO: https://github.com/lambdaclass/lambda_ethereum_rust/issues/1086
     pub fn op_create(
         &mut self,
         current_call_frame: &mut CallFrame,
@@ -244,7 +244,7 @@ impl VM {
     }
 
     // CREATE2 operation
-    // TODO: Add gas consumption
+    // TODO: https://github.com/lambdaclass/lambda_ethereum_rust/issues/1086
     pub fn op_create2(
         &mut self,
         current_call_frame: &mut CallFrame,

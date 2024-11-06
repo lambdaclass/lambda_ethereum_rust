@@ -114,7 +114,7 @@ cfg_if::cfg_if! {
                     transaction.tx_type(),
                     matches!(result.result, TxResult::Success),
                     cumulative_gas_used,
-                    // TODO: map our logs to the logs expected by ethereum_rust
+                    // TODO: https://github.com/lambdaclass/lambda_ethereum_rust/issues/1089
                     vec![],
                 );
                 receipts.push(receipt);

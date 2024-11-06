@@ -130,7 +130,7 @@ impl VM {
                 }
             }
         }
-        // TODO: Substate and Cache should be initialized with the right values.
+        // TODO: https://github.com/lambdaclass/lambda_ethereum_rust/issues/1088
     }
 
     pub fn execute(&mut self, current_call_frame: &mut CallFrame) -> TransactionReport {
