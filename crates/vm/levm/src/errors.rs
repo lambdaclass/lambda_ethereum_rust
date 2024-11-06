@@ -31,6 +31,7 @@ pub enum VMError {
     InvalidInitialByte,
     NonceOverflow,
     MemoryLoadOutOfBounds,
+    MemoryStoreOutOfBounds,
 }
 
 pub enum OpcodeSuccess {

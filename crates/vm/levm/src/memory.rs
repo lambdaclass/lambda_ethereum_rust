@@ -49,11 +49,16 @@ impl Memory {
             .map(|slice| slice.to_vec())
     }
 
-    pub fn store_bytes(&mut self, offset: usize, value: &[u8]) {
+    pub fn store_bytes(&mut self, offset: usize, value: &[u8]) -> Result<(), VMError> {
         let len = value.len();
+        let data_len = self.data.len();
+        if data_len < offset || data_len < offset + len {
+            return Err(VMError::MemoryStoreOutOfBounds);
+        }
         self.resize(offset + len);
         self.data
             .splice(offset..offset + len, value.iter().copied());
+        Ok(())
     }
 
     pub fn store_n_bytes(&mut self, offset: usize, value: &[u8], size: usize) {
