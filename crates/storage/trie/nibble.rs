@@ -322,7 +322,7 @@ impl NibbleVec {
         }
     }
 
-    //#[cfg(test)]
+    #[cfg(test)]
     /// Create a NibbleVec from an iterator of nibbles
     pub fn from_nibbles(
         data_iter: impl Iterator<Item = Nibble>,
