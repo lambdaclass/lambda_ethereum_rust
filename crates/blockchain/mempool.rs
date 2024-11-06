@@ -103,6 +103,21 @@ pub fn remove_transaction(hash: &H256, store: &Store) -> Result<(), StoreError> 
     store.remove_transaction_from_pool(hash)
 }
 
+pub fn get_nonce(address: &Address, store: &Store) -> Result<u64, MempoolError> {
+    let pending_filter = PendingTxFilter {
+        only_plain_txs: true,
+        only_blob_txs: true,
+        ..Default::default()
+    };
+
+    let pending_txs = filter_transactions(&pending_filter, store)?;
+    let empty_vec = vec![];
+    let txs = pending_txs.get(address).unwrap_or(&empty_vec);
+    let nonce = txs.iter().map(|tx| tx.nonce()).max().unwrap_or(0);
+
+    Ok(nonce)
+}
+
 #[derive(Debug, Default)]
 pub struct PendingTxFilter {
     pub min_tip: Option<u64>,
@@ -166,6 +181,9 @@ fn validate_transaction(tx: &Transaction, store: Store) -> Result<(), MempoolErr
     }
 
     // Check gas limit is less than header's gas limit
+    use tracing::info;
+    info!("Header gas limit: {:?}", header.gas_limit);
+    info!("Tx gas limit: {:?}", tx.gas_limit());
     if header.gas_limit < tx.gas_limit() {
         return Err(MempoolError::TxGasLimitExceededError);
     }

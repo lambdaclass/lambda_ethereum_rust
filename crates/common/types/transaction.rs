@@ -1519,8 +1519,8 @@ mod serde_impl {
     pub struct GenericTransaction {
         #[serde(default)]
         pub r#type: TxType,
-        #[serde(default, with = "crate::serde_utils::u64::hex_str")]
-        pub nonce: u64,
+        #[serde(default, with = "crate::serde_utils::u64::hex_str_opt")]
+        pub nonce: Option<u64>,
         pub to: TxKind,
         #[serde(default)]
         pub from: Address,
@@ -1552,7 +1552,7 @@ mod serde_impl {
         fn from(value: EIP1559Transaction) -> Self {
             Self {
                 r#type: TxType::EIP1559,
-                nonce: value.nonce,
+                nonce: Some(value.nonce),
                 to: value.to,
                 gas: Some(value.gas_limit),
                 value: value.value,
@@ -1857,7 +1857,7 @@ mod tests {
         }"#;
         let deserialized_generic_transaction = GenericTransaction {
             r#type: TxType::EIP2930,
-            nonce: 2,
+            nonce: Some(2),
             to: TxKind::Create,
             from: Address::from_slice(
                 &hex::decode("6177843db3138ae69679A54b95cf345ED759450d").unwrap(),

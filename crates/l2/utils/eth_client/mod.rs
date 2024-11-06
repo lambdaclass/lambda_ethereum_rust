@@ -147,7 +147,7 @@ impl EthClient {
             "to": format!("{to:#x}"),
             "input": format!("{:#x}", transaction.input),
             "from": format!("{:#x}", transaction.from),
-            "nonce": format!("{:#x}", transaction.nonce),
+            "nonce": format!("{:#x}", transaction.nonce.unwrap_or_default()),
         });
 
         let request = RpcRequest {
