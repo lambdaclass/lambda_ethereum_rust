@@ -410,7 +410,9 @@ impl VM {
                 calldata_cost += 4;
             }
         }
-        report.gas_used += calldata_cost;
+        
+        let max_gas = self.env.gas_limit.low_u64();
+        report.add_gas_with_max(calldata_cost, max_gas);
 
         if self.is_create() {
             // If create should check if transaction failed. If failed should revert (delete created contract, )
@@ -433,12 +435,12 @@ impl VM {
             // the code-deposit cost, c, proportional to the size of the created contract’s code
             let mut creation_cost = 200 * contract_code.len() as u64;
             creation_cost += 32000;
-            report.gas_used += creation_cost;
+            report.add_gas_with_max(creation_cost, max_gas);
             // Charge 22100 gas for each storage variable set
 
             // GInitCodeword * number_of_words rounded up. GinitCodeWord = 2
             let number_of_words = self.call_frames[0].calldata.chunks(32).len() as u64;
-            report.gas_used += number_of_words * 2;
+            report.add_gas_with_max(number_of_words * 2, max_gas);
 
             let contract_address = self.call_frames.first().unwrap().to;
             let mut created_contract = self.get_account(&contract_address);
