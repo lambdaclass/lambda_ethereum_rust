@@ -80,6 +80,6 @@ pub fn print_node(trie: &Trie, node_hash: NodeHash) {
             print!("Ext{:?} -> ", n.prefix.as_ref());
             print_node(trie, n.child);
         }
-        Node::Leaf(n) => print!("Leaf{:?}", n.value),
+        Node::Leaf(n) => print!("Leaf{:?}{:?}", n.partial.as_ref(), n.value),
     }
 }
