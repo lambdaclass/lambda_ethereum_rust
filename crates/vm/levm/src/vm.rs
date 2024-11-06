@@ -340,8 +340,7 @@ impl VM {
             .info
             .nonce
             .checked_add(1)
-            .ok_or(VMError::NonceOverflow)
-            .unwrap(); // Should check this error
+            .ok_or(VMError::NonceOverflow)?;
 
         // (4)
         if sender_account.has_code() {
