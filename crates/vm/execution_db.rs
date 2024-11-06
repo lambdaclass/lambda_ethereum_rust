@@ -13,12 +13,11 @@ use revm::{
         AccountInfo as RevmAccountInfo, Address as RevmAddress, Bytecode as RevmBytecode,
         B256 as RevmB256, U256 as RevmU256,
     },
-    Database, DatabaseRef,
+    DatabaseRef,
 };
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    db::StoreWrapper,
     errors::{ExecutionDBError, StateProofsError},
     evm_state, execute_block, get_state_transitions,
 };
@@ -39,10 +38,10 @@ pub struct ExecutionDB {
     block_hashes: HashMap<u64, RevmB256>,
     /// stored chain config
     chain_config: ChainConfig,
-    /// proofs of inclusion of account and storage values of the current state
-    curr_proofs: StateProofs,
-    /// proofs of inclusion of account and storage values of the next state
-    next_proofs: StateProofs,
+    /// proofs of inclusion of account and storage values of the initialent state
+    initial_proofs: StateProofs,
+    /// proofs of inclusion of account and storage values of the final state
+    final_proofs: StateProofs,
 }
 
 /// Merkle proofs of inclusion of state values.
@@ -103,11 +102,11 @@ impl ExecutionDB {
             );
         }
 
-        // Compute Merkle proofs for the current and next state values
-        let curr_state_trie = store.state_trie(block.header.parent_hash)?.ok_or(
+        // Compute Merkle proofs for the initial and final state values
+        let initial_state_trie = store.state_trie(block.header.parent_hash)?.ok_or(
             ExecutionDBError::NewMissingStateTrie(block.header.parent_hash),
         )?;
-        let curr_storage_tries = accounts
+        let initial_storage_tries = accounts
             .keys()
             .map(|address| {
                 Ok((
@@ -125,16 +124,22 @@ impl ExecutionDB {
             })
             .collect::<Result<HashMap<_, _>, ExecutionDBError>>()?;
 
-        let (next_state_trie, next_storage_tries) = store
+        let (final_state_trie, final_storage_tries) = store
             .simulate_account_updates(block.header.parent_hash, &account_updates)?
             .ok_or(ExecutionDBError::NewMissingStateTrie(
                 block.header.parent_hash,
             ))?;
 
-        let curr_proofs =
-            StateProofs::new(&curr_state_trie, &curr_storage_tries, &address_storage_keys)?;
-        let next_proofs =
-            StateProofs::new(&next_state_trie, &next_storage_tries, &address_storage_keys)?;
+        let initial_proofs = StateProofs::new(
+            &initial_state_trie,
+            &initial_storage_tries,
+            &address_storage_keys,
+        )?;
+        let final_proofs = StateProofs::new(
+            &final_state_trie,
+            &final_storage_tries,
+            &address_storage_keys,
+        )?;
 
         Ok(Self {
             accounts,
@@ -142,13 +147,33 @@ impl ExecutionDB {
             storage,
             block_hashes,
             chain_config,
-            curr_proofs,
-            next_proofs,
+            initial_proofs,
+            final_proofs,
         })
     }
 
     pub fn get_chain_config(&self) -> ChainConfig {
         self.chain_config
+    }
+
+    /// Verifies that [self] holds the initial state (prior to block execution) with some root
+    /// hash.
+    pub fn verify_initial_state(&self, state_root: H256) -> Result<bool, StateProofsError> {
+        self.verify_state_proofs(state_root, &self.initial_proofs)
+    }
+
+    /// Verifies that [self] holds the final state (after block execution) with some root
+    /// hash.
+    pub fn verify_final_state(&self, state_root: H256) -> Result<bool, StateProofsError> {
+        self.verify_state_proofs(state_root, &self.final_proofs)
+    }
+
+    fn verify_state_proofs(
+        &self,
+        state_root: H256,
+        proofs: &StateProofs,
+    ) -> Result<bool, StateProofsError> {
+        proofs.verify(state_root, &self.accounts, &self.storage)
     }
 }
 
@@ -188,7 +213,7 @@ impl StateProofs {
         accounts: &HashMap<RevmAddress, AccountState>,
         storages: &HashMap<RevmAddress, HashMap<RevmU256, RevmU256>>,
     ) -> Result<bool, StateProofsError> {
-        // check accounts inclusion in the state root
+        // Check accounts inclusion in the state trie
         for (address, account) in accounts {
             let proof = self
                 .account
@@ -203,8 +228,9 @@ impl StateProofs {
                 return Ok(false);
             }
         }
-        // so all account storage roots are valid at this point.
+        // so all account storage roots are valid at this point
 
+        // Check storage values inclusion in storage tries
         for (address, storage) in storages {
             let storage_root = accounts
                 .get(address)

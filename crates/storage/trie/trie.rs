@@ -12,7 +12,6 @@ mod test_utils;
 
 use ethereum_rust_rlp::constants::RLP_NULL;
 use ethereum_types::H256;
-use nibble::Nibble;
 use node::Node;
 use node_hash::NodeHash;
 use sha3::{Digest, Keccak256};
