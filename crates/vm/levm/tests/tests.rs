@@ -1404,7 +1404,7 @@ fn mstore_saves_correct_value() {
     let mut current_call_frame = vm.call_frames.pop().unwrap();
     vm.execute(&mut current_call_frame);
 
-    let stored_value = vm.current_call_frame_mut().memory.load(0);
+    let stored_value = vm.current_call_frame_mut().memory.load(0).unwrap();
 
     assert_eq!(stored_value, U256::from(0x33333));
 
@@ -1427,7 +1427,7 @@ fn mstore8() {
     let mut current_call_frame = vm.call_frames.pop().unwrap();
     vm.execute(&mut current_call_frame);
 
-    let stored_value = vm.current_call_frame_mut().memory.load(0);
+    let stored_value = vm.current_call_frame_mut().memory.load(0).unwrap();
 
     let mut value_bytes = [0u8; 32];
     stored_value.to_big_endian(&mut value_bytes);
@@ -1455,7 +1455,7 @@ fn mcopy() {
     let mut current_call_frame = vm.call_frames.pop().unwrap();
     vm.execute(&mut current_call_frame);
 
-    let copied_value = vm.current_call_frame_mut().memory.load(64);
+    let copied_value = vm.current_call_frame_mut().memory.load(64).unwrap();
     assert_eq!(copied_value, U256::from(0x33333));
 
     let memory_size = vm.current_call_frame_mut().stack.pop().unwrap();
@@ -1696,7 +1696,10 @@ fn call_changes_callframe_and_stores() {
     let ret_size = current_call_frame.sub_return_data_size;
 
     // Return data of the sub-context will be in the memory position of the current context reserved for that purpose (ret_offset and ret_size)
-    let return_data = current_call_frame.memory.load_range(ret_offset, ret_size);
+    let return_data = current_call_frame
+        .memory
+        .load_range(ret_offset, ret_size)
+        .unwrap();
 
     assert_eq!(U256::from_big_endian(&return_data), U256::from(0xAAAAAAA));
 }
@@ -1859,7 +1862,10 @@ fn staticcall_changes_callframe_is_static() {
 
     let ret_offset = 0;
     let ret_size = 32;
-    let return_data = current_call_frame.memory.load_range(ret_offset, ret_size);
+    let return_data = current_call_frame
+        .memory
+        .load_range(ret_offset, ret_size)
+        .unwrap();
 
     assert_eq!(U256::from_big_endian(&return_data), U256::from(0xAAAAAAA));
     assert!(current_call_frame.is_static);
@@ -2387,7 +2393,7 @@ fn calldataload_being_set_by_parent() {
 
     let expected_data = U256::from_big_endian(&calldata[..32]);
 
-    assert_eq!(expected_data, current_call_frame.memory.load(0));
+    assert_eq!(expected_data, current_call_frame.memory.load(0).unwrap());
 }
 
 #[test]
@@ -2425,7 +2431,7 @@ fn calldatacopy() {
     vm.execute(&mut current_call_frame);
 
     let current_call_frame = vm.current_call_frame_mut();
-    let memory = current_call_frame.memory.load_range(0, 2);
+    let memory = current_call_frame.memory.load_range(0, 2).unwrap();
     assert_eq!(memory, vec![0x22, 0x33]);
     assert_eq!(vm.env.consumed_gas, TX_BASE_COST + 18);
 }
@@ -2465,7 +2471,7 @@ fn returndatacopy() {
     vm.execute(&mut current_call_frame);
 
     let current_call_frame = vm.current_call_frame_mut();
-    let memory = current_call_frame.memory.load_range(0, 2);
+    let memory = current_call_frame.memory.load_range(0, 2).unwrap();
     assert_eq!(memory, vec![0xBB, 0xCC]);
     assert_eq!(vm.env.consumed_gas, TX_BASE_COST + 18);
 }
@@ -2514,7 +2520,7 @@ fn returndatacopy_being_set_by_parent() {
 
     let current_call_frame = vm.current_call_frame_mut();
 
-    let result = current_call_frame.memory.load(0);
+    let result = current_call_frame.memory.load(0).unwrap();
 
     assert_eq!(result, U256::from(0xAAAAAAA));
 }
@@ -4327,7 +4333,10 @@ fn codecopy_op() {
     let mut current_call_frame = vm.call_frames.pop().unwrap();
     vm.execute(&mut current_call_frame);
 
-    assert_eq!(vm.current_call_frame_mut().memory.load(0), expected_memory);
+    assert_eq!(
+        vm.current_call_frame_mut().memory.load(0).unwrap(),
+        expected_memory
+    );
     assert_eq!(
         vm.env.consumed_gas,
         TX_BASE_COST + U256::from(9) + U256::from(3) * gas_cost::PUSHN
@@ -4399,7 +4408,10 @@ fn extcodecopy_existing_account() {
     let mut current_call_frame = vm.call_frames.pop().unwrap();
     vm.execute(&mut current_call_frame);
     assert_eq!(
-        vm.current_call_frame_mut().memory.load_range(0, size),
+        vm.current_call_frame_mut()
+            .memory
+            .load_range(0, size)
+            .unwrap(),
         vec![0x60]
     );
     assert_eq!(vm.env.consumed_gas, 23616.into());
@@ -4424,7 +4436,10 @@ fn extcodecopy_non_existing_account() {
     let mut current_call_frame = vm.call_frames.pop().unwrap();
     vm.execute(&mut current_call_frame);
     assert_eq!(
-        vm.current_call_frame_mut().memory.load_range(0, size),
+        vm.current_call_frame_mut()
+            .memory
+            .load_range(0, size)
+            .unwrap(),
         vec![0; size]
     );
     assert_eq!(vm.env.consumed_gas, 23616.into());

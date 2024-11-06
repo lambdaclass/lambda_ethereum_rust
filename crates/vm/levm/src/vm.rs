@@ -526,7 +526,7 @@ impl VM {
 
         let calldata = current_call_frame
             .memory
-            .load_range(args_offset, args_size)
+            .load_range(args_offset, args_size)?
             .into();
 
         // I don't know if this gas limit should be calculated before or after consuming gas
@@ -682,7 +682,7 @@ impl VM {
         let code = Bytes::from(
             current_call_frame
                 .memory
-                .load_range(code_offset_in_memory, code_size_in_memory),
+                .load_range(code_offset_in_memory, code_size_in_memory)?,
         );
 
         let new_address = match salt {

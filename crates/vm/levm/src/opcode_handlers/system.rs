@@ -164,7 +164,7 @@ impl VM {
 
         self.increase_consumed_gas(current_call_frame, gas_cost)?;
 
-        let return_data = current_call_frame.memory.load_range(offset, size).into();
+        let return_data = current_call_frame.memory.load_range(offset, size)?.into();
         current_call_frame.returndata = return_data;
         current_call_frame
             .stack
@@ -329,7 +329,7 @@ impl VM {
 
         self.increase_consumed_gas(current_call_frame, gas_cost)?;
 
-        current_call_frame.returndata = current_call_frame.memory.load_range(offset, size).into();
+        current_call_frame.returndata = current_call_frame.memory.load_range(offset, size)?.into();
 
         Err(VMError::RevertOpcode)
     }

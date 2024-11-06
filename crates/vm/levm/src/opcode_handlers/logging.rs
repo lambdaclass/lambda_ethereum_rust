@@ -49,7 +49,7 @@ impl VM {
 
         self.increase_consumed_gas(current_call_frame, gas_cost)?;
 
-        let data = current_call_frame.memory.load_range(offset, size);
+        let data = current_call_frame.memory.load_range(offset, size)?;
         let log = Log {
             address: current_call_frame.msg_sender, // Should change the addr if we are on a Call/Create transaction (Call should be the contract we are calling, Create should be the original caller)
             topics,

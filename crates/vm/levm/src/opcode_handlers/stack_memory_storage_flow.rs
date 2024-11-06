@@ -71,7 +71,7 @@ impl VM {
 
         self.increase_consumed_gas(current_call_frame, gas_cost)?;
 
-        let value = current_call_frame.memory.load(offset);
+        let value = current_call_frame.memory.load(offset)?;
         current_call_frame.stack.push(value)?;
 
         Ok(OpcodeSuccess::Continue)

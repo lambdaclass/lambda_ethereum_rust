@@ -30,20 +30,23 @@ impl Memory {
         }
     }
 
-    pub fn load(&mut self, offset: usize) -> U256 {
+    pub fn load(&mut self, offset: usize) -> Result<U256, VMError> {
         self.resize(offset + 32);
         let value_bytes: [u8; 32] = self
             .data
             .get(offset..offset + 32)
-            .unwrap()
+            .ok_or(VMError::MemoryLoadOutOfBounds)?
             .try_into()
             .unwrap();
-        U256::from(value_bytes)
+        Ok(U256::from(value_bytes))
     }
 
-    pub fn load_range(&mut self, offset: usize, size: usize) -> Vec<u8> {
+    pub fn load_range(&mut self, offset: usize, size: usize) -> Result<Vec<u8>, VMError> {
         self.resize(offset + size);
-        self.data.get(offset..offset + size).unwrap().into()
+        self.data
+            .get(offset..offset + size)
+            .ok_or(VMError::MemoryLoadOutOfBounds)
+            .map(|slice| slice.to_vec())
     }
 
     pub fn store_bytes(&mut self, offset: usize, value: &[u8]) {
