@@ -18,14 +18,14 @@ impl VM {
     ) -> Result<OpcodeSuccess, VMError> {
         self.increase_consumed_gas(current_call_frame, gas_cost::SWAPN)?;
 
-        let depth = (op as u8) - (Opcode::SWAP1 as u8) + 1;
+        let depth = op.to_usize() - Opcode::SWAP1.to_usize() + 1;
 
-        if current_call_frame.stack.len() < depth as usize {
+        if current_call_frame.stack.len() < depth {
             return Err(VMError::StackUnderflow);
         }
         let stack_top_index = current_call_frame.stack.len();
         let to_swap_index = stack_top_index
-            .checked_sub(depth as usize)
+            .checked_sub(depth)
             .ok_or(VMError::StackUnderflow)?;
         current_call_frame
             .stack
