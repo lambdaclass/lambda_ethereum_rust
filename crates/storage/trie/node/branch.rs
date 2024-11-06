@@ -223,7 +223,7 @@ impl BranchNode {
                         // Return node here so we don't have to update it in the state and then fetch it
                         return Ok((Some(extension_node.into()), value));
                     }
-                    Node::Leaf(mut leaf) if !self.value.is_empty() => {
+                    Node::Leaf(mut leaf) if self.value.is_empty() => {
                         leaf.partial.prepend(choice_index as u8);
                         *child_hash = leaf.insert_self(state)?;
                     }

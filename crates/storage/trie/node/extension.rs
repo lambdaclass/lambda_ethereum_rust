@@ -133,7 +133,11 @@ impl ExtensionNode {
                         extension_node.into()
                     }
                     // If it is a leaf node replace self with it
-                    Node::Leaf(leaf_node) => leaf_node.into(),
+                    Node::Leaf(mut leaf_node) => {
+                        self.prefix.extend(&leaf_node.partial);
+                        leaf_node.partial = self.prefix;
+                        leaf_node.into()
+                    }
                 }),
             };
 
