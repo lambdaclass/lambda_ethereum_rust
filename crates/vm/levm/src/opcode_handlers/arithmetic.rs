@@ -270,5 +270,6 @@ fn abs(value: U256) -> U256 {
 
 /// Negates a number in two's complement
 fn negate(value: U256) -> U256 {
-    !value + U256::one()
+    let inverted = !value;
+    inverted.saturating_add(U256::one())
 }
