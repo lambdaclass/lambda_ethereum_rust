@@ -64,20 +64,23 @@ impl BranchNode {
     ) -> Result<Option<ValueRLP>, TrieError> {
         // If path is at the end, return to its own value if present.
         // Otherwise, check the corresponding choice and delegate accordingly if present.
-        if let Some(choice) = path.next().map(usize::from) {
-            // Delegate to children if present
-            let child_hash = &self.choices[choice];
-            if child_hash.is_valid() {
-                let child_node = state
-                    .get_node(child_hash.clone())?
-                    .expect("inconsistent internal tree structure");
-                child_node.get(state, path)
-            } else {
-                Ok(None)
+        match path.next().map(usize::from) {
+            Some(choice) if choice < 16 => {
+                // Delegate to children if present
+                let child_hash = &self.choices[choice];
+                if child_hash.is_valid() {
+                    let child_node = state
+                        .get_node(child_hash.clone())?
+                        .expect("inconsistent internal tree structure");
+                    child_node.get(state, path)
+                } else {
+                    Ok(None)
+                }
             }
-        } else {
-            // Return internal value if present.
-            Ok((!self.value.is_empty()).then_some(self.value.clone()))
+            _ => {
+                // Return internal value if present.
+                Ok((!self.value.is_empty()).then_some(self.value.clone()))
+            }
         }
     }
 
