@@ -1,0 +1,1378 @@
+    Checking ethereum_rust_levm v0.1.0 (/Users/jeremias/lambda_ethereum_rust/crates/vm/levm)
+error: used `unwrap()` on a `Result` value
+  --> crates/vm/levm/src/account.rs:53:40
+   |
+53 |             || self.bytecode_hash() == H256::from_str(EMPTY_CODE_HASH_STR).unwrap())
+   |                                        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+   = note: if this value is an `Err`, it will panic
+   = help: for further information visit https://rust-lang.github.io/rust-clippy/master/index.html#unwrap_used
+   = note: requested on the command line with `-D clippy::unwrap-used`
+
+error: using a potentially dangerous silent `as` conversion
+   --> crates/vm/levm/src/constants.rs:126:5
+    |
+126 |     INIT_WORD_COST as u64 * (init_code_length as u64 + 31) / 32
+    |     ^^^^^^^^^^^^^^^^^^^^^
+    |
+    = help: consider using a safe wrapper for this conversion
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/master/index.html#as_conversions
+    = note: requested on the command line with `-D clippy::as-conversions`
+
+error: using a potentially dangerous silent `as` conversion
+   --> crates/vm/levm/src/constants.rs:126:30
+    |
+126 |     INIT_WORD_COST as u64 * (init_code_length as u64 + 31) / 32
+    |                              ^^^^^^^^^^^^^^^^^^^^^^^
+    |
+    = help: consider using a safe wrapper for this conversion
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/master/index.html#as_conversions
+
+error: used `expect()` on an `Option` value
+  --> crates/vm/levm/src/db.rs:97:9
+   |
+97 | /         self.accounts
+98 | |             .get_mut(address)
+99 | |             .expect("Account should have been cached")
+   | |______________________________________________________^
+   |
+   = note: if this value is `None`, it will panic
+   = help: for further information visit https://rust-lang.github.io/rust-clippy/master/index.html#expect_used
+   = note: requested on the command line with `-D clippy::expect-used`
+
+error: used `unwrap()` on a `Result` value
+  --> crates/vm/levm/src/memory.rs:35:37
+   |
+35 |           let value_bytes: [u8; 32] = self
+   |  _____________________________________^
+36 | |             .data
+37 | |             .get(offset..offset + 32)
+38 | |             .ok_or(VMError::MemoryLoadOutOfBounds)?
+39 | |             .try_into()
+40 | |             .unwrap();
+   | |_____________________^
+   |
+   = note: if this value is an `Err`, it will panic
+   = help: for further information visit https://rust-lang.github.io/rust-clippy/master/index.html#unwrap_used
+
+warning: slicing may panic
+  --> crates/vm/levm/src/memory.rs:79:31
+   |
+79 |         temp.copy_from_slice(&self.data[src_offset..src_offset + size]);
+   |                               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+   = help: consider using `.get(n..m)` or `.get_mut(n..m)` instead
+   = help: for further information visit https://rust-lang.github.io/rust-clippy/master/index.html#indexing_slicing
+   = note: requested on the command line with `-W clippy::indexing-slicing`
+
+warning: slicing may panic
+  --> crates/vm/levm/src/memory.rs:81:9
+   |
+81 |         self.data[dest_offset..dest_offset + size].copy_from_slice(&temp);
+   |         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+   = help: consider using `.get(n..m)` or `.get_mut(n..m)` instead
+   = help: for further information visit https://rust-lang.github.io/rust-clippy/master/index.html#indexing_slicing
+
+error: using a potentially dangerous silent `as` conversion
+   --> crates/vm/levm/src/opcode_handlers/arithmetic.rs:217:35
+    |
+217 |         let exponent_byte_size = (exponent.bits() as u64 + 7) / 8;
+    |                                   ^^^^^^^^^^^^^^^^^^^^^^
+    |
+    = help: consider using a safe wrapper for this conversion
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/master/index.html#as_conversions
+
+error: used `unwrap()` on a `Result` value
+   --> crates/vm/levm/src/opcode_handlers/bitwise_comparison.rs:229:30
+    |
+229 |     let shift_usize: usize = shift.try_into().unwrap(); // we know its not bigger than 256
+    |                              ^^^^^^^^^^^^^^^^^^^^^^^^^
+    |
+    = note: if this value is an `Err`, it will panic
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/master/index.html#unwrap_used
+
+error: used `expect()` on an `Option` value
+   --> crates/vm/levm/src/opcode_handlers/block.rs:136:23
+    |
+136 |           let balance = self
+    |  _______________________^
+137 | |             .cache
+138 | |             .get_account(current_call_frame.code_address)
+139 | |             .expect("The current account should always be cached")
+    | |__________________________________________________________________^
+    |
+    = note: if this value is `None`, it will panic
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/master/index.html#expect_used
+
+error: used `unwrap()` on an `Option` value
+   --> crates/vm/levm/src/opcode_handlers/block.rs:193:13
+    |
+193 |             self.env.block_excess_blob_gas.unwrap(),
+    |             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |
+    = note: if this value is `None`, it will panic
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/master/index.html#unwrap_used
+
+error: used `unwrap()` on a `Result` value
+   --> crates/vm/levm/src/opcode_handlers/block.rs:215:5
+    |
+215 |     U256::from_str(&format!("{address:?}")).unwrap()
+    |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |
+    = note: if this value is an `Err`, it will panic
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/master/index.html#unwrap_used
+
+error: using a potentially dangerous silent `as` conversion
+  --> crates/vm/levm/src/opcode_handlers/dup.rs:20:21
+   |
+20 |         let depth = (op as u8) - (Opcode::DUP1 as u8) + 1;
+   |                     ^^^^^^^^^^
+   |
+   = help: consider using a safe wrapper for this conversion
+   = help: for further information visit https://rust-lang.github.io/rust-clippy/master/index.html#as_conversions
+
+error: using a potentially dangerous silent `as` conversion
+  --> crates/vm/levm/src/opcode_handlers/dup.rs:20:34
+   |
+20 |         let depth = (op as u8) - (Opcode::DUP1 as u8) + 1;
+   |                                  ^^^^^^^^^^^^^^^^^^^^
+   |
+   = help: consider using a safe wrapper for this conversion
+   = help: for further information visit https://rust-lang.github.io/rust-clippy/master/index.html#as_conversions
+
+error: using a potentially dangerous silent `as` conversion
+  --> crates/vm/levm/src/opcode_handlers/dup.rs:26:45
+   |
+26 |         if current_call_frame.stack.len() < depth as usize {
+   |                                             ^^^^^^^^^^^^^^
+   |
+   = help: consider using a safe wrapper for this conversion
+   = help: for further information visit https://rust-lang.github.io/rust-clippy/master/index.html#as_conversions
+
+error: using a potentially dangerous silent `as` conversion
+  --> crates/vm/levm/src/opcode_handlers/dup.rs:33:51
+   |
+33 |             .get(current_call_frame.stack.len() - depth as usize)?;
+   |                                                   ^^^^^^^^^^^^^^
+   |
+   = help: consider using a safe wrapper for this conversion
+   = help: for further information visit https://rust-lang.github.io/rust-clippy/master/index.html#as_conversions
+
+error: used `unwrap()` on an `Option` value
+  --> crates/vm/levm/src/opcode_handlers/environment.rs:46:23
+   |
+46 |         let balance = self.cache.get_account(*address).unwrap().info.balance;
+   |                       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+   = note: if this value is `None`, it will panic
+   = help: for further information visit https://rust-lang.github.io/rust-clippy/master/index.html#unwrap_used
+
+warning: slicing may panic
+   --> crates/vm/levm/src/opcode_handlers/environment.rs:118:13
+    |
+118 |             padded_calldata[..data_len_to_copy].copy_from_slice(&calldata[..data_len_to_copy]);
+    |             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |
+    = help: consider using `.get(..n)`or `.get_mut(..n)` instead
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/master/index.html#indexing_slicing
+
+warning: slicing may panic
+   --> crates/vm/levm/src/opcode_handlers/environment.rs:118:66
+    |
+118 |             padded_calldata[..data_len_to_copy].copy_from_slice(&calldata[..data_len_to_copy]);
+    |                                                                  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |
+    = help: consider using `.get(..n)`or `.get_mut(..n)` instead
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/master/index.html#indexing_slicing
+
+warning: slicing may panic
+   --> crates/vm/levm/src/opcode_handlers/environment.rs:188:13
+    |
+188 |             padded_calldata[..data_len_to_copy].copy_from_slice(&calldata[..data_len_to_copy]);
+    |             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |
+    = help: consider using `.get(..n)`or `.get_mut(..n)` instead
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/master/index.html#indexing_slicing
+
+warning: slicing may panic
+   --> crates/vm/levm/src/opcode_handlers/environment.rs:188:66
+    |
+188 |             padded_calldata[..data_len_to_copy].copy_from_slice(&calldata[..data_len_to_copy]);
+    |                                                                  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |
+    = help: consider using `.get(..n)`or `.get_mut(..n)` instead
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/master/index.html#indexing_slicing
+
+error: used `unwrap()` on an `Option` value
+   --> crates/vm/levm/src/opcode_handlers/environment.rs:293:24
+    |
+293 |           let bytecode = self
+    |  ________________________^
+294 | |             .cache
+295 | |             .get_account(address)
+296 | |             .unwrap()
+    | |_____________________^
+    |
+    = note: if this value is `None`, it will panic
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/master/index.html#unwrap_used
+
+error: used `unwrap()` on an `Option` value
+   --> crates/vm/levm/src/opcode_handlers/environment.rs:341:28
+    |
+341 |           let mut bytecode = self
+    |  ____________________________^
+342 | |             .cache
+343 | |             .get_account(address)
+344 | |             .unwrap()
+    | |_____________________^
+    |
+    = note: if this value is `None`, it will panic
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/master/index.html#unwrap_used
+
+warning: slicing may panic
+   --> crates/vm/levm/src/opcode_handlers/environment.rs:356:40
+    |
+356 |             .store_bytes(dest_offset, &bytecode[offset..offset + size])?;
+    |                                        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |
+    = help: consider using `.get(n..m)` or `.get_mut(n..m)` instead
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/master/index.html#indexing_slicing
+
+error: used `unwrap()` on an `Option` value
+   --> crates/vm/levm/src/opcode_handlers/environment.rs:438:24
+    |
+438 |           let bytecode = self
+    |  ________________________^
+439 | |             .cache
+440 | |             .get_account(address)
+441 | |             .unwrap()
+    | |_____________________^
+    |
+    = note: if this value is `None`, it will panic
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/master/index.html#unwrap_used
+
+error: using a potentially dangerous silent `as` conversion
+  --> crates/vm/levm/src/opcode_handlers/exchange.rs:21:21
+   |
+21 |         let depth = (op as u8) - (Opcode::SWAP1 as u8) + 1;
+   |                     ^^^^^^^^^^
+   |
+   = help: consider using a safe wrapper for this conversion
+   = help: for further information visit https://rust-lang.github.io/rust-clippy/master/index.html#as_conversions
+
+error: using a potentially dangerous silent `as` conversion
+  --> crates/vm/levm/src/opcode_handlers/exchange.rs:21:34
+   |
+21 |         let depth = (op as u8) - (Opcode::SWAP1 as u8) + 1;
+   |                                  ^^^^^^^^^^^^^^^^^^^^^
+   |
+   = help: consider using a safe wrapper for this conversion
+   = help: for further information visit https://rust-lang.github.io/rust-clippy/master/index.html#as_conversions
+
+error: using a potentially dangerous silent `as` conversion
+  --> crates/vm/levm/src/opcode_handlers/exchange.rs:23:45
+   |
+23 |         if current_call_frame.stack.len() < depth as usize {
+   |                                             ^^^^^^^^^^^^^^
+   |
+   = help: consider using a safe wrapper for this conversion
+   = help: for further information visit https://rust-lang.github.io/rust-clippy/master/index.html#as_conversions
+
+error: using a potentially dangerous silent `as` conversion
+  --> crates/vm/levm/src/opcode_handlers/exchange.rs:28:26
+   |
+28 |             .checked_sub(depth as usize)
+   |                          ^^^^^^^^^^^^^^
+   |
+   = help: consider using a safe wrapper for this conversion
+   = help: for further information visit https://rust-lang.github.io/rust-clippy/master/index.html#as_conversions
+
+error: using a potentially dangerous silent `as` conversion
+  --> crates/vm/levm/src/opcode_handlers/logging.rs:25:32
+   |
+25 |         let number_of_topics = (op as u8) - (Opcode::LOG0 as u8);
+   |                                ^^^^^^^^^^
+   |
+   = help: consider using a safe wrapper for this conversion
+   = help: for further information visit https://rust-lang.github.io/rust-clippy/master/index.html#as_conversions
+
+error: using a potentially dangerous silent `as` conversion
+  --> crates/vm/levm/src/opcode_handlers/logging.rs:25:45
+   |
+25 |         let number_of_topics = (op as u8) - (Opcode::LOG0 as u8);
+   |                                             ^^^^^^^^^^^^^^^^^^^^
+   |
+   = help: consider using a safe wrapper for this conversion
+   = help: for further information visit https://rust-lang.github.io/rust-clippy/master/index.html#as_conversions
+
+error: using a potentially dangerous silent `as` conversion
+  --> crates/vm/levm/src/opcode_handlers/push.rs:22:23
+   |
+22 |         let n_bytes = (op as u8) - (Opcode::PUSH1 as u8) + 1;
+   |                       ^^^^^^^^^^
+   |
+   = help: consider using a safe wrapper for this conversion
+   = help: for further information visit https://rust-lang.github.io/rust-clippy/master/index.html#as_conversions
+
+error: using a potentially dangerous silent `as` conversion
+  --> crates/vm/levm/src/opcode_handlers/push.rs:22:36
+   |
+22 |         let n_bytes = (op as u8) - (Opcode::PUSH1 as u8) + 1;
+   |                                    ^^^^^^^^^^^^^^^^^^^^^
+   |
+   = help: consider using a safe wrapper for this conversion
+   = help: for further information visit https://rust-lang.github.io/rust-clippy/master/index.html#as_conversions
+
+error: using a potentially dangerous silent `as` conversion
+  --> crates/vm/levm/src/opcode_handlers/push.rs:26:69
+   |
+26 |             .get(current_call_frame.pc()..current_call_frame.pc() + n_bytes as usize)
+   |                                                                     ^^^^^^^^^^^^^^^^
+   |
+   = help: consider using a safe wrapper for this conversion
+   = help: for further information visit https://rust-lang.github.io/rust-clippy/master/index.html#as_conversions
+
+error: using a potentially dangerous silent `as` conversion
+  --> crates/vm/levm/src/opcode_handlers/push.rs:33:44
+   |
+33 |         current_call_frame.increment_pc_by(n_bytes as usize);
+   |                                            ^^^^^^^^^^^^^^^^
+   |
+   = help: consider using a safe wrapper for this conversion
+   = help: for further information visit https://rust-lang.github.io/rust-clippy/master/index.html#as_conversions
+
+error: used `unwrap()` on a `Result` value
+   --> crates/vm/levm/src/opcode_handlers/stack_memory_storage_flow.rs:113:22
+    |
+113 |         let offset = current_call_frame.stack.pop()?.try_into().unwrap();
+    |                      ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |
+    = note: if this value is an `Err`, it will panic
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/master/index.html#unwrap_used
+
+error: used `expect()` on an `Option` value
+   --> crates/vm/levm/src/opcode_handlers/stack_memory_storage_flow.rs:149:13
+    |
+149 | /             self.cache
+150 | |                 .get_storage_slot(address, key)
+151 | |                 .expect("Should be already cached") // Because entered the if is_slot_cached
+    | |___________________________________________________^
+    |
+    = note: if this value is `None`, it will panic
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/master/index.html#expect_used
+
+error: used `unwrap()` on an `Option` value
+   --> crates/vm/levm/src/opcode_handlers/stack_memory_storage_flow.rs:188:13
+    |
+188 |             self.cache.get_storage_slot(address, key).unwrap()
+    |             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |
+    = note: if this value is `None`, it will panic
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/master/index.html#unwrap_used
+
+error: used `unwrap()` on an `Option` value
+  --> crates/vm/levm/src/opcode_handlers/system.rs:61:23
+   |
+61 |         let account = self.cache.get_account(code_address).unwrap().clone();
+   |                       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+   = note: if this value is `None`, it will panic
+   = help: for further information visit https://rust-lang.github.io/rust-clippy/master/index.html#unwrap_used
+
+error: using a potentially dangerous silent `as` conversion
+  --> crates/vm/levm/src/operations.rs:96:57
+   |
+96 |             Operation::Stop => Bytes::copy_from_slice(&[Opcode::STOP as u8]),
+   |                                                         ^^^^^^^^^^^^^^^^^^
+   |
+   = help: consider using a safe wrapper for this conversion
+   = help: for further information visit https://rust-lang.github.io/rust-clippy/master/index.html#as_conversions
+
+error: using a potentially dangerous silent `as` conversion
+  --> crates/vm/levm/src/operations.rs:97:56
+   |
+97 |             Operation::Add => Bytes::copy_from_slice(&[Opcode::ADD as u8]),
+   |                                                        ^^^^^^^^^^^^^^^^^
+   |
+   = help: consider using a safe wrapper for this conversion
+   = help: for further information visit https://rust-lang.github.io/rust-clippy/master/index.html#as_conversions
+
+error: using a potentially dangerous silent `as` conversion
+  --> crates/vm/levm/src/operations.rs:98:56
+   |
+98 |             Operation::Mul => Bytes::copy_from_slice(&[Opcode::MUL as u8]),
+   |                                                        ^^^^^^^^^^^^^^^^^
+   |
+   = help: consider using a safe wrapper for this conversion
+   = help: for further information visit https://rust-lang.github.io/rust-clippy/master/index.html#as_conversions
+
+error: using a potentially dangerous silent `as` conversion
+  --> crates/vm/levm/src/operations.rs:99:56
+   |
+99 |             Operation::Sub => Bytes::copy_from_slice(&[Opcode::SUB as u8]),
+   |                                                        ^^^^^^^^^^^^^^^^^
+   |
+   = help: consider using a safe wrapper for this conversion
+   = help: for further information visit https://rust-lang.github.io/rust-clippy/master/index.html#as_conversions
+
+error: using a potentially dangerous silent `as` conversion
+   --> crates/vm/levm/src/operations.rs:100:56
+    |
+100 |             Operation::Div => Bytes::copy_from_slice(&[Opcode::DIV as u8]),
+    |                                                        ^^^^^^^^^^^^^^^^^
+    |
+    = help: consider using a safe wrapper for this conversion
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/master/index.html#as_conversions
+
+error: using a potentially dangerous silent `as` conversion
+   --> crates/vm/levm/src/operations.rs:101:57
+    |
+101 |             Operation::Sdiv => Bytes::copy_from_slice(&[Opcode::SDIV as u8]),
+    |                                                         ^^^^^^^^^^^^^^^^^^
+    |
+    = help: consider using a safe wrapper for this conversion
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/master/index.html#as_conversions
+
+error: using a potentially dangerous silent `as` conversion
+   --> crates/vm/levm/src/operations.rs:102:56
+    |
+102 |             Operation::Mod => Bytes::copy_from_slice(&[Opcode::MOD as u8]),
+    |                                                        ^^^^^^^^^^^^^^^^^
+    |
+    = help: consider using a safe wrapper for this conversion
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/master/index.html#as_conversions
+
+error: using a potentially dangerous silent `as` conversion
+   --> crates/vm/levm/src/operations.rs:103:57
+    |
+103 |             Operation::SMod => Bytes::copy_from_slice(&[Opcode::SMOD as u8]),
+    |                                                         ^^^^^^^^^^^^^^^^^^
+    |
+    = help: consider using a safe wrapper for this conversion
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/master/index.html#as_conversions
+
+error: using a potentially dangerous silent `as` conversion
+   --> crates/vm/levm/src/operations.rs:104:59
+    |
+104 |             Operation::Addmod => Bytes::copy_from_slice(&[Opcode::ADDMOD as u8]),
+    |                                                           ^^^^^^^^^^^^^^^^^^^^
+    |
+    = help: consider using a safe wrapper for this conversion
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/master/index.html#as_conversions
+
+error: using a potentially dangerous silent `as` conversion
+   --> crates/vm/levm/src/operations.rs:105:59
+    |
+105 |             Operation::Mulmod => Bytes::copy_from_slice(&[Opcode::MULMOD as u8]),
+    |                                                           ^^^^^^^^^^^^^^^^^^^^
+    |
+    = help: consider using a safe wrapper for this conversion
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/master/index.html#as_conversions
+
+error: using a potentially dangerous silent `as` conversion
+   --> crates/vm/levm/src/operations.rs:106:56
+    |
+106 |             Operation::Exp => Bytes::copy_from_slice(&[Opcode::EXP as u8]),
+    |                                                        ^^^^^^^^^^^^^^^^^
+    |
+    = help: consider using a safe wrapper for this conversion
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/master/index.html#as_conversions
+
+error: using a potentially dangerous silent `as` conversion
+   --> crates/vm/levm/src/operations.rs:107:63
+    |
+107 |             Operation::SignExtend => Bytes::copy_from_slice(&[Opcode::SIGNEXTEND as u8]),
+    |                                                               ^^^^^^^^^^^^^^^^^^^^^^^^
+    |
+    = help: consider using a safe wrapper for this conversion
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/master/index.html#as_conversions
+
+error: using a potentially dangerous silent `as` conversion
+   --> crates/vm/levm/src/operations.rs:108:55
+    |
+108 |             Operation::Lt => Bytes::copy_from_slice(&[Opcode::LT as u8]),
+    |                                                       ^^^^^^^^^^^^^^^^
+    |
+    = help: consider using a safe wrapper for this conversion
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/master/index.html#as_conversions
+
+error: using a potentially dangerous silent `as` conversion
+   --> crates/vm/levm/src/operations.rs:109:55
+    |
+109 |             Operation::Gt => Bytes::copy_from_slice(&[Opcode::GT as u8]),
+    |                                                       ^^^^^^^^^^^^^^^^
+    |
+    = help: consider using a safe wrapper for this conversion
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/master/index.html#as_conversions
+
+error: using a potentially dangerous silent `as` conversion
+   --> crates/vm/levm/src/operations.rs:110:56
+    |
+110 |             Operation::Slt => Bytes::copy_from_slice(&[Opcode::SLT as u8]),
+    |                                                        ^^^^^^^^^^^^^^^^^
+    |
+    = help: consider using a safe wrapper for this conversion
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/master/index.html#as_conversions
+
+error: using a potentially dangerous silent `as` conversion
+   --> crates/vm/levm/src/operations.rs:111:56
+    |
+111 |             Operation::Sgt => Bytes::copy_from_slice(&[Opcode::SGT as u8]),
+    |                                                        ^^^^^^^^^^^^^^^^^
+    |
+    = help: consider using a safe wrapper for this conversion
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/master/index.html#as_conversions
+
+error: using a potentially dangerous silent `as` conversion
+   --> crates/vm/levm/src/operations.rs:112:55
+    |
+112 |             Operation::Eq => Bytes::copy_from_slice(&[Opcode::EQ as u8]),
+    |                                                       ^^^^^^^^^^^^^^^^
+    |
+    = help: consider using a safe wrapper for this conversion
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/master/index.html#as_conversions
+
+error: using a potentially dangerous silent `as` conversion
+   --> crates/vm/levm/src/operations.rs:113:59
+    |
+113 |             Operation::IsZero => Bytes::copy_from_slice(&[Opcode::ISZERO as u8]),
+    |                                                           ^^^^^^^^^^^^^^^^^^^^
+    |
+    = help: consider using a safe wrapper for this conversion
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/master/index.html#as_conversions
+
+error: using a potentially dangerous silent `as` conversion
+   --> crates/vm/levm/src/operations.rs:114:56
+    |
+114 |             Operation::And => Bytes::copy_from_slice(&[Opcode::AND as u8]),
+    |                                                        ^^^^^^^^^^^^^^^^^
+    |
+    = help: consider using a safe wrapper for this conversion
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/master/index.html#as_conversions
+
+error: using a potentially dangerous silent `as` conversion
+   --> crates/vm/levm/src/operations.rs:115:55
+    |
+115 |             Operation::Or => Bytes::copy_from_slice(&[Opcode::OR as u8]),
+    |                                                       ^^^^^^^^^^^^^^^^
+    |
+    = help: consider using a safe wrapper for this conversion
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/master/index.html#as_conversions
+
+error: using a potentially dangerous silent `as` conversion
+   --> crates/vm/levm/src/operations.rs:116:56
+    |
+116 |             Operation::Xor => Bytes::copy_from_slice(&[Opcode::XOR as u8]),
+    |                                                        ^^^^^^^^^^^^^^^^^
+    |
+    = help: consider using a safe wrapper for this conversion
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/master/index.html#as_conversions
+
+error: using a potentially dangerous silent `as` conversion
+   --> crates/vm/levm/src/operations.rs:117:56
+    |
+117 |             Operation::Not => Bytes::copy_from_slice(&[Opcode::NOT as u8]),
+    |                                                        ^^^^^^^^^^^^^^^^^
+    |
+    = help: consider using a safe wrapper for this conversion
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/master/index.html#as_conversions
+
+error: using a potentially dangerous silent `as` conversion
+   --> crates/vm/levm/src/operations.rs:118:57
+    |
+118 |             Operation::Byte => Bytes::copy_from_slice(&[Opcode::BYTE as u8]),
+    |                                                         ^^^^^^^^^^^^^^^^^^
+    |
+    = help: consider using a safe wrapper for this conversion
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/master/index.html#as_conversions
+
+error: using a potentially dangerous silent `as` conversion
+   --> crates/vm/levm/src/operations.rs:119:56
+    |
+119 |             Operation::Shl => Bytes::copy_from_slice(&[Opcode::SHL as u8]),
+    |                                                        ^^^^^^^^^^^^^^^^^
+    |
+    = help: consider using a safe wrapper for this conversion
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/master/index.html#as_conversions
+
+error: using a potentially dangerous silent `as` conversion
+   --> crates/vm/levm/src/operations.rs:120:56
+    |
+120 |             Operation::Shr => Bytes::copy_from_slice(&[Opcode::SHR as u8]),
+    |                                                        ^^^^^^^^^^^^^^^^^
+    |
+    = help: consider using a safe wrapper for this conversion
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/master/index.html#as_conversions
+
+error: using a potentially dangerous silent `as` conversion
+   --> crates/vm/levm/src/operations.rs:121:56
+    |
+121 |             Operation::Sar => Bytes::copy_from_slice(&[Opcode::SAR as u8]),
+    |                                                        ^^^^^^^^^^^^^^^^^
+    |
+    = help: consider using a safe wrapper for this conversion
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/master/index.html#as_conversions
+
+error: using a potentially dangerous silent `as` conversion
+   --> crates/vm/levm/src/operations.rs:122:62
+    |
+122 |             Operation::Keccak256 => Bytes::copy_from_slice(&[Opcode::KECCAK256 as u8]),
+    |                                                              ^^^^^^^^^^^^^^^^^^^^^^^
+    |
+    = help: consider using a safe wrapper for this conversion
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/master/index.html#as_conversions
+
+error: using a potentially dangerous silent `as` conversion
+   --> crates/vm/levm/src/operations.rs:123:60
+    |
+123 |             Operation::Address => Bytes::copy_from_slice(&[Opcode::ADDRESS as u8]),
+    |                                                            ^^^^^^^^^^^^^^^^^^^^^
+    |
+    = help: consider using a safe wrapper for this conversion
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/master/index.html#as_conversions
+
+error: using a potentially dangerous silent `as` conversion
+   --> crates/vm/levm/src/operations.rs:124:60
+    |
+124 |             Operation::Balance => Bytes::copy_from_slice(&[Opcode::BALANCE as u8]),
+    |                                                            ^^^^^^^^^^^^^^^^^^^^^
+    |
+    = help: consider using a safe wrapper for this conversion
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/master/index.html#as_conversions
+
+error: using a potentially dangerous silent `as` conversion
+   --> crates/vm/levm/src/operations.rs:125:59
+    |
+125 |             Operation::Origin => Bytes::copy_from_slice(&[Opcode::ORIGIN as u8]),
+    |                                                           ^^^^^^^^^^^^^^^^^^^^
+    |
+    = help: consider using a safe wrapper for this conversion
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/master/index.html#as_conversions
+
+error: using a potentially dangerous silent `as` conversion
+   --> crates/vm/levm/src/operations.rs:126:59
+    |
+126 |             Operation::Caller => Bytes::copy_from_slice(&[Opcode::CALLER as u8]),
+    |                                                           ^^^^^^^^^^^^^^^^^^^^
+    |
+    = help: consider using a safe wrapper for this conversion
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/master/index.html#as_conversions
+
+error: using a potentially dangerous silent `as` conversion
+   --> crates/vm/levm/src/operations.rs:127:62
+    |
+127 |             Operation::Callvalue => Bytes::copy_from_slice(&[Opcode::CALLVALUE as u8]),
+    |                                                              ^^^^^^^^^^^^^^^^^^^^^^^
+    |
+    = help: consider using a safe wrapper for this conversion
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/master/index.html#as_conversions
+
+error: using a potentially dangerous silent `as` conversion
+   --> crates/vm/levm/src/operations.rs:128:65
+    |
+128 |             Operation::CallDataLoad => Bytes::copy_from_slice(&[Opcode::CALLDATALOAD as u8]),
+    |                                                                 ^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |
+    = help: consider using a safe wrapper for this conversion
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/master/index.html#as_conversions
+
+error: using a potentially dangerous silent `as` conversion
+   --> crates/vm/levm/src/operations.rs:129:65
+    |
+129 |             Operation::CallDataSize => Bytes::copy_from_slice(&[Opcode::CALLDATASIZE as u8]),
+    |                                                                 ^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |
+    = help: consider using a safe wrapper for this conversion
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/master/index.html#as_conversions
+
+error: using a potentially dangerous silent `as` conversion
+   --> crates/vm/levm/src/operations.rs:130:65
+    |
+130 |             Operation::CallDataCopy => Bytes::copy_from_slice(&[Opcode::CALLDATACOPY as u8]),
+    |                                                                 ^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |
+    = help: consider using a safe wrapper for this conversion
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/master/index.html#as_conversions
+
+error: using a potentially dangerous silent `as` conversion
+   --> crates/vm/levm/src/operations.rs:131:61
+    |
+131 |             Operation::Codesize => Bytes::copy_from_slice(&[Opcode::CODESIZE as u8]),
+    |                                                             ^^^^^^^^^^^^^^^^^^^^^^
+    |
+    = help: consider using a safe wrapper for this conversion
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/master/index.html#as_conversions
+
+error: using a potentially dangerous silent `as` conversion
+   --> crates/vm/levm/src/operations.rs:132:61
+    |
+132 |             Operation::Codecopy => Bytes::copy_from_slice(&[Opcode::CODECOPY as u8]),
+    |                                                             ^^^^^^^^^^^^^^^^^^^^^^
+    |
+    = help: consider using a safe wrapper for this conversion
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/master/index.html#as_conversions
+
+error: using a potentially dangerous silent `as` conversion
+   --> crates/vm/levm/src/operations.rs:133:61
+    |
+133 |             Operation::Gasprice => Bytes::copy_from_slice(&[Opcode::GASPRICE as u8]),
+    |                                                             ^^^^^^^^^^^^^^^^^^^^^^
+    |
+    = help: consider using a safe wrapper for this conversion
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/master/index.html#as_conversions
+
+error: using a potentially dangerous silent `as` conversion
+   --> crates/vm/levm/src/operations.rs:134:64
+    |
+134 |             Operation::ExtcodeSize => Bytes::copy_from_slice(&[Opcode::EXTCODESIZE as u8]),
+    |                                                                ^^^^^^^^^^^^^^^^^^^^^^^^^
+    |
+    = help: consider using a safe wrapper for this conversion
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/master/index.html#as_conversions
+
+error: using a potentially dangerous silent `as` conversion
+   --> crates/vm/levm/src/operations.rs:135:64
+    |
+135 |             Operation::ExtcodeCopy => Bytes::copy_from_slice(&[Opcode::EXTCODECOPY as u8]),
+    |                                                                ^^^^^^^^^^^^^^^^^^^^^^^^^
+    |
+    = help: consider using a safe wrapper for this conversion
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/master/index.html#as_conversions
+
+error: using a potentially dangerous silent `as` conversion
+   --> crates/vm/levm/src/operations.rs:136:67
+    |
+136 |             Operation::ReturnDataSize => Bytes::copy_from_slice(&[Opcode::RETURNDATASIZE as u8]),
+    |                                                                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |
+    = help: consider using a safe wrapper for this conversion
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/master/index.html#as_conversions
+
+error: using a potentially dangerous silent `as` conversion
+   --> crates/vm/levm/src/operations.rs:137:67
+    |
+137 |             Operation::ReturnDataCopy => Bytes::copy_from_slice(&[Opcode::RETURNDATACOPY as u8]),
+    |                                                                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |
+    = help: consider using a safe wrapper for this conversion
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/master/index.html#as_conversions
+
+error: using a potentially dangerous silent `as` conversion
+   --> crates/vm/levm/src/operations.rs:138:64
+    |
+138 |             Operation::ExtcodeHash => Bytes::copy_from_slice(&[Opcode::EXTCODEHASH as u8]),
+    |                                                                ^^^^^^^^^^^^^^^^^^^^^^^^^
+    |
+    = help: consider using a safe wrapper for this conversion
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/master/index.html#as_conversions
+
+error: using a potentially dangerous silent `as` conversion
+   --> crates/vm/levm/src/operations.rs:139:62
+    |
+139 |             Operation::BlockHash => Bytes::copy_from_slice(&[Opcode::BLOCKHASH as u8]),
+    |                                                              ^^^^^^^^^^^^^^^^^^^^^^^
+    |
+    = help: consider using a safe wrapper for this conversion
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/master/index.html#as_conversions
+
+error: using a potentially dangerous silent `as` conversion
+   --> crates/vm/levm/src/operations.rs:140:61
+    |
+140 |             Operation::Coinbase => Bytes::copy_from_slice(&[Opcode::COINBASE as u8]),
+    |                                                             ^^^^^^^^^^^^^^^^^^^^^^
+    |
+    = help: consider using a safe wrapper for this conversion
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/master/index.html#as_conversions
+
+error: using a potentially dangerous silent `as` conversion
+   --> crates/vm/levm/src/operations.rs:141:62
+    |
+141 |             Operation::Timestamp => Bytes::copy_from_slice(&[Opcode::TIMESTAMP as u8]),
+    |                                                              ^^^^^^^^^^^^^^^^^^^^^^^
+    |
+    = help: consider using a safe wrapper for this conversion
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/master/index.html#as_conversions
+
+error: using a potentially dangerous silent `as` conversion
+   --> crates/vm/levm/src/operations.rs:142:59
+    |
+142 |             Operation::Number => Bytes::copy_from_slice(&[Opcode::NUMBER as u8]),
+    |                                                           ^^^^^^^^^^^^^^^^^^^^
+    |
+    = help: consider using a safe wrapper for this conversion
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/master/index.html#as_conversions
+
+error: using a potentially dangerous silent `as` conversion
+   --> crates/vm/levm/src/operations.rs:143:63
+    |
+143 |             Operation::Prevrandao => Bytes::copy_from_slice(&[Opcode::PREVRANDAO as u8]),
+    |                                                               ^^^^^^^^^^^^^^^^^^^^^^^^
+    |
+    = help: consider using a safe wrapper for this conversion
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/master/index.html#as_conversions
+
+error: using a potentially dangerous silent `as` conversion
+   --> crates/vm/levm/src/operations.rs:144:61
+    |
+144 |             Operation::Gaslimit => Bytes::copy_from_slice(&[Opcode::GASLIMIT as u8]),
+    |                                                             ^^^^^^^^^^^^^^^^^^^^^^
+    |
+    = help: consider using a safe wrapper for this conversion
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/master/index.html#as_conversions
+
+error: using a potentially dangerous silent `as` conversion
+   --> crates/vm/levm/src/operations.rs:145:60
+    |
+145 |             Operation::Chainid => Bytes::copy_from_slice(&[Opcode::CHAINID as u8]),
+    |                                                            ^^^^^^^^^^^^^^^^^^^^^
+    |
+    = help: consider using a safe wrapper for this conversion
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/master/index.html#as_conversions
+
+error: using a potentially dangerous silent `as` conversion
+   --> crates/vm/levm/src/operations.rs:146:64
+    |
+146 |             Operation::SelfBalance => Bytes::copy_from_slice(&[Opcode::SELFBALANCE as u8]),
+    |                                                                ^^^^^^^^^^^^^^^^^^^^^^^^^
+    |
+    = help: consider using a safe wrapper for this conversion
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/master/index.html#as_conversions
+
+error: using a potentially dangerous silent `as` conversion
+   --> crates/vm/levm/src/operations.rs:147:60
+    |
+147 |             Operation::Basefee => Bytes::copy_from_slice(&[Opcode::BASEFEE as u8]),
+    |                                                            ^^^^^^^^^^^^^^^^^^^^^
+    |
+    = help: consider using a safe wrapper for this conversion
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/master/index.html#as_conversions
+
+error: using a potentially dangerous silent `as` conversion
+   --> crates/vm/levm/src/operations.rs:148:61
+    |
+148 |             Operation::BlobHash => Bytes::copy_from_slice(&[Opcode::BLOBHASH as u8]),
+    |                                                             ^^^^^^^^^^^^^^^^^^^^^^
+    |
+    = help: consider using a safe wrapper for this conversion
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/master/index.html#as_conversions
+
+error: using a potentially dangerous silent `as` conversion
+   --> crates/vm/levm/src/operations.rs:149:64
+    |
+149 |             Operation::BlobBaseFee => Bytes::copy_from_slice(&[Opcode::BLOBBASEFEE as u8]),
+    |                                                                ^^^^^^^^^^^^^^^^^^^^^^^^^
+    |
+    = help: consider using a safe wrapper for this conversion
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/master/index.html#as_conversions
+
+error: using a potentially dangerous silent `as` conversion
+   --> crates/vm/levm/src/operations.rs:150:56
+    |
+150 |             Operation::Pop => Bytes::copy_from_slice(&[Opcode::POP as u8]),
+    |                                                        ^^^^^^^^^^^^^^^^^
+    |
+    = help: consider using a safe wrapper for this conversion
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/master/index.html#as_conversions
+
+error: using a potentially dangerous silent `as` conversion
+   --> crates/vm/levm/src/operations.rs:151:58
+    |
+151 |             Operation::Mload => Bytes::copy_from_slice(&[Opcode::MLOAD as u8]),
+    |                                                          ^^^^^^^^^^^^^^^^^^^
+    |
+    = help: consider using a safe wrapper for this conversion
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/master/index.html#as_conversions
+
+error: using a potentially dangerous silent `as` conversion
+   --> crates/vm/levm/src/operations.rs:152:59
+    |
+152 |             Operation::Mstore => Bytes::copy_from_slice(&[Opcode::MSTORE as u8]),
+    |                                                           ^^^^^^^^^^^^^^^^^^^^
+    |
+    = help: consider using a safe wrapper for this conversion
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/master/index.html#as_conversions
+
+error: using a potentially dangerous silent `as` conversion
+   --> crates/vm/levm/src/operations.rs:153:60
+    |
+153 |             Operation::Mstore8 => Bytes::copy_from_slice(&[Opcode::MSTORE8 as u8]),
+    |                                                            ^^^^^^^^^^^^^^^^^^^^^
+    |
+    = help: consider using a safe wrapper for this conversion
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/master/index.html#as_conversions
+
+error: using a potentially dangerous silent `as` conversion
+   --> crates/vm/levm/src/operations.rs:154:58
+    |
+154 |             Operation::Sload => Bytes::copy_from_slice(&[Opcode::SLOAD as u8]),
+    |                                                          ^^^^^^^^^^^^^^^^^^^
+    |
+    = help: consider using a safe wrapper for this conversion
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/master/index.html#as_conversions
+
+error: using a potentially dangerous silent `as` conversion
+   --> crates/vm/levm/src/operations.rs:155:59
+    |
+155 |             Operation::Sstore => Bytes::copy_from_slice(&[Opcode::SSTORE as u8]),
+    |                                                           ^^^^^^^^^^^^^^^^^^^^
+    |
+    = help: consider using a safe wrapper for this conversion
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/master/index.html#as_conversions
+
+error: using a potentially dangerous silent `as` conversion
+   --> crates/vm/levm/src/operations.rs:156:57
+    |
+156 |             Operation::Jump => Bytes::copy_from_slice(&[Opcode::JUMP as u8]),
+    |                                                         ^^^^^^^^^^^^^^^^^^
+    |
+    = help: consider using a safe wrapper for this conversion
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/master/index.html#as_conversions
+
+error: using a potentially dangerous silent `as` conversion
+   --> crates/vm/levm/src/operations.rs:157:58
+    |
+157 |             Operation::Jumpi => Bytes::copy_from_slice(&[Opcode::JUMPI as u8]),
+    |                                                          ^^^^^^^^^^^^^^^^^^^
+    |
+    = help: consider using a safe wrapper for this conversion
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/master/index.html#as_conversions
+
+error: using a potentially dangerous silent `as` conversion
+   --> crates/vm/levm/src/operations.rs:158:55
+    |
+158 |             Operation::PC => Bytes::copy_from_slice(&[Opcode::PC as u8]),
+    |                                                       ^^^^^^^^^^^^^^^^
+    |
+    = help: consider using a safe wrapper for this conversion
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/master/index.html#as_conversions
+
+error: using a potentially dangerous silent `as` conversion
+   --> crates/vm/levm/src/operations.rs:159:58
+    |
+159 |             Operation::Msize => Bytes::copy_from_slice(&[Opcode::MSIZE as u8]),
+    |                                                          ^^^^^^^^^^^^^^^^^^^
+    |
+    = help: consider using a safe wrapper for this conversion
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/master/index.html#as_conversions
+
+error: using a potentially dangerous silent `as` conversion
+   --> crates/vm/levm/src/operations.rs:160:56
+    |
+160 |             Operation::Gas => Bytes::copy_from_slice(&[Opcode::GAS as u8]),
+    |                                                        ^^^^^^^^^^^^^^^^^
+    |
+    = help: consider using a safe wrapper for this conversion
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/master/index.html#as_conversions
+
+error: using a potentially dangerous silent `as` conversion
+   --> crates/vm/levm/src/operations.rs:161:61
+    |
+161 |             Operation::Jumpdest => Bytes::copy_from_slice(&[Opcode::JUMPDEST as u8]),
+    |                                                             ^^^^^^^^^^^^^^^^^^^^^^
+    |
+    = help: consider using a safe wrapper for this conversion
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/master/index.html#as_conversions
+
+error: using a potentially dangerous silent `as` conversion
+   --> crates/vm/levm/src/operations.rs:162:58
+    |
+162 |             Operation::Tload => Bytes::copy_from_slice(&[Opcode::TLOAD as u8]),
+    |                                                          ^^^^^^^^^^^^^^^^^^^
+    |
+    = help: consider using a safe wrapper for this conversion
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/master/index.html#as_conversions
+
+error: using a potentially dangerous silent `as` conversion
+   --> crates/vm/levm/src/operations.rs:163:59
+    |
+163 |             Operation::Tstore => Bytes::copy_from_slice(&[Opcode::TSTORE as u8]),
+    |                                                           ^^^^^^^^^^^^^^^^^^^^
+    |
+    = help: consider using a safe wrapper for this conversion
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/master/index.html#as_conversions
+
+error: using a potentially dangerous silent `as` conversion
+   --> crates/vm/levm/src/operations.rs:164:58
+    |
+164 |             Operation::Mcopy => Bytes::copy_from_slice(&[Opcode::MCOPY as u8]),
+    |                                                          ^^^^^^^^^^^^^^^^^^^
+    |
+    = help: consider using a safe wrapper for this conversion
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/master/index.html#as_conversions
+
+error: using a potentially dangerous silent `as` conversion
+   --> crates/vm/levm/src/operations.rs:165:58
+    |
+165 |             Operation::Push0 => Bytes::copy_from_slice(&[Opcode::PUSH0 as u8]),
+    |                                                          ^^^^^^^^^^^^^^^^^^^
+    |
+    = help: consider using a safe wrapper for this conversion
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/master/index.html#as_conversions
+
+error: using a potentially dangerous silent `as` conversion
+   --> crates/vm/levm/src/operations.rs:171:49
+    |
+171 |                     value.bits().div_ceil(8) <= *n as usize,
+    |                                                 ^^^^^^^^^^^
+    |
+    = help: consider using a safe wrapper for this conversion
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/master/index.html#as_conversions
+
+warning: slicing may panic
+   --> crates/vm/levm/src/operations.rs:177:38
+    |
+177 |                 let value_to_push = &word_buffer[((32 - *n) as usize)..];
+    |                                      ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |
+    = help: consider using `.get(n..)` or .get_mut(n..)` instead
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/master/index.html#indexing_slicing
+
+error: using a potentially dangerous silent `as` conversion
+   --> crates/vm/levm/src/operations.rs:177:50
+    |
+177 |                 let value_to_push = &word_buffer[((32 - *n) as usize)..];
+    |                                                  ^^^^^^^^^^^^^^^^^^^^
+    |
+    = help: consider using a safe wrapper for this conversion
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/master/index.html#as_conversions
+
+error: using a potentially dangerous silent `as` conversion
+   --> crates/vm/levm/src/operations.rs:178:49
+    |
+178 |                 assert_eq!(value_to_push.len(), *n as usize);
+    |                                                 ^^^^^^^^^^^
+    |
+    = help: consider using a safe wrapper for this conversion
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/master/index.html#as_conversions
+
+error: using a potentially dangerous silent `as` conversion
+   --> crates/vm/levm/src/operations.rs:179:47
+    |
+179 |                 let opcode = Opcode::try_from(Opcode::PUSH0 as u8 + *n)?;
+    |                                               ^^^^^^^^^^^^^^^^^^^
+    |
+    = help: consider using a safe wrapper for this conversion
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/master/index.html#as_conversions
+
+error: using a potentially dangerous silent `as` conversion
+   --> crates/vm/levm/src/operations.rs:180:38
+    |
+180 |                 let mut bytes = vec![opcode as u8];
+    |                                      ^^^^^^^^^^^^
+    |
+    = help: consider using a safe wrapper for this conversion
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/master/index.html#as_conversions
+
+error: using a potentially dangerous silent `as` conversion
+   --> crates/vm/levm/src/operations.rs:187:42
+    |
+187 |                 Bytes::copy_from_slice(&[Opcode::DUP1 as u8 + n - 1])
+    |                                          ^^^^^^^^^^^^^^^^^^
+    |
+    = help: consider using a safe wrapper for this conversion
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/master/index.html#as_conversions
+
+error: using a potentially dangerous silent `as` conversion
+   --> crates/vm/levm/src/operations.rs:191:42
+    |
+191 |                 Bytes::copy_from_slice(&[Opcode::SWAP1 as u8 + n - 1])
+    |                                          ^^^^^^^^^^^^^^^^^^^
+    |
+    = help: consider using a safe wrapper for this conversion
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/master/index.html#as_conversions
+
+error: using a potentially dangerous silent `as` conversion
+   --> crates/vm/levm/src/operations.rs:195:42
+    |
+195 |                 Bytes::copy_from_slice(&[Opcode::LOG0 as u8 + n])
+    |                                          ^^^^^^^^^^^^^^^^^^
+    |
+    = help: consider using a safe wrapper for this conversion
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/master/index.html#as_conversions
+
+error: using a potentially dangerous silent `as` conversion
+   --> crates/vm/levm/src/operations.rs:197:59
+    |
+197 |             Operation::Create => Bytes::copy_from_slice(&[Opcode::CREATE as u8]),
+    |                                                           ^^^^^^^^^^^^^^^^^^^^
+    |
+    = help: consider using a safe wrapper for this conversion
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/master/index.html#as_conversions
+
+error: using a potentially dangerous silent `as` conversion
+   --> crates/vm/levm/src/operations.rs:198:57
+    |
+198 |             Operation::Call => Bytes::copy_from_slice(&[Opcode::CALL as u8]),
+    |                                                         ^^^^^^^^^^^^^^^^^^
+    |
+    = help: consider using a safe wrapper for this conversion
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/master/index.html#as_conversions
+
+error: using a potentially dangerous silent `as` conversion
+   --> crates/vm/levm/src/operations.rs:199:61
+    |
+199 |             Operation::CallCode => Bytes::copy_from_slice(&[Opcode::CALLCODE as u8]),
+    |                                                             ^^^^^^^^^^^^^^^^^^^^^^
+    |
+    = help: consider using a safe wrapper for this conversion
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/master/index.html#as_conversions
+
+error: using a potentially dangerous silent `as` conversion
+   --> crates/vm/levm/src/operations.rs:200:59
+    |
+200 |             Operation::Return => Bytes::copy_from_slice(&[Opcode::RETURN as u8]),
+    |                                                           ^^^^^^^^^^^^^^^^^^^^
+    |
+    = help: consider using a safe wrapper for this conversion
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/master/index.html#as_conversions
+
+error: using a potentially dangerous silent `as` conversion
+   --> crates/vm/levm/src/operations.rs:201:65
+    |
+201 |             Operation::DelegateCall => Bytes::copy_from_slice(&[Opcode::DELEGATECALL as u8]),
+    |                                                                 ^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |
+    = help: consider using a safe wrapper for this conversion
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/master/index.html#as_conversions
+
+error: using a potentially dangerous silent `as` conversion
+   --> crates/vm/levm/src/operations.rs:202:60
+    |
+202 |             Operation::Create2 => Bytes::copy_from_slice(&[Opcode::CREATE2 as u8]),
+    |                                                            ^^^^^^^^^^^^^^^^^^^^^
+    |
+    = help: consider using a safe wrapper for this conversion
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/master/index.html#as_conversions
+
+error: using a potentially dangerous silent `as` conversion
+   --> crates/vm/levm/src/operations.rs:203:63
+    |
+203 |             Operation::StaticCall => Bytes::copy_from_slice(&[Opcode::STATICCALL as u8]),
+    |                                                               ^^^^^^^^^^^^^^^^^^^^^^^^
+    |
+    = help: consider using a safe wrapper for this conversion
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/master/index.html#as_conversions
+
+error: using a potentially dangerous silent `as` conversion
+   --> crates/vm/levm/src/operations.rs:204:59
+    |
+204 |             Operation::Revert => Bytes::copy_from_slice(&[Opcode::REVERT as u8]),
+    |                                                           ^^^^^^^^^^^^^^^^^^^^
+    |
+    = help: consider using a safe wrapper for this conversion
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/master/index.html#as_conversions
+
+error: using a potentially dangerous silent `as` conversion
+   --> crates/vm/levm/src/operations.rs:205:60
+    |
+205 |             Operation::Invalid => Bytes::copy_from_slice(&[Opcode::INVALID as u8]),
+    |                                                            ^^^^^^^^^^^^^^^^^^^^^
+    |
+    = help: consider using a safe wrapper for this conversion
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/master/index.html#as_conversions
+
+error: using a potentially dangerous silent `as` conversion
+   --> crates/vm/levm/src/operations.rs:206:65
+    |
+206 |             Operation::SelfDestruct => Bytes::copy_from_slice(&[Opcode::SELFDESTRUCT as u8]),
+    |                                                                 ^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |
+    = help: consider using a safe wrapper for this conversion
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/master/index.html#as_conversions
+
+error: used `unwrap()` on a `Result` value
+  --> crates/vm/levm/src/utils.rs:15:37
+   |
+15 |         bytecode.extend_from_slice(&op.to_bytecode().unwrap());
+   |                                     ^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+   = note: if this value is an `Err`, it will panic
+   = help: for further information visit https://rust-lang.github.io/rust-clippy/master/index.html#unwrap_used
+
+error: used `unwrap()` on a `Result` value
+  --> crates/vm/levm/src/vm.rs:47:5
+   |
+47 |     U256::from_str(&format!("{address:?}")).unwrap()
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+   = note: if this value is an `Err`, it will panic
+   = help: for further information visit https://rust-lang.github.io/rust-clippy/master/index.html#unwrap_used
+
+error: used `unwrap()` on an `Option` value
+   --> crates/vm/levm/src/vm.rs:327:35
+    |
+327 |                 .get_account_info(self.call_frames.first().unwrap().to);
+    |                                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |
+    = note: if this value is `None`, it will panic
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/master/index.html#unwrap_used
+
+warning: indexing may panic
+   --> crates/vm/levm/src/vm.rs:334:18
+    |
+334 |         let to = self.call_frames[0].to;
+    |                  ^^^^^^^^^^^^^^^^^^^
+    |
+    = help: consider using `.get(n)` or `.get_mut(n)` instead
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/master/index.html#indexing_slicing
+
+warning: indexing may panic
+   --> crates/vm/levm/src/vm.rs:351:42
+    |
+351 |         if sender_account.info.balance < self.call_frames[0].msg_value {
+    |                                          ^^^^^^^^^^^^^^^^^^^
+    |
+    = help: consider using `.get(n)` or `.get_mut(n)` instead
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/master/index.html#indexing_slicing
+
+warning: indexing may panic
+   --> crates/vm/levm/src/vm.rs:355:40
+    |
+355 |         sender_account.info.balance -= self.call_frames[0].msg_value;
+    |                                        ^^^^^^^^^^^^^^^^^^^
+    |
+    = help: consider using `.get(n)` or `.get_mut(n)` instead
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/master/index.html#indexing_slicing
+
+warning: indexing may panic
+   --> crates/vm/levm/src/vm.rs:356:42
+    |
+356 |         receiver_account.info.balance += self.call_frames[0].msg_value;
+    |                                          ^^^^^^^^^^^^^^^^^^^
+    |
+    = help: consider using `.get(n)` or `.get_mut(n)` instead
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/master/index.html#indexing_slicing
+
+error: used `unwrap()` on an `Option` value
+   --> crates/vm/levm/src/vm.rs:374:22
+    |
+374 |         let sender = self.call_frames.first().unwrap().msg_sender;
+    |                      ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |
+    = note: if this value is `None`, it will panic
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/master/index.html#unwrap_used
+
+error: used `unwrap()` on an `Option` value
+   --> crates/vm/levm/src/vm.rs:379:36
+    |
+379 |         let new_contract_address = self.call_frames.first().unwrap().to;
+    |                                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |
+    = note: if this value is `None`, it will panic
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/master/index.html#unwrap_used
+
+error: used `unwrap()` on an `Option` value
+   --> crates/vm/levm/src/vm.rs:398:38
+    |
+398 |         let mut current_call_frame = self.call_frames.pop().unwrap();
+    |                                      ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |
+    = note: if this value is `None`, it will panic
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/master/index.html#unwrap_used
+
+error: used `unwrap()` on an `Option` value
+   --> crates/vm/levm/src/vm.rs:401:22
+    |
+401 |         let sender = self.call_frames.first().unwrap().msg_sender;
+    |                      ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |
+    = note: if this value is `None`, it will panic
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/master/index.html#unwrap_used
+
+warning: indexing may panic
+   --> crates/vm/levm/src/vm.rs:406:22
+    |
+406 |         for byte in &self.call_frames[0].calldata {
+    |                      ^^^^^^^^^^^^^^^^^^^
+    |
+    = help: consider using `.get(n)` or `.get_mut(n)` instead
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/master/index.html#indexing_slicing
+
+warning: indexing may panic
+   --> crates/vm/levm/src/vm.rs:433:16
+    |
+433 |             if contract_code[0] == INVALID_CONTRACT_PREFIX {
+    |                ^^^^^^^^^^^^^^^^
+    |
+    = help: consider using `.get(n)` or `.get_mut(n)` instead
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/master/index.html#indexing_slicing
+
+error: using a potentially dangerous silent `as` conversion
+   --> crates/vm/levm/src/vm.rs:439:43
+    |
+439 |             let mut creation_cost = 200 * contract_code.len() as u64;
+    |                                           ^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |
+    = help: consider using a safe wrapper for this conversion
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/master/index.html#as_conversions
+
+error: using a potentially dangerous silent `as` conversion
+   --> crates/vm/levm/src/vm.rs:445:35
+    |
+445 |             let number_of_words = self.call_frames[0].calldata.chunks(32).len() as u64;
+    |                                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |
+    = help: consider using a safe wrapper for this conversion
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/master/index.html#as_conversions
+
+warning: indexing may panic
+   --> crates/vm/levm/src/vm.rs:445:35
+    |
+445 |             let number_of_words = self.call_frames[0].calldata.chunks(32).len() as u64;
+    |                                   ^^^^^^^^^^^^^^^^^^^
+    |
+    = help: consider using `.get(n)` or `.get_mut(n)` instead
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/master/index.html#indexing_slicing
+
+error: used `unwrap()` on an `Option` value
+   --> crates/vm/levm/src/vm.rs:448:36
+    |
+448 |             let contract_address = self.call_frames.first().unwrap().to;
+    |                                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |
+    = note: if this value is `None`, it will panic
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/master/index.html#unwrap_used
+
+error: used `unwrap()` on an `Option` value
+   --> crates/vm/levm/src/vm.rs:489:9
+    |
+489 |         self.call_frames.last_mut().unwrap()
+    |         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |
+    = note: if this value is `None`, it will panic
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/master/index.html#unwrap_used
+
+warning: slicing may panic
+   --> crates/vm/levm/src/vm.rs:605:30
+    |
+605 |         Address::from_slice(&hasher.finalize()[12..])
+    |                              ^^^^^^^^^^^^^^^^^^^^^^^
+    |
+    = help: consider using `.get(n..)` or .get_mut(n..)` instead
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/master/index.html#indexing_slicing
+
+warning: slicing may panic
+   --> crates/vm/levm/src/vm.rs:628:30
+    |
+628 |         Address::from_slice(&hasher.finalize()[12..])
+    |                              ^^^^^^^^^^^^^^^^^^^^^^^
+    |
+    = help: consider using `.get(n..)` or .get_mut(n..)` instead
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/master/index.html#indexing_slicing
+
+error: used `unwrap()` on an `Option` value
+   --> crates/vm/levm/src/vm.rs:664:30
+    |
+664 |           let sender_account = self
+    |  ______________________________^
+665 | |             .cache
+666 | |             .get_mut_account(current_call_frame.msg_sender)
+667 | |             .unwrap();
+    | |_____________________^
+    |
+    = note: if this value is `None`, it will panic
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/master/index.html#unwrap_used
+
+warning: `ethereum_rust_levm` (lib) generated 17 warnings
+error: could not compile `ethereum_rust_levm` (lib) due to 132 previous errors; 17 warnings emitted
