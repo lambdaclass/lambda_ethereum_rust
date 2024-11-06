@@ -30,7 +30,7 @@ pub enum VMError {
     ContractOutputTooBig,
     InvalidInitialByte,
     NonceOverflow,
-    InternalError
+    InternalError,
 }
 
 pub enum OpcodeSuccess {

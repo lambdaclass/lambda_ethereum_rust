@@ -404,7 +404,7 @@ impl VM {
                 calldata_cost += 4;
             }
         }
-        
+
         let max_gas = self.env.gas_limit.low_u64();
         report.add_gas_with_max(calldata_cost, max_gas);
 
@@ -452,16 +452,28 @@ impl VM {
             .balance
             .checked_sub(U256::from(report.gas_used) * self.env.gas_price)
             .ok_or(VMError::OutOfGas)?;
-        
-        let call_frame = self.call_frames.first().ok_or(VMError::InternalError)?.clone();
+
+        let call_frame = self
+            .call_frames
+            .first()
+            .ok_or(VMError::InternalError)?
+            .clone();
 
         let receiver_address = call_frame.to;
         let mut receiver_account = self.get_account(&receiver_address);
         // If execution was successful we want to transfer value from sender to receiver
         if report.is_success() {
             // Subtract to the caller the gas sent
-            sender_account.info.balance = sender_account.info.balance.checked_sub(call_frame.msg_value).ok_or(VMError::OutOfGas)?; // This error shouldn't be OutOfGas
-            receiver_account.info.balance = receiver_account.info.balance.checked_add(call_frame.msg_value).ok_or(VMError::OutOfGas)?; // This error shouldn't be OutOfGas
+            sender_account.info.balance = sender_account
+                .info
+                .balance
+                .checked_sub(call_frame.msg_value)
+                .ok_or(VMError::OutOfGas)?; // This error shouldn't be OutOfGas
+            receiver_account.info.balance = receiver_account
+                .info
+                .balance
+                .checked_add(call_frame.msg_value)
+                .ok_or(VMError::OutOfGas)?; // This error shouldn't be OutOfGas
         }
 
         dbg!(&report.gas_refunded);
