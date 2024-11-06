@@ -170,7 +170,7 @@ impl RpcHandler for GetTransactionCountRequest {
                 None
             };
 
-        let nonce = match pending_nonce {
+        let tx_qty = match pending_nonce {
             Some(nonce) => nonce,
             None => {
                 let Some(block_number) = self.block.resolve_block_number(&context.storage)? else {
@@ -185,8 +185,7 @@ impl RpcHandler for GetTransactionCountRequest {
             }
         };
 
-        // This endpoint returns the amount of transactions, so it needs to return the nonce + 1
-        serde_json::to_value(format!("0x{:x}", nonce + 1))
+        serde_json::to_value(format!("0x{:x}", tx_qty))
             .map_err(|error| RpcErr::Internal(error.to_string()))
     }
 }

@@ -104,16 +104,14 @@ pub fn remove_transaction(hash: &H256, store: &Store) -> Result<(), StoreError> 
 }
 
 pub fn get_nonce(address: &Address, store: &Store) -> Result<Option<u64>, MempoolError> {
-    let pending_filter = PendingTxFilter {
-        ..Default::default()
-    };
+    let pending_filter = PendingTxFilter {..Default::default()};
 
     let pending_txs = filter_transactions(&pending_filter, store)?;
     let empty_vec = vec![];
     let txs = pending_txs.get(address).unwrap_or(&empty_vec);
-    let higher_nonce = txs.last().map(|tx| tx.nonce());
+    let nonce = txs.last().map(|tx| tx.nonce() + 1);
 
-    Ok(higher_nonce)
+    Ok(nonce)
 }
 
 #[derive(Debug, Default)]
