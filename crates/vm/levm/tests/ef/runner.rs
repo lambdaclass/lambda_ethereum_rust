@@ -49,9 +49,16 @@ pub fn run_ef_tests() -> Result<EFTestsReport, Box<dyn Error>> {
 }
 
 pub fn run_ef_test(test: EFTest, report: &mut EFTestsReport) -> Result<(), Box<dyn Error>> {
-    let evm = prepare_vm(&test);
+    dbg!(&test.name);
+    let mut evm = prepare_vm(&test);
     ensure_pre_state(&evm, &test, report)?;
-    // let _transaction_report = evm.transact().unwrap();
+    let _tx_report = match evm.transact() {
+        Ok(tx_report) => tx_report,
+        Err(err) => {
+            report.register_fail(&test.name, &format!("{err:?}"));
+            return Ok(());
+        }
+    };
     ensure_post_state(&evm, &test, report)?;
     report.register_pass(&test.name);
     Ok(())
@@ -62,9 +69,9 @@ pub fn prepare_vm(test: &EFTest) -> VM {
         test.transaction.to.clone(),
         Environment {
             origin: test.transaction.sender,
-            consumed_gas: test.env.current_gas_limit,
+            consumed_gas: U256::default(),
             refunded_gas: U256::default(),
-            gas_limit: *test.transaction.gas_limit.first().unwrap(),
+            gas_limit: test.env.current_gas_limit,
             block_number: test.env.current_number,
             coinbase: test.env.current_coinbase,
             timestamp: test.env.current_timestamp,
