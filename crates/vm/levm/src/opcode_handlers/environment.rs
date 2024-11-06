@@ -248,8 +248,11 @@ impl VM {
 
         self.increase_consumed_gas(current_call_frame, gas_cost)?;
 
-        let code = if offset < current_call_frame.bytecode.len() {
-            current_call_frame.bytecode.slice(offset..offset + size)
+        let bytecode_len = current_call_frame.bytecode.len();
+        let code = if offset < bytecode_len {
+            current_call_frame
+                .bytecode
+                .slice(offset..(offset + size).min(bytecode_len))
         } else {
             vec![0u8; size].into()
         };
