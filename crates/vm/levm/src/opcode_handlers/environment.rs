@@ -405,9 +405,15 @@ impl VM {
             return Ok(OpcodeSuccess::Continue);
         }
 
-        let data = current_call_frame
-            .sub_return_data
-            .slice(returndata_offset..returndata_offset + size);
+        let sub_return_data_len = current_call_frame.sub_return_data.len();
+        let data = if returndata_offset < sub_return_data_len {
+            current_call_frame
+                .sub_return_data
+                .slice(returndata_offset..(returndata_offset + size).min(sub_return_data_len))
+        } else {
+            vec![0u8; size].into()
+        };
+
         current_call_frame.memory.store_bytes(dest_offset, &data);
 
         Ok(OpcodeSuccess::Continue)
