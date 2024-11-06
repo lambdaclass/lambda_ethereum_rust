@@ -1,5 +1,5 @@
 use ethereum_rust_blockchain::constants::MIN_GAS_LIMIT;
-use tracing::{error, warn};
+use tracing::error;
 
 use crate::utils::RpcErr;
 use crate::{RpcApiContext, RpcHandler};
@@ -78,28 +78,19 @@ impl RpcHandler for GasPrice {
             results.extend(gas_price_samples.into_iter().take(TXS_SAMPLE_SIZE));
         }
         results.sort();
-        
-        let sample_gas = 
-            match results.get(results.len() / 2) {
-                Some(gas) => *gas,
-                None => {
-                    // If we don't have enough samples, we'll return the base fee or the min gas limit as a default.
-                    let default_gas =
-                        context
-                            .storage
-                            .get_block_header(latest_block_number)
-                            .ok()
-                            .flatten()
-                            .and_then(|header| header.base_fee_per_gas)
-                            .unwrap_or(MIN_GAS_LIMIT);
 
-                    warn!(
-                        "Not enough samples to estimate gas price, returning base fee or min gas limit: {}",
-                        default_gas
-                    );
-
-                    default_gas
-                }
+        let sample_gas = match results.get(results.len() / 2) {
+            Some(gas) => *gas,
+            None => {
+                // If we don't have enough samples, we'll return the base fee or the min gas limit as a default.
+                context
+                    .storage
+                    .get_block_header(latest_block_number)
+                    .ok()
+                    .flatten()
+                    .and_then(|header| header.base_fee_per_gas)
+                    .unwrap_or(MIN_GAS_LIMIT)
+            }
         };
 
         let gas_as_hex = format!("0x{:x}", sample_gas);
@@ -116,7 +107,6 @@ mod tests {
         RpcApiContext, RpcHandler,
     };
     use bytes::Bytes;
-    use ethereum_rust_blockchain::constants::MIN_GAS_LIMIT;
     use ethereum_rust_core::{
         types::{
             Block, BlockBody, BlockHeader, EIP1559Transaction, Genesis, LegacyTransaction,
@@ -342,7 +332,8 @@ mod tests {
     fn test_with_no_blocks_but_genesis() {
         let context = default_context();
         let gas_price = GasPrice {};
-        let expected_gas_price = MIN_GAS_LIMIT;
+        // genesis base fee is 1_000_000_000
+        let expected_gas_price = 1_000_000_000;
         let response = gas_price.handle(context).unwrap();
         let parsed_result = parse_json_hex(&response).unwrap();
         assert_eq!(parsed_result, expected_gas_price);

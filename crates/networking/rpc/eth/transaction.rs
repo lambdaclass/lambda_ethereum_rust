@@ -438,7 +438,8 @@ impl RpcHandler for EstimateGasRequest {
         };
 
         let transaction = if self.transaction.nonce.is_none() {
-            let transaction_nonce = storage.get_nonce_by_account_address(block_header.number, self.transaction.from)?;
+            let transaction_nonce =
+                storage.get_nonce_by_account_address(block_header.number, self.transaction.from)?;
 
             let mut cloned_transaction = self.transaction.clone();
             cloned_transaction.nonce = transaction_nonce;
