@@ -50,19 +50,22 @@ impl LeafNode {
             Ok(self.into())
         } else {
             let match_index = path.count_prefix(&self.partial);
-            let branch_node = if self.partial.at(match_index) == 16 {
+            let self_choice_idx = self.partial.at(match_index);
+            let new_leaf_choice_idx = path.at(match_index);
+            self.partial = self.partial.offset(match_index + 1);
+            let branch_node = if self_choice_idx == 16 {
                 // Create a new leaf node and store the value in it
                 // Create a new branch node with the leaf as a child and store self's value
                 // Branch { [ Leaf { Value } , ... ], SelfValue}
                 let new_leaf = LeafNode::new(path.offset(match_index + 1), value);
                 let mut choices = BranchNode::EMPTY_CHOICES;
-                choices[path.at(match_index)] = new_leaf.insert_self(state)?;
+                choices[new_leaf_choice_idx] = new_leaf.insert_self(state)?;
                 BranchNode::new_with_value(Box::new(choices), self.value)
-            } else if path.at(match_index) == 16 {
+            } else if new_leaf_choice_idx == 16 {
                 // Create a branch node with self as a child and store the value in the branch node
                 // Branch { [Self,...], Value }
                 let mut choices = BranchNode::EMPTY_CHOICES;
-                choices[self.partial.at(match_index)] = self.clone().insert_self(state)?;
+                choices[self_choice_idx] = self.clone().insert_self(state)?;
                 BranchNode::new_with_value(Box::new(choices), value)
             } else {
                 // Create a new leaf node and store the path and value in it
@@ -70,8 +73,8 @@ impl LeafNode {
                 // Branch { [ Leaf { Path, Value }, Self, ... ], None, None}
                 let new_leaf = LeafNode::new(path.offset(match_index + 1), value);
                 let mut choices = BranchNode::EMPTY_CHOICES;
-                choices[path.at(match_index)] = new_leaf.insert_self(state)?;
-                choices[self.partial.at(match_index)] = self.clone().insert_self(state)?;
+                choices[new_leaf_choice_idx] = new_leaf.insert_self(state)?;
+                choices[self_choice_idx] = self.clone().insert_self(state)?;
                 BranchNode::new(Box::new(choices))
             };
 
