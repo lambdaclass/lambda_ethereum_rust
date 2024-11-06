@@ -549,6 +549,12 @@ impl VM {
             current_call_frame.depth + 1,
         );
 
+        // EIP-7686 + log((gaslimit + 6300) / 6400) / log(64/63) = 537
+        if new_call_frame.depth > 537 {
+            current_call_frame.stack.push(U256::from(REVERT_FOR_CALL))?;
+            return Ok(OpcodeSuccess::Result(ResultReason::Revert));
+        }
+
         current_call_frame.sub_return_data_offset = ret_offset;
         current_call_frame.sub_return_data_size = ret_size;
 
