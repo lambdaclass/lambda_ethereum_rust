@@ -90,7 +90,6 @@ impl Nibbles {
         self.data.extend_from_slice(other.as_ref());
     }
 
-
     /// Return the nibble at the given index, will panic if the index is out of range
     pub fn at(&self, i: usize) -> usize {
         self.data[i] as usize

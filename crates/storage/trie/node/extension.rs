@@ -276,13 +276,9 @@ mod test {
         };
 
         let node = node
-            .insert(
-                &mut trie.state,
-                dbg!(Nibbles::from_bytes(&[0x10])),
-                vec![0x20],
-            )
+            .insert(&mut trie.state, Nibbles::from_bytes(&[0x10]), vec![0x20])
             .unwrap();
-        let node = match dbg!(node) {
+        let node = match node {
             Node::Branch(x) => x,
             _ => panic!("expected a branch node"),
         };
