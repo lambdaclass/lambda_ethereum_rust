@@ -40,7 +40,7 @@ impl LeafNode {
             Leaf { SelfValue } -> Leaf { Value }
             Leaf { SelfValue } -> Extension { Branch { [Self,...] Value } }
             Leaf { SelfValue } -> Extension { Branch { [ Leaf { Value } , ... ], SelfValue} }
-            Leaf { SelfValue } -> Branch { [ Leaf { Value }, Self, ... ], None, None}
+            Leaf { SelfValue } -> Branch { [ Leaf { Value }, Self, ... ], None}
         */
         // If the path matches the stored path, update the value and return self
         if self.partial == path {
@@ -51,6 +51,7 @@ impl LeafNode {
             let self_choice_idx = self.partial.at(match_index);
             let new_leaf_choice_idx = path.at(match_index);
             self.partial = self.partial.offset(match_index + 1);
+
             let branch_node = if self_choice_idx == 16 {
                 // Create a new leaf node and store the value in it
                 // Create a new branch node with the leaf as a child and store self's value
@@ -116,7 +117,6 @@ impl LeafNode {
     /// Inserts the node into the state and returns its hash
     /// Receives the offset that needs to be traversed to reach the leaf node from the canonical root, used to compute the node hash
     pub fn insert_self(self, state: &mut TrieState) -> Result<NodeHash, TrieError> {
-        // TODO: Fix
         let hash = self.compute_hash();
         state.insert_node(self.into(), hash.clone());
         Ok(hash)

@@ -5,7 +5,7 @@ use crate::{error::TrieError, nibbles::Nibbles, node_hash::NodeHash, state::Trie
 use super::{ExtensionNode, LeafNode, Node};
 
 /// Branch Node of an an Ethereum Compatible Patricia Merkle Trie
-/// Contains the node's hash, value, path, and the hash of its children nodes
+/// Contains the node's value and the hash of its children nodes
 #[derive(Debug, Clone)]
 pub struct BranchNode {
     // TODO: check if switching to hashmap is a better solution
@@ -42,7 +42,7 @@ impl BranchNode {
         }
     }
 
-    /// Creates a new branch node given its children and stores the given (path, value) pair
+    /// Creates a new branch node given its children and value
     pub fn new_with_value(choices: Box<[NodeHash; 16]>, value: ValueRLP) -> Self {
         Self { choices, value }
     }
@@ -117,20 +117,20 @@ impl BranchNode {
     ) -> Result<(Option<Node>, Option<ValueRLP>), TrieError> {
         /* Possible flow paths:
             Step 1: Removal
-                Branch { [ ... ], Path, Value } -> Branch { [...], None, None } (remove from self)
-                Branch { [ childA, ... ], Path, Value } -> Branch { [childA', ... ], Path, Value } (remove from child)
+                Branch { [ ... ] Value } -> Branch { [...], None, None } (remove from self)
+                Branch { [ childA, ... ], Value } -> Branch { [childA', ... ], Value } (remove from child)
 
             Step 2: Restructure
                 [0 children]
-                Branch { [], Path, Value } -> Leaf { Path, Value } (no children, with value)
-                Branch { [], None, None } -> Branch { [], None, None } (no children, no value)
+                Branch { [], Value } -> Leaf { Value } (no children, with value)
+                Branch { [], None } -> Branch { [], None } (no children, no value)
                 [1 child]
                 Branch { [ ExtensionChild], _ , _ } -> Extension { ChoiceIndex+ExtensionChildPrefx, ExtensionChildChild }
-                Branch { [ BranchChild ], None, None } -> Extension { ChoiceIndex, BranchChild }
-                Branch { [ LeafChild], None, None } -> LeafChild
-                Branch { [LeafChild], Path, Value } -> Branch { [ LeafChild ], Path, Value }
+                Branch { [ BranchChild ], None } -> Extension { ChoiceIndex, BranchChild }
+                Branch { [ LeafChild], None } -> LeafChild
+                Branch { [LeafChild], Value } -> Branch { [ LeafChild ], Value }
                 [+1 children]
-                Branch { [childA, childB, ... ], None, None } ->   Branch { [childA, childB, ... ], None, None }
+                Branch { [childA, childB, ... ], None } ->   Branch { [childA, childB, ... ], None }
         */
 
         // Step 1: Remove value
