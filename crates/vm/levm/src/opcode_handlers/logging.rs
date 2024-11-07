@@ -27,12 +27,12 @@ impl VM {
             .stack
             .pop()?
             .try_into()
-            .unwrap_or(usize::MAX);
+            .map_err(|_| VMError::VeryLargeNumber)?;
         let size = current_call_frame
             .stack
             .pop()?
             .try_into()
-            .unwrap_or(usize::MAX);
+            .map_err(|_| VMError::VeryLargeNumber)?;
         let mut topics = Vec::new();
         for _ in 0..number_of_topics {
             let topic = current_call_frame.stack.pop()?;

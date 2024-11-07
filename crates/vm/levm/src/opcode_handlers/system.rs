@@ -18,26 +18,26 @@ impl VM {
         let gas = current_call_frame.stack.pop()?;
         let code_address = word_to_address(current_call_frame.stack.pop()?);
         let value = current_call_frame.stack.pop()?;
-        let args_offset = current_call_frame
+        let args_offset: usize = current_call_frame
             .stack
             .pop()?
             .try_into()
-            .unwrap_or(usize::MAX);
-        let args_size = current_call_frame
+            .map_err(|_| VMError::VeryLargeNumber)?;
+        let args_size: usize = current_call_frame
             .stack
             .pop()?
             .try_into()
-            .unwrap_or(usize::MAX);
-        let ret_offset = current_call_frame
+            .map_err(|_| VMError::VeryLargeNumber)?;
+        let ret_offset: usize = current_call_frame
             .stack
             .pop()?
             .try_into()
-            .unwrap_or(usize::MAX);
-        let ret_size = current_call_frame
+            .map_err(|_| VMError::VeryLargeNumber)?;
+        let ret_size: usize = current_call_frame
             .stack
             .pop()?
             .try_into()
-            .unwrap_or(usize::MAX);
+            .map_err(|_| VMError::VeryLargeNumber)?;
 
         if current_call_frame.is_static && !value.is_zero() {
             return Err(VMError::OpcodeNotAllowedInStaticContext);
@@ -153,12 +153,12 @@ impl VM {
             .stack
             .pop()?
             .try_into()
-            .unwrap_or(usize::MAX);
+            .map_err(|_| VMError::VeryLargeNumber)?;
         let size = current_call_frame
             .stack
             .pop()?
             .try_into()
-            .unwrap_or(usize::MAX);
+            .map_err(|_| VMError::VeryLargeNumber)?;
 
         let gas_cost = current_call_frame.memory.expansion_cost(offset + size)?;
 
