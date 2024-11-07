@@ -5,20 +5,24 @@ use ethereum_rust_rlp::{
     structs::{Decoder, Encoder},
 };
 
+/// Struct representing a list of nibbles (half-bytes)
 #[derive(Debug, Clone, Default, PartialEq)]
 pub struct Nibbles {
     data: Vec<u8>,
 }
 
 impl Nibbles {
+    /// Create `Nibbles` from  hex-encoded nibbles
     pub fn from_hex(hex: Vec<u8>) -> Self {
         Self { data: hex }
     }
 
+    /// Splits incoming bytes into nibbles and appends the leaf flag (a 16 nibble at the end)
     pub fn from_bytes(bytes: &[u8]) -> Self {
         Self::from_raw(bytes, true)
     }
 
+    /// Splits incoming bytes into nibbles and appends the leaf flag (a 16 nibble at the end) if is_leaf is true
     pub fn from_raw(bytes: &[u8], is_leaf: bool) -> Self {
         let mut data: Vec<u8> = bytes
             .iter()
@@ -31,10 +35,12 @@ impl Nibbles {
         Self { data }
     }
 
+    /// Returns the amount of nibbles
     pub fn len(&self) -> usize {
         self.data.len()
     }
 
+    /// Returns true if there are no nibbles
     pub fn is_empty(&self) -> bool {
         self.data.is_empty()
     }
@@ -69,18 +75,23 @@ impl Nibbles {
         self.next().filter(|choice| *choice < 16).map(usize::from)
     }
 
+    /// Returns the nibbles after the given offset
     pub fn offset(&self, offset: usize) -> Nibbles {
         self.slice(offset, self.len())
     }
 
+    /// Returns the nibbles beween the start and end indexes
     pub fn slice(&self, start: usize, end: usize) -> Nibbles {
         Nibbles::from_hex(self.data[start..end].to_vec())
     }
 
+    /// Extends the nibbles with another list of nibbles
     pub fn extend(&mut self, other: &Nibbles) {
         self.data.extend_from_slice(other.as_ref());
     }
 
+
+    /// Return the nibble at the given index, will panic if the index is out of range
     pub fn at(&self, i: usize) -> usize {
         self.data[i] as usize
     }
@@ -96,6 +107,7 @@ impl Nibbles {
     }
 
     /// Taken from https://github.com/citahub/cita_trie/blob/master/src/nibbles.rs#L56
+    /// Encodes the nibbles in compact form
     pub fn encode_compact(&self) -> Vec<u8> {
         let mut compact = vec![];
         let is_leaf = self.is_leaf();
@@ -126,6 +138,7 @@ impl Nibbles {
         compact
     }
 
+    /// Returns true if the nibbles contain the leaf flag (16) at the end
     pub fn is_leaf(&self) -> bool {
         if self.is_empty() {
             false
@@ -134,6 +147,7 @@ impl Nibbles {
         }
     }
 
+    /// Combines the nibbles into bytes, trimming the leaf flag if necessary
     pub fn to_bytes(&self) -> Vec<u8> {
         // Trim leaf flag
         let data = if !self.is_empty() && self.is_leaf() {
