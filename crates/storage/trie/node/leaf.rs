@@ -146,7 +146,7 @@ mod test {
     #[test]
     fn get_some() {
         let node = pmt_node! { @(trie)
-            leaf { vec![0, 12, 16] => vec![0x12, 0x34, 0x56, 0x78] }
+            leaf { vec![1, 2, 16] => vec![0x12, 0x34, 0x56, 0x78] }
         };
 
         assert_eq!(

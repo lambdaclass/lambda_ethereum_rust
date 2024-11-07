@@ -215,19 +215,17 @@ mod test {
         let mut trie = Trie::new_temp();
         let node = pmt_node! { @(trie)
             extension { [0], branch {
-                0 => leaf { &[0x00] => vec![0x12, 0x34, 0x56, 0x78] },
-                1 => leaf { &[0x01] => vec![0x34, 0x56, 0x78, 0x9A] },
+                0 => leaf { vec![16] => vec![0x12, 0x34, 0x56, 0x78] },
+                1 => leaf { vec![16] => vec![0x34, 0x56, 0x78, 0x9A] },
             } }
         };
 
         assert_eq!(
-            node.get(&trie.state, Nibbles::from_hex(vec![0x00]))
-                .unwrap(),
+            node.get(&trie.state, Nibbles::from_bytes(&[0x00])).unwrap(),
             Some(vec![0x12, 0x34, 0x56, 0x78]),
         );
         assert_eq!(
-            node.get(&trie.state, Nibbles::from_hex(vec![0x01]))
-                .unwrap(),
+            node.get(&trie.state, Nibbles::from_bytes(&[0x01])).unwrap(),
             Some(vec![0x34, 0x56, 0x78, 0x9A]),
         );
     }
@@ -237,14 +235,13 @@ mod test {
         let mut trie = Trie::new_temp();
         let node = pmt_node! { @(trie)
             extension { [0], branch {
-                0 => leaf { &[0x00] => vec![0x12, 0x34, 0x56, 0x78] },
-                1 => leaf { &[0x01] => vec![0x34, 0x56, 0x78, 0x9A] },
+                0 => leaf { vec![16] => vec![0x12, 0x34, 0x56, 0x78] },
+                1 => leaf { vec![16] => vec![0x34, 0x56, 0x78, 0x9A] },
             } }
         };
 
         assert_eq!(
-            node.get(&trie.state, Nibbles::from_hex(vec![0x02]))
-                .unwrap(),
+            node.get(&trie.state, Nibbles::from_bytes(&[0x02])).unwrap(),
             None,
         );
     }
@@ -254,13 +251,13 @@ mod test {
         let mut trie = Trie::new_temp();
         let node = pmt_node! { @(trie)
             extension { [0], branch {
-                0 => leaf { &[0x00] => vec![0x12, 0x34, 0x56, 0x78] },
-                1 => leaf { &[0x01] => vec![0x34, 0x56, 0x78, 0x9A] },
+                0 => leaf { vec![16] => vec![0x12, 0x34, 0x56, 0x78] },
+                1 => leaf { vec![16] => vec![0x34, 0x56, 0x78, 0x9A] },
             } }
         };
 
         let node = node
-            .insert(&mut trie.state, Nibbles::from_hex(vec![0x02]), vec![])
+            .insert(&mut trie.state, Nibbles::from_bytes(&[0x02]), vec![])
             .unwrap();
         let node = match node {
             Node::Extension(x) => x,
@@ -274,21 +271,24 @@ mod test {
         let mut trie = Trie::new_temp();
         let node = pmt_node! { @(trie)
             extension { [0], branch {
-                0 => leaf { &[0x00] => vec![0x12, 0x34, 0x56, 0x78] },
-                1 => leaf { &[0x01] => vec![0x34, 0x56, 0x78, 0x9A] },
+                0 => leaf { vec![16] => vec![0x12, 0x34, 0x56, 0x78] },
+                1 => leaf { vec![16] => vec![0x34, 0x56, 0x78, 0x9A] },
             } }
         };
 
         let node = node
-            .insert(&mut trie.state, Nibbles::from_hex(vec![0x10]), vec![0x20])
+            .insert(
+                &mut trie.state,
+                dbg!(Nibbles::from_bytes(&[0x10])),
+                vec![0x20],
+            )
             .unwrap();
-        let node = match node {
+        let node = match dbg!(node) {
             Node::Branch(x) => x,
             _ => panic!("expected a branch node"),
         };
         assert_eq!(
-            node.get(&trie.state, Nibbles::from_hex(vec![0x10]))
-                .unwrap(),
+            node.get(&trie.state, Nibbles::from_bytes(&[0x10])).unwrap(),
             Some(vec![0x20])
         );
     }
@@ -298,21 +298,20 @@ mod test {
         let mut trie = Trie::new_temp();
         let node = pmt_node! { @(trie)
             extension { [0, 0], branch {
-                0 => leaf { &[0x00, 0x00] => vec![0x12, 0x34, 0x56, 0x78] },
-                1 => leaf { &[0x00, 0x10] => vec![0x34, 0x56, 0x78, 0x9A] },
+                0 => leaf { vec![16] => vec![0x12, 0x34, 0x56, 0x78] },
+                1 => leaf { vec![16]=> vec![0x34, 0x56, 0x78, 0x9A] },
             } }
         };
 
         let node = node
-            .insert(&mut trie.state, Nibbles::from_hex(vec![0x10]), vec![0x20])
+            .insert(&mut trie.state, Nibbles::from_bytes(&[0x10]), vec![0x20])
             .unwrap();
         let node = match node {
             Node::Branch(x) => x,
             _ => panic!("expected a branch node"),
         };
         assert_eq!(
-            node.get(&trie.state, Nibbles::from_hex(vec![0x10]))
-                .unwrap(),
+            node.get(&trie.state, Nibbles::from_bytes(&[0x10])).unwrap(),
             Some(vec![0x20])
         );
     }
@@ -322,12 +321,12 @@ mod test {
         let mut trie = Trie::new_temp();
         let node = pmt_node! { @(trie)
             extension { [0, 0], branch {
-                0 => leaf { &[0x00, 0x00] => vec![0x12, 0x34, 0x56, 0x78] },
-                1 => leaf { &[0x00, 0x10] => vec![0x34, 0x56, 0x78, 0x9A] },
+                0 => leaf { vec![16] => vec![0x12, 0x34, 0x56, 0x78] },
+                1 => leaf { vec![16] => vec![0x34, 0x56, 0x78, 0x9A] },
             } }
         };
 
-        let path = Nibbles::from_hex(vec![0x01]);
+        let path = Nibbles::from_bytes(&[0x01]);
         let value = vec![0x02];
 
         let node = node
@@ -343,12 +342,12 @@ mod test {
         let mut trie = Trie::new_temp();
         let node = pmt_node! { @(trie)
             extension { [0, 0], branch {
-                0 => leaf { &[0x00, 0x00] => vec![0x12, 0x34, 0x56, 0x78] },
-                1 => leaf { &[0x00, 0x10] => vec![0x34, 0x56, 0x78, 0x9A] },
+                0 => leaf { vec![16] => vec![0x12, 0x34, 0x56, 0x78] },
+                1 => leaf { vec![16] => vec![0x34, 0x56, 0x78, 0x9A] },
             } }
         };
 
-        let path = Nibbles::from_hex(vec![0x01]);
+        let path = Nibbles::from_bytes(&[0x01]);
         let value = vec![0x04];
 
         let node = node
@@ -364,13 +363,13 @@ mod test {
         let mut trie = Trie::new_temp();
         let node = pmt_node! { @(trie)
             extension { [0], branch {
-                0 => leaf { &[0x00] => vec![0x00] },
-                1 => leaf { &[0x01] => vec![0x01] },
+                0 => leaf { vec![16] => vec![0x00] },
+                1 => leaf { vec![16] => vec![0x01] },
             } }
         };
 
         let (node, value) = node
-            .remove(&mut trie.state, Nibbles::from_hex(vec![0x02]))
+            .remove(&mut trie.state, Nibbles::from_bytes(&[0x02]))
             .unwrap();
 
         assert!(matches!(node, Some(Node::Extension(_))));
@@ -382,13 +381,13 @@ mod test {
         let mut trie = Trie::new_temp();
         let node = pmt_node! { @(trie)
             extension { [0], branch {
-                0 => leaf { &[0x00] => vec![0x00] },
-                1 => leaf { &[0x01] => vec![0x01] },
+                0 => leaf { vec![16] => vec![0x00] },
+                1 => leaf { vec![16] => vec![0x01] },
             } }
         };
 
         let (node, value) = node
-            .remove(&mut trie.state, Nibbles::from_hex(vec![0x01]))
+            .remove(&mut trie.state, Nibbles::from_bytes(&[0x01]))
             .unwrap();
 
         assert!(matches!(node, Some(Node::Leaf(_))));
@@ -400,16 +399,16 @@ mod test {
         let mut trie = Trie::new_temp();
         let node = pmt_node! { @(trie)
             extension { [0], branch {
-                0 => leaf { &[0x00] => vec![0x00] },
+                0 => leaf { vec![16] => vec![0x00] },
                 1 => extension { [0], branch {
-                    0 => leaf { &[0x01, 0x00] => vec![0x01, 0x00] },
-                    1 => leaf { &[0x01, 0x01] => vec![0x01, 0x01] },
+                    0 => leaf { vec![16] => vec![0x01, 0x00] },
+                    1 => leaf { vec![16] => vec![0x01, 0x01] },
                 } },
             } }
         };
 
         let (node, value) = node
-            .remove(&mut trie.state, Nibbles::from_hex(vec![0x00]))
+            .remove(&mut trie.state, Nibbles::from_bytes(&[0x00]))
             .unwrap();
 
         assert!(matches!(node, Some(Node::Extension(_))));
@@ -420,21 +419,15 @@ mod test {
     fn compute_hash() {
         /*
         Extension {
-            [0x00, 0x00]
+            [0, 0]
             Branch { [
-                Leaf { [0x00, 0x00], [0x12, 0x34] }
-                Leaf { [0x00, 0x10], [0x56, 0x78] }
+               0: Leaf { [0, 16], [0x12, 0x34] }
+               1: Leaf { [0, 16], [0x56, 0x78] }
             }
         }
         */
-        let leaf_node_a = LeafNode::new(
-            Nibbles::from_bytes(&[0x00, 0x00]).offset(3),
-            vec![0x12, 0x34],
-        );
-        let leaf_node_b = LeafNode::new(
-            Nibbles::from_bytes(&[0x00, 0x10]).offset(3),
-            vec![0x56, 0x78],
-        );
+        let leaf_node_a = LeafNode::new(Nibbles::from_hex(vec![0, 16]), vec![0x12, 0x34]);
+        let leaf_node_b = LeafNode::new(Nibbles::from_hex(vec![0, 16]), vec![0x56, 0x78]);
         let mut choices = BranchNode::EMPTY_CHOICES;
         choices[0] = leaf_node_a.compute_hash();
         choices[1] = leaf_node_b.compute_hash();
@@ -455,19 +448,19 @@ mod test {
     fn compute_hash_long() {
         /*
         Extension {
-            [0x00, 0x00]
+            [0, 0]
             Branch { [
-                Leaf { [0x00, 0x00], [0x12, 0x34, 0x56, 0x78, 0x9A] }
-                Leaf { [0x00, 0x10], [0x34, 0x56, 0x78, 0x9A, 0xBC] }
+                0: Leaf { [0, 16], [0x12, 0x34, 0x56, 0x78, 0x9A] }
+                1: Leaf { [0, 16], [0x34, 0x56, 0x78, 0x9A, 0xBC] }
             }
         }
         */
         let leaf_node_a = LeafNode::new(
-            Nibbles::from_bytes(&[0x00, 0x00]),
+            Nibbles::from_hex(vec![0, 16]),
             vec![0x12, 0x34, 0x56, 0x78, 0x9A],
         );
         let leaf_node_b = LeafNode::new(
-            Nibbles::from_bytes(&[0x00, 0x10]),
+            Nibbles::from_hex(vec![0, 16]),
             vec![0x34, 0x56, 0x78, 0x9A, 0xBC],
         );
         let mut choices = BranchNode::EMPTY_CHOICES;
