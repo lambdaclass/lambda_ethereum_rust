@@ -89,7 +89,7 @@ impl BranchNode {
         // If path is at the end, insert or replace its own value.
         // Otherwise, check the corresponding choice and insert or delegate accordingly.
         if let Some(choice) = path.next_choice() {
-            match &mut self.choices[choice as usize] {
+            match &mut self.choices[choice] {
                 // Create new child (leaf node)
                 choice_hash if !choice_hash.is_valid() => {
                     let new_leaf = LeafNode::new(path, value);
@@ -142,18 +142,18 @@ impl BranchNode {
         // Step 1: Remove value
         // Check if the value is located in a child subtrie
         let value = if let Some(choice_index) = path.next_choice() {
-            if self.choices[choice_index as usize].is_valid() {
+            if self.choices[choice_index].is_valid() {
                 let child_node = state
-                    .get_node(self.choices[choice_index as usize].clone())?
+                    .get_node(self.choices[choice_index].clone())?
                     .expect("inconsistent internal tree structure");
                 // Remove value from child node
                 let (child_node, old_value) = child_node.remove(state, path.clone())?;
                 if let Some(child_node) = child_node {
                     // Update child node
-                    self.choices[choice_index as usize] = child_node.insert_self(state)?;
+                    self.choices[choice_index] = child_node.insert_self(state)?;
                 } else {
                     // Remove child hash if the child subtrie was removed in the process
-                    self.choices[choice_index as usize] = NodeHash::default();
+                    self.choices[choice_index] = NodeHash::default();
                 }
                 old_value
             } else {

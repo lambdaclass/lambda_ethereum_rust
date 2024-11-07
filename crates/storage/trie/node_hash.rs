@@ -14,11 +14,6 @@ pub enum NodeHash {
     Inline(Vec<u8>),
 }
 
-const fn compute_byte_usage(value: usize) -> usize {
-    let bits_used = usize::BITS as usize - value.leading_zeros() as usize;
-    (bits_used.saturating_sub(1) >> 3) + 1
-}
-
 impl AsRef<[u8]> for NodeHash {
     fn as_ref(&self) -> &[u8] {
         match self {
