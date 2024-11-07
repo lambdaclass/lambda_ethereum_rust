@@ -15,7 +15,7 @@ use crate::rlpx::{message::RLPxMessage, utils::snappy_encode};
 // Broadcast message
 #[derive(Debug)]
 pub(crate) struct Transactions {
-    transactions: Vec<Transaction>,
+    pub(crate) transactions: Vec<Transaction>,
 }
 
 impl Transactions {

@@ -16,7 +16,7 @@ pub trait RLPxMessage: Sized {
     fn decode(msg_data: &[u8]) -> Result<Self, RLPDecodeError>;
 }
 #[derive(Debug)]
-pub(crate) enum Message {
+pub enum Message {
     Hello(HelloMessage),
     Disconnect(DisconnectMessage),
     Ping(PingMessage),
@@ -70,7 +70,10 @@ impl Message {
             Message::Ping(msg) => msg.encode(buf),
             Message::Pong(msg) => msg.encode(buf),
             Message::Status(msg) => msg.encode(buf),
-            Message::TransactionsMessage(msg) => msg.encode(buf),
+            Message::TransactionsMessage(msg) => {
+                0x12_u8.encode(buf);
+                msg.encode(buf)
+            }
             Message::GetBlockHeaders(msg) => {
                 0x13_u8.encode(buf);
                 msg.encode(buf)

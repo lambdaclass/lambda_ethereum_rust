@@ -1,8 +1,10 @@
+use std::sync::Arc;
+
 use crate::{
     rlpx::{
         eth::{
             backend,
-            blocks::{BlockBodies, BlockHeaders},
+            blocks::{BlockBodies, BlockHeaders}, transactions::Transactions,
         },
         handshake::encode_ack_message,
         message::Message,
@@ -31,7 +33,10 @@ use k256::{
     PublicKey, SecretKey,
 };
 use sha3::{Digest, Keccak256};
-use tokio::io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt};
+use tokio::{
+    io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt},
+    sync::broadcast,
+};
 use tracing::{error, info};
 const CAP_P2P: (Capability, u8) = (Capability::P2p, 5);
 const CAP_ETH: (Capability, u8) = (Capability::Eth, 68);
@@ -47,20 +52,37 @@ pub(crate) struct RLPxConnection<S> {
     stream: S,
     storage: Store,
     capabilities: Vec<(Capability, u8)>,
+    tx_broadcast_send: broadcast::Sender<Arc<Message>>,
+    tx_broadcast_receive: broadcast::Receiver<Arc<Message>>,
 }
 
 impl<S: AsyncWrite + AsyncRead + std::marker::Unpin> RLPxConnection<S> {
-    fn new(signer: SigningKey, stream: S, state: RLPxConnectionState, storage: Store) -> Self {
+    fn new(
+        signer: SigningKey,
+        stream: S,
+        state: RLPxConnectionState,
+        storage: Store,
+        tx_broadcast_send: broadcast::Sender<Arc<Message>>,
+    ) -> Self {
+        // FIXME: Only subscribe after handshake.
+        let broadcast_receive = tx_broadcast_send.subscribe();
         Self {
             signer,
             state,
             stream,
             storage,
             capabilities: vec![],
+            tx_broadcast_send,
+            tx_broadcast_receive: broadcast_receive,
         }
     }
 
-    pub fn receiver(signer: SigningKey, stream: S, storage: Store) -> Self {
+    pub fn receiver(
+        signer: SigningKey,
+        stream: S,
+        storage: Store,
+        tx_broadcast_send: broadcast::Sender<Arc<Message>>,
+    ) -> Self {
         let mut rng = rand::thread_rng();
         Self::new(
             signer,
@@ -70,10 +92,17 @@ impl<S: AsyncWrite + AsyncRead + std::marker::Unpin> RLPxConnection<S> {
                 SecretKey::random(&mut rng),
             )),
             storage,
+            tx_broadcast_send
         )
     }
 
-    pub async fn initiator(signer: SigningKey, msg: &[u8], stream: S, storage: Store) -> Self {
+    pub async fn initiator(
+        signer: SigningKey,
+        msg: &[u8],
+        stream: S,
+        storage: Store,
+        tx_broadcast_send: broadcast::Sender<Arc<Message>>,
+    ) -> Self {
         let mut rng = rand::thread_rng();
         let digest = Keccak256::digest(&msg[65..]);
         let signature = &Signature::from_bytes(msg[..64].into()).unwrap();
@@ -84,7 +113,13 @@ impl<S: AsyncWrite + AsyncRead + std::marker::Unpin> RLPxConnection<S> {
             SecretKey::random(&mut rng),
             pubkey2id(&peer_pk.into()),
         ));
-        RLPxConnection::new(signer, stream, state, storage)
+        RLPxConnection::new(
+            signer,
+            stream,
+            state,
+            storage,
+            tx_broadcast_send,
+        )
     }
 
     pub async fn handshake(&mut self) -> Result<(), RLPxError> {
@@ -147,35 +182,59 @@ impl<S: AsyncWrite + AsyncRead + std::marker::Unpin> RLPxConnection<S> {
         match &self.state {
             RLPxConnectionState::Established(_) => {
                 info!("Started peer main loop");
+                let mut broadcast = self.tx_broadcast_send.subscribe();
                 loop {
-                    match self.receive().await {
-                        // TODO: implement handlers for each message type
-                        Message::Disconnect(_) => info!("Received Disconnect"),
-                        Message::Ping(_) => info!("Received Ping"),
-                        Message::Pong(_) => info!("Received Pong"),
-                        Message::Status(_) => info!("Received Status"),
-                        Message::GetAccountRange(req) => {
-                            let response =
-                                process_account_range_request(req, self.storage.clone())?;
-                            self.send(Message::AccountRange(response)).await
-                        }
-                        Message::GetBlockHeaders(msg_data) => {
-                            let response = BlockHeaders {
-                                id: msg_data.id,
-                                block_headers: msg_data.fetch_headers(&self.storage),
+                    // FIXME: Add select macro to expect messages from the channel.
+                    tokio::select! {
+                        received_msg = self.receive() => {
+                            match received_msg {
+                                // TODO: implement handlers for each message type
+                                Message::Disconnect(_) => info!("Received Disconnect"),
+                                Message::Ping(_) => info!("Received Ping"),
+                                Message::Pong(_) => info!("Received Pong"),
+                                Message::Status(_) => info!("Received Status"),
+                                txs_msg @ Message::TransactionsMessage(_) => {
+                                    let txs = Arc::new(txs_msg);
+                                    // FIXME: Remove this unwrap
+                                    self.tx_broadcast_send.send(txs).unwrap();
+                                }
+                                Message::GetAccountRange(req) => {
+                                    let response =
+                                        process_account_range_request(req, self.storage.clone())?;
+                                    self.send(Message::AccountRange(response)).await
+                                }
+                                Message::GetBlockHeaders(msg_data) => {
+                                    let response = BlockHeaders {
+                                        id: msg_data.id,
+                                        block_headers: msg_data.fetch_headers(&self.storage),
+                                    };
+                                    self.send(Message::BlockHeaders(response)).await;
+                                }
+                                Message::GetBlockBodies(msg_data) => {
+                                    let response = BlockBodies {
+                                        id: msg_data.id,
+                                        block_bodies: msg_data.fetch_blocks(&self.storage),
+                                    };
+                                    self.send(Message::BlockBodies(response)).await;
+                                }
+                                // TODO: Add new message types and handlers as they are implemented
+                                message => return Err(RLPxError::UnexpectedMessage(message)),
                             };
-                            self.send(Message::BlockHeaders(response)).await;
                         }
-                        Message::GetBlockBodies(msg_data) => {
-                            let response = BlockBodies {
-                                id: msg_data.id,
-                                block_bodies: msg_data.fetch_blocks(&self.storage),
-                            };
-                            self.send(Message::BlockBodies(response)).await;
+                        broadcasted_msg = broadcast.recv() => {
+                            // FIXME: Properly do this.
+                            let msg = broadcasted_msg.unwrap();
+                            match *msg {
+                                Message::TransactionsMessage(ref txs) => {
+                                    let cloned = txs.transactions.clone();
+                                    println!("THE CLONED TX: {cloned:?}");
+                                    let new_msg = Message::TransactionsMessage(Transactions { transactions: cloned });
+                                    self.send(new_msg).await;
+                                }
+                                _ => todo!()
+                            }
                         }
-                        // TODO: Add new message types and handlers as they are implemented
-                        message => return Err(RLPxError::UnexpectedMessage(message)),
-                    };
+                    }
                 }
             }
             _ => Err(RLPxError::InvalidState(
