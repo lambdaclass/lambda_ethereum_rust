@@ -61,7 +61,7 @@ impl Nibbles {
 
     /// Removes and returns the first nibble
     pub fn next(&mut self) -> Option<u8> {
-        (!self.is_empty()).then_some(self.data.remove(0))
+        (!self.is_empty()).then(|| self.data.remove(0))
     }
 
     /// Removes and returns the first nibble if it is a suitable choice index (aka < 16)
