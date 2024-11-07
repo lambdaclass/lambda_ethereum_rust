@@ -50,7 +50,10 @@ impl Account {
 
     /// New account with info and empty storage
     pub fn new_with_info(info: AccountInfo) -> Self {
-        Self { info, storage: HashMap::new() }
+        Self {
+            info,
+            storage: HashMap::new(),
+        }
     }
 
     pub fn has_code(&self) -> bool {
