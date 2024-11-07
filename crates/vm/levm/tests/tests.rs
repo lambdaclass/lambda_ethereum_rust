@@ -3906,7 +3906,7 @@ fn create2_happy_path() {
         sender_addr,
         &Bytes::from(initialization_code.clone()),
         U256::from(salt),
-    );
+    ).unwrap();
 
     let operations = vec![
         // Store initialization code in memory
