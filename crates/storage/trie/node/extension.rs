@@ -1,10 +1,8 @@
-use bytes::Bytes;
 use ethereum_rust_rlp::structs::Encoder;
 
 use crate::dumb_nibbles::DumbNibbles;
 use crate::error::TrieError;
-use crate::nibble::NibbleVec;
-use crate::node_hash::{NodeEncoder, NodeHash, PathKind};
+use crate::node_hash::NodeHash;
 use crate::state::TrieState;
 use crate::ValueRLP;
 

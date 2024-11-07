@@ -1,13 +1,8 @@
-use bytes::Bytes;
 use ethereum_rust_rlp::structs::Encoder;
 
 use crate::{
-    dumb_nibbles::DumbNibbles,
-    error::TrieError,
-    node::BranchNode,
-    node_hash::{NodeEncoder, NodeHash},
-    state::TrieState,
-    ValueRLP,
+    dumb_nibbles::DumbNibbles, error::TrieError, node::BranchNode, node_hash::NodeHash,
+    state::TrieState, ValueRLP,
 };
 
 use super::{ExtensionNode, Node};
