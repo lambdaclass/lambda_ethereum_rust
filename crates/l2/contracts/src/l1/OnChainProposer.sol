@@ -6,6 +6,7 @@ import "../../lib/openzeppelin-contracts/contracts/utils/ReentrancyGuard.sol";
 import "./interfaces/IOnChainProposer.sol";
 import {CommonBridge} from "./CommonBridge.sol";
 import {ICommonBridge} from "./interfaces/ICommonBridge.sol";
+import {IRiscZeroVerifier} from "./interfaces/IRiscZeroVerifier.sol";
 
 /// @title OnChainProposer contract.
 /// @author LambdaClass
@@ -29,9 +30,13 @@ contract OnChainProposer is IOnChainProposer, ReentrancyGuard {
     uint256 public lastVerifiedBlock;
 
     address public BRIDGE;
+    address public R0VERIFIER;
 
     /// @inheritdoc IOnChainProposer
-    function initialize(address bridge) public nonReentrant {
+    function initialize(
+        address bridge,
+        address r0verifier
+    ) public nonReentrant {
         require(
             BRIDGE == address(0),
             "OnChainProposer: contract already initialized"
@@ -45,6 +50,20 @@ contract OnChainProposer is IOnChainProposer, ReentrancyGuard {
             "OnChainProposer: bridge is the contract address"
         );
         BRIDGE = bridge;
+
+        require(
+            R0VERIFIER == address(0),
+            "OnChainProposer: contract already initialized"
+        );
+        require(
+            r0verifier != address(0),
+            "OnChainProposer: r0verifier is the zero address"
+        );
+        require(
+            r0verifier != address(this),
+            "OnChainProposer: r0verifier is the contract address"
+        );
+        R0VERIFIER = r0verifier;
     }
 
     /// @inheritdoc IOnChainProposer
@@ -88,7 +107,9 @@ contract OnChainProposer is IOnChainProposer, ReentrancyGuard {
     /// @inheritdoc IOnChainProposer
     function verify(
         uint256 blockNumber,
-        bytes calldata // blockProof
+        bytes calldata blockProof,
+        bytes32 imageId,
+        bytes32 journalDigest
     ) external override {
         require(
             blockCommitments[blockNumber].commitmentHash != bytes32(0),
@@ -98,6 +119,15 @@ contract OnChainProposer is IOnChainProposer, ReentrancyGuard {
             blockNumber == lastVerifiedBlock + 1,
             "OnChainProposer: block already verified"
         );
+
+        if (R0VERIFIER != address(0xAA)) {
+            // If the verification fails, it will revert.
+            IRiscZeroVerifier(R0VERIFIER).verify(
+                blockProof,
+                imageId,
+                journalDigest
+            );
+        }
 
         lastVerifiedBlock = blockNumber;
         ICommonBridge(BRIDGE).removeDepositLogs(

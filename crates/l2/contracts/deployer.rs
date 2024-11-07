@@ -18,7 +18,7 @@ const SALT: H256 = H256::zero();
 
 #[tokio::main]
 async fn main() {
-    let (deployer, deployer_private_key, eth_client) = setup();
+    let (deployer, deployer_private_key, contract_verifier_address, eth_client) = setup();
     download_contract_deps();
     compile_contracts();
     let (on_chain_proposer, bridge_address) =
@@ -28,12 +28,13 @@ async fn main() {
         deployer_private_key,
         on_chain_proposer,
         bridge_address,
+        contract_verifier_address,
         &eth_client,
     )
     .await;
 }
 
-fn setup() -> (Address, SecretKey, EthClient) {
+fn setup() -> (Address, SecretKey, Address, EthClient) {
     read_env_file().expect("Failed to read .env file");
     let eth_client = EthClient::new(&std::env::var("ETH_RPC_URL").expect("ETH_RPC_URL not set"));
     let deployer = std::env::var("DEPLOYER_ADDRESS")
@@ -51,8 +52,16 @@ fn setup() -> (Address, SecretKey, EthClient) {
         .as_fixed_bytes(),
     )
     .expect("Malformed DEPLOYER_PRIVATE_KEY (SecretKey::parse)");
-
-    (deployer, deployer_private_key, eth_client)
+    let contract_verifier_address = std::env::var("DEPLOYER_CONTRACT_VERIFIER")
+        .expect("DEPLOYER_CONTRACT_VERIFIER not set")
+        .parse()
+        .expect("Malformed DEPLOYER_CONTRACT_VERIFIER");
+    (
+        deployer,
+        deployer_private_key,
+        contract_verifier_address,
+        eth_client,
+    )
 }
 
 fn download_contract_deps() {
@@ -240,11 +249,13 @@ async fn initialize_contracts(
     deployer_private_key: SecretKey,
     on_chain_proposer: Address,
     bridge: Address,
+    contract_verifier_address: Address,
     eth_client: &EthClient,
 ) {
     initialize_on_chain_proposer(
         on_chain_proposer,
         bridge,
+        contract_verifier_address,
         deployer,
         deployer_private_key,
         eth_client,
@@ -263,11 +274,12 @@ async fn initialize_contracts(
 async fn initialize_on_chain_proposer(
     on_chain_proposer: Address,
     bridge: Address,
+    contract_verifier_address: Address,
     deployer: Address,
     deployer_private_key: SecretKey,
     eth_client: &EthClient,
 ) {
-    let on_chain_proposer_initialize_selector = keccak(b"initialize(address)")
+    let on_chain_proposer_initialize_selector = keccak(b"initialize(address,address)")
         .as_bytes()
         .get(..4)
         .expect("Failed to get initialize selector")
@@ -279,10 +291,18 @@ async fn initialize_on_chain_proposer(
         encoded_bridge
     };
 
+    let encoded_contract_verifier = {
+        let offset = 32 - contract_verifier_address.as_bytes().len() % 32;
+        let mut encoded_contract_verifier = vec![0; offset];
+        encoded_contract_verifier.extend_from_slice(contract_verifier_address.as_bytes());
+        encoded_contract_verifier
+    };
+
     let mut on_chain_proposer_initialization_calldata = Vec::new();
     on_chain_proposer_initialization_calldata
         .extend_from_slice(&on_chain_proposer_initialize_selector);
     on_chain_proposer_initialization_calldata.extend_from_slice(&encoded_bridge);
+    on_chain_proposer_initialization_calldata.extend_from_slice(&encoded_contract_verifier);
 
     let initialize_tx_hash = eth_client
         .send(
