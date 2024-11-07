@@ -458,7 +458,6 @@ impl RpcHandler for EstimateGasRequest {
             if code.is_none() {
                 let mut value_transfer_transaction = transaction.clone();
                 value_transfer_transaction.gas = Some(TRANSACTION_GAS);
-                info!("Simulating value transfer transaction");
                 let result: Result<ExecutionResult, RpcErr> = simulate_tx(
                     &value_transfer_transaction,
                     &block_header,
@@ -490,7 +489,6 @@ impl RpcHandler for EstimateGasRequest {
         // Check whether the execution is possible
         let mut transaction = transaction.clone();
         transaction.gas = Some(highest_gas_limit);
-        info!("Simulating transaction (without shortcircuiting");
         let result = simulate_tx(&transaction, &block_header, storage.clone(), spec_id)?;
 
         let gas_used = result.gas_used();
@@ -514,7 +512,6 @@ impl RpcHandler for EstimateGasRequest {
             }
             transaction.gas = Some(middle_gas_limit);
 
-            info!("Simulating transaction (binary search)");
             let result = simulate_tx(&transaction, &block_header, storage.clone(), spec_id);
             if let Ok(ExecutionResult::Success { .. }) = result {
                 highest_gas_limit = middle_gas_limit;
@@ -550,7 +547,6 @@ fn simulate_tx(
     storage: Store,
     spec_id: SpecId,
 ) -> Result<ExecutionResult, RpcErr> {
-    info!("Transaction to be simulated: {:?}", transaction);
     match ethereum_rust_vm::simulate_tx_from_generic(
         transaction,
         block_header,

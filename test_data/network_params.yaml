@@ -3,7 +3,6 @@ participants:
     cl_type: lighthouse
     validator_count: 32
   - el_type: geth
-    el_image: local-geth
     cl_type: lighthouse
     validator_count: 32
   - el_type: geth

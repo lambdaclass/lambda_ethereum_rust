@@ -179,9 +179,6 @@ fn validate_transaction(tx: &Transaction, store: Store) -> Result<(), MempoolErr
     }
 
     // Check gas limit is less than header's gas limit
-    use tracing::info;
-    info!("Header gas limit: {:?}", header.gas_limit);
-    info!("Tx gas limit: {:?}", tx.gas_limit());
     if header.gas_limit < tx.gas_limit() {
         return Err(MempoolError::TxGasLimitExceededError);
     }
