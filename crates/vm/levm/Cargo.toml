@@ -17,7 +17,7 @@ keccak-hash = "0.11.0"
 
 [lints.clippy]
 arithmetic_side_effects = "deny"
-panicking_overflow_checks = "warn"
+overflow_check_conditional = "warn"
 manual_saturating_arithmetic = "warn"
 
 [dev-dependencies]
