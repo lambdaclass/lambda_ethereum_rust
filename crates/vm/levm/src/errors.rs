@@ -43,6 +43,10 @@ pub enum VMError {
     NonceUnderflow,
     GasCostOverflow,
     PCUnderflow,
+    PCOverflow,
+    DataSizeOverflow,
+    InvalidRightShifting,
+    IndexIsTooHigh,
 }
 
 pub enum OpcodeSuccess {
