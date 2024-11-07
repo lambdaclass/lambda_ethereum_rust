@@ -227,6 +227,8 @@ impl<S: AsyncWrite + AsyncRead + std::marker::Unpin> RLPxConnection<S> {
                                 message => return Err(RLPxError::UnexpectedMessage(message)),
                             }
                         }
+                        // FIXME: Add an identifier to ignore the message if it
+                        // was already sent from this thread.
                         broadcasted_msg = broadcast.recv() => {
                             // FIXME: Properly do this.
                             let msg = broadcasted_msg.unwrap();
