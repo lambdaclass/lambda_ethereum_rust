@@ -602,12 +602,11 @@ impl VM {
             .ok_or(VMError::RemainingGasUnderflow)?;
         let gas_limit = std::cmp::min(gas_limit, potential_remaining_gas);
 
-        let new_depth = match current_call_frame.depth.checked_add(1) {
-            Some(depth) => depth,
-            None => {
-                return Err(VMError::StackOverflow); // Maybe could be depthOverflow but in concept is quite similar
-            }
-        };
+        let new_depth = current_call_frame
+            .depth
+            .checked_add(1)
+            .ok_or(VMError::StackOverflow)?; // Maybe could be depthOverflow but in concept is quite similar
+
         let mut new_call_frame = CallFrame::new(
             msg_sender,
             to,
@@ -639,15 +638,10 @@ impl VM {
         let tx_report = self.execute(&mut new_call_frame);
 
         // Add gas used by the sub-context to the current one after it's execution.
-        current_call_frame.gas_used = match current_call_frame
+        current_call_frame.gas_used = current_call_frame
             .gas_used
             .checked_add(tx_report.gas_used.into())
-        {
-            Some(gas) => gas,
-            None => {
-                return Err(VMError::ConsumedGasOverflow);
-            }
-        };
+            .ok_or(VMError::ConsumedGasOverflow)?;
         current_call_frame.logs.extend(tx_report.logs);
         current_call_frame
             .memory
@@ -813,23 +807,21 @@ impl VM {
         current_call_frame: &mut CallFrame,
         gas: U256,
     ) -> Result<(), VMError> {
-        let potential_consumed_gas = match current_call_frame.gas_used.checked_add(gas) {
-            Some(gas) => gas,
-            None => {
-                return Err(VMError::ConsumedGasOverflow);
-            }
-        };
+        let potential_consumed_gas = current_call_frame
+            .gas_used
+            .checked_add(gas)
+            .ok_or(VMError::ConsumedGasOverflow)?;
         if potential_consumed_gas > current_call_frame.gas_limit {
             return Err(VMError::OutOfGas);
         }
 
         current_call_frame.gas_used = potential_consumed_gas;
-        self.env.consumed_gas = match self.env.consumed_gas.checked_add(gas) {
-            Some(gas) => gas,
-            None => {
-                return Err(VMError::ConsumedGasOverflow);
-            }
-        };
+        self.env.consumed_gas = self
+            .env
+            .consumed_gas
+            .checked_add(gas)
+            .ok_or(VMError::ConsumedGasOverflow)?;
+
         Ok(())
     }
 
