@@ -73,7 +73,12 @@ impl ExecutionDB {
         for account_update in account_updates.iter() {
             let address = RevmAddress::from_slice(account_update.address.as_bytes());
             let account_state = store
-                .get_account_state(block.header.number, H160::from_slice(address.as_slice()))?
+                .get_account_state(
+                    store.get_block_number(block.header.parent_hash)?.ok_or(
+                        ExecutionDBError::NewMissingBlockNumber(block.header.parent_hash),
+                    )?,
+                    H160::from_slice(address.as_slice()),
+                )?
                 .ok_or(ExecutionDBError::NewMissingAccountInfo(address))?;
             accounts.insert(address, account_state);
 
