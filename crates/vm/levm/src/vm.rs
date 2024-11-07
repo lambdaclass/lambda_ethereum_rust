@@ -645,7 +645,7 @@ impl VM {
         current_call_frame.logs.extend(tx_report.logs);
         current_call_frame
             .memory
-            .store_n_bytes(ret_offset, &tx_report.output, ret_size);
+            .store_n_bytes(ret_offset, &tx_report.output, ret_size)?;
         current_call_frame.sub_return_data = tx_report.output;
 
         // What to do, depending on TxResult

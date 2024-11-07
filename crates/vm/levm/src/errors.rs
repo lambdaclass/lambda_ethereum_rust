@@ -47,6 +47,7 @@ pub enum VMError {
     DataSizeOverflow,
     InvalidRightShifting,
     IndexIsTooHigh,
+    OffsetOverflow,
 }
 
 pub enum OpcodeSuccess {

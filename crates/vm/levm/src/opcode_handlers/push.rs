@@ -40,7 +40,7 @@ impl VM {
 
         current_call_frame.stack.push(value_to_push)?;
 
-        current_call_frame.increment_pc_by(n_bytes as usize);
+        current_call_frame.increment_pc_by(n_bytes as usize)?;
 
         Ok(OpcodeSuccess::Continue)
     }

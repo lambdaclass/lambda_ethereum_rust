@@ -1,4 +1,7 @@
-use crate::account::{Account, AccountInfo, StorageSlot};
+use crate::{
+    account::{Account, AccountInfo, StorageSlot},
+    errors::VMError,
+};
 use ethereum_rust_core::{Address, H256, U256};
 use std::collections::HashMap;
 
@@ -101,10 +104,16 @@ impl Cache {
             .insert(key, slot);
     }
 
-    pub fn increment_account_nonce(&mut self, address: &Address) {
+    // TODO: Replace nonce increments with this (currently does not have senders)
+    pub fn increment_account_nonce(&mut self, address: &Address) -> Result<(), VMError> {
         if let Some(account) = self.accounts.get_mut(address) {
-            account.info.nonce += 1;
+            account.info.nonce = account
+                .info
+                .nonce
+                .checked_add(1)
+                .ok_or(VMError::NonceOverflow)?;
         }
+        Ok(())
     }
 
     pub fn is_account_cached(&self, address: &Address) -> bool {
