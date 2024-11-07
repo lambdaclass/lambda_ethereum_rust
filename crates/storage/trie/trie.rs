@@ -16,7 +16,6 @@ use nibbles::Nibbles;
 use node::Node;
 use node_hash::NodeHash;
 use sha3::{Digest, Keccak256};
-use trie_iter::print_trie;
 
 #[cfg(feature = "libmdbx")]
 pub use self::db::{libmdbx::LibmdbxTrieDB, libmdbx_dupsort::LibmdbxDupsortTrieDB};
@@ -71,7 +70,6 @@ impl Trie {
 
     /// Retrieve an RLP-encoded value from the trie given its RLP-encoded path.
     pub fn get(&self, path: &PathRLP) -> Result<Option<ValueRLP>, TrieError> {
-        println!("[GET] {:?}", Nibbles::from_bytes(&path).as_ref());
         if let Some(root) = &self.root {
             let root_node = self
                 .state
@@ -85,7 +83,6 @@ impl Trie {
 
     /// Insert an RLP-encoded value into the trie.
     pub fn insert(&mut self, path: PathRLP, value: ValueRLP) -> Result<(), TrieError> {
-        println!("[INSERT] {:?}", Nibbles::from_bytes(&path).as_ref());
         let root = self.root.take();
         if let Some(root_node) = root
             .map(|root| self.state.get_node(root))
@@ -101,16 +98,14 @@ impl Trie {
             let new_leaf = Node::from(LeafNode::new(Nibbles::from_bytes(&path), value));
             self.root = Some(new_leaf.insert_self(&mut self.state)?)
         }
-        print_trie(&self);
         Ok(())
     }
 
     /// Remove a value from the trie given its RLP-encoded path.
     /// Returns the value if it was succesfully removed or None if it wasn't part of the trie
     pub fn remove(&mut self, path: PathRLP) -> Result<Option<ValueRLP>, TrieError> {
-        println!("[REMOVE] {:?}", Nibbles::from_bytes(&path).as_ref());
         let root = self.root.take();
-        let res = if let Some(root) = root {
+        if let Some(root) = root {
             let root_node = self
                 .state
                 .get_node(root)?
@@ -123,9 +118,7 @@ impl Trie {
             Ok(old_value)
         } else {
             Ok(None)
-        };
-        print_trie(&self);
-        res
+        }
     }
 
     /// Return the hash of the trie's root node.

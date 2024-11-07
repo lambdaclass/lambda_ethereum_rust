@@ -67,32 +67,6 @@ impl TrieIterator {
     }
 }
 
-pub fn print_trie(trie: &Trie) {
-    let Some(root) = &trie.root else { return };
-    print_node(trie, root.clone());
-    print!("\n")
-}
-
-pub fn print_node(trie: &Trie, node_hash: NodeHash) {
-    match trie.state.get_node(node_hash).unwrap().unwrap() {
-        Node::Branch(n) => {
-            print!("Branch{:?} [", n.value);
-            for (i, child) in n.choices.iter().enumerate() {
-                if child.is_valid() {
-                    print!(" {i}: ");
-                    print_node(trie, child.clone());
-                }
-            }
-            print!(" ]")
-        }
-        Node::Extension(n) => {
-            print!("Ext{:?} -> ", n.prefix.as_ref());
-            print_node(trie, n.child);
-        }
-        Node::Leaf(n) => print!("Leaf{:?}{:?}", n.partial.as_ref(), n.value),
-    }
-}
-
 #[cfg(test)]
 mod tests {
 
