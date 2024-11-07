@@ -443,9 +443,10 @@ impl Store {
                 }
                 // Store the added storage in the account's storage trie and compute its new root
                 if !update.added_storage.is_empty() {
-                    let mut storage_trie = self
-                        .engine
-                        .open_storage_trie(update.address, account_state.storage_root);
+                    let mut storage_trie = self.engine.open_storage_trie(
+                        H256::from_slice(&hashed_address),
+                        account_state.storage_root,
+                    );
                     for (storage_key, storage_value) in &update.added_storage {
                         let hashed_key = hash_key(storage_key);
                         if storage_value.is_zero() {
@@ -835,9 +836,9 @@ impl Store {
         last_hash: Option<H256>,
     ) -> Result<Vec<Vec<u8>>, StoreError> {
         let state_trie = self.engine.open_state_trie(state_root);
-        let mut proof = state_trie.get_encoded_proof(&starting_hash.as_bytes().to_vec())?;
+        let mut proof = state_trie.get_proof(&starting_hash.as_bytes().to_vec())?;
         if let Some(last_hash) = last_hash {
-            proof.extend_from_slice(&state_trie.get_encoded_proof(&last_hash.as_bytes().to_vec())?);
+            proof.extend_from_slice(&state_trie.get_proof(&last_hash.as_bytes().to_vec())?);
         }
         Ok(proof)
     }

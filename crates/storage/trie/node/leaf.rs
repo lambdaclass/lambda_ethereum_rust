@@ -166,15 +166,6 @@ impl LeafNode {
         }
         Ok(())
     }
-
-    /// Appends the node to `node_path` if the encoded node is 32 or more bytes long
-    pub fn get_path(&self, path: NibbleSlice, node_path: &mut Vec<Node>) -> Result<(), TrieError> {
-        let encoded = self.encode_raw(path.offset());
-        if encoded.len() >= 32 {
-            node_path.push(Node::Leaf(self.clone()));
-        }
-        Ok(())
-    }
 }
 
 #[cfg(test)]

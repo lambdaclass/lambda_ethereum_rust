@@ -164,22 +164,6 @@ impl Trie {
         Ok(node_path)
     }
 
-    /// Obtain a merkle proof for the given path.
-    /// The proof will contain all the nodes traversed until reaching the node where the path is stored (including this last node).
-    /// The proof will still be constructed even if the path is not stored in the trie, proving its absence.
-    pub fn get_proof(&self, path: &PathRLP) -> Result<Vec<Node>, TrieError> {
-        // Will store all the encoded nodes traversed until reaching the node containing the path
-        let mut node_path = Vec::new();
-        let Some(root) = &self.root else {
-            return Ok(node_path);
-        };
-        if let Some(root_node) = self.state.get_node(root.clone())? {
-            node_path.push(root_node.clone()); // TODO: add if inlined only (if self.encode_raw().len() >= 32)
-            root_node.get_path(&self.state, NibbleSlice::new(&path), &mut node_path)?;
-        }
-        Ok(node_path)
-    }
-
     pub fn verify_proof(
         proof: &Vec<Vec<u8>>,
         root_hash: NodeHash,
@@ -1081,7 +1065,7 @@ mod test {
         trie.insert(b"duck".to_vec(), b"duckling".to_vec()).unwrap();
 
         let root_hash = trie.hash_no_commit().unwrap().into();
-        let trie_proof = trie.get_encoded_proof(&b"duck".to_vec()).unwrap();
+        let trie_proof = trie.get_proof(&b"duck".to_vec()).unwrap();
         assert!(Trie::verify_proof(
             &trie_proof,
             root_hash,
