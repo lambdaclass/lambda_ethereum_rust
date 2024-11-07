@@ -174,7 +174,7 @@ impl BranchNode {
             .collect::<Vec<_>>();
         let new_node = match (children.len(), !self.value.is_empty()) {
             // If this node still has a value but no longer has children, convert it into a leaf node
-            (0, true) => LeafNode::new(Nibbles::from_hex(vec![]), self.value).into(),
+            (0, true) => LeafNode::new(Nibbles::from_hex(vec![16]), self.value).into(),
             // If this node doesn't have a value and has only one child, replace it with its child node
             (1, false) => {
                 let (choice_index, child_hash) = children[0];

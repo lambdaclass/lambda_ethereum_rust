@@ -45,7 +45,6 @@ impl ExtensionNode {
         path: Nibbles,
         value: ValueRLP,
     ) -> Result<Node, TrieError> {
-        // OUTDATED
         /* Possible flow paths:
             * Prefix fully matches path
             Extension { prefix, child } -> Extension { prefix , child' } (insert into child)
