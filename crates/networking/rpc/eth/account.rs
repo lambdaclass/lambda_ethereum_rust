@@ -160,17 +160,19 @@ impl RpcHandler for GetTransactionCountRequest {
             self.address, self.block
         );
 
-        // If the tag is Pending, we need to get the nonce from the mempool
-        let pending_nonce =
-            if let BlockIdentifierOrHash::Identifier(BlockIdentifier::Tag(BlockTag::Pending)) =
-                self.block
-            {
-                mempool::get_nonce(&self.address, &context.storage)?
-            } else {
-                None
-            };
+        let has_pending_tag = matches!(
+            self.block,
+            BlockIdentifierOrHash::Identifier(BlockIdentifier::Tag(BlockTag::Pending))
+        );
 
-        let tx_qty = match pending_nonce {
+        // If the tag is Pending, we need to get the nonce from the mempool
+        let pending_nonce = if has_pending_tag {
+            mempool::get_nonce(&self.address, &context.storage)?
+        } else {
+            None
+        };
+
+        let nonce = match pending_nonce {
             Some(nonce) => nonce,
             None => {
                 let Some(block_number) = self.block.resolve_block_number(&context.storage)? else {
@@ -185,7 +187,7 @@ impl RpcHandler for GetTransactionCountRequest {
             }
         };
 
-        serde_json::to_value(format!("0x{:x}", tx_qty))
+        serde_json::to_value(format!("0x{:x}", nonce))
             .map_err(|error| RpcErr::Internal(error.to_string()))
     }
 }
