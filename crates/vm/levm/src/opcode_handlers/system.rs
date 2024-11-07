@@ -172,11 +172,9 @@ impl VM {
             .try_into()
             .unwrap_or(usize::MAX);
 
-        let gas_cost = current_call_frame.memory.expansion_cost(
-            offset
-                .checked_add(size)
-                .ok_or(VMError::OffsetOverflow)?,
-        )?;
+        let gas_cost = current_call_frame
+            .memory
+            .expansion_cost(offset.checked_add(size).ok_or(VMError::OffsetOverflow)?)?;
 
         self.increase_consumed_gas(current_call_frame, gas_cost)?;
 
@@ -341,11 +339,9 @@ impl VM {
 
         let size = current_call_frame.stack.pop()?.as_usize();
 
-        let gas_cost = current_call_frame.memory.expansion_cost(
-            offset
-                .checked_add(size)
-                .ok_or(VMError::OffsetOverflow)?,
-        )?;
+        let gas_cost = current_call_frame
+            .memory
+            .expansion_cost(offset.checked_add(size).ok_or(VMError::OffsetOverflow)?)?;
 
         self.increase_consumed_gas(current_call_frame, gas_cost)?;
 

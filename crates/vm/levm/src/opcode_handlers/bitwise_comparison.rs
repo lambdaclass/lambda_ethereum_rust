@@ -287,9 +287,7 @@ fn checked_shift_right(value: U256, shift: U256) -> Result<U256, VMError> {
     let mut shifts_left = shift;
 
     while shifts_left > U256::zero() {
-        result = result
-            .checked_div(U256::from(2))
-            .ok_or(VMError::Internal)?; // '2' will never be zero
+        result = result.checked_div(U256::from(2)).ok_or(VMError::Internal)?; // '2' will never be zero
         shifts_left = shifts_left
             .checked_sub(U256::one())
             .ok_or(VMError::Internal)?; // Should not reach negative values

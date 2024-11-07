@@ -284,8 +284,7 @@ impl VM {
         let code = if offset < bytecode_len {
             current_call_frame.bytecode.slice(
                 offset
-                    ..(offset.checked_add(size).ok_or(VMError::OffsetOverflow)?)
-                        .min(bytecode_len),
+                    ..(offset.checked_add(size).ok_or(VMError::OffsetOverflow)?).min(bytecode_len),
             )
         } else {
             vec![0u8; size].into()

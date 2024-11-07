@@ -478,7 +478,7 @@ impl VM {
                         .checked_mul(2)
                         .ok_or(VMError::VeryLargeNumber)?,
                 )
-                .ok_or(VMError::GasUsedOverflow)?; 
+                .ok_or(VMError::GasUsedOverflow)?;
 
             let contract_address = self.call_frames.first().unwrap().to;
             let mut created_contract = self.get_account(&contract_address);

@@ -44,11 +44,9 @@ impl VM {
             topics.push(H256::from_slice(&topic_bytes));
         }
 
-        let memory_expansion_cost = current_call_frame.memory.expansion_cost(
-            offset
-                .checked_add(size)
-                .ok_or(VMError::OffsetOverflow)?,
-        )?;
+        let memory_expansion_cost = current_call_frame
+            .memory
+            .expansion_cost(offset.checked_add(size).ok_or(VMError::OffsetOverflow)?)?;
 
         let topics_cost = gas_cost::LOGN_DYNAMIC_BASE
             .checked_mul(number_of_topics.into())
