@@ -204,7 +204,7 @@ cfg_if::cfg_if! {
                 tx.data().clone(),
                 db,
                 Cache::default(),
-            );
+            )?;
 
             vm.transact()
         }
