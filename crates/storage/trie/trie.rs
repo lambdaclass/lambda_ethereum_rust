@@ -218,7 +218,7 @@ impl Trie {
 }
 
 impl IntoIterator for Trie {
-    type Item = Node;
+    type Item = (DumbNibbles, Node);
 
     type IntoIter = TrieIterator;
 

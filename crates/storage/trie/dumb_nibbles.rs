@@ -90,6 +90,11 @@ impl DumbNibbles {
         self.data.insert(0, nibble);
     }
 
+    /// Inserts a nibble at the end
+    pub fn append(&mut self, nibble: u8) {
+        self.data.push(nibble);
+    }
+
     /// Taken from https://github.com/citahub/cita_trie/blob/master/src/nibbles.rs#L56
     pub fn encode_compact(&self) -> Vec<u8> {
         let mut compact = vec![];
@@ -123,6 +128,22 @@ impl DumbNibbles {
 
     pub fn is_leaf(&self) -> bool {
         self.data[self.data.len() - 1] == 16
+    }
+
+    pub fn to_bytes(&self) -> Vec<u8> {
+        // Trim leaf flag
+        let data = if !self.is_empty() && self.is_leaf() {
+            &self.data[..self.len() - 1]
+        } else {
+            &self.data[..]
+        };
+        // Combine nibbles into bytes
+        data.chunks(2)
+            .map(|chunk| match chunk.len() {
+                1 => chunk[0] << 4,
+                _ => chunk[0] << 4 | chunk[1],
+            })
+            .collect::<Vec<_>>()
     }
 }
 

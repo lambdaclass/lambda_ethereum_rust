@@ -1,14 +1,15 @@
-use crate::{node::Node, node_hash::NodeHash, PathRLP, Trie, ValueRLP};
+use crate::{dumb_nibbles::DumbNibbles, node::Node, node_hash::NodeHash, PathRLP, Trie, ValueRLP};
 
 pub struct TrieIterator {
     trie: Trie,
-    stack: Vec<NodeHash>,
+    // The stack contains the current traversed path and the next node to be traversed
+    stack: Vec<(DumbNibbles, NodeHash)>,
 }
 
 impl TrieIterator {
     pub(crate) fn new(trie: Trie) -> Self {
         let stack = if let Some(root) = &trie.root {
-            vec![root.clone()]
+            vec![(DumbNibbles::default(), root.clone())]
         } else {
             vec![]
         };
@@ -17,43 +18,51 @@ impl TrieIterator {
 }
 
 impl Iterator for TrieIterator {
-    type Item = Node;
+    type Item = (DumbNibbles, Node);
 
     fn next(&mut self) -> Option<Self::Item> {
         if self.stack.is_empty() {
             return None;
         };
         // Fetch the last node in the stack
-        let next_node_hash = self.stack.pop()?;
+        let (current_path, next_node_hash) = self.stack.pop()?;
         let next_node = self.trie.state.get_node(next_node_hash).ok()??;
+        let mut next_path = current_path.clone();
         match &next_node {
             Node::Branch(branch_node) => {
                 // Add all children to the stack (in reverse order so we process first child frist)
-                for child in branch_node.choices.iter().rev() {
+                for (choice, child) in branch_node.choices.iter().enumerate().rev() {
                     if child.is_valid() {
-                        self.stack.push(child.clone())
+                        let mut child_path = current_path.clone();
+                        child_path.append(choice as u8);
+                        self.stack.push((child_path, child.clone()))
                     }
                 }
             }
             Node::Extension(extension_node) => {
+                // Update path
+                next_path.extend(&extension_node.prefix);
                 // Add child to the stack
-                self.stack.push(extension_node.child.clone());
+                self.stack
+                    .push((next_path.clone(), extension_node.child.clone()));
             }
-            Node::Leaf(_) => {}
+            Node::Leaf(leaf) => {
+                next_path.extend(&leaf.partial);
+            }
         }
-        Some(next_node)
+        Some((next_path, next_node))
     }
 }
 
 impl TrieIterator {
     // TODO: construct path from nibbles
     pub fn content(self) -> impl Iterator<Item = (PathRLP, ValueRLP)> {
-        self.filter_map(|n| match n {
+        self.filter_map(|(p, n)| match n {
             Node::Branch(branch_node) => {
-                (!branch_node.value.is_empty()).then_some((vec![], branch_node.value))
+                (!branch_node.value.is_empty()).then_some((p.to_bytes(), branch_node.value))
             }
             Node::Extension(_) => None,
-            Node::Leaf(leaf_node) => Some((vec![], leaf_node.value)),
+            Node::Leaf(leaf_node) => Some((p.to_bytes(), leaf_node.value)),
         })
     }
 }
@@ -81,5 +90,25 @@ pub fn print_node(trie: &Trie, node_hash: NodeHash) {
             print_node(trie, n.child);
         }
         Node::Leaf(n) => print!("Leaf{:?}{:?}", n.partial.as_ref(), n.value),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn trie_iter_content() {
+        let expected_content = vec![
+            (vec![0, 0], vec![0, 0]),
+            (vec![1, 1], vec![1, 1]),
+            (vec![2, 2], vec![2, 2]),
+        ];
+        let mut trie = Trie::new_temp();
+        for (path, value) in expected_content.clone() {
+            trie.insert(path, value).unwrap()
+        }
+        let content = trie.into_iter().content().collect::<Vec<_>>();
+        assert_eq!(content, expected_content);
     }
 }
