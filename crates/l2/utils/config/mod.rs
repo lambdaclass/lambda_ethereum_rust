@@ -45,7 +45,6 @@ pub fn read_env_as_lines(
 }
 
 pub fn write_env(lines: Vec<String>) -> Result<(), errors::ConfigError> {
-    // Determine the file to write to
     let env_file_name = std::env::var("ENV_FILE").unwrap_or_else(|_| ".env".to_string());
 
     let file = std::fs::OpenOptions::new()
