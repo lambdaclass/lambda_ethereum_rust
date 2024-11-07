@@ -81,9 +81,14 @@ impl<S: AsyncWrite + AsyncRead + std::marker::Unpin> RLPxConnection<S> {
         storage: Store,
     ) -> Result<Self, RLPxError> {
         let mut rng = rand::thread_rng();
-        let digest = Keccak256::digest(&msg[65..]);
-        let signature = &Signature::from_bytes(msg[..64].into())?;
-        let rid = RecoveryId::from_byte(msg[64]).ok_or(RLPxError::InvalidRecoveryId())?;
+        let digest = Keccak256::digest(msg.get(65..).ok_or(RLPxError::InvalidMessageLength())?);
+        let signature = &Signature::from_bytes(
+            msg.get(..64)
+                .ok_or(RLPxError::InvalidMessageLength())?
+                .into(),
+        )?;
+        let rid = RecoveryId::from_byte(*msg.get(64).ok_or(RLPxError::InvalidMessageLength())?)
+            .ok_or(RLPxError::InvalidRecoveryId())?;
         let peer_pk = VerifyingKey::recover_from_prehash(&digest, signature, rid)?;
         let state = RLPxConnectionState::Initiator(Initiator::new(
             H256::random_using(&mut rng),
@@ -276,8 +281,12 @@ impl<S: AsyncWrite + AsyncRead + std::marker::Unpin> RLPxConnection<S> {
                 // Clonning previous state to avoid ownership issues
                 let previous_state = receiver_state.clone();
                 let msg_bytes = self.receive_handshake_msg().await?;
-                let size_data = &msg_bytes[..2];
-                let msg = &msg_bytes[2..];
+                let size_data = &msg_bytes
+                    .get(..2)
+                    .ok_or(RLPxError::InvalidMessageLength())?;
+                let msg = &msg_bytes
+                    .get(2..)
+                    .ok_or(RLPxError::InvalidMessageLength())?;
                 let (auth, remote_ephemeral_key) =
                     decode_auth_message(&secret_key, msg, size_data)?;
 
@@ -302,8 +311,12 @@ impl<S: AsyncWrite + AsyncRead + std::marker::Unpin> RLPxConnection<S> {
                 // Clonning previous state to avoid ownership issues
                 let previous_state = initiated_auth_state.clone();
                 let msg_bytes = self.receive_handshake_msg().await?;
-                let size_data = &msg_bytes[..2];
-                let msg = &msg_bytes[2..];
+                let size_data = &msg_bytes
+                    .get(..2)
+                    .ok_or(RLPxError::InvalidMessageLength())?;
+                let msg = &msg_bytes
+                    .get(2..)
+                    .ok_or(RLPxError::InvalidMessageLength())?;
                 let ack = decode_ack_message(&secret_key, msg, size_data)?;
                 let remote_ephemeral_key = ack
                     .get_ephemeral_pubkey()

@@ -17,6 +17,8 @@ pub(crate) enum RLPxError {
     InvalidPeerId(),
     #[error("Invalid recovery id")]
     InvalidRecoveryId(),
+    #[error("Invalid message length")]
+    InvalidMessageLength(),
     #[error("Cannot handle message")]
     MessageNotHandled(),
     #[error(transparent)]
