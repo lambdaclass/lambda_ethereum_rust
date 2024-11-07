@@ -1,2 +1,0 @@
-    Checking ethereum_rust_levm v0.1.0 (/Users/jeremias/lambda_ethereum_rust/crates/vm/levm)
-    Finished `dev` profile [unoptimized + debuginfo] target(s) in 0.46s

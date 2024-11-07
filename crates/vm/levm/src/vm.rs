@@ -13,7 +13,9 @@ use ethereum_rust_rlp;
 use ethereum_rust_rlp::encode::RLPEncode;
 use sha3::{Digest, Keccak256};
 use std::{
-    collections::{HashMap, HashSet}, str::FromStr, sync::Arc
+    collections::{HashMap, HashSet},
+    str::FromStr,
+    sync::Arc,
 };
 
 pub type Storage = HashMap<U256, H256>;
@@ -346,12 +348,26 @@ impl VM {
             return Err(VMError::SenderAccountShouldNotHaveBytecode);
         }
         // (6)
-        if sender_account.info.balance < self.call_frames.first().ok_or(VMError::IndexingError)?.msg_value {
+        if sender_account.info.balance
+            < self
+                .call_frames
+                .first()
+                .ok_or(VMError::IndexingError)?
+                .msg_value
+        {
             return Err(VMError::SenderBalanceShouldContainTransferValue);
         }
         // TODO: This belongs elsewhere.
-        sender_account.info.balance -= self.call_frames.first().ok_or(VMError::IndexingError)?.msg_value;
-        receiver_account.info.balance += self.call_frames.first().ok_or(VMError::IndexingError)?.msg_value;
+        sender_account.info.balance -= self
+            .call_frames
+            .first()
+            .ok_or(VMError::IndexingError)?
+            .msg_value;
+        receiver_account.info.balance += self
+            .call_frames
+            .first()
+            .ok_or(VMError::IndexingError)?
+            .msg_value;
 
         self.cache.add_account(&origin, &sender_account);
         self.cache.add_account(&to, &receiver_account);
@@ -401,7 +417,12 @@ impl VM {
         // This cost applies both for call and create
         // 4 gas for each zero byte in the transaction data 16 gas for each non-zero byte in the transaction.
         let mut calldata_cost = 0;
-        for byte in &self.call_frames.first().ok_or(VMError::IndexingError)?.calldata {
+        for byte in &self
+            .call_frames
+            .first()
+            .ok_or(VMError::IndexingError)?
+            .calldata
+        {
             if *byte != 0 {
                 calldata_cost += 16;
             } else {
@@ -440,7 +461,13 @@ impl VM {
             // Charge 22100 gas for each storage variable set
 
             // GInitCodeword * number_of_words rounded up. GinitCodeWord = 2
-            let number_of_words = self.call_frames.first().ok_or(VMError::IndexingError)?.calldata.chunks(32).len() as u64;
+            let number_of_words = self
+                .call_frames
+                .first()
+                .ok_or(VMError::IndexingError)?
+                .calldata
+                .chunks(32)
+                .len() as u64;
             report.gas_used += number_of_words * 2;
 
             let contract_address = self.call_frames.first().unwrap().to;
@@ -595,12 +622,17 @@ impl VM {
     /// Calculates the address of a new conctract using the CREATE opcode as follow
     ///
     /// address = keccak256(rlp([sender_address,sender_nonce]))[12:]
-    pub fn calculate_create_address(sender_address: Address, sender_nonce: u64) -> Result<Address, VMError> {
+    pub fn calculate_create_address(
+        sender_address: Address,
+        sender_nonce: u64,
+    ) -> Result<Address, VMError> {
         let mut encoded = Vec::new();
         (sender_address, sender_nonce).encode(&mut encoded);
         let mut hasher = Keccak256::new();
         hasher.update(encoded);
-        Ok(Address::from_slice(hasher.finalize().get(12..).ok_or(VMError::SlicingError)?))
+        Ok(Address::from_slice(
+            hasher.finalize().get(12..).ok_or(VMError::SlicingError)?,
+        ))
     }
 
     /// Calculates the address of a new contract using the CREATE2 opcode as follow
@@ -623,7 +655,9 @@ impl VM {
         hasher.update(sender_address.as_bytes());
         hasher.update(salt_bytes);
         hasher.update(initialization_code_hash);
-        Ok(Address::from_slice(hasher.finalize().get(12..).ok_or(VMError::SlicingError)?))
+        Ok(Address::from_slice(
+            hasher.finalize().get(12..).ok_or(VMError::SlicingError)?,
+        ))
     }
 
     /// Common behavior for CREATE and CREATE2 opcodes
