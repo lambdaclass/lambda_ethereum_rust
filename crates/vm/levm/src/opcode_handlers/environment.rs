@@ -162,13 +162,26 @@ impl VM {
             .try_into()
             .map_err(|_err| VMError::VeryLargeNumber)?;
 
-        let minimum_word_size = (size + WORD_SIZE - 1) / WORD_SIZE;
-        let memory_expansion_cost = current_call_frame
-            .memory
-            .expansion_cost(dest_offset + size)?;
+        let minimum_word_size = (size
+            .checked_add(WORD_SIZE)
+            .ok_or(VMError::DataSizeOverflow)?
+            .saturating_sub(1))
+            / WORD_SIZE;
+
+        let memory_expansion_cost = current_call_frame.memory.expansion_cost(
+            dest_offset
+                .checked_add(size)
+                .ok_or(VMError::DataSizeOverflow)?,
+        )?;
+
+        let minimum_word_size_cost = gas_cost::CALLDATACOPY_DYNAMIC_BASE
+            .checked_mul(minimum_word_size.into())
+            .ok_or(VMError::GasCostOverflow)?;
         let gas_cost = gas_cost::CALLDATACOPY_STATIC
-            + gas_cost::CALLDATACOPY_DYNAMIC_BASE * minimum_word_size
-            + memory_expansion_cost;
+            .checked_add(minimum_word_size_cost)
+            .ok_or(VMError::GasCostOverflow)?
+            .checked_add(memory_expansion_cost)
+            .ok_or(VMError::GasCostOverflow)?;
 
         self.increase_consumed_gas(current_call_frame, gas_cost)?;
 
@@ -204,7 +217,13 @@ impl VM {
         &mut self,
         current_call_frame: &mut CallFrame,
     ) -> Result<OpcodeSuccess, VMError> {
-        if self.env.consumed_gas + gas_cost::CODESIZE > self.env.gas_limit {
+        if self
+            .env
+            .consumed_gas
+            .checked_add(gas_cost::CODESIZE)
+            .ok_or(VMError::ConsumedGasOverflow)?
+            > self.env.gas_limit
+        {
             return Err(VMError::OutOfGas);
         }
 
@@ -238,23 +257,36 @@ impl VM {
             .try_into()
             .map_err(|_| VMError::VeryLargeNumber)?;
 
-        let minimum_word_size = (size + WORD_SIZE - 1) / WORD_SIZE;
+        let minimum_word_size = (size
+            .checked_add(WORD_SIZE)
+            .ok_or(VMError::DataSizeOverflow)?
+            .saturating_sub(1))
+            / WORD_SIZE;
 
-        let memory_expansion_cost = current_call_frame
-            .memory
-            .expansion_cost(dest_offset + size)?;
+        let memory_expansion_cost = current_call_frame.memory.expansion_cost(
+            dest_offset
+                .checked_add(size)
+                .ok_or(VMError::DataSizeOverflow)?,
+        )?;
 
+        let minimum_word_size_cost = gas_cost::CODECOPY_DYNAMIC_BASE
+            .checked_add(minimum_word_size.into())
+            .ok_or(VMError::GasCostOverflow)?;
         let gas_cost = gas_cost::CODECOPY_STATIC
-            + gas_cost::CODECOPY_DYNAMIC_BASE * minimum_word_size
-            + memory_expansion_cost;
+            .checked_add(minimum_word_size_cost)
+            .ok_or(VMError::GasCostOverflow)?
+            .checked_add(memory_expansion_cost)
+            .ok_or(VMError::GasCostOverflow)?;
 
         self.increase_consumed_gas(current_call_frame, gas_cost)?;
 
         let bytecode_len = current_call_frame.bytecode.len();
         let code = if offset < bytecode_len {
-            current_call_frame
-                .bytecode
-                .slice(offset..(offset + size).min(bytecode_len))
+            current_call_frame.bytecode.slice(
+                offset
+                    ..(offset.checked_add(size).ok_or(VMError::DataSizeOverflow)?)
+                        .min(bytecode_len),
+            )
         } else {
             vec![0u8; size].into()
         };
@@ -324,17 +356,38 @@ impl VM {
             .try_into()
             .map_err(|_| VMError::VeryLargeNumber)?;
 
-        let minimum_word_size = (size + WORD_SIZE - 1) / WORD_SIZE;
-        let memory_expansion_cost = current_call_frame
-            .memory
-            .expansion_cost(dest_offset + size)?;
-        let gas_cost =
-            gas_cost::EXTCODECOPY_DYNAMIC_BASE * minimum_word_size + memory_expansion_cost;
+        let minimum_word_size = (size
+            .checked_add(WORD_SIZE)
+            .ok_or(VMError::DataSizeOverflow)?
+            .saturating_sub(1))
+            / WORD_SIZE;
+
+        let memory_expansion_cost = current_call_frame.memory.expansion_cost(
+            dest_offset
+                .checked_add(size)
+                .ok_or(VMError::DataSizeOverflow)?,
+        )?;
+        let minimum_word_size_cost = gas_cost::EXTCODECOPY_DYNAMIC_BASE
+            .checked_add(minimum_word_size.into())
+            .ok_or(VMError::GasCostOverflow)?;
+        let gas_cost = minimum_word_size_cost
+            .checked_add(memory_expansion_cost)
+            .ok_or(VMError::GasCostOverflow)?;
 
         if self.cache.is_account_cached(&address) {
-            self.increase_consumed_gas(current_call_frame, gas_cost + WARM_ADDRESS_ACCESS_COST)?;
+            self.increase_consumed_gas(
+                current_call_frame,
+                gas_cost
+                    .checked_add(WARM_ADDRESS_ACCESS_COST)
+                    .ok_or(VMError::GasCostOverflow)?,
+            )?;
         } else {
-            self.increase_consumed_gas(current_call_frame, gas_cost + COLD_ADDRESS_ACCESS_COST)?;
+            self.increase_consumed_gas(
+                current_call_frame,
+                gas_cost
+                    .checked_add(COLD_ADDRESS_ACCESS_COST)
+                    .ok_or(VMError::GasCostOverflow)?,
+            )?;
             self.cache_from_db(&address);
         };
 
@@ -346,14 +399,16 @@ impl VM {
             .bytecode
             .clone();
 
-        if bytecode.len() < offset + size {
+        let new_offset = offset.checked_add(size).ok_or(VMError::DataSizeOverflow)?;
+
+        if bytecode.len() < new_offset {
             let mut extended_code = bytecode.to_vec();
-            extended_code.resize(offset + size, 0);
+            extended_code.resize(new_offset, 0);
             bytecode = Bytes::from(extended_code);
         }
         current_call_frame
             .memory
-            .store_bytes(dest_offset, &bytecode[offset..offset + size])?;
+            .store_bytes(dest_offset, &bytecode[offset..new_offset])?;
 
         Ok(OpcodeSuccess::Continue)
     }
@@ -393,13 +448,24 @@ impl VM {
             .try_into()
             .unwrap_or(usize::MAX);
 
-        let minimum_word_size = (size + WORD_SIZE - 1) / WORD_SIZE;
-        let memory_expansion_cost = current_call_frame
-            .memory
-            .expansion_cost(dest_offset + size)?;
+        let minimum_word_size = (size
+            .checked_add(WORD_SIZE)
+            .ok_or(VMError::DataSizeOverflow)?
+            .saturating_sub(1))
+            / WORD_SIZE;
+        let memory_expansion_cost = current_call_frame.memory.expansion_cost(
+            dest_offset
+                .checked_add(size)
+                .ok_or(VMError::DataSizeOverflow)?,
+        )?;
+        let minumum_word_size_cost = gas_cost::RETURNDATACOPY_DYNAMIC_BASE
+            .checked_mul(minimum_word_size.into())
+            .ok_or(VMError::GasCostOverflow)?;
         let gas_cost = gas_cost::RETURNDATACOPY_STATIC
-            + gas_cost::RETURNDATACOPY_DYNAMIC_BASE * minimum_word_size
-            + memory_expansion_cost;
+            .checked_add(minumum_word_size_cost)
+            .ok_or(VMError::GasCostOverflow)?
+            .checked_add(memory_expansion_cost)
+            .ok_or(VMError::GasCostOverflow)?;
 
         self.increase_consumed_gas(current_call_frame, gas_cost)?;
 
@@ -409,9 +475,13 @@ impl VM {
 
         let sub_return_data_len = current_call_frame.sub_return_data.len();
         let data = if returndata_offset < sub_return_data_len {
-            current_call_frame
-                .sub_return_data
-                .slice(returndata_offset..(returndata_offset + size).min(sub_return_data_len))
+            current_call_frame.sub_return_data.slice(
+                returndata_offset
+                    ..(returndata_offset
+                        .checked_add(size)
+                        .ok_or(VMError::OverflowInArithmeticOp)?)
+                    .min(sub_return_data_len),
+            )
         } else {
             vec![0u8; size].into()
         };
