@@ -466,6 +466,9 @@ impl VM {
             )
             .ok_or(VMError::OutOfGas)?;
 
+        // Gas refunds are capped to 1/5th of the total gas used (https://www.evm.codes/about#gasrefunds)
+        report.gas_refunded = report.gas_refunded.min(report.gas_used / 5);
+
         // Note: this is commented because it is still being used in development.
         // dbg!(&report.gas_refunded);
 
