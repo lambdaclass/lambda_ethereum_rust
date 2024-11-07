@@ -158,20 +158,6 @@ impl Proposer {
                 }
             }
 
-            let proof = Vec::new();
-
-            match self.send_proof(block.header.number, &proof).await {
-                Ok(verify_tx_hash) => {
-                    info!(
-                    "Sent proof for block {head_block_hash}, with transaction hash {verify_tx_hash:#x}"
-                );
-                }
-                Err(error) => {
-                    error!("Failed to send proof to block {head_block_hash:#x}. Manual intervention required: {error}");
-                    panic!("Failed to send proof to block {head_block_hash:#x}. Manual intervention required: {error}");
-                }
-            }
-
             sleep(self.block_production_interval).await;
         }
     }
