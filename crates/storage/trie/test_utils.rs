@@ -32,7 +32,8 @@ pub mod libmdbx {
 }
 
 #[macro_export]
-/// Creates a trie node, doesn't guarantee that the correct offsets are used when computing hashes for extension nodes
+/// Creates a trie node
+/// All partial paths are expressed in nibbles and values in bytes
 macro_rules! pmt_node {
     (
         @( $trie:expr )
@@ -99,7 +100,7 @@ macro_rules! pmt_node {
         $( offset $offset:expr )?
     ) => {
         {
-            $crate::node::LeafNode::new(Nibbles::from_bytes($path), $value)
+            $crate::node::LeafNode::new(Nibbles::from_hex($path), $value)
         }
     };
 }
