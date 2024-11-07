@@ -195,6 +195,7 @@ impl<S: AsyncWrite + AsyncRead + std::marker::Unpin> RLPxConnection<S> {
                                         process_account_range_request(req, self.storage.clone())?;
                                     self.send(Message::AccountRange(response)).await
                                 }
+                                // FIXME: Maybe this should add it to the mempool, to discuss.
                                 txs_msg @ Message::TransactionsMessage(_) => {
                                     let txs = Arc::new(txs_msg);
                                     // FIXME: Remove this unwrap
