@@ -186,7 +186,7 @@ impl VM {
         Ok(OpcodeSuccess::Continue)
     }
 
-    fn get_blob_gasprice(&mut self) -> U256 {
+    fn get_blob_gasprice(&mut self) -> Result<U256, VMError> {
         fake_exponential(
             MIN_BASE_FEE_PER_BLOB_GAS.into(),
             // Use unwrap because env should have a Some value in excess_blob_gas attribute
@@ -202,7 +202,7 @@ impl VM {
     ) -> Result<OpcodeSuccess, VMError> {
         self.increase_consumed_gas(current_call_frame, gas_cost::BLOBBASEFEE)?;
 
-        let blob_base_fee = self.get_blob_gasprice();
+        let blob_base_fee = self.get_blob_gasprice()?;
 
         current_call_frame.stack.push(blob_base_fee)?;
 
@@ -216,14 +216,28 @@ fn address_to_word(address: Address) -> U256 {
 }
 
 // Fuction inspired in EIP 4844 helpers. Link: https://eips.ethereum.org/EIPS/eip-4844#helpers
-fn fake_exponential(factor: U256, numerator: U256, denominator: U256) -> U256 {
+fn fake_exponential(factor: U256, numerator: U256, denominator: U256) -> Result<U256, VMError> {
     let mut i = U256::one();
     let mut output = U256::zero();
-    let mut numerator_accum = factor * denominator;
+    let mut numerator_accum = factor
+        .checked_mul(denominator)
+        .ok_or(VMError::OverflowInArithmeticOp)?;
     while numerator_accum > U256::zero() {
-        output += numerator_accum;
-        numerator_accum = (numerator_accum * numerator) / (denominator * i);
-        i += U256::one();
+        output = output
+            .checked_add(numerator_accum)
+            .ok_or(VMError::OverflowInArithmeticOp)?;
+        let mult_numerator = numerator_accum
+            .checked_mul(numerator)
+            .ok_or(VMError::OverflowInArithmeticOp)?;
+        let mult_denominator = denominator
+            .checked_mul(i)
+            .ok_or(VMError::OverflowInArithmeticOp)?;
+        numerator_accum = (mult_numerator)
+            .checked_div(mult_denominator)
+            .ok_or(VMError::Internal)?; // Neither denominator or i can be zero
+        i = i
+            .checked_add(U256::one())
+            .ok_or(VMError::OverflowInArithmeticOp)?;
     }
-    output / denominator
+    output.checked_div(denominator).ok_or(VMError::Internal) // Denominator is a const
 }
