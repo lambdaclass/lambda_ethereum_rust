@@ -233,6 +233,9 @@ impl<S: AsyncWrite + AsyncRead + std::marker::Unpin> RLPxConnection<S> {
                             println!("BROADCASTING MSG");
                             match *msg {
                                 Message::TransactionsMessage(ref txs) => {
+                                    // FIXME: Avoid cloning.
+                                    // FIXME: Avoid always re-encoding this message,
+                                    // or filter per-peer
                                     let cloned = txs.transactions.clone();
                                     let new_msg = Message::TransactionsMessage(Transactions { transactions: cloned });
                                     self.send(new_msg).await;
