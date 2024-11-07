@@ -166,74 +166,43 @@ impl BranchNode {
         };
 
         // Step 2: Restructure self
-
-        // Check if self only has one child left
-
-        // An `Err(_)` means more than one choice. `Ok(Some(_))` and `Ok(None)` mean a single and no
-        // choices respectively.
-        // If there is only one child choice_count will contain the choice index and the hash of the child node
-        let choice_count = self
+        let children = self
             .choices
-            .iter_mut()
+            .iter()
             .enumerate()
-            .try_fold(None, |acc, (i, x)| {
-                Ok(match (acc, x.is_valid()) {
-                    (None, true) => Some((i, x)),
-                    (None, false) => None,
-                    (Some(_), true) => return Err(()),
-                    (Some((i, x)), false) => Some((i, x)),
-                })
-            });
-        let child_hash = match choice_count {
-            Ok(Some((choice_index, child_hash))) => {
-                let child_node = state
+            .filter(|(_, child)| child.is_valid())
+            .collect::<Vec<_>>();
+        let new_node = match (children.len(), !self.value.is_empty()) {
+            // If this node still has a value but no longer has children, convert it into a leaf node
+            // TODO: I replaced vec![16] for vec![] look for hits in proptests
+            (0, true) => Some(LeafNode::new(Nibbles::from_hex(vec![]), self.value).into()),
+            // If this node doesn't have a value and has only one child, replace it with its child node
+            (1, false) => {
+                let (choice_index, child_hash) = children[0];
+                let child = state
                     .get_node(child_hash.clone())?
                     .expect("inconsistent internal tree structure");
-
-                match child_node {
-                    // Replace the child node  with an extension node leading to it
-                    // The extension node will then replace self if self has no value
-                    Node::Branch(_) => {
-                        let extension_node = ExtensionNode::new(
-                            Nibbles::from_hex(vec![choice_index as u8]),
-                            child_hash.clone(),
-                        );
-                        *child_hash = extension_node.insert_self(state)?
-                    }
+                Some(match child {
+                    // Replace self with an extension node leading to the child
+                    Node::Branch(_) => ExtensionNode::new(
+                        Nibbles::from_hex(vec![choice_index as u8]),
+                        child_hash.clone(),
+                    )
+                    .into(),
                     // Replace self with the child extension node, updating its path in the process
                     Node::Extension(mut extension_node) => {
-                        debug_assert!(self.value.is_empty()); // Sanity check
                         extension_node.prefix.prepend(choice_index as u8);
-                        // Return node here so we don't have to update it in the state and then fetch it
-                        return Ok((Some(extension_node.into()), value));
+                        extension_node.into()
                     }
-                    Node::Leaf(mut leaf) if self.value.is_empty() => {
+                    Node::Leaf(mut leaf) => {
                         leaf.partial.prepend(choice_index as u8);
-                        *child_hash = leaf.insert_self(state)?;
+                        leaf.into()
                     }
-                    _ => {}
-                }
-
-                Some(child_hash)
+                })
             }
-            _ => None,
+            // Return the updated node
+            _ => Some(self.into()),
         };
-
-        let new_node = match (child_hash, !self.value.is_empty()) {
-            // If this node still has a child and value return the updated node
-            (Some(_), true) => Some(self.into()),
-            // If this node still has a value but no longer has children, convert it into a leaf node
-            (None, true) => Some(LeafNode::new(Nibbles::from_hex(vec![16]), self.value).into()),
-            // If this node doesn't have a value, replace it with its child node
-            (Some(x), false) => Some(
-                state
-                    .get_node(x.clone())?
-                    .expect("inconsistent internal tree structure"),
-            ),
-            // Return this node
-            (None, false) => Some(self.into()),
-        };
-
         Ok((new_node, value))
     }
 
