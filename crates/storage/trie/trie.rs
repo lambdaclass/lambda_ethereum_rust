@@ -1,6 +1,5 @@
 mod db;
 mod error;
-mod nibble;
 mod node;
 mod node_hash;
 mod rlp;
