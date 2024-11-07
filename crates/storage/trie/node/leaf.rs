@@ -103,17 +103,17 @@ impl LeafNode {
         })
     }
 
-    /// Computes the node's hash given the offset in the path traversed before reaching this node
+    /// Computes the node's hash
     pub fn compute_hash(&self) -> NodeHash {
         NodeHash::from_encoded_raw(self.encode_raw())
     }
 
-    /// Encodes the node given the offset in the path traversed before reaching this node
+    /// Encodes the node
     pub fn encode_raw(&self) -> Vec<u8> {
         let mut buf = vec![];
         Encoder::new(&mut buf)
-            .encode_field(&Bytes::copy_from_slice(&self.partial.encode_compact()))
-            .encode_field(&Bytes::copy_from_slice(&self.value))
+            .encode_bytes(&self.partial.encode_compact())
+            .encode_bytes(&self.value)
             .finish();
         buf
     }

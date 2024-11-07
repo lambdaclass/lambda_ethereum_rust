@@ -1,3 +1,6 @@
+use bytes::Bytes;
+use ethereum_rust_rlp::structs::Encoder;
+
 use crate::dumb_nibbles::DumbNibbles;
 use crate::error::TrieError;
 use crate::nibble::NibbleVec;
