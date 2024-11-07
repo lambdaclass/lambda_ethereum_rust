@@ -38,7 +38,6 @@ impl ExtensionNode {
     }
 
     /// Inserts a value into the subtrie originating from this node and returns the new root of the subtrie
-    /// TODO: Code changed a lot, check and rewrite doc
     pub fn insert(
         mut self,
         state: &mut TrieState,
