@@ -6,7 +6,7 @@ import "../../lib/openzeppelin-contracts/contracts/utils/ReentrancyGuard.sol";
 import "./interfaces/IOnChainProposer.sol";
 import {CommonBridge} from "./CommonBridge.sol";
 import {ICommonBridge} from "./interfaces/ICommonBridge.sol";
-import {IRiscZeroVerifier} from "./interfaces/IR0Groth16Verifier.sol";
+import {IRiscZeroVerifier} from "../../lib/risc0-ethereum/contracts/src/IRiscZeroVerifier.sol";
 
 /// @title OnChainProposer contract.
 /// @author LambdaClass

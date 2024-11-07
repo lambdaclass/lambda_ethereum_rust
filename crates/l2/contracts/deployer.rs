@@ -1,4 +1,5 @@
 use bytes::Bytes;
+use colored::Colorize;
 use ethereum_rust_core::types::{TxKind, GAS_LIMIT_ADJUSTMENT_FACTOR, GAS_LIMIT_MINIMUM};
 use ethereum_rust_l2::utils::{
     config::read_env_file,
@@ -9,7 +10,7 @@ use keccak_hash::keccak;
 use libsecp256k1::SecretKey;
 use std::{
     fs::{self, OpenOptions},
-    io::Write,
+    io::{BufRead, Write},
     process::Command,
     str::FromStr,
 };
@@ -171,7 +172,7 @@ fn compile_contracts() {
     assert!(
         Command::new("solc")
             .arg("--bin")
-            .arg("./contracts/src/l1/R0Groth16Verifier.sol")
+            .arg("./contracts/lib/risc0-ethereum/contracts/src/groth16/RiscZeroGroth16Verifier.sol")
             .arg("-o")
             .arg("contracts/solc_out")
             .arg("--overwrite")
@@ -180,7 +181,7 @@ fn compile_contracts() {
             .wait()
             .expect("Failed to wait for solc")
             .success(),
-        "Failed to compile R0Groth16Verifier.sol"
+        "Failed to compile RiscZeroGroth16Verifier.sol"
     );
 }
 
@@ -205,8 +206,9 @@ async fn deploy_contracts(
         )
         .await;
     println!(
-        "OnChainProposer deployed at address {:#x} with tx hash {:#x}",
-        on_chain_proposer_address, on_chain_proposer_deployment_tx_hash
+        "OnChainProposer:\n\tDeployed at address {} with tx hash {}",
+        format!("{:#x}", on_chain_proposer_address).bright_green(),
+        format!("{:#x}", on_chain_proposer_deployment_tx_hash).bright_cyan()
     );
 
     let (bridge_deployment_tx_hash, bridge_address) = deploy_bridge(
@@ -217,8 +219,9 @@ async fn deploy_contracts(
     )
     .await;
     println!(
-        "Bridge deployed at address {:#x} with tx hash {:#x}",
-        bridge_address, bridge_deployment_tx_hash
+        "CommonBridge:\n\tDeployed at address {} with tx hash {}",
+        format!("{:#x}", bridge_address).bright_green(),
+        format!("{:#x}", bridge_deployment_tx_hash).bright_cyan(),
     );
 
     // If the DEPLOYER_ENABLE_L1_VERIFIER envar is set to true, the contract will be deployed.
@@ -228,8 +231,9 @@ async fn deploy_contracts(
         let (r0_groth16_verifier_deployment_tx_hash, r0_groth16_verifier_address) =
             deploy_r0_groth16_verifier(deployer, deployer_private_key, overrides, eth_client).await;
         println!(
-            "R0Groth16Verifier deployed at address {:#x} with tx hash {:#x}",
-            r0_groth16_verifier_address, r0_groth16_verifier_deployment_tx_hash
+            "RiscZeroGroth16Verifier:\n\tDeployed at address {} with tx hash {}",
+            format!("{:#x}", r0_groth16_verifier_address).bright_green(),
+            format!("{:#x}", r0_groth16_verifier_deployment_tx_hash).bright_cyan()
         );
         r0_groth16_verifier_address
     } else {
@@ -308,15 +312,50 @@ async fn deploy_r0_groth16_verifier(
     eth_client: &EthClient,
 ) -> (H256, Address) {
     let r0_groth16_verifier_init_code = hex::decode(
-        std::fs::read_to_string("./contracts/solc_out/R0Groth16Verifier.bin")
+        std::fs::read_to_string("./contracts/solc_out/RiscZeroGroth16Verifier.bin")
             .expect("Failed to read r0_groth16_verifier_init_code"),
     )
     .expect("Failed to decode r0_groth16_verifier_init_code");
 
+    // Get the Constructor Args.
+    // RiscZeroGroth16Verifier(CONTROL_ROOT, BN254_CONTROL_ID)
+    let control_id = "./contracts/lib/risc0-ethereum/contracts/src/groth16/ControlID.sol";
+
+    let file = std::fs::File::open(control_id).unwrap();
+    let reader = std::io::BufReader::new(file);
+
+    let mut init_code: Vec<u8> = Vec::new();
+    let mut control_root: Vec<u8> = Vec::new();
+    let mut bn254_control_id: Vec<u8> = Vec::new();
+    for line in reader.lines() {
+        let line = line.unwrap();
+        if line.contains("CONTROL_ROOT") {
+            let binding = line.split_terminator('\"');
+            let vec: Vec<String> = binding.map(|s| s.to_owned()).collect();
+            let hash = vec.get(1).expect("Failed to get CONTROL_ROOT.");
+            // It is already hex encoded.
+            control_root = hex::decode(hash).expect("Failed to decode CONTROL_ROOT.");
+        }
+        if line.contains("BN254_CONTROL_ID") {
+            let vec: Vec<String> = line.split_terminator('\"').map(|s| s.to_owned()).collect();
+            let hash = vec.get(1).expect("Failed to get BN254_CONTROL_ID.");
+            // It is already hex encoded.
+            bn254_control_id = hex::decode(hash).expect("Failed to decode BN254_CONTROL_ID.")
+        }
+    }
+
+    if control_root.is_empty() || bn254_control_id.is_empty() {
+        panic!("Couldn't get constructor args");
+    }
+
+    init_code.extend_from_slice(&r0_groth16_verifier_init_code);
+    init_code.extend_from_slice(&control_root);
+    init_code.extend_from_slice(&bn254_control_id);
+
     let (deploy_tx_hash, bridge_address) = create2_deploy(
         deployer,
         deployer_private_key,
-        &r0_groth16_verifier_init_code.into(),
+        &init_code.into(),
         overrides,
         eth_client,
     )
@@ -372,8 +411,8 @@ async fn initialize_contracts(
     deployer: Address,
     deployer_private_key: SecretKey,
     on_chain_proposer: Address,
-    verifier: Address,
     bridge: Address,
+    verifier: Address,
     eth_client: &EthClient,
 ) {
     initialize_on_chain_proposer(
@@ -385,6 +424,7 @@ async fn initialize_contracts(
         eth_client,
     )
     .await;
+
     initialize_bridge(
         on_chain_proposer,
         bridge,
@@ -441,7 +481,10 @@ async fn initialize_on_chain_proposer(
 
     wait_for_transaction_receipt(initialize_tx_hash, eth_client).await;
 
-    println!("OnChainProposer initialized with tx hash {initialize_tx_hash:#x}\n");
+    println!(
+        "OnChainProposer:\n\tInitialized with tx hash {}",
+        format!("{:#x}", initialize_tx_hash).bright_cyan()
+    );
 }
 
 async fn initialize_bridge(
@@ -480,7 +523,10 @@ async fn initialize_bridge(
 
     wait_for_transaction_receipt(initialize_tx_hash, eth_client).await;
 
-    println!("Bridge initialized with tx hash {initialize_tx_hash:#x}\n");
+    println!(
+        "CommonBridge:\n\tInitialized with tx hash {}",
+        format!("{:#x}", initialize_tx_hash).bright_cyan()
+    );
 }
 
 async fn wait_for_transaction_receipt(tx_hash: H256, eth_client: &EthClient) {
