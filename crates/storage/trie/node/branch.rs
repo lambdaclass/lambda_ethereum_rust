@@ -1,9 +1,7 @@
+use ethereum_rust_rlp::structs::Encoder;
+
 use crate::{
-    dumb_nibbles::DumbNibbles,
-    error::TrieError,
-    node_hash::{NodeEncoder, NodeHash},
-    state::TrieState,
-    ValueRLP,
+    dumb_nibbles::DumbNibbles, error::TrieError, node_hash::NodeHash, state::TrieState, ValueRLP,
 };
 
 use super::{ExtensionNode, LeafNode, Node};
@@ -252,46 +250,18 @@ impl BranchNode {
 
     /// Encodes the node
     pub fn encode_raw(&self) -> Vec<u8> {
-        let hash_choice = |node_hash: &NodeHash| -> (Vec<u8>, usize) {
-            if node_hash.is_valid() {
-                match node_hash {
-                    NodeHash::Hashed(x) => (x.as_bytes().to_vec(), 32),
-                    NodeHash::Inline(x) => (x.clone(), x.len()),
-                }
-            } else {
-                (Vec::new(), 0)
+        let mut buf = vec![];
+        let mut encoder = Encoder::new(&mut buf);
+        for child in self.choices.iter() {
+            match child {
+                NodeHash::Hashed(hash) => encoder = encoder.encode_bytes(&hash.0),
+                NodeHash::Inline(raw) if !raw.is_empty() => encoder = encoder.encode_raw(raw),
+                _ => encoder = encoder.encode_bytes(&[]),
             }
-        };
-        let children = self.choices.iter().map(hash_choice).collect::<Vec<_>>();
-        let encoded_value = (!self.value.is_empty()).then_some(&self.value[..]);
-
-        let mut children_len: usize = children
-            .iter()
-            .map(|x| match x {
-                (_, 0) => 1,
-                (x, 32) => NodeEncoder::bytes_len(32, x[0]),
-                (_, y) => *y,
-            })
-            .sum();
-        if let Some(value) = encoded_value {
-            children_len +=
-                NodeEncoder::bytes_len(value.len(), value.first().copied().unwrap_or_default());
-        } else {
-            children_len += 1;
         }
-
-        let mut encoder = NodeEncoder::new();
-        encoder.write_list_header(children_len);
-        children.iter().for_each(|(x, len)| match len {
-            0 => encoder.write_bytes(&[]),
-            32 => encoder.write_bytes(x),
-            _ => encoder.write_raw(x),
-        });
-        match encoded_value {
-            Some(value) => encoder.write_bytes(value),
-            None => encoder.write_bytes(&[]),
-        }
-        encoder.finalize()
+        encoder = encoder.encode_bytes(&self.value);
+        encoder.finish();
+        buf
     }
 
     /// Inserts the node into the state and returns its hash
