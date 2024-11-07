@@ -169,9 +169,14 @@ impl VM {
         let byte_index = op1.try_into().unwrap_or(usize::MAX);
 
         if byte_index < WORD_SIZE {
+            let byte_to_push = WORD_SIZE
+                .checked_sub(byte_index)
+                .ok_or(VMError::IndexIsTooHigh)?
+                .checked_sub(1)
+                .ok_or(VMError::IndexIsTooHigh)?; // Same case as above
             current_call_frame
                 .stack
-                .push(U256::from(op2.byte(WORD_SIZE - 1 - byte_index)))?;
+                .push(U256::from(op2.byte(byte_to_push)))?;
         } else {
             current_call_frame.stack.push(U256::zero())?;
         }
@@ -185,7 +190,10 @@ impl VM {
         let shift = current_call_frame.stack.pop()?;
         let value = current_call_frame.stack.pop()?;
         if shift < U256::from(256) {
-            current_call_frame.stack.push(value << shift)?;
+            println!("CHECKED SHIFT LEFT");
+            current_call_frame
+                .stack
+                .push(checked_shift_left(value, shift)?)?;
         } else {
             current_call_frame.stack.push(U256::zero())?;
         }
@@ -199,7 +207,9 @@ impl VM {
         let shift = current_call_frame.stack.pop()?;
         let value = current_call_frame.stack.pop()?;
         if shift < U256::from(256) {
-            current_call_frame.stack.push(value >> shift)?;
+            current_call_frame
+                .stack
+                .push(checked_shift_right(value, shift)?)?;
         } else {
             current_call_frame.stack.push(U256::zero())?;
         }
@@ -213,7 +223,7 @@ impl VM {
         let shift = current_call_frame.stack.pop()?;
         let value = current_call_frame.stack.pop()?;
         let res = if shift < U256::from(256) {
-            arithmetic_shift_right(value, shift)
+            arithmetic_shift_right(value, shift)?
         } else if value.bit(255) {
             U256::MAX
         } else {
@@ -225,15 +235,66 @@ impl VM {
     }
 }
 
-pub fn arithmetic_shift_right(value: U256, shift: U256) -> U256 {
-    let shift_usize: usize = shift.try_into().unwrap(); // we know its not bigger than 256
-
+pub fn arithmetic_shift_right(value: U256, shift: U256) -> Result<U256, VMError> {
     if value.bit(255) {
         // if negative fill with 1s
-        let shifted = value >> shift_usize;
-        let mask = U256::MAX << (256 - shift_usize);
-        shifted | mask
+        let shifted = checked_shift_right(value, shift)?;
+        let mask = checked_shift_left(
+            U256::MAX,
+            U256::from(256)
+                .checked_sub(shift)
+                .ok_or(VMError::Internal)?, // Note that this is already checked in op_sar
+        )?;
+
+        Ok(shifted | mask)
     } else {
-        value >> shift_usize
+        checked_shift_right(value, shift)
     }
+}
+
+/// Instead of using unsafe <<, uses checked_mul n times, replicating n shifts.
+/// Note: These (checked_shift_left and checked_shift_right) are done because
+/// are not available in U256
+fn checked_shift_left(value: U256, shift: U256) -> Result<U256, VMError> {
+    let mut result = value;
+    let mut shifts_left = shift;
+
+    while shifts_left > U256::zero() {
+        result = match result.checked_mul(U256::from(2)) {
+            Some(num) => num,
+            None => {
+                let only_most_representative_bit_on = U256::from(2)
+                    .checked_pow(U256::from(255))
+                    .ok_or(VMError::OverflowInArithmeticOp)?;
+                let partial_result = result
+                    .checked_sub(only_most_representative_bit_on)
+                    .ok_or(VMError::Internal)?; //Should not happen bc checked_mul overflows
+                partial_result
+                    .checked_mul(2.into())
+                    .ok_or(VMError::OverflowInArithmeticOp)?
+            }
+        };
+        shifts_left = shifts_left
+            .checked_sub(U256::one())
+            .ok_or(VMError::Internal)?; // Should not reach negative values
+    }
+
+    Ok(result)
+}
+
+// Instead of using unsafe >>, uses checked_div n times, replicating n shifts
+fn checked_shift_right(value: U256, shift: U256) -> Result<U256, VMError> {
+    let mut result = value;
+    let mut shifts_left = shift;
+
+    while shifts_left > U256::zero() {
+        result = result
+            .checked_div(U256::from(2))
+            .ok_or(VMError::InvalidRightShifting)?;
+        shifts_left = shifts_left
+            .checked_sub(U256::one())
+            .ok_or(VMError::Internal)?; // Should not reach negative values
+    }
+
+    Ok(result)
 }
