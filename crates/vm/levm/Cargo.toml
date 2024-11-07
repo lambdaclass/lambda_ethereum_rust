@@ -20,3 +20,6 @@ hex = "0.4.3"
 
 [features]
 ethereum_foundation_tests = []
+
+[lib]
+path = "./src/lib.rs"

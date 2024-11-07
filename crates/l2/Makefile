@@ -1,6 +1,6 @@
 .DEFAULT_GOAL := help
 
-.PHONY: help init down clean init-local-l1 down-local-l1 clean-local-l1 init-l2 down-l2 deploy-l1 deploy-block-executor deploy-inbox setup-prover
+.PHONY: help init down clean init-local-l1 down-local-l1 clean-local-l1 init-l2 down-l2 deploy-l1 deploy-block-executor deploy-inbox setup-prover test
 
 L2_GENESIS_FILE_PATH=../../test_data/genesis-l2.json
 
@@ -66,13 +66,9 @@ init-l2-prover: ## 🚀 Initializes the Prover
 init-l2-prover-gpu: ## 🚀 Initializes the Prover with GPU support
 	cargo run --release --features "build_zkvm,cuda" --manifest-path ../../Cargo.toml --bin ethereum_rust_prover
 
-# CI Testing Environment
+# CI Testing
 
 test:
-	cargo test --release testito
-
-set-test-environment:
-	docker network create shared_network || exit 0
-	docker compose -f ${ETHEREUM_RUST_DEV_DOCKER_COMPOSE_PATH} up -d
-	cargo run --release --bin ethereum_rust_l2_l1_deployer --manifest-path ${ETHEREUM_RUST_L2_CONTRACTS_PATH}/Cargo.toml
 	docker compose -f ${ETHEREUM_RUST_L2_DOCKER_COMPOSE_PATH} up -d
+	cargo test --release testito
+	docker compose -f ${ETHEREUM_RUST_L2_DOCKER_COMPOSE_PATH} down

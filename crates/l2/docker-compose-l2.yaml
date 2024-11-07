@@ -1,5 +1,23 @@
-version: "3.2"
+include:
+  - ../blockchain/dev/docker-compose-dev.yaml
+
 services:
+  contract_deployer:
+    container_name: contract_deployer
+    image: ethereum_rust_l2_contract_deployer
+    build:
+      context: ../../
+      dockerfile: ./crates/l2/contracts/Dockerfile
+    volumes:
+      - ./.env:/usr/local/bin/.env
+      - ./contracts:/contracts
+    environment:
+      - ETH_RPC_URL=http://ethereum_rust_l1:8545
+      - DEPLOYER_CONTRACTS_PATH=/contracts
+    depends_on:
+      - ethereum_rust
+    restart: on-failure:3
+
   ethereum_rust_l2:
     restart: always
     container_name: ethereum_rust_l2
@@ -9,31 +27,13 @@ services:
       dockerfile: ./crates/l2/Dockerfile
     ports:
       - 127.0.0.1:1729:1729
-    networks:
-      - shared_network
+    env_file:
+      - ./.env
     environment:
       - ETH_RPC_URL=http://ethereum_rust_l1:8545
-      - L1_WATCHER_BRIDGE_ADDRESS=${L1_WATCHER_BRIDGE_ADDRESS}
-      - L1_WATCHER_TOPICS=${L1_WATCHER_TOPICS}
-      - L1_WATCHER_CHECK_INTERVAL_MS=${L1_WATCHER_CHECK_INTERVAL_MS}
-      - L1_WATCHER_MAX_BLOCK_STEP=${L1_WATCHER_MAX_BLOCK_STEP}
-      - L1_WATCHER_L2_PROPOSER_PRIVATE_KEY=${L1_WATCHER_L2_PROPOSER_PRIVATE_KEY}
-      - ENGINE_API_RPC_URL=${ENGINE_API_RPC_URL}
-      - ENGINE_API_JWT_PATH=${ENGINE_API_JWT_PATH}
-      - PROVER_SERVER_LISTEN_IP=${PROVER_SERVER_LISTEN_IP}
-      - PROVER_SERVER_LISTEN_PORT=${PROVER_SERVER_LISTEN_PORT}
-      - PROVER_PROVER_SERVER_ENDPOINT=${PROVER_PROVER_SERVER_ENDPOINT}
-      - PROVER_ELF_PATH=${PROVER_ELF_PATH}
-      - PROPOSER_ON_CHAIN_PROPOSER_ADDRESS=${PROPOSER_ON_CHAIN_PROPOSER_ADDRESS}
-      - PROPOSER_L1_ADDRESS=${PROPOSER_L1_ADDRESS}
-      - PROPOSER_L1_PRIVATE_KEY=${PROPOSER_L1_PRIVATE_KEY}
-      - PROPOSER_INTERVAL_MS=${PROPOSER_INTERVAL_MS}
-      - DEPLOYER_ADDRESS=${DEPLOYER_ADDRESS}
-      - DEPLOYER_PRIVATE_KEY=${DEPLOYER_PRIVATE_KEY}
     volumes:
       - ../../test_data/genesis-l2.json:/genesis-l2.json
     command: --network /genesis-l2.json --http.addr 0.0.0.0 --http.port 1729
-
-networks:
-  shared_network:
-    external: true
+    depends_on:
+      contract_deployer:
+        condition: service_completed_successfully
