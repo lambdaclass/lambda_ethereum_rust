@@ -2,6 +2,7 @@ use crate::{
     call_frame::CallFrame,
     constants::gas_cost,
     errors::{OpcodeSuccess, VMError},
+    opcode_handlers::bitwise_comparison::checked_shift_left,
     vm::VM,
 };
 use ethereum_rust_core::{U256, U512};
@@ -117,7 +118,7 @@ impl VM {
             current_call_frame.stack.push(U256::zero())?;
             return Ok(OpcodeSuccess::Continue);
         }
-        let remainder = dividend % divisor;
+        let remainder = dividend.checked_rem(divisor).ok_or(VMError::Internal)?; // Cannot be zero bc if above;
         current_call_frame.stack.push(remainder)?;
 
         Ok(OpcodeSuccess::Continue)
@@ -138,7 +139,10 @@ impl VM {
             let normalized_dividend = abs(dividend);
             let normalized_divisor = abs(divisor);
 
-            let mut remainder = normalized_dividend % normalized_divisor;
+            let mut remainder = normalized_dividend
+                .checked_rem(normalized_divisor)
+                .ok_or(VMError::Internal)?; // Cannot be zero bc if above;
+
             // The remainder should have the same sign as the dividend
             if is_negative(dividend) {
                 remainder = negate(remainder);
@@ -165,7 +169,7 @@ impl VM {
             return Ok(OpcodeSuccess::Continue);
         }
         let (sum, overflow) = augend.overflowing_add(addend);
-        let mut remainder = sum % divisor;
+        let mut remainder = sum.checked_rem(divisor).ok_or(VMError::Internal)?; // Cannot be zero bc if above;
         if overflow || remainder > divisor {
             remainder = remainder.overflowing_sub(divisor).0;
         }
@@ -191,7 +195,7 @@ impl VM {
         }
 
         let (product, overflow) = multiplicand.overflowing_mul(multiplier);
-        let mut remainder = product % divisor;
+        let mut remainder = product.checked_rem(divisor).ok_or(VMError::Internal)?; // Cannot be zero bc if above
         if overflow || remainder > divisor {
             remainder = remainder.overflowing_sub(divisor).0;
         }
@@ -214,8 +218,17 @@ impl VM {
         let base = current_call_frame.stack.pop()?;
         let exponent = current_call_frame.stack.pop()?;
 
-        let exponent_byte_size = (exponent.bits() as u64 + 7) / 8;
-        let gas_cost = gas_cost::EXP_STATIC + gas_cost::EXP_DYNAMIC_BASE * exponent_byte_size;
+        let exponent_byte_size = (exponent
+            .bits()
+            .checked_add(7)
+            .ok_or(VMError::DataSizeOverflow)? as u64)
+            / 8;
+        let exponent_byte_size_cost = gas_cost::EXP_DYNAMIC_BASE
+            .checked_mul(exponent_byte_size.into())
+            .ok_or(VMError::GasCostOverflow)?;
+        let gas_cost = gas_cost::EXP_STATIC
+            .checked_add(exponent_byte_size_cost)
+            .ok_or(VMError::GasCostOverflow)?;
 
         self.increase_consumed_gas(current_call_frame, gas_cost)?;
 
@@ -237,12 +250,22 @@ impl VM {
 
         let bits_per_byte = U256::from(8);
         let sign_bit_position_on_byte = 7;
-        let max_byte_size = 31;
 
+        let max_byte_size = 31;
         let byte_size = byte_size.min(U256::from(max_byte_size));
-        let sign_bit_index = bits_per_byte * byte_size + sign_bit_position_on_byte;
+
+        let total_bits = bits_per_byte
+            .checked_mul(byte_size)
+            .ok_or(VMError::DataSizeOverflow)?;
+        let sign_bit_index = total_bits
+            .checked_add(sign_bit_position_on_byte.into())
+            .ok_or(VMError::DataSizeOverflow)?;
+
         let is_negative = value_to_extend.bit(sign_bit_index.as_usize());
-        let sign_bit_mask = (U256::one() << sign_bit_index) - U256::one();
+        let sign_bit_mask = checked_shift_left(U256::one(), sign_bit_index)?
+            .checked_sub(U256::one())
+            .ok_or(VMError::Internal)?; //Shifted should be at least one
+
         let result = if is_negative {
             value_to_extend | !sign_bit_mask
         } else {

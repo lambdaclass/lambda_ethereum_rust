@@ -255,7 +255,7 @@ pub fn arithmetic_shift_right(value: U256, shift: U256) -> Result<U256, VMError>
 /// Instead of using unsafe <<, uses checked_mul n times, replicating n shifts.
 /// Note: These (checked_shift_left and checked_shift_right) are done because
 /// are not available in U256
-fn checked_shift_left(value: U256, shift: U256) -> Result<U256, VMError> {
+pub fn checked_shift_left(value: U256, shift: U256) -> Result<U256, VMError> {
     let mut result = value;
     let mut shifts_left = shift;
 
