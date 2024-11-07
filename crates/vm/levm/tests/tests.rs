@@ -50,7 +50,8 @@ fn add_op() {
         Operation::Push((32, U256::zero())),
         Operation::Add,
         Operation::Stop,
-    ]).unwrap();
+    ])
+    .unwrap();
 
     let mut current_call_frame = vm.call_frames.pop().unwrap();
     vm.execute(&mut current_call_frame);
@@ -61,8 +62,13 @@ fn add_op() {
 
 #[test]
 fn mul_op() {
-    let mut vm = new_vm_with_ops(&[Operation::Push((1, U256::from(2))),Operation::Push((1, U256::from(4))),Operation::Mul,
-    Operation::Stop]).unwrap();
+    let mut vm = new_vm_with_ops(&[
+        Operation::Push((1, U256::from(2))),
+        Operation::Push((1, U256::from(4))),
+        Operation::Mul,
+        Operation::Stop,
+    ])
+    .unwrap();
 
     let mut current_call_frame = vm.call_frames.pop().unwrap();
     vm.execute(&mut current_call_frame);
@@ -77,7 +83,8 @@ fn sub_op() {
         Operation::Push((1, U256::from(5))),
         Operation::Sub,
         Operation::Stop,
-    ]).unwrap();
+    ])
+    .unwrap();
 
     let mut current_call_frame = vm.call_frames.pop().unwrap();
     vm.execute(&mut current_call_frame);
@@ -93,7 +100,8 @@ fn div_op() {
         Operation::Push((1, U256::from(11))),
         Operation::Div,
         Operation::Stop,
-    ]).unwrap();
+    ])
+    .unwrap();
 
     let mut current_call_frame = vm.call_frames.pop().unwrap();
     vm.execute(&mut current_call_frame);
@@ -106,7 +114,8 @@ fn div_op() {
         Operation::Push((1, U256::from(10))),
         Operation::Div,
         Operation::Stop,
-    ]).unwrap();
+    ])
+    .unwrap();
 
     let mut current_call_frame = vm.call_frames.pop().unwrap();
     vm.execute(&mut current_call_frame);
@@ -122,7 +131,8 @@ fn sdiv_op() {
         Operation::Push((32, U256::MAX - 1)),
         Operation::Sdiv,
         Operation::Stop,
-    ]).unwrap();
+    ])
+    .unwrap();
 
     let mut current_call_frame = vm.call_frames.pop().unwrap();
     vm.execute(&mut current_call_frame);
@@ -138,7 +148,8 @@ fn mod_op() {
         Operation::Push((1, U256::from(10))),
         Operation::Mod,
         Operation::Stop,
-    ]).unwrap();
+    ])
+    .unwrap();
 
     let mut current_call_frame = vm.call_frames.pop().unwrap();
     vm.execute(&mut current_call_frame);
@@ -155,7 +166,8 @@ fn smod_op() {
         Operation::Push((1, U256::from(10))),
         Operation::SMod,
         Operation::Stop,
-    ]).unwrap();
+    ])
+    .unwrap();
 
     let mut current_call_frame = vm.call_frames.pop().unwrap();
     vm.execute(&mut current_call_frame);
@@ -181,7 +193,8 @@ fn smod_op() {
         Operation::Push((32, b)),
         Operation::SMod,
         Operation::Stop,
-    ]).unwrap();
+    ])
+    .unwrap();
 
     let mut current_call_frame = vm.call_frames.pop().unwrap();
     vm.execute(&mut current_call_frame);
@@ -204,7 +217,8 @@ fn addmod_op() {
         Operation::Push((1, U256::from(10))),
         Operation::Addmod,
         Operation::Stop,
-    ]).unwrap();
+    ])
+    .unwrap();
 
     let mut current_call_frame = vm.call_frames.pop().unwrap();
     vm.execute(&mut current_call_frame);
@@ -221,7 +235,8 @@ fn mulmod_op() {
         Operation::Push((1, U256::from(10))),
         Operation::Mulmod,
         Operation::Stop,
-    ]).unwrap();
+    ])
+    .unwrap();
 
     let mut current_call_frame = vm.call_frames.pop().unwrap();
     vm.execute(&mut current_call_frame);
@@ -237,7 +252,8 @@ fn exp_op() {
         Operation::Push((1, U256::from(10))),
         Operation::Exp,
         Operation::Stop,
-    ]).unwrap();
+    ])
+    .unwrap();
 
     let mut current_call_frame = vm.call_frames.pop().unwrap();
     vm.execute(&mut current_call_frame);
@@ -253,7 +269,8 @@ fn sign_extend_op() {
         Operation::Push((1, U256::zero())),
         Operation::SignExtend,
         Operation::Stop,
-    ]).unwrap();
+    ])
+    .unwrap();
 
     let mut current_call_frame = vm.call_frames.pop().unwrap();
     vm.execute(&mut current_call_frame);
@@ -265,7 +282,8 @@ fn sign_extend_op() {
         Operation::Push((1, U256::zero())),
         Operation::SignExtend,
         Operation::Stop,
-    ]).unwrap();
+    ])
+    .unwrap();
 
     let mut current_call_frame = vm.call_frames.pop().unwrap();
     vm.execute(&mut current_call_frame);
@@ -280,7 +298,8 @@ fn lt_op() {
         Operation::Push((1, U256::from(9))),
         Operation::Lt,
         Operation::Stop,
-    ]).unwrap();
+    ])
+    .unwrap();
 
     let mut current_call_frame = vm.call_frames.pop().unwrap();
     vm.execute(&mut current_call_frame);
@@ -296,7 +315,8 @@ fn gt_op() {
         Operation::Push((1, U256::from(10))),
         Operation::Gt,
         Operation::Stop,
-    ]).unwrap();
+    ])
+    .unwrap();
 
     let mut current_call_frame = vm.call_frames.pop().unwrap();
     vm.execute(&mut current_call_frame);
@@ -312,7 +332,8 @@ fn slt_op() {
         Operation::Push((32, U256::MAX)),
         Operation::Slt,
         Operation::Stop,
-    ]).unwrap();
+    ])
+    .unwrap();
 
     let mut current_call_frame = vm.call_frames.pop().unwrap();
     vm.execute(&mut current_call_frame);
@@ -328,7 +349,8 @@ fn sgt_op() {
         Operation::Push((32, U256::zero())),
         Operation::Sgt,
         Operation::Stop,
-    ]).unwrap();
+    ])
+    .unwrap();
 
     let mut current_call_frame = vm.call_frames.pop().unwrap();
     vm.execute(&mut current_call_frame);
@@ -344,7 +366,8 @@ fn eq_op() {
         Operation::Push((1, U256::from(10))),
         Operation::Eq,
         Operation::Stop,
-    ]).unwrap();
+    ])
+    .unwrap();
 
     let mut current_call_frame = vm.call_frames.pop().unwrap();
     vm.execute(&mut current_call_frame);
@@ -356,7 +379,8 @@ fn eq_op() {
         Operation::Push((1, U256::from(20))),
         Operation::Eq,
         Operation::Stop,
-    ]).unwrap();
+    ])
+    .unwrap();
 
     let mut current_call_frame = vm.call_frames.pop().unwrap();
     vm.execute(&mut current_call_frame);
@@ -370,7 +394,8 @@ fn is_zero_op() {
         Operation::Push((1, U256::zero())),
         Operation::IsZero,
         Operation::Stop,
-    ]).unwrap();
+    ])
+    .unwrap();
 
     let mut current_call_frame = vm.call_frames.pop().unwrap();
     vm.execute(&mut current_call_frame);
@@ -381,7 +406,8 @@ fn is_zero_op() {
         Operation::Push((1, U256::from(10))),
         Operation::IsZero,
         Operation::Stop,
-    ]).unwrap();
+    ])
+    .unwrap();
 
     let mut current_call_frame = vm.call_frames.pop().unwrap();
     vm.execute(&mut current_call_frame);
@@ -395,7 +421,8 @@ fn and_basic() {
         Operation::Push((32, U256::from(0b1100))),
         Operation::And,
         Operation::Stop,
-    ]).unwrap();
+    ])
+    .unwrap();
 
     let mut current_call_frame = vm.call_frames.pop().unwrap();
     vm.execute(&mut current_call_frame);
@@ -412,7 +439,8 @@ fn and_binary_with_zero() {
         Operation::Push((32, U256::zero())),
         Operation::And,
         Operation::Stop,
-    ]).unwrap();
+    ])
+    .unwrap();
     let expected_consumed_gas =
         TX_BASE_COST + gas_cost::AND + gas_cost::PUSHN.checked_mul(U256::from(2)).unwrap();
 
@@ -431,7 +459,8 @@ fn and_with_hex_numbers() {
         Operation::Push((32, U256::from(0xF0F0))),
         Operation::And,
         Operation::Stop,
-    ]).unwrap();
+    ])
+    .unwrap();
 
     let mut current_call_frame = vm.call_frames.pop().unwrap();
     vm.execute(&mut current_call_frame);
@@ -445,7 +474,8 @@ fn and_with_hex_numbers() {
         Operation::Push((32, U256::from(0xF0F0))),
         Operation::And,
         Operation::Stop,
-    ]).unwrap();
+    ])
+    .unwrap();
 
     let mut current_call_frame = vm.call_frames.pop().unwrap();
     vm.execute(&mut current_call_frame);
@@ -459,7 +489,8 @@ fn and_with_hex_numbers() {
         Operation::Push((32, U256::from(0x1F0F))),
         Operation::And,
         Operation::Stop,
-    ]).unwrap();
+    ])
+    .unwrap();
 
     let mut current_call_frame = vm.call_frames.pop().unwrap();
     vm.execute(&mut current_call_frame);
@@ -476,7 +507,8 @@ fn or_basic() {
         Operation::Push((32, U256::from(0b1100))),
         Operation::Or,
         Operation::Stop,
-    ]).unwrap();
+    ])
+    .unwrap();
 
     let mut current_call_frame = vm.call_frames.pop().unwrap();
     vm.execute(&mut current_call_frame);
@@ -490,7 +522,8 @@ fn or_basic() {
         Operation::Push((32, U256::zero())),
         Operation::Or,
         Operation::Stop,
-    ]).unwrap();
+    ])
+    .unwrap();
 
     let mut current_call_frame = vm.call_frames.pop().unwrap();
     vm.execute(&mut current_call_frame);
@@ -504,7 +537,8 @@ fn or_basic() {
         Operation::Push((32, U256::zero())),
         Operation::Or,
         Operation::Stop,
-    ]).unwrap();
+    ])
+    .unwrap();
 
     let mut current_call_frame = vm.call_frames.pop().unwrap();
     vm.execute(&mut current_call_frame);
@@ -521,7 +555,8 @@ fn or_with_hex_numbers() {
         Operation::Push((32, U256::from(0xF0F0))),
         Operation::Or,
         Operation::Stop,
-    ]).unwrap();
+    ])
+    .unwrap();
 
     let mut current_call_frame = vm.call_frames.pop().unwrap();
     vm.execute(&mut current_call_frame);
@@ -535,7 +570,8 @@ fn or_with_hex_numbers() {
         Operation::Push((32, U256::from(0xF0F0))),
         Operation::Or,
         Operation::Stop,
-    ]).unwrap();
+    ])
+    .unwrap();
 
     let mut current_call_frame = vm.call_frames.pop().unwrap();
     vm.execute(&mut current_call_frame);
@@ -549,7 +585,8 @@ fn or_with_hex_numbers() {
         Operation::Push((32, U256::from(0x1F0F))),
         Operation::Or,
         Operation::Stop,
-    ]).unwrap();
+    ])
+    .unwrap();
 
     let mut current_call_frame = vm.call_frames.pop().unwrap();
     vm.execute(&mut current_call_frame);
@@ -566,7 +603,8 @@ fn xor_basic() {
         Operation::Push((32, U256::from(0b1100))),
         Operation::Xor,
         Operation::Stop,
-    ]).unwrap();
+    ])
+    .unwrap();
 
     let mut current_call_frame = vm.call_frames.pop().unwrap();
     vm.execute(&mut current_call_frame);
@@ -580,7 +618,8 @@ fn xor_basic() {
         Operation::Push((32, U256::zero())),
         Operation::Xor,
         Operation::Stop,
-    ]).unwrap();
+    ])
+    .unwrap();
 
     let mut current_call_frame = vm.call_frames.pop().unwrap();
     vm.execute(&mut current_call_frame);
@@ -594,7 +633,8 @@ fn xor_basic() {
         Operation::Push((32, U256::zero())),
         Operation::Xor,
         Operation::Stop,
-    ]).unwrap();
+    ])
+    .unwrap();
 
     let mut current_call_frame = vm.call_frames.pop().unwrap();
     vm.execute(&mut current_call_frame);
@@ -608,7 +648,8 @@ fn xor_basic() {
         Operation::Push((32, U256::from(u64::MAX))),
         Operation::Xor,
         Operation::Stop,
-    ]).unwrap();
+    ])
+    .unwrap();
 
     let mut current_call_frame = vm.call_frames.pop().unwrap();
     vm.execute(&mut current_call_frame);
@@ -625,7 +666,8 @@ fn xor_with_hex_numbers() {
         Operation::Push((32, U256::from(0xF))),
         Operation::Xor,
         Operation::Stop,
-    ]).unwrap();
+    ])
+    .unwrap();
 
     let mut current_call_frame = vm.call_frames.pop().unwrap();
     vm.execute(&mut current_call_frame);
@@ -639,7 +681,8 @@ fn xor_with_hex_numbers() {
         Operation::Push((32, U256::from(0xFF))),
         Operation::Xor,
         Operation::Stop,
-    ]).unwrap();
+    ])
+    .unwrap();
 
     let mut current_call_frame = vm.call_frames.pop().unwrap();
     vm.execute(&mut current_call_frame);
@@ -653,7 +696,8 @@ fn xor_with_hex_numbers() {
         Operation::Push((32, U256::from(0xF0F0))),
         Operation::Xor,
         Operation::Stop,
-    ]).unwrap();
+    ])
+    .unwrap();
 
     let mut current_call_frame = vm.call_frames.pop().unwrap();
     vm.execute(&mut current_call_frame);
@@ -667,7 +711,8 @@ fn xor_with_hex_numbers() {
         Operation::Push((32, U256::from(0xF0F0))),
         Operation::Xor,
         Operation::Stop,
-    ]).unwrap();
+    ])
+    .unwrap();
 
     let mut current_call_frame = vm.call_frames.pop().unwrap();
     vm.execute(&mut current_call_frame);
@@ -681,7 +726,8 @@ fn xor_with_hex_numbers() {
         Operation::Push((32, U256::from(0x3A4B))),
         Operation::Xor,
         Operation::Stop,
-    ]).unwrap();
+    ])
+    .unwrap();
 
     let mut current_call_frame = vm.call_frames.pop().unwrap();
     vm.execute(&mut current_call_frame);
@@ -697,7 +743,8 @@ fn not() {
         Operation::Push((32, U256::from(0b1010))),
         Operation::Not,
         Operation::Stop,
-    ]).unwrap();
+    ])
+    .unwrap();
 
     let mut current_call_frame = vm.call_frames.pop().unwrap();
     vm.execute(&mut current_call_frame);
@@ -711,7 +758,8 @@ fn not() {
         Operation::Push((32, U256::MAX)),
         Operation::Not,
         Operation::Stop,
-    ]).unwrap();
+    ])
+    .unwrap();
 
     let mut current_call_frame = vm.call_frames.pop().unwrap();
     vm.execute(&mut current_call_frame);
@@ -724,7 +772,8 @@ fn not() {
         Operation::Push((32, U256::zero())),
         Operation::Not,
         Operation::Stop,
-    ]).unwrap();
+    ])
+    .unwrap();
 
     let mut current_call_frame = vm.call_frames.pop().unwrap();
     vm.execute(&mut current_call_frame);
@@ -737,7 +786,8 @@ fn not() {
         Operation::Push((32, U256::from(1))),
         Operation::Not,
         Operation::Stop,
-    ]).unwrap();
+    ])
+    .unwrap();
 
     let mut current_call_frame = vm.call_frames.pop().unwrap();
     vm.execute(&mut current_call_frame);
@@ -754,7 +804,8 @@ fn byte_basic() {
         Operation::Push((32, U256::from(31))),
         Operation::Byte,
         Operation::Stop,
-    ]).unwrap();
+    ])
+    .unwrap();
 
     let mut current_call_frame = vm.call_frames.pop().unwrap();
     vm.execute(&mut current_call_frame);
@@ -768,7 +819,8 @@ fn byte_basic() {
         Operation::Push((32, U256::from(30))),
         Operation::Byte,
         Operation::Stop,
-    ]).unwrap();
+    ])
+    .unwrap();
 
     let mut current_call_frame = vm.call_frames.pop().unwrap();
     vm.execute(&mut current_call_frame);
@@ -785,7 +837,8 @@ fn byte_edge_cases() {
         Operation::Push((32, U256::from(0))),
         Operation::Byte,
         Operation::Stop,
-    ]).unwrap();
+    ])
+    .unwrap();
 
     let mut current_call_frame = vm.call_frames.pop().unwrap();
     vm.execute(&mut current_call_frame);
@@ -799,7 +852,8 @@ fn byte_edge_cases() {
         Operation::Push((32, U256::from(12))),
         Operation::Byte,
         Operation::Stop,
-    ]).unwrap();
+    ])
+    .unwrap();
 
     let mut current_call_frame = vm.call_frames.pop().unwrap();
     vm.execute(&mut current_call_frame);
@@ -813,7 +867,8 @@ fn byte_edge_cases() {
         Operation::Push((32, U256::from(29))),
         Operation::Byte,
         Operation::Stop,
-    ]).unwrap();
+    ])
+    .unwrap();
 
     let mut current_call_frame = vm.call_frames.pop().unwrap();
     vm.execute(&mut current_call_frame);
@@ -827,7 +882,8 @@ fn byte_edge_cases() {
         Operation::Push((32, U256::from(50))),
         Operation::Byte,
         Operation::Stop,
-    ]).unwrap();
+    ])
+    .unwrap();
 
     let mut current_call_frame = vm.call_frames.pop().unwrap();
     vm.execute(&mut current_call_frame);
@@ -841,7 +897,8 @@ fn byte_edge_cases() {
         Operation::Push((32, U256::from(32))),
         Operation::Byte,
         Operation::Stop,
-    ]).unwrap();
+    ])
+    .unwrap();
 
     let mut current_call_frame = vm.call_frames.pop().unwrap();
     vm.execute(&mut current_call_frame);
@@ -855,7 +912,8 @@ fn byte_edge_cases() {
         Operation::Push((32, U256::from(15))),
         Operation::Byte,
         Operation::Stop,
-    ]).unwrap();
+    ])
+    .unwrap();
 
     let mut current_call_frame = vm.call_frames.pop().unwrap();
     vm.execute(&mut current_call_frame);
@@ -875,7 +933,8 @@ fn byte_edge_cases() {
         Operation::Push((32, U256::from(10))),
         Operation::Byte,
         Operation::Stop,
-    ]).unwrap();
+    ])
+    .unwrap();
 
     let mut current_call_frame = vm.call_frames.pop().unwrap();
     vm.execute(&mut current_call_frame);
@@ -889,7 +948,8 @@ fn byte_edge_cases() {
         Operation::Push((32, U256::from(7))),
         Operation::Byte,
         Operation::Stop,
-    ]).unwrap();
+    ])
+    .unwrap();
 
     let mut current_call_frame = vm.call_frames.pop().unwrap();
     vm.execute(&mut current_call_frame);
@@ -903,7 +963,8 @@ fn byte_edge_cases() {
         Operation::Push((32, U256::from(19))),
         Operation::Byte,
         Operation::Stop,
-    ]).unwrap();
+    ])
+    .unwrap();
 
     let mut current_call_frame = vm.call_frames.pop().unwrap();
     vm.execute(&mut current_call_frame);
@@ -917,7 +978,8 @@ fn byte_edge_cases() {
         Operation::Push((32, U256::from(31))),
         Operation::Byte,
         Operation::Stop,
-    ]).unwrap();
+    ])
+    .unwrap();
 
     let mut current_call_frame = vm.call_frames.pop().unwrap();
     vm.execute(&mut current_call_frame);
@@ -934,7 +996,8 @@ fn shl_basic() {
         Operation::Push((32, U256::from(0))),
         Operation::Shl,
         Operation::Stop,
-    ]).unwrap();
+    ])
+    .unwrap();
 
     let mut current_call_frame = vm.call_frames.pop().unwrap();
     vm.execute(&mut current_call_frame);
@@ -948,7 +1011,8 @@ fn shl_basic() {
         Operation::Push((32, U256::from(1))),
         Operation::Shl,
         Operation::Stop,
-    ]).unwrap();
+    ])
+    .unwrap();
 
     let mut current_call_frame = vm.call_frames.pop().unwrap();
     vm.execute(&mut current_call_frame);
@@ -962,7 +1026,8 @@ fn shl_basic() {
         Operation::Push((32, U256::from(4))),
         Operation::Shl,
         Operation::Stop,
-    ]).unwrap();
+    ])
+    .unwrap();
 
     let mut current_call_frame = vm.call_frames.pop().unwrap();
     vm.execute(&mut current_call_frame);
@@ -976,7 +1041,8 @@ fn shl_basic() {
         Operation::Push((32, U256::from(4))),
         Operation::Shl,
         Operation::Stop,
-    ]).unwrap();
+    ])
+    .unwrap();
 
     let mut current_call_frame = vm.call_frames.pop().unwrap();
     vm.execute(&mut current_call_frame);
@@ -993,7 +1059,8 @@ fn shl_edge_cases() {
         Operation::Push((32, U256::from(256))),
         Operation::Shl,
         Operation::Stop,
-    ]).unwrap();
+    ])
+    .unwrap();
 
     let mut current_call_frame = vm.call_frames.pop().unwrap();
     vm.execute(&mut current_call_frame);
@@ -1007,7 +1074,8 @@ fn shl_edge_cases() {
         Operation::Push((32, U256::from(200))),
         Operation::Shl,
         Operation::Stop,
-    ]).unwrap();
+    ])
+    .unwrap();
 
     let mut current_call_frame = vm.call_frames.pop().unwrap();
     vm.execute(&mut current_call_frame);
@@ -1021,7 +1089,8 @@ fn shl_edge_cases() {
         Operation::Push((32, U256::from(1))),
         Operation::Shl,
         Operation::Stop,
-    ]).unwrap();
+    ])
+    .unwrap();
 
     let mut current_call_frame = vm.call_frames.pop().unwrap();
     vm.execute(&mut current_call_frame);
@@ -1038,7 +1107,8 @@ fn shr_basic() {
         Operation::Push((32, U256::from(0))),
         Operation::Shr,
         Operation::Stop,
-    ]).unwrap();
+    ])
+    .unwrap();
 
     let mut current_call_frame = vm.call_frames.pop().unwrap();
     vm.execute(&mut current_call_frame);
@@ -1052,7 +1122,8 @@ fn shr_basic() {
         Operation::Push((32, U256::from(1))),
         Operation::Shr,
         Operation::Stop,
-    ]).unwrap();
+    ])
+    .unwrap();
 
     let mut current_call_frame = vm.call_frames.pop().unwrap();
     vm.execute(&mut current_call_frame);
@@ -1066,7 +1137,8 @@ fn shr_basic() {
         Operation::Push((32, U256::from(4))),
         Operation::Shr,
         Operation::Stop,
-    ]).unwrap();
+    ])
+    .unwrap();
 
     let mut current_call_frame = vm.call_frames.pop().unwrap();
     vm.execute(&mut current_call_frame);
@@ -1080,7 +1152,8 @@ fn shr_basic() {
         Operation::Push((32, U256::from(4))),
         Operation::Shr,
         Operation::Stop,
-    ]).unwrap();
+    ])
+    .unwrap();
 
     let mut current_call_frame = vm.call_frames.pop().unwrap();
     vm.execute(&mut current_call_frame);
@@ -1097,7 +1170,8 @@ fn shr_edge_cases() {
         Operation::Push((32, U256::from(256))),
         Operation::Shr,
         Operation::Stop,
-    ]).unwrap();
+    ])
+    .unwrap();
 
     let mut current_call_frame = vm.call_frames.pop().unwrap();
     vm.execute(&mut current_call_frame);
@@ -1111,7 +1185,8 @@ fn shr_edge_cases() {
         Operation::Push((32, U256::from(200))),
         Operation::Shr,
         Operation::Stop,
-    ]).unwrap();
+    ])
+    .unwrap();
 
     let mut current_call_frame = vm.call_frames.pop().unwrap();
     vm.execute(&mut current_call_frame);
@@ -1125,7 +1200,8 @@ fn shr_edge_cases() {
         Operation::Push((32, U256::from(1))),
         Operation::Shr,
         Operation::Stop,
-    ]).unwrap();
+    ])
+    .unwrap();
 
     let mut current_call_frame = vm.call_frames.pop().unwrap();
     vm.execute(&mut current_call_frame);
@@ -1142,7 +1218,8 @@ fn sar_shift_by_0() {
         Operation::Push((32, U256::from(0))),
         Operation::Sar,
         Operation::Stop,
-    ]).unwrap();
+    ])
+    .unwrap();
 
     let mut current_call_frame = vm.call_frames.pop().unwrap();
     vm.execute(&mut current_call_frame);
@@ -1165,7 +1242,8 @@ fn sar_shifting_large_value_with_all_bits_set() {
         Operation::Push((32, U256::from(8))),
         Operation::Sar,
         Operation::Stop,
-    ]).unwrap();
+    ])
+    .unwrap();
 
     let mut current_call_frame = vm.call_frames.pop().unwrap();
     vm.execute(&mut current_call_frame);
@@ -1193,7 +1271,8 @@ fn sar_shifting_negative_value_and_small_shift() {
         Operation::Push((32, U256::from(4))),
         Operation::Sar,
         Operation::Stop,
-    ]).unwrap();
+    ])
+    .unwrap();
 
     let mut current_call_frame = vm.call_frames.pop().unwrap();
     vm.execute(&mut current_call_frame);
@@ -1215,7 +1294,8 @@ fn sar_shift_positive_value() {
         Operation::Push((32, U256::from(4))),
         Operation::Sar,
         Operation::Stop,
-    ]).unwrap();
+    ])
+    .unwrap();
 
     let mut current_call_frame = vm.call_frames.pop().unwrap();
     vm.execute(&mut current_call_frame);
@@ -1238,7 +1318,8 @@ fn sar_shift_negative_value() {
         Operation::Push((32, U256::from(4))),
         Operation::Sar,
         Operation::Stop,
-    ]).unwrap();
+    ])
+    .unwrap();
 
     let mut current_call_frame = vm.call_frames.pop().unwrap();
     vm.execute(&mut current_call_frame);
@@ -1374,7 +1455,8 @@ fn mstore() {
         Operation::Mstore,
         Operation::Msize,
         Operation::Stop,
-    ]).unwrap();
+    ])
+    .unwrap();
 
     let mut current_call_frame = vm.call_frames.pop().unwrap();
     vm.execute(&mut current_call_frame);
@@ -1395,7 +1477,8 @@ fn mstore_saves_correct_value() {
         Operation::Mstore,
         Operation::Msize,
         Operation::Stop,
-    ]).unwrap();
+    ])
+    .unwrap();
 
     let mut current_call_frame = vm.call_frames.pop().unwrap();
     vm.execute(&mut current_call_frame);
@@ -1451,7 +1534,12 @@ fn mcopy() {
     let mut current_call_frame = vm.call_frames.pop().unwrap();
     vm.execute(&mut current_call_frame);
 
-    let copied_value = vm.current_call_frame_mut().unwrap().memory.load(64).unwrap();
+    let copied_value = vm
+        .current_call_frame_mut()
+        .unwrap()
+        .memory
+        .load(64)
+        .unwrap();
     assert_eq!(copied_value, U256::from(0x33333));
 
     let memory_size = vm.current_call_frame_mut().unwrap().stack.pop().unwrap();
@@ -1634,7 +1722,8 @@ fn call_returns_if_bytecode_empty() {
         U256::zero(),
         db,
         cache,
-    ).unwrap();
+    )
+    .unwrap();
 
     let mut current_call_frame = vm.call_frames.pop().unwrap();
     vm.execute(&mut current_call_frame);
@@ -1677,7 +1766,8 @@ fn call_changes_callframe_and_stores() {
         U256::zero(),
         db,
         cache,
-    ).unwrap();
+    )
+    .unwrap();
 
     let mut current_call_frame = vm.call_frames.pop().unwrap();
     vm.execute(&mut current_call_frame);
@@ -1778,7 +1868,8 @@ fn nested_calls() {
         caller_balance,
         db,
         cache,
-    ).unwrap();
+    )
+    .unwrap();
 
     let mut current_call_frame = vm.call_frames.pop().unwrap();
     vm.execute(&mut current_call_frame);
@@ -1849,7 +1940,8 @@ fn staticcall_changes_callframe_is_static() {
         U256::zero(),
         db,
         cache,
-    ).unwrap();
+    )
+    .unwrap();
 
     let mut current_call_frame = vm.call_frames.pop().unwrap();
     vm.execute(&mut current_call_frame);
@@ -2374,7 +2466,8 @@ fn calldataload_being_set_by_parent() {
         U256::zero(),
         db,
         cache,
-    ).unwrap();
+    )
+    .unwrap();
 
     let mut current_call_frame = vm.call_frames.pop().unwrap();
     vm.execute(&mut current_call_frame);
@@ -2509,7 +2602,8 @@ fn returndatacopy_being_set_by_parent() {
         U256::zero(),
         db,
         cache,
-    ).unwrap();
+    )
+    .unwrap();
 
     let mut current_call_frame = vm.call_frames.pop().unwrap();
     vm.execute(&mut current_call_frame);
@@ -2543,7 +2637,8 @@ fn blockhash_op() {
         U256::MAX,
         db,
         Cache::default(),
-    ).unwrap();
+    )
+    .unwrap();
 
     vm.env.block_number = current_block_number;
 
@@ -2610,7 +2705,8 @@ fn blockhash_block_number_not_from_recent_256() {
         U256::MAX,
         db,
         Cache::default(),
-    ).unwrap();
+    )
+    .unwrap();
 
     vm.env.block_number = current_block_number;
 
@@ -2655,7 +2751,10 @@ fn timestamp_op() {
     let mut current_call_frame = vm.call_frames.pop().unwrap();
     vm.execute(&mut current_call_frame);
 
-    assert_eq!(vm.current_call_frame_mut().unwrap().stack.pop().unwrap(), timestamp);
+    assert_eq!(
+        vm.current_call_frame_mut().unwrap().stack.pop().unwrap(),
+        timestamp
+    );
     assert_eq!(vm.env.consumed_gas, TX_BASE_COST + 2);
 }
 
@@ -2709,7 +2808,10 @@ fn gaslimit_op() {
     let mut current_call_frame = vm.call_frames.pop().unwrap();
     vm.execute(&mut current_call_frame);
 
-    assert_eq!(vm.current_call_frame_mut().unwrap().stack.pop().unwrap(), gas_limit);
+    assert_eq!(
+        vm.current_call_frame_mut().unwrap().stack.pop().unwrap(),
+        gas_limit
+    );
     assert_eq!(vm.env.consumed_gas, TX_BASE_COST + 2);
 }
 
@@ -2725,7 +2827,10 @@ fn chain_id_op() {
     let mut current_call_frame = vm.call_frames.pop().unwrap();
     vm.execute(&mut current_call_frame);
 
-    assert_eq!(vm.current_call_frame_mut().unwrap().stack.pop().unwrap(), chain_id);
+    assert_eq!(
+        vm.current_call_frame_mut().unwrap().stack.pop().unwrap(),
+        chain_id
+    );
     assert_eq!(vm.env.consumed_gas, TX_BASE_COST + 2);
 }
 
@@ -2928,7 +3033,10 @@ fn sload_op() {
     let mut current_call_frame = vm.call_frames.pop().unwrap();
     vm.execute(&mut current_call_frame);
 
-    assert_eq!(value, vm.current_call_frame_mut().unwrap().stack.pop().unwrap());
+    assert_eq!(
+        value,
+        vm.current_call_frame_mut().unwrap().stack.pop().unwrap()
+    );
 }
 
 #[test]
@@ -3308,7 +3416,8 @@ fn logs_from_multiple_callers() {
         U256::zero(),
         db,
         cache,
-    ).unwrap();
+    )
+    .unwrap();
 
     let mut current_call_frame = vm.call_frames.pop().unwrap();
     vm.execute(&mut current_call_frame);
@@ -3371,7 +3480,10 @@ fn push0_ok() {
     let mut current_call_frame = vm.call_frames.pop().unwrap();
     vm.execute(&mut current_call_frame);
 
-    assert_eq!(vm.current_call_frame_mut().unwrap().stack.stack[0], U256::zero());
+    assert_eq!(
+        vm.current_call_frame_mut().unwrap().stack.stack[0],
+        U256::zero()
+    );
     assert_eq!(vm.current_call_frame_mut().unwrap().pc(), 2);
 }
 
@@ -3592,7 +3704,11 @@ fn transient_store_stack_underflow() {
     let operations = [Operation::Tstore, Operation::Stop];
 
     let mut vm = new_vm_with_ops(&operations).unwrap();
-    assert!(vm.current_call_frame_mut().unwrap().transient_storage.is_empty());
+    assert!(vm
+        .current_call_frame_mut()
+        .unwrap()
+        .transient_storage
+        .is_empty());
 
     let mut current_call_frame = vm.call_frames.pop().unwrap();
     let tx_report = vm.execute(&mut current_call_frame);
@@ -3618,7 +3734,8 @@ fn transient_load() {
 
     let caller = vm.current_call_frame_mut().unwrap().msg_sender;
 
-    vm.current_call_frame_mut().unwrap()
+    vm.current_call_frame_mut()
+        .unwrap()
         .transient_storage
         .insert((caller, key), value);
 
@@ -3626,7 +3743,12 @@ fn transient_load() {
     vm.execute(&mut current_call_frame);
 
     assert_eq!(
-        *vm.current_call_frame_mut().unwrap().stack.stack.last().unwrap(),
+        *vm.current_call_frame_mut()
+            .unwrap()
+            .stack
+            .stack
+            .last()
+            .unwrap(),
         value
     )
 }
@@ -3659,7 +3781,8 @@ fn create_happy_path() {
         sender_balance,
         Db::new(),
         Cache::default(),
-    ).unwrap();
+    )
+    .unwrap();
     vm.current_call_frame_mut().unwrap().msg_sender = sender_addr;
 
     let mut current_call_frame = vm.call_frames.pop().unwrap();
@@ -3703,7 +3826,8 @@ fn cant_create_with_size_longer_than_max_code_size() {
         sender_balance,
         Db::new(),
         Cache::default(),
-    ).unwrap();
+    )
+    .unwrap();
     vm.current_call_frame_mut().unwrap().msg_sender = sender_addr;
 
     let mut current_call_frame = vm.call_frames.pop().unwrap();
@@ -3736,7 +3860,8 @@ fn cant_create_on_static_contexts() {
         sender_balance,
         Db::new(),
         Cache::default(),
-    ).unwrap();
+    )
+    .unwrap();
     vm.current_call_frame_mut().unwrap().msg_sender = sender_addr;
     vm.current_call_frame_mut().unwrap().is_static = true;
 
@@ -3770,7 +3895,8 @@ fn cant_create_if_transfer_value_bigger_than_balance() {
         sender_balance,
         Db::new(),
         Cache::default(),
-    ).unwrap();
+    )
+    .unwrap();
     vm.current_call_frame_mut().unwrap().msg_sender = sender_addr;
 
     let mut current_call_frame = vm.call_frames.pop().unwrap();
@@ -3924,7 +4050,8 @@ fn create2_happy_path() {
         sender_balance,
         Db::new(),
         Cache::default(),
-    ).unwrap();
+    )
+    .unwrap();
     vm.current_call_frame_mut().unwrap().msg_sender = sender_addr;
 
     let mut current_call_frame = vm.call_frames.pop().unwrap();
@@ -4007,7 +4134,8 @@ fn caller_op() {
         Default::default(),
         Arc::new(db),
         cache,
-    ).unwrap();
+    )
+    .unwrap();
 
     let mut current_call_frame = vm.call_frames.pop().unwrap();
     vm.execute(&mut current_call_frame);
@@ -4047,7 +4175,8 @@ fn origin_op() {
         Default::default(),
         Arc::new(db),
         cache,
-    ).unwrap();
+    )
+    .unwrap();
 
     let mut current_call_frame = vm.call_frames.pop().unwrap();
     vm.execute(&mut current_call_frame);
@@ -4075,7 +4204,8 @@ fn balance_op() {
         U256::from(1234),
         Db::new(),
         Cache::default(),
-    ).unwrap();
+    )
+    .unwrap();
 
     let mut current_call_frame = vm.call_frames.pop().unwrap();
     vm.execute(&mut current_call_frame);
@@ -4113,7 +4243,8 @@ fn address_op() {
         Default::default(),
         Arc::new(db),
         cache,
-    ).unwrap();
+    )
+    .unwrap();
     let mut current_call_frame = vm.call_frames.pop().unwrap();
     vm.execute(&mut current_call_frame);
 
@@ -4156,11 +4287,15 @@ fn selfbalance_op() {
         Default::default(),
         Arc::new(db),
         cache,
-    ).unwrap();
+    )
+    .unwrap();
     let mut current_call_frame = vm.call_frames.pop().unwrap();
     vm.execute(&mut current_call_frame);
 
-    assert_eq!(vm.current_call_frame_mut().unwrap().stack.pop().unwrap(), balance);
+    assert_eq!(
+        vm.current_call_frame_mut().unwrap().stack.pop().unwrap(),
+        balance
+    );
     assert_eq!(vm.env.consumed_gas, TX_BASE_COST + gas_cost::SELFBALANCE);
 }
 
@@ -4193,12 +4328,16 @@ fn callvalue_op() {
         Default::default(),
         Arc::new(db),
         cache,
-    ).unwrap();
+    )
+    .unwrap();
 
     let mut current_call_frame = vm.call_frames.pop().unwrap();
     vm.execute(&mut current_call_frame);
 
-    assert_eq!(vm.current_call_frame_mut().unwrap().stack.pop().unwrap(), value);
+    assert_eq!(
+        vm.current_call_frame_mut().unwrap().stack.pop().unwrap(),
+        value
+    );
     assert_eq!(vm.env.consumed_gas, TX_BASE_COST + gas_cost::CALLVALUE);
 }
 
@@ -4230,7 +4369,8 @@ fn codesize_op() {
         Default::default(),
         Arc::new(db),
         cache,
-    ).unwrap();
+    )
+    .unwrap();
 
     let mut current_call_frame = vm.call_frames.pop().unwrap();
     vm.execute(&mut current_call_frame);
@@ -4269,7 +4409,8 @@ fn gasprice_op() {
         Default::default(),
         Arc::new(db),
         cache,
-    ).unwrap();
+    )
+    .unwrap();
 
     let mut current_call_frame = vm.call_frames.pop().unwrap();
     vm.execute(&mut current_call_frame);
@@ -4324,7 +4465,8 @@ fn codecopy_op() {
         Default::default(),
         Arc::new(db),
         cache,
-    ).unwrap();
+    )
+    .unwrap();
 
     let mut current_call_frame = vm.call_frames.pop().unwrap();
     vm.execute(&mut current_call_frame);
@@ -4358,7 +4500,10 @@ fn extcodesize_existing_account() {
 
     let mut current_call_frame = vm.call_frames.pop().unwrap();
     vm.execute(&mut current_call_frame);
-    assert_eq!(vm.current_call_frame_mut().unwrap().stack.pop().unwrap(), 23.into());
+    assert_eq!(
+        vm.current_call_frame_mut().unwrap().stack.pop().unwrap(),
+        23.into()
+    );
     assert_eq!(vm.env.consumed_gas, 23603.into());
 }
 
@@ -4375,7 +4520,10 @@ fn extcodesize_non_existing_account() {
 
     let mut current_call_frame = vm.call_frames.pop().unwrap();
     vm.execute(&mut current_call_frame);
-    assert_eq!(vm.current_call_frame_mut().unwrap().stack.pop().unwrap(), 0.into());
+    assert_eq!(
+        vm.current_call_frame_mut().unwrap().stack.pop().unwrap(),
+        0.into()
+    );
     assert_eq!(vm.env.consumed_gas, 23603.into());
 }
 
@@ -4404,7 +4552,8 @@ fn extcodecopy_existing_account() {
     let mut current_call_frame = vm.call_frames.pop().unwrap();
     vm.execute(&mut current_call_frame);
     assert_eq!(
-        vm.current_call_frame_mut().unwrap()
+        vm.current_call_frame_mut()
+            .unwrap()
             .memory
             .load_range(0, size)
             .unwrap(),
@@ -4432,7 +4581,8 @@ fn extcodecopy_non_existing_account() {
     let mut current_call_frame = vm.call_frames.pop().unwrap();
     vm.execute(&mut current_call_frame);
     assert_eq!(
-        vm.current_call_frame_mut().unwrap()
+        vm.current_call_frame_mut()
+            .unwrap()
             .memory
             .load_range(0, size)
             .unwrap(),

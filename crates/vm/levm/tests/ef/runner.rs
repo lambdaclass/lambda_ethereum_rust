@@ -93,7 +93,8 @@ pub fn prepare_vm(test: &EFTest) -> VM {
         test.transaction.data.first().unwrap().clone(),
         Arc::new(Db::from(test)),
         Cache::default(),
-    ).unwrap()
+    )
+    .unwrap()
 }
 
 pub fn ensure_pre_state(
