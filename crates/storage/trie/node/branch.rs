@@ -174,15 +174,14 @@ impl BranchNode {
             .collect::<Vec<_>>();
         let new_node = match (children.len(), !self.value.is_empty()) {
             // If this node still has a value but no longer has children, convert it into a leaf node
-            // TODO: I replaced vec![16] for vec![] look for hits in proptests
-            (0, true) => Some(LeafNode::new(Nibbles::from_hex(vec![]), self.value).into()),
+            (0, true) => LeafNode::new(Nibbles::from_hex(vec![]), self.value).into(),
             // If this node doesn't have a value and has only one child, replace it with its child node
             (1, false) => {
                 let (choice_index, child_hash) = children[0];
                 let child = state
                     .get_node(child_hash.clone())?
                     .expect("inconsistent internal tree structure");
-                Some(match child {
+                match child {
                     // Replace self with an extension node leading to the child
                     Node::Branch(_) => ExtensionNode::new(
                         Nibbles::from_hex(vec![choice_index as u8]),
@@ -198,12 +197,12 @@ impl BranchNode {
                         leaf.partial.prepend(choice_index as u8);
                         leaf.into()
                     }
-                })
+                }
             }
             // Return the updated node
-            _ => Some(self.into()),
+            _ => self.into(),
         };
-        Ok((new_node, value))
+        Ok((Some(new_node), value))
     }
 
     /// Computes the node's hash
