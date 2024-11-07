@@ -5,6 +5,7 @@ use crate::{
         eth::{
             backend,
             blocks::{BlockBodies, BlockHeaders},
+            transactions::Transactions,
         },
         handshake::encode_ack_message,
         message::Message,
@@ -94,7 +95,7 @@ impl<S: AsyncWrite + AsyncRead + std::marker::Unpin> RLPxConnection<S> {
                 SecretKey::random(&mut rng),
             )),
             storage,
-            tx_broadcast_send
+            tx_broadcast_send,
         )
     }
 
@@ -115,13 +116,7 @@ impl<S: AsyncWrite + AsyncRead + std::marker::Unpin> RLPxConnection<S> {
             SecretKey::random(&mut rng),
             pubkey2id(&peer_pk.into()),
         ));
-        RLPxConnection::new(
-            signer,
-            stream,
-            state,
-            storage,
-            tx_broadcast_send,
-        )
+        RLPxConnection::new(signer, stream, state, storage, tx_broadcast_send)
     }
 
     pub async fn handshake(&mut self) -> Result<(), RLPxError> {
@@ -195,15 +190,15 @@ impl<S: AsyncWrite + AsyncRead + std::marker::Unpin> RLPxConnection<S> {
                                 Message::Ping(_) => info!("Received Ping"),
                                 Message::Pong(_) => info!("Received Pong"),
                                 Message::Status(_) => info!("Received Status"),
-                                txs_msg @ Message::TransactionsMessage(_) => {
-                                    let txs = Arc::new(txs_msg);
-                                    // FIXME: Remove this unwrap
-                                    self.tx_broadcast_send.send(txs).unwrap();
-                                }
                                 Message::GetAccountRange(req) => {
                                     let response =
                                         process_account_range_request(req, self.storage.clone())?;
                                     self.send(Message::AccountRange(response)).await
+                                }
+                                txs_msg @ Message::TransactionsMessage(_) => {
+                                    let txs = Arc::new(txs_msg);
+                                    // FIXME: Remove this unwrap
+                                    self.tx_broadcast_send.send(txs).unwrap();
                                 }
                                 Message::GetBlockHeaders(msg_data) => {
                                     let response = BlockHeaders {
@@ -219,40 +214,26 @@ impl<S: AsyncWrite + AsyncRead + std::marker::Unpin> RLPxConnection<S> {
                                     };
                                     self.send(Message::BlockBodies(response)).await;
                                 }
+                                Message::GetStorageRanges(req) => {
+                                    let response =
+                                        process_storage_ranges_request(req, self.storage.clone())?;
+                                    self.send(Message::StorageRanges(response)).await
+                                }
+                                Message::GetByteCodes(req) => {
+                                    let response = process_byte_codes_request(req, self.storage.clone())?;
+                                    self.send(Message::ByteCodes(response)).await
+                                }
                                 // TODO: Add new message types and handlers as they are implemented
                                 message => return Err(RLPxError::UnexpectedMessage(message)),
-                            };
-                        }
-                        Message::GetBlockHeaders(msg_data) => {
-                            let response = BlockHeaders {
-                                id: msg_data.id,
-                                block_headers: msg_data.fetch_headers(&self.storage),
-                            };
-                            self.send(Message::BlockHeaders(response)).await;
-                        }
-                        Message::GetBlockBodies(msg_data) => {
-                            let response = BlockBodies {
-                                id: msg_data.id,
-                                block_bodies: msg_data.fetch_blocks(&self.storage),
-                            };
-                            self.send(Message::BlockBodies(response)).await;
-                        }
-                        Message::GetStorageRanges(req) => {
-                            let response =
-                                process_storage_ranges_request(req, self.storage.clone())?;
-                            self.send(Message::StorageRanges(response)).await
-                        }
-                        Message::GetByteCodes(req) => {
-                            let response = process_byte_codes_request(req, self.storage.clone())?;
-                            self.send(Message::ByteCodes(response)).await
+                            }
                         }
                         broadcasted_msg = broadcast.recv() => {
                             // FIXME: Properly do this.
                             let msg = broadcasted_msg.unwrap();
+                            println!("BROADCASTING MSG");
                             match *msg {
                                 Message::TransactionsMessage(ref txs) => {
                                     let cloned = txs.transactions.clone();
-                                    println!("THE CLONED TX: {cloned:?}");
                                     let new_msg = Message::TransactionsMessage(Transactions { transactions: cloned });
                                     self.send(new_msg).await;
                                 }

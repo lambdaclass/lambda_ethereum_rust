@@ -27,10 +27,12 @@ impl Transactions {
 impl RLPxMessage for Transactions {
     fn encode(&self, buf: &mut dyn BufMut) -> Result<(), RLPEncodeError> {
         let mut encoded_data = vec![];
-        Encoder::new(&mut encoded_data)
-            .encode_field(&self.transactions)
-            .finish();
-
+        let mut encoder = Encoder::new(&mut encoded_data);
+        let mut txs_iter = self.transactions.iter();
+        while let Some(tx) = txs_iter.next() {
+            encoder = encoder.encode_field(tx)
+        }
+        encoder.finish();
         let msg_data = snappy_encode(encoded_data)?;
         buf.put_slice(&msg_data);
         Ok(())
