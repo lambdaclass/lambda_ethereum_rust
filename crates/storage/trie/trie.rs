@@ -165,16 +165,19 @@ impl Trie {
     }
 
     pub fn verify_proof(
-        proof: &Vec<Vec<u8>>,
-        root_hash: NodeHash,
-        path: &PathRLP,
-        value: &ValueRLP,
+        _proof: &[Vec<u8>],
+        _root_hash: NodeHash,
+        _path: &PathRLP,
+        _value: &ValueRLP,
     ) -> Result<bool, TrieError> {
-        // // We'll build a trie from the proof nodes and check whether:
-        // //     1. the trie root hash is the one we expect
-        // //     2. the trie contains the (key, value) pair to verify
+        // This is a mockup function for verifying proof of inclusions. This function will be
+        // possible to implement after refactoring the current Trie implementation.
 
-        // // We will only be using the trie's cache so we don't need a working DB
+        // We'll build a trie from the proof nodes and check whether:
+        //     1. the trie root hash is the one we expect
+        //     2. the trie contains the (key, value) pair to verify
+
+        // We will only be using the trie's cache so we don't need a working DB
         // struct NullTrieDB;
 
         // impl TrieDB for NullTrieDB {
@@ -189,21 +192,18 @@ impl Trie {
 
         // let mut trie = Trie::new(Box::new(NullTrieDB));
 
-        // let path_offset = 0;
-
-        // // Insert root into trie
+        // Insert root into trie
         // let mut proof = proof.into_iter();
-        // // TODO: this should be an error, the proof can be whatever.
-        // let root_node = proof.next().expect("inconsistent internal tree structure");
+        // let root_node = proof.next();
         // trie.root = Some(root_node.insert_self(path_offset, &mut trie.state)?);
 
-        // // Insert rest of nodes
+        // Insert rest of nodes
         // for node in proof {
         //     node.insert_self(path_offset, &mut trie.state)?;
         // }
         // let expected_root_hash = trie.hash_no_commit()?.into();
 
-        // // Check key exists
+        // Check key exists
         // let Some(retrieved_value) = trie.get(path)? else {
         //     return Ok(false);
         // };
