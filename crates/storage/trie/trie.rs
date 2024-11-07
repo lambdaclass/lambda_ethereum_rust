@@ -145,10 +145,10 @@ impl Trie {
             .unwrap_or(*EMPTY_TRIE_HASH))
     }
 
-    /// Obtain an encoded merkle proof for the given path.
+    /// Obtain a merkle proof for the given path.
     /// The proof will contain all the encoded nodes traversed until reaching the node where the path is stored (including this last node).
     /// The proof will still be constructed even if the path is not stored in the trie, proving its absence.
-    pub fn get_encoded_proof(&self, path: &PathRLP) -> Result<Vec<Vec<u8>>, TrieError> {
+    pub fn get_proof(&self, path: &PathRLP) -> Result<Vec<Vec<u8>>, TrieError> {
         // Will store all the encoded nodes traversed until reaching the node containing the path
         let mut node_path = Vec::new();
         let Some(root) = &self.root else {
@@ -917,7 +917,7 @@ mod test {
             }
             let _ = cita_trie.root();
             for val in data.iter(){
-                let proof = trie.get_encoded_proof(val).unwrap();
+                let proof = trie.get_proof(val).unwrap();
                 let cita_proof = cita_trie.get_proof(val).unwrap();
                 prop_assert_eq!(proof, cita_proof);
             }
@@ -945,7 +945,7 @@ mod test {
             // Compare proofs
             let _ = cita_trie.root();
             for (val, _) in data.iter() {
-                let proof = trie.get_encoded_proof(val).unwrap();
+                let proof = trie.get_proof(val).unwrap();
                 let cita_proof = cita_trie.get_proof(val).unwrap();
                 prop_assert_eq!(proof, cita_proof);
             }
@@ -977,7 +977,7 @@ mod test {
             // Compare proofs
             let _ = cita_trie.root();
             for val in data.iter() {
-                let proof = trie.get_encoded_proof(val).unwrap();
+                let proof = trie.get_proof(val).unwrap();
                 let cita_proof = cita_trie.get_proof(val).unwrap();
                 prop_assert_eq!(proof, cita_proof);
             }
@@ -1002,7 +1002,7 @@ mod test {
             .unwrap();
         trie.insert(b"duck".to_vec(), b"duckling".to_vec()).unwrap();
         let cita_proof = cita_trie.get_proof(b"duck".as_ref()).unwrap();
-        let trie_proof = trie.get_encoded_proof(&b"duck".to_vec()).unwrap();
+        let trie_proof = trie.get_proof(&b"duck".to_vec()).unwrap();
         assert_eq!(cita_proof, trie_proof);
     }
 
@@ -1021,7 +1021,7 @@ mod test {
         trie.insert(b"goose".to_vec(), b"goose".to_vec()).unwrap();
         let _ = cita_trie.root();
         let cita_proof = cita_trie.get_proof(b"duck".as_ref()).unwrap();
-        let trie_proof = trie.get_encoded_proof(&b"duck".to_vec()).unwrap();
+        let trie_proof = trie.get_proof(&b"duck".to_vec()).unwrap();
         assert_eq!(cita_proof, trie_proof);
     }
 
@@ -1035,7 +1035,7 @@ mod test {
         trie.insert(val.clone(), val.clone()).unwrap();
         let _ = cita_trie.root();
         let cita_proof = cita_trie.get_proof(&val).unwrap();
-        let trie_proof = trie.get_encoded_proof(&val).unwrap();
+        let trie_proof = trie.get_proof(&val).unwrap();
         assert_eq!(cita_proof, trie_proof);
     }
 
@@ -1053,7 +1053,7 @@ mod test {
             .unwrap();
         let _ = cita_trie.root();
         let cita_proof = cita_trie.get_proof(&[183]).unwrap();
-        let trie_proof = trie.get_encoded_proof(&vec![183]).unwrap();
+        let trie_proof = trie.get_proof(&vec![183]).unwrap();
         assert_eq!(cita_proof, trie_proof);
     }
 
@@ -1071,7 +1071,7 @@ mod test {
         cita_trie.remove(&a).unwrap();
         let _ = cita_trie.root();
         let cita_proof = cita_trie.get_proof(&a).unwrap();
-        let trie_proof = trie.get_encoded_proof(&a).unwrap();
+        let trie_proof = trie.get_proof(&a).unwrap();
         assert_eq!(cita_proof, trie_proof);
     }
 
