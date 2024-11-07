@@ -38,7 +38,9 @@ impl ProverClient {
                 Ok((block_number, input)) => {
                     match prover.set_input(input).prove() {
                         Ok(proof) => {
-                            if let Err(e) = self.submit_proof(block_number, proof) {
+                            if let Err(e) =
+                                self.submit_proof(block_number, proof, prover.id.to_vec())
+                            {
                                 // TODO: Retry?
                                 warn!("Failed to submit proof: {e}");
                             }
@@ -78,10 +80,15 @@ impl ProverClient {
         }
     }
 
-    fn submit_proof(&self, block_number: u64, receipt: risc0_zkvm::Receipt) -> Result<(), String> {
+    fn submit_proof(
+        &self,
+        block_number: u64,
+        receipt: risc0_zkvm::Receipt,
+        prover_id: Vec<u32>,
+    ) -> Result<(), String> {
         let submit = ProofData::Submit {
             block_number,
-            receipt: Box::new(receipt),
+            receipt: Box::new((receipt, prover_id)),
         };
         let submit_ack = connect_to_prover_server_wr(&self.prover_server_endpoint, &submit)
             .map_err(|e| format!("Failed to get SubmitAck: {e}"))?;

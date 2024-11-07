@@ -22,6 +22,8 @@ pub enum L1WatcherError {
 pub enum ProverServerError {
     #[error("ProverServer connection failed: {0}")]
     ConnectionError(#[from] std::io::Error),
+    #[error("Proposer failed because of an EthClient error: {0}")]
+    EthClientError(#[from] EthClientError),
 }
 
 #[derive(Debug, thiserror::Error)]

@@ -1,5 +1,7 @@
 use ethereum_rust_storage::Store;
 use ethereum_rust_vm::execution_db::ExecutionDB;
+use keccak_hash::keccak;
+use libsecp256k1::SecretKey;
 use serde::{Deserialize, Serialize};
 use std::{
     io::{BufReader, BufWriter},
@@ -7,9 +9,14 @@ use std::{
     sync::mpsc::{self, Receiver},
 };
 use tokio::signal::unix::{signal, SignalKind};
-use tracing::{debug, info, warn};
+use tracing::{debug, error, info, warn};
 
-use ethereum_rust_core::types::{Block, BlockHeader};
+use ethereum_rust_core::{
+    types::{Block, BlockHeader},
+    Address, H256, U256,
+};
+
+use risc0_zkvm::sha::{Digest, Digestible};
 
 #[derive(Debug, Serialize, Deserialize, Default)]
 pub struct ProverInputData {
@@ -18,13 +25,22 @@ pub struct ProverInputData {
     pub parent_header: BlockHeader,
 }
 
-use crate::utils::config::prover_server::ProverServerConfig;
+use crate::{
+    proposer::send_transaction_with_calldata,
+    utils::{
+        config::{eth::EthConfig, proposer::ProposerConfig, prover_server::ProverServerConfig},
+        eth_client::EthClient,
+    },
+};
 
 use super::errors::ProverServerError;
 
 pub async fn start_prover_server(store: Store) {
-    let config = ProverServerConfig::from_env().expect("ProverServerConfig::from_env()");
-    let mut prover_server = ProverServer::new_from_config(config.clone(), store);
+    let server_config = ProverServerConfig::from_env().expect("ProverServerConfig::from_env()");
+    let eth_config = EthConfig::from_env().expect("EthConfig::from_env()");
+    let proposer_config = ProposerConfig::from_env().expect("ProposerConfig::from_env()");
+    let mut prover_server =
+        ProverServer::new_from_config(server_config.clone(), &proposer_config, eth_config, store);
 
     let (tx, rx) = mpsc::channel();
 
@@ -35,7 +51,7 @@ pub async fn start_prover_server(store: Store) {
             .expect("prover_server.start()")
     });
 
-    ProverServer::handle_sigint(tx, config).await;
+    ProverServer::handle_sigint(tx, server_config).await;
 
     tokio::try_join!(server).expect("tokio::try_join!()");
 }
@@ -62,7 +78,7 @@ pub enum ProofData {
     Submit {
         block_number: u64,
         // zk Proof
-        receipt: Box<risc0_zkvm::Receipt>,
+        receipt: Box<(risc0_zkvm::Receipt, Vec<u32>)>,
     },
 
     /// 4.
@@ -74,15 +90,28 @@ struct ProverServer {
     ip: IpAddr,
     port: u16,
     store: Store,
+    eth_client: EthClient,
+    on_chain_proposer_address: Address,
+    l1_address: Address,
+    l1_private_key: SecretKey,
     latest_proven_block: u64,
 }
 
 impl ProverServer {
-    pub fn new_from_config(config: ProverServerConfig, store: Store) -> Self {
+    pub fn new_from_config(
+        config: ProverServerConfig,
+        proposer_config: &ProposerConfig,
+        eth_config: EthConfig,
+        store: Store,
+    ) -> Self {
         Self {
             ip: config.listen_ip,
             port: config.listen_port,
             store,
+            eth_client: EthClient::new(&eth_config.rpc_url),
+            on_chain_proposer_address: proposer_config.on_chain_proposer_address,
+            l1_address: proposer_config.l1_address,
+            l1_private_key: proposer_config.l1_private_key,
             latest_proven_block: 0,
         }
     }
@@ -108,12 +137,12 @@ impl ProverServer {
             }
 
             debug!("Connection established!");
-            self.handle_connection(stream?).await;
+            self.handle_connection(stream?).await?;
         }
         Ok(())
     }
 
-    async fn handle_connection(&mut self, mut stream: TcpStream) {
+    async fn handle_connection(&mut self, mut stream: TcpStream) -> Result<(), ProverServerError> {
         let buf_reader = BufReader::new(&stream);
 
         let data: Result<ProofData, _> = serde_json::de::from_reader(buf_reader);
@@ -130,9 +159,13 @@ impl ProverServer {
                 block_number,
                 receipt,
             }) => {
-                if let Err(e) = self.handle_submit(&mut stream, block_number, receipt) {
-                    warn!("Failed to handle submit: {e}");
+                if let Err(e) = self.handle_submit(&mut stream, block_number) {
+                    error!("Failed to handle submit_ack: {e}");
+                    panic!("Failed to handle submit_ack: {e}");
                 }
+                // Seems to be stopping the prover_server <--> prover_client
+                //self.handle_proof_submission(block_number, receipt).await?;
+
                 assert!(block_number == (self.latest_proven_block + 1), "Prover Client submitted an invalid block_number: {block_number}. The last_proved_block is: {}", self.latest_proven_block);
                 self.latest_proven_block = block_number;
             }
@@ -145,6 +178,7 @@ impl ProverServer {
         }
 
         debug!("Connection closed");
+        Ok(())
     }
 
     async fn handle_request(
@@ -179,25 +213,54 @@ impl ProverServer {
         serde_json::to_writer(writer, &response).map_err(|e| e.to_string())
     }
 
-    fn handle_submit(
-        &self,
-        stream: &mut TcpStream,
-        block_number: u64,
-        receipt: Box<risc0_zkvm::Receipt>,
-    ) -> Result<(), String> {
+    fn handle_submit(&self, stream: &mut TcpStream, block_number: u64) -> Result<(), String> {
         debug!("Submit received for BlockNumber: {block_number}");
-
-        // TODO: send proof to validate on chain.
-        // Send Tx
-        // if succeeds:
-        //      info!("Sent proof for block {block_number}, with transaction hash {verify_tx_hash:#x}");
-        // else (if reverts):
-        //      error!("Failed to send proof to block {head_block_hash:#x}. Manual intervention required: {error}");
-        //      panic!("Failed to send proof to block {block_number:#x}. Manual intervention required: {error}");
 
         let response = ProofData::SubmitAck { block_number };
         let writer = BufWriter::new(stream);
         serde_json::to_writer(writer, &response).map_err(|e| e.to_string())
+    }
+
+    async fn handle_proof_submission(
+        &self,
+        block_number: u64,
+        receipt: Box<(risc0_zkvm::Receipt, Vec<u32>)>,
+    ) -> Result<(), ProverServerError> {
+        // InProgress: send proof to validate on chain.
+        // Send Tx
+        // If we run the prover_client with RISC0_DEV_MODE=0 we will have a groth16 proof
+        // Else, we will have a fake proof.
+        //
+        // The RISC0_DEV_MODE=1 should only be used with DEPLOYER_CONTRACT_VERIFIER=0xAA
+        let seal = match receipt.0.inner.groth16() {
+            Ok(inner) => hex::encode(inner.clone().seal),
+            Err(_) => hex::encode("00"),
+        };
+
+        let mut image_id: [u32; 8] = [0; 8];
+        for (i, b) in image_id.iter_mut().enumerate() {
+            *b = *receipt.1.get(i).unwrap();
+        }
+
+        let image_id: risc0_zkvm::sha::Digest = image_id.into();
+
+        let journal_digest = Digestible::digest(&receipt.0.journal);
+
+        match self
+            .send_proof(block_number, seal, image_id, journal_digest)
+            .await
+        {
+            Ok(tx_hash) => {
+                info!("Sent proof for block {block_number}, with transaction hash {tx_hash:#x}");
+            }
+
+            Err(e) => {
+                error!("Failed to send proof to block {block_number:#x}. Manual intervention required: {e}");
+                panic!("Failed to send proof to block {block_number:#x}. Manual intervention required: {e}");
+            }
+        }
+
+        Ok(())
     }
 
     fn create_prover_input(&self, block_number: u64) -> Result<ProverInputData, String> {
@@ -229,5 +292,66 @@ impl ProverServer {
             block,
             parent_header,
         })
+    }
+
+    pub async fn send_proof(
+        &self,
+        block_number: u64,
+        seal: String,
+        image_id: Digest,
+        journal_digest: Digest,
+    ) -> Result<H256, ProverServerError> {
+        info!("Sending proof");
+        let mut calldata = Vec::new();
+
+        // function verify(uint256,bytes,bytes32,bytes32)
+        // blockNumber, seal, imageId, journalDigest
+        // From crates/l2/contracts/l1/interfaces/IOnChainProposer.sol
+        let verify_proof_selector = keccak(b"verify(uint256,bytes,bytes32,bytes32)")
+            .as_bytes()
+            .get(..4)
+            .expect("Failed to get initialize selector")
+            .to_vec();
+        calldata.extend(verify_proof_selector);
+
+        // extend with block_number
+        let mut block_number_bytes = [0_u8; 32];
+        U256::from(block_number).to_big_endian(&mut block_number_bytes);
+        calldata.extend(block_number_bytes);
+        calldata.extend(H256::from_low_u64_be(32).as_bytes());
+
+        // extend with seal
+        calldata.extend(H256::from_low_u64_be(seal.len() as u64).as_bytes());
+        calldata.extend(seal.as_bytes());
+        let leading_zeros = 32 - ((calldata.len() - 4) % 32);
+        calldata.extend(vec![0; leading_zeros]);
+
+        // extend with image_id
+        calldata.extend(image_id.as_bytes());
+
+        // extend with journal_digest
+        calldata.extend(journal_digest.as_bytes());
+
+        let verify_tx_hash = send_transaction_with_calldata(
+            &self.eth_client,
+            self.l1_address,
+            self.l1_private_key,
+            self.on_chain_proposer_address,
+            calldata.into(),
+        )
+        .await?;
+
+        info!("Proof sent: {verify_tx_hash:#x}");
+
+        while self
+            .eth_client
+            .get_transaction_receipt(verify_tx_hash)
+            .await?
+            .is_none()
+        {
+            std::thread::sleep(std::time::Duration::from_secs(1));
+        }
+
+        Ok(verify_tx_hash)
     }
 }

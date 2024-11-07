@@ -1,6 +1,6 @@
 use crate::utils::{
     config::{eth::EthConfig, proposer::ProposerConfig, read_env_file},
-    eth_client::{transaction::blob_from_bytes, EthClient},
+    eth_client::{errors::EthClientError, transaction::blob_from_bytes, EthClient},
     merkle_tree::merkelize,
 };
 use bytes::Bytes;
@@ -37,7 +37,6 @@ pub mod state_diff;
 pub mod errors;
 
 const COMMIT_FUNCTION_SELECTOR: [u8; 4] = [132, 97, 12, 179];
-const VERIFY_FUNCTION_SELECTOR: [u8; 4] = [133, 133, 44, 228];
 
 pub struct Proposer {
     eth_client: EthClient,
@@ -470,68 +469,33 @@ impl Proposer {
 
         Ok(commit_tx_hash)
     }
+}
 
-    pub async fn send_proof(
-        &self,
-        block_number: u64,
-        block_proof: &[u8],
-    ) -> Result<H256, ProposerError> {
-        info!("Sending proof");
-        let mut calldata = Vec::new();
-        calldata.extend(VERIFY_FUNCTION_SELECTOR);
-        let mut block_number_bytes = [0_u8; 32];
-        U256::from(block_number).to_big_endian(&mut block_number_bytes);
-        calldata.extend(block_number_bytes);
-        calldata.extend(H256::from_low_u64_be(32).as_bytes());
-        calldata.extend(H256::from_low_u64_be(block_proof.len() as u64).as_bytes());
-        calldata.extend(block_proof);
-        let leading_zeros = 32 - ((calldata.len() - 4) % 32);
-        calldata.extend(vec![0; leading_zeros]);
+async fn send_transaction_with_calldata(
+    eth_client: &EthClient,
+    l1_address: Address,
+    l1_private_key: SecretKey,
+    to: Address,
+    calldata: Bytes,
+) -> Result<H256, EthClientError> {
+    let mut tx = EIP1559Transaction {
+        to: TxKind::Call(to),
+        data: calldata,
+        max_fee_per_gas: eth_client.get_gas_price().await?.as_u64(),
+        nonce: eth_client.get_nonce(l1_address).await?,
+        chain_id: eth_client.get_chain_id().await?.as_u64(),
+        ..Default::default()
+    };
 
-        let verify_tx_hash = self
-            .send_transaction_with_calldata(self.on_chain_proposer_address, calldata.into())
-            .await?;
+    let mut generic_tx = GenericTransaction::from(tx.clone());
+    generic_tx.from = l1_address;
 
-        info!("Proof sent: {verify_tx_hash:#x}");
+    tx.gas_limit = eth_client
+        .estimate_gas(generic_tx)
+        .await?
+        .saturating_add(TX_GAS_COST);
 
-        while self
-            .eth_client
-            .get_transaction_receipt(verify_tx_hash)
-            .await?
-            .is_none()
-        {
-            sleep(Duration::from_secs(1)).await;
-        }
-
-        Ok(verify_tx_hash)
-    }
-
-    async fn send_transaction_with_calldata(
-        &self,
-        to: Address,
-        calldata: Bytes,
-    ) -> Result<H256, ProposerError> {
-        let mut tx = EIP1559Transaction {
-            to: TxKind::Call(to),
-            data: calldata,
-            max_fee_per_gas: self.eth_client.get_gas_price().await?.as_u64(),
-            nonce: self.eth_client.get_nonce(self.l1_address).await?,
-            chain_id: self.eth_client.get_chain_id().await?.as_u64(),
-            ..Default::default()
-        };
-
-        let mut generic_tx = GenericTransaction::from(tx.clone());
-        generic_tx.from = self.l1_address;
-
-        tx.gas_limit = self
-            .eth_client
-            .estimate_gas(generic_tx)
-            .await?
-            .saturating_add(TX_GAS_COST);
-
-        self.eth_client
-            .send_eip1559_transaction(&mut tx, self.l1_private_key)
-            .await
-            .map_err(ProposerError::from)
-    }
+    eth_client
+        .send_eip1559_transaction(&mut tx, l1_private_key)
+        .await
 }
