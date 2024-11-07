@@ -1,8 +1,8 @@
 use ethereum_rust_rlp::structs::Encoder;
 
 use crate::{
-    dumb_nibbles::DumbNibbles, error::TrieError, node::BranchNode, node_hash::NodeHash,
-    state::TrieState, ValueRLP,
+    error::TrieError, nibbles::Nibbles, node::BranchNode, node_hash::NodeHash, state::TrieState,
+    ValueRLP,
 };
 
 use super::{ExtensionNode, Node};
@@ -10,18 +10,18 @@ use super::{ExtensionNode, Node};
 /// Contains the node's hash, value & path
 #[derive(Debug, Clone, Default)]
 pub struct LeafNode {
-    pub partial: DumbNibbles,
+    pub partial: Nibbles,
     pub value: ValueRLP,
 }
 
 impl LeafNode {
     /// Creates a new leaf node and stores the given (path, value) pair
-    pub fn new(partial: DumbNibbles, value: ValueRLP) -> Self {
+    pub fn new(partial: Nibbles, value: ValueRLP) -> Self {
         Self { partial, value }
     }
 
     /// Returns the stored value if the given path matches the stored path
-    pub fn get(&self, path: DumbNibbles) -> Result<Option<ValueRLP>, TrieError> {
+    pub fn get(&self, path: Nibbles) -> Result<Option<ValueRLP>, TrieError> {
         if self.partial == path {
             Ok(Some(self.value.clone()))
         } else {
@@ -33,7 +33,7 @@ impl LeafNode {
     pub fn insert(
         mut self,
         state: &mut TrieState,
-        path: DumbNibbles,
+        path: Nibbles,
         value: ValueRLP,
     ) -> Result<Node, TrieError> {
         /* Possible flow paths:
@@ -90,7 +90,7 @@ impl LeafNode {
     }
 
     /// Removes own value if the path matches own path and returns self and the value if it was removed
-    pub fn remove(self, path: DumbNibbles) -> Result<(Option<Node>, Option<ValueRLP>), TrieError> {
+    pub fn remove(self, path: Nibbles) -> Result<(Option<Node>, Option<ValueRLP>), TrieError> {
         Ok(if self.partial == path {
             (None, Some(self.value))
         } else {
@@ -150,7 +150,7 @@ mod test {
         };
 
         assert_eq!(
-            node.get(DumbNibbles::from_bytes(&[0x12])).unwrap(),
+            node.get(Nibbles::from_bytes(&[0x12])).unwrap(),
             Some(vec![0x12, 0x34, 0x56, 0x78]),
         );
     }
@@ -161,10 +161,7 @@ mod test {
             leaf { &[0x12] => vec![0x12, 0x34, 0x56, 0x78] }
         };
 
-        assert!(node
-            .get(DumbNibbles::from_bytes(&[0x34]))
-            .unwrap()
-            .is_none());
+        assert!(node.get(Nibbles::from_bytes(&[0x34])).unwrap().is_none());
     }
 
     #[test]
@@ -175,11 +172,7 @@ mod test {
         };
 
         let node = node
-            .insert(
-                &mut trie.state,
-                DumbNibbles::from_bytes(&[0x12]),
-                vec![0x13],
-            )
+            .insert(&mut trie.state, Nibbles::from_bytes(&[0x12]), vec![0x13])
             .unwrap();
         let node = match node {
             Node::Leaf(x) => x,
@@ -195,7 +188,7 @@ mod test {
         let node = pmt_node! { @(trie)
             leaf { &[0x12] => vec![0x12, 0x34, 0x56, 0x78] }
         };
-        let path = DumbNibbles::from_bytes(&[0x22]);
+        let path = Nibbles::from_bytes(&[0x22]);
         let value = vec![0x23];
         let node = node
             .insert(&mut trie.state, path.clone(), value.clone())
@@ -214,7 +207,7 @@ mod test {
             leaf { &[0x12] => vec![0x12, 0x34, 0x56, 0x78] }
         };
 
-        let path = DumbNibbles::from_bytes(&[0x13]);
+        let path = Nibbles::from_bytes(&[0x13]);
         let value = vec![0x15];
 
         let node = node
@@ -232,7 +225,7 @@ mod test {
             leaf { &[0x12] => vec![0x12, 0x34, 0x56, 0x78] }
         };
 
-        let path = DumbNibbles::from_bytes(&[0x12, 0x34]);
+        let path = Nibbles::from_bytes(&[0x12, 0x34]);
         let value = vec![0x17];
 
         let node = node
@@ -250,7 +243,7 @@ mod test {
             leaf { &[0x12, 0x34] => vec![0x12, 0x34, 0x56, 0x78] }
         };
 
-        let path = DumbNibbles::from_bytes(&[0x12]);
+        let path = Nibbles::from_bytes(&[0x12]);
         let value = vec![0x17];
 
         let node = node
@@ -272,10 +265,10 @@ mod test {
     #[test]
     fn remove_self() {
         let node = LeafNode::new(
-            DumbNibbles::from_bytes(&[0x12, 0x34]),
+            Nibbles::from_bytes(&[0x12, 0x34]),
             vec![0x12, 0x34, 0x56, 0x78],
         );
-        let (node, value) = node.remove(DumbNibbles::from_bytes(&[0x12, 0x34])).unwrap();
+        let (node, value) = node.remove(Nibbles::from_bytes(&[0x12, 0x34])).unwrap();
 
         assert!(node.is_none());
         assert_eq!(value, Some(vec![0x12, 0x34, 0x56, 0x78]));
@@ -284,11 +277,11 @@ mod test {
     #[test]
     fn remove_none() {
         let node = LeafNode::new(
-            DumbNibbles::from_bytes(&[0x12, 0x34]),
+            Nibbles::from_bytes(&[0x12, 0x34]),
             vec![0x12, 0x34, 0x56, 0x78],
         );
 
-        let (node, value) = node.remove(DumbNibbles::from_bytes(&[0x12])).unwrap();
+        let (node, value) = node.remove(Nibbles::from_bytes(&[0x12])).unwrap();
 
         assert!(node.is_some());
         assert_eq!(value, None);
@@ -296,7 +289,7 @@ mod test {
 
     #[test]
     fn compute_hash_x() {
-        let node = LeafNode::new(DumbNibbles::from_bytes(b"key".as_ref()), b"value".to_vec());
+        let node = LeafNode::new(Nibbles::from_bytes(b"key".as_ref()), b"value".to_vec());
         let node_hash_ref = node.compute_hash();
         assert_eq!(
             node_hash_ref.as_ref(),
@@ -307,7 +300,7 @@ mod test {
     #[test]
     fn compute_hash_long() {
         let node = LeafNode::new(
-            DumbNibbles::from_bytes(b"key".as_ref()),
+            Nibbles::from_bytes(b"key".as_ref()),
             b"a comparatively long value".to_vec(),
         );
 

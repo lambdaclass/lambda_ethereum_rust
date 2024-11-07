@@ -1,15 +1,15 @@
-use crate::{dumb_nibbles::DumbNibbles, node::Node, node_hash::NodeHash, PathRLP, Trie, ValueRLP};
+use crate::{nibbles::Nibbles, node::Node, node_hash::NodeHash, PathRLP, Trie, ValueRLP};
 
 pub struct TrieIterator {
     trie: Trie,
     // The stack contains the current traversed path and the next node to be traversed
-    stack: Vec<(DumbNibbles, NodeHash)>,
+    stack: Vec<(Nibbles, NodeHash)>,
 }
 
 impl TrieIterator {
     pub(crate) fn new(trie: Trie) -> Self {
         let stack = if let Some(root) = &trie.root {
-            vec![(DumbNibbles::default(), root.clone())]
+            vec![(Nibbles::default(), root.clone())]
         } else {
             vec![]
         };
@@ -18,7 +18,7 @@ impl TrieIterator {
 }
 
 impl Iterator for TrieIterator {
-    type Item = (DumbNibbles, Node);
+    type Item = (Nibbles, Node);
 
     fn next(&mut self) -> Option<Self::Item> {
         if self.stack.is_empty() {

@@ -6,13 +6,13 @@ mod rlp;
 mod state;
 mod trie_iter;
 
-mod dumb_nibbles;
+mod nibbles;
 #[cfg(test)]
 mod test_utils;
 
-use dumb_nibbles::DumbNibbles;
 use ethereum_rust_rlp::constants::RLP_NULL;
 use ethereum_types::H256;
+use nibbles::Nibbles;
 use node::Node;
 use node_hash::NodeHash;
 use sha3::{Digest, Keccak256};
@@ -72,13 +72,13 @@ impl Trie {
 
     /// Retrieve an RLP-encoded value from the trie given its RLP-encoded path.
     pub fn get(&self, path: &PathRLP) -> Result<Option<ValueRLP>, TrieError> {
-        println!("[GET] {:?}", DumbNibbles::from_bytes(&path).as_ref());
+        println!("[GET] {:?}", Nibbles::from_bytes(&path).as_ref());
         if let Some(root) = &self.root {
             let root_node = self
                 .state
                 .get_node(root.clone())?
                 .expect("inconsistent internal tree structure");
-            root_node.get(&self.state, DumbNibbles::from_bytes(path))
+            root_node.get(&self.state, Nibbles::from_bytes(path))
         } else {
             Ok(None)
         }
@@ -86,7 +86,7 @@ impl Trie {
 
     /// Insert an RLP-encoded value into the trie.
     pub fn insert(&mut self, path: PathRLP, value: ValueRLP) -> Result<(), TrieError> {
-        println!("[INSERT] {:?}", DumbNibbles::from_bytes(&path).as_ref());
+        println!("[INSERT] {:?}", Nibbles::from_bytes(&path).as_ref());
         let root = self.root.take();
         if let Some(root_node) = root
             .map(|root| self.state.get_node(root))
@@ -94,15 +94,12 @@ impl Trie {
             .flatten()
         {
             // If the trie is not empty, call the root node's insertion logic
-            let root_node = root_node.insert(
-                &mut self.state,
-                DumbNibbles::from_bytes(&path),
-                value.clone(),
-            )?;
+            let root_node =
+                root_node.insert(&mut self.state, Nibbles::from_bytes(&path), value.clone())?;
             self.root = Some(root_node.insert_self(&mut self.state)?)
         } else {
             // If the trie is empty, just add a leaf.
-            let new_leaf = Node::from(LeafNode::new(DumbNibbles::from_bytes(&path), value));
+            let new_leaf = Node::from(LeafNode::new(Nibbles::from_bytes(&path), value));
             self.root = Some(new_leaf.insert_self(&mut self.state)?)
         }
         print_trie(&self);
@@ -112,7 +109,7 @@ impl Trie {
     /// Remove a value from the trie given its RLP-encoded path.
     /// Returns the value if it was succesfully removed or None if it wasn't part of the trie
     pub fn remove(&mut self, path: PathRLP) -> Result<Option<ValueRLP>, TrieError> {
-        println!("[REMOVE] {:?}", DumbNibbles::from_bytes(&path).as_ref());
+        println!("[REMOVE] {:?}", Nibbles::from_bytes(&path).as_ref());
         let root = self.root.take();
         let res = if let Some(root) = root {
             let root_node = self
@@ -120,7 +117,7 @@ impl Trie {
                 .get_node(root)?
                 .expect("inconsistent internal tree structure");
             let (root_node, old_value) =
-                root_node.remove(&mut self.state, DumbNibbles::from_bytes(&path))?;
+                root_node.remove(&mut self.state, Nibbles::from_bytes(&path))?;
             self.root = root_node
                 .map(|root| root.insert_self(&mut self.state))
                 .transpose()?;
@@ -160,7 +157,7 @@ impl Trie {
             node_path.push(node.to_vec());
         }
         if let Some(root_node) = self.state.get_node(root.clone())? {
-            root_node.get_path(&self.state, DumbNibbles::from_bytes(path), &mut node_path)?;
+            root_node.get_path(&self.state, Nibbles::from_bytes(path), &mut node_path)?;
         }
         Ok(node_path)
     }
@@ -217,7 +214,7 @@ impl Trie {
 }
 
 impl IntoIterator for Trie {
-    type Item = (DumbNibbles, Node);
+    type Item = (Nibbles, Node);
 
     type IntoIter = TrieIterator;
 

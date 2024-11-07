@@ -80,7 +80,7 @@ macro_rules! pmt_node {
         $( offset $offset:expr )?
     ) => {{
         #[allow(unused_variables)]
-        let prefix = $crate::dumb_nibbles::DumbNibbles::from_hex($prefix.to_vec());
+        let prefix = $crate::nibbles::Nibbles::from_hex($prefix.to_vec());
 
         $crate::node::ExtensionNode::new(
             prefix.clone(),
@@ -99,7 +99,7 @@ macro_rules! pmt_node {
         $( offset $offset:expr )?
     ) => {
         {
-            $crate::node::LeafNode::new(DumbNibbles::from_bytes($path), $value)
+            $crate::node::LeafNode::new(Nibbles::from_bytes($path), $value)
         }
     };
 }

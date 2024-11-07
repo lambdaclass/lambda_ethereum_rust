@@ -1,8 +1,6 @@
 use ethereum_rust_rlp::structs::Encoder;
 
-use crate::{
-    dumb_nibbles::DumbNibbles, error::TrieError, node_hash::NodeHash, state::TrieState, ValueRLP,
-};
+use crate::{error::TrieError, nibbles::Nibbles, node_hash::NodeHash, state::TrieState, ValueRLP};
 
 use super::{ExtensionNode, LeafNode, Node};
 
@@ -55,11 +53,7 @@ impl BranchNode {
     }
 
     /// Retrieves a value from the subtrie originating from this node given its path
-    pub fn get(
-        &self,
-        state: &TrieState,
-        mut path: DumbNibbles,
-    ) -> Result<Option<ValueRLP>, TrieError> {
+    pub fn get(&self, state: &TrieState, mut path: Nibbles) -> Result<Option<ValueRLP>, TrieError> {
         // If path is at the end, return to its own value if present.
         // Otherwise, check the corresponding choice and delegate accordingly if present.
         if let Some(choice) = path.next_choice() {
@@ -83,7 +77,7 @@ impl BranchNode {
     pub fn insert(
         mut self,
         state: &mut TrieState,
-        mut path: DumbNibbles,
+        mut path: Nibbles,
         value: ValueRLP,
     ) -> Result<Node, TrieError> {
         // If path is at the end, insert or replace its own value.
@@ -119,7 +113,7 @@ impl BranchNode {
     pub fn remove(
         mut self,
         state: &mut TrieState,
-        mut path: DumbNibbles,
+        mut path: Nibbles,
     ) -> Result<(Option<Node>, Option<ValueRLP>), TrieError> {
         /* Possible flow paths:
             Step 1: Removal
@@ -201,7 +195,7 @@ impl BranchNode {
                     // The extension node will then replace self if self has no value
                     Node::Branch(_) => {
                         let extension_node = ExtensionNode::new(
-                            DumbNibbles::from_hex(vec![choice_index as u8]),
+                            Nibbles::from_hex(vec![choice_index as u8]),
                             child_hash.clone(),
                         );
                         *child_hash = extension_node.insert_self(state)?
@@ -229,7 +223,7 @@ impl BranchNode {
             // If this node still has a child and value return the updated node
             (Some(_), true) => Some(self.into()),
             // If this node still has a value but no longer has children, convert it into a leaf node
-            (None, true) => Some(LeafNode::new(DumbNibbles::from_hex(vec![16]), self.value).into()),
+            (None, true) => Some(LeafNode::new(Nibbles::from_hex(vec![16]), self.value).into()),
             // If this node doesn't have a value, replace it with its child node
             (Some(x), false) => Some(
                 state
@@ -277,7 +271,7 @@ impl BranchNode {
     pub fn get_path(
         &self,
         state: &TrieState,
-        mut path: DumbNibbles,
+        mut path: Nibbles,
         node_path: &mut Vec<Vec<u8>>,
     ) -> Result<(), TrieError> {
         // Add self to node_path (if not inlined in parent)
@@ -353,13 +347,11 @@ mod test {
         };
 
         assert_eq!(
-            node.get(&trie.state, DumbNibbles::from_bytes(&[0x00]))
-                .unwrap(),
+            node.get(&trie.state, Nibbles::from_bytes(&[0x00])).unwrap(),
             Some(vec![0x12, 0x34, 0x56, 0x78]),
         );
         assert_eq!(
-            node.get(&trie.state, DumbNibbles::from_bytes(&[0x10]))
-                .unwrap(),
+            node.get(&trie.state, Nibbles::from_bytes(&[0x10])).unwrap(),
             Some(vec![0x34, 0x56, 0x78, 0x9A]),
         );
     }
@@ -375,8 +367,7 @@ mod test {
         };
 
         assert_eq!(
-            node.get(&trie.state, DumbNibbles::from_bytes(&[0x20]))
-                .unwrap(),
+            node.get(&trie.state, Nibbles::from_bytes(&[0x20])).unwrap(),
             None,
         );
     }
@@ -390,7 +381,7 @@ mod test {
                 1 => leaf { &[0x10] => vec![0x34, 0x56, 0x78, 0x9A] },
             }
         };
-        let path = DumbNibbles::from_bytes(&[0x2]);
+        let path = Nibbles::from_bytes(&[0x2]);
         let value = vec![0x3];
 
         let node = node
@@ -411,7 +402,7 @@ mod test {
             }
         };
 
-        let path = DumbNibbles::from_bytes(&[0x20]);
+        let path = Nibbles::from_bytes(&[0x20]);
         let value = vec![0x21];
 
         let node = node
@@ -433,7 +424,7 @@ mod test {
         };
 
         // The extension node is ignored since it's irrelevant in this test.
-        let path = DumbNibbles::from_bytes(&[0x00]).offset(2);
+        let path = Nibbles::from_bytes(&[0x00]).offset(2);
         let value = vec![0x1];
 
         let new_node = node
@@ -461,7 +452,7 @@ mod test {
         };
 
         let (node, value) = node
-            .remove(&mut trie.state, DumbNibbles::from_bytes(&[0x00]))
+            .remove(&mut trie.state, Nibbles::from_bytes(&[0x00]))
             .unwrap();
 
         assert!(matches!(node, Some(Node::Leaf(_))));
@@ -480,7 +471,7 @@ mod test {
         };
 
         let (node, value) = node
-            .remove(&mut trie.state, DumbNibbles::from_bytes(&[0x00]))
+            .remove(&mut trie.state, Nibbles::from_bytes(&[0x00]))
             .unwrap();
 
         assert!(matches!(node, Some(Node::Branch(_))));
@@ -497,7 +488,7 @@ mod test {
         };
 
         let (node, value) = node
-            .remove(&mut trie.state, DumbNibbles::from_bytes(&[0x00]))
+            .remove(&mut trie.state, Nibbles::from_bytes(&[0x00]))
             .unwrap();
 
         assert!(matches!(node, Some(Node::Leaf(_))));
@@ -514,7 +505,7 @@ mod test {
         };
 
         let (node, value) = node
-            .remove(&mut trie.state, DumbNibbles::from_bytes(&[]))
+            .remove(&mut trie.state, Nibbles::from_bytes(&[]))
             .unwrap();
 
         assert!(matches!(node, Some(Node::Leaf(_))));
@@ -532,7 +523,7 @@ mod test {
         };
 
         let (node, value) = node
-            .remove(&mut trie.state, DumbNibbles::from_bytes(&[]))
+            .remove(&mut trie.state, Nibbles::from_bytes(&[]))
             .unwrap();
 
         assert!(matches!(node, Some(Node::Branch(_))));
