@@ -46,14 +46,15 @@ impl ExtensionNode {
         value: ValueRLP,
     ) -> Result<Node, TrieError> {
         // OUTDATED
-        /* Possible flow paths (there are duplicates between different prefix lengths):
+        /* Possible flow paths:
+            * Prefix fully matches path
             Extension { prefix, child } -> Extension { prefix , child' } (insert into child)
-            Extension { prefixL+C+prefixR, child } -> Extension { prefixL, Branch { [ Extension { prefixR, child }, ..], Path, Value} } (if path fully traversed)
-            Extension { prefixL+C+prefixR, child } -> Extension { prefixL, Branch { [ Extension { prefixR, child }, Leaf { Path, Value }..] None, None} } (if path not fully traversed)
-            Extension { prefixL+C+None, child } -> Extension { prefixL, Branch { [child, ... ], Path, Value} } (if path fully traversed)
-            Extension { prefixL+C+None, child } -> Extension { prefixL, Branch { [child, ... ], Leaf { Path, Value }, ... }, None, None } (if path not fully traversed)
-            Extension { None+C+prefixR } -> Branch { [ Extension { prefixR, child } , ..], Path, Value} (if path fully traversed)
-            Extension { None+C+prefixR } -> Branch { [ Extension { prefixR, child } , Leaf { Path, Value } , ... ], None, None} (if path not fully traversed)
+            * No match between path and prefix
+            Extension { prefix, child } -> Branch { [ ] childValue } (insert into new branch node)
+            Extension { prefix, child }  -> Branch { [ child ] None } (insert into new branch node)
+            Extension { prefix, child }  -> Branch { [ Extension { prefix[1..], child } ] None } (insert into new branch node)
+            * Prefix partially matches path
+            Extension { prefix, child } -> Extension { prefix[..match], Extension { path[match..] child } } (insert into new extension node)
         */
         let match_index = path.count_prefix(&self.prefix);
         if match_index == self.prefix.len() {
