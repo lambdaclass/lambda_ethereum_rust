@@ -48,6 +48,11 @@ impl Account {
         }
     }
 
+    /// New account with info and empty storage
+    pub fn new_with_info(info: AccountInfo) -> Self {
+        Self { info, storage: HashMap::new() }
+    }
+
     pub fn has_code(&self) -> bool {
         !(self.info.bytecode.is_empty()
             || self.bytecode_hash() == H256::from_str(EMPTY_CODE_HASH_STR).unwrap())

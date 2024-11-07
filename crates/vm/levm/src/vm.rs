@@ -66,14 +66,25 @@ impl VM {
     ) -> Self {
         // Maybe this decision should be made in an upper layer
 
+        // Add sender, coinbase and recipient (in the case of a Call) to cache [https://www.evm.codes/about#access_list]
+        let sender_account_info = db.get_account_info(env.origin);
+        cache.add_account(&env.origin, &Account::new_with_info(sender_account_info.clone()));
+
+        let coinbase_account_info = db.get_account_info(env.coinbase);
+        cache.add_account(&env.coinbase, &Account::new_with_info(coinbase_account_info));
+
         match to {
             TxKind::Call(address_to) => {
+                // add address_to to cache
+                let recipient_account_info = db.get_account_info(address_to);
+                cache.add_account(&address_to, &Account::new_with_info(recipient_account_info.clone()));
+
                 // CALL tx
                 let initial_call_frame = CallFrame::new(
                     env.origin,
                     address_to,
                     address_to,
-                    db.get_account_info(address_to).bytecode,
+                    recipient_account_info.bytecode,
                     value,
                     calldata.clone(),
                     false,
@@ -93,8 +104,6 @@ impl VM {
             }
             TxKind::Create => {
                 // CREATE tx
-                let sender_account_info = db.get_account_info(env.origin);
-                // Note that this is a copy of account, not the real one
 
                 // (2)
                 let new_contract_address =
