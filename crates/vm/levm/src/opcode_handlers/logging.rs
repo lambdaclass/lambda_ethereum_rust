@@ -22,7 +22,10 @@ impl VM {
             return Err(VMError::OpcodeNotAllowedInStaticContext);
         }
 
-        let number_of_topics = (op as u8) - (Opcode::LOG0 as u8);
+        let number_of_topics = (op as u8)
+            .checked_sub(Opcode::LOG0 as u8)
+            .ok_or(VMError::InvalidOpcode)?;
+
         let offset = current_call_frame
             .stack
             .pop()?
@@ -41,11 +44,25 @@ impl VM {
             topics.push(H256::from_slice(&topic_bytes));
         }
 
-        let memory_expansion_cost = current_call_frame.memory.expansion_cost(offset + size)?;
-        let gas_cost = gas_cost::LOGN_STATIC
-            + gas_cost::LOGN_DYNAMIC_BASE * number_of_topics
-            + gas_cost::LOGN_DYNAMIC_BYTE_BASE * size
-            + memory_expansion_cost;
+        let memory_expansion_cost = current_call_frame.memory.expansion_cost(
+            offset
+                .checked_add(size)
+                .ok_or(VMError::OverflowInArithmeticOp)?,
+        )?;
+
+        let topics_cost = gas_cost::LOGN_DYNAMIC_BASE
+            .checked_mul(number_of_topics.into())
+            .ok_or(VMError::GasCostOverflow)?;
+        let bytes_cost = gas_cost::LOGN_DYNAMIC_BYTE_BASE
+            .checked_mul(size.into())
+            .ok_or(VMError::GasCostOverflow)?;
+        let gas_cost = topics_cost
+            .checked_add(gas_cost::LOGN_STATIC)
+            .ok_or(VMError::GasCostOverflow)?
+            .checked_add(bytes_cost)
+            .ok_or(VMError::GasCostOverflow)?
+            .checked_add(memory_expansion_cost)
+            .ok_or(VMError::GasCostOverflow)?;
 
         self.increase_consumed_gas(current_call_frame, gas_cost)?;
 

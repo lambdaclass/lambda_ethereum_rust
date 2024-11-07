@@ -64,10 +64,14 @@ impl VM {
             .pop()?
             .try_into()
             .unwrap_or(usize::MAX);
-        let memory_expansion_cost = current_call_frame
-            .memory
-            .expansion_cost(offset + WORD_SIZE)?;
-        let gas_cost = gas_cost::MLOAD_STATIC + memory_expansion_cost;
+        let memory_expansion_cost = current_call_frame.memory.expansion_cost(
+            offset
+                .checked_add(WORD_SIZE)
+                .ok_or(VMError::OverflowInArithmeticOp)?,
+        )?;
+        let gas_cost = gas_cost::MLOAD_STATIC
+            .checked_add(memory_expansion_cost)
+            .ok_or(VMError::GasCostOverflow)?;
 
         self.increase_consumed_gas(current_call_frame, gas_cost)?;
 
@@ -82,15 +86,20 @@ impl VM {
         &mut self,
         current_call_frame: &mut CallFrame,
     ) -> Result<OpcodeSuccess, VMError> {
-        let offset = current_call_frame
+        // TODO: Turn this usize into U256?
+        let offset: usize = current_call_frame
             .stack
             .pop()?
             .try_into()
             .map_err(|_err| VMError::VeryLargeNumber)?;
-        let memory_expansion_cost = current_call_frame
-            .memory
-            .expansion_cost(offset + WORD_SIZE)?;
-        let gas_cost = gas_cost::MSTORE_STATIC + memory_expansion_cost;
+        let memory_expansion_cost = current_call_frame.memory.expansion_cost(
+            offset
+                .checked_add(WORD_SIZE)
+                .ok_or(VMError::OverflowInArithmeticOp)?,
+        )?;
+        let gas_cost = gas_cost::MSTORE_STATIC
+            .checked_add(memory_expansion_cost)
+            .ok_or(VMError::GasCostOverflow)?;
 
         self.increase_consumed_gas(current_call_frame, gas_cost)?;
 

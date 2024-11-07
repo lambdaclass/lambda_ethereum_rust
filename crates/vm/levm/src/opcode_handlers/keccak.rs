@@ -26,11 +26,22 @@ impl VM {
             .try_into()
             .unwrap_or(usize::MAX);
 
-        let minimum_word_size = (size + WORD_SIZE - 1) / WORD_SIZE;
-        let memory_expansion_cost = current_call_frame.memory.expansion_cost(offset + size)?;
+        let minimum_word_size = (size
+            .checked_add(WORD_SIZE)
+            .ok_or(VMError::DataSizeOverflow)?
+            .saturating_sub(1))
+            / WORD_SIZE;
+        let memory_expansion_cost = current_call_frame
+            .memory
+            .expansion_cost(offset.checked_add(size).ok_or(VMError::DataSizeOverflow)?)?;
+        let minimum_word_size_cost = gas_cost::KECCAK25_DYNAMIC_BASE
+            .checked_mul(minimum_word_size.into())
+            .ok_or(VMError::GasCostOverflow)?;
         let gas_cost = gas_cost::KECCAK25_STATIC
-            + gas_cost::KECCAK25_DYNAMIC_BASE * minimum_word_size
-            + memory_expansion_cost;
+            .checked_add(minimum_word_size_cost)
+            .ok_or(VMError::GasCostOverflow)?
+            .checked_add(memory_expansion_cost)
+            .ok_or(VMError::GasCostOverflow)?;
 
         self.increase_consumed_gas(current_call_frame, gas_cost)?;
 
