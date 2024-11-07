@@ -40,8 +40,6 @@ pub struct ExecutionDB {
     chain_config: ChainConfig,
     /// proofs of inclusion of account and storage values of the initialent state
     initial_proofs: StateProofs,
-    /// proofs of inclusion of account and storage values of the final state
-    final_proofs: StateProofs,
 }
 
 /// Merkle proofs of inclusion of state values.
@@ -124,20 +122,9 @@ impl ExecutionDB {
             })
             .collect::<Result<HashMap<_, _>, ExecutionDBError>>()?;
 
-        let (final_state_trie, final_storage_tries) = store
-            .simulate_account_updates(block.header.parent_hash, &account_updates)?
-            .ok_or(ExecutionDBError::NewMissingStateTrie(
-                block.header.parent_hash,
-            ))?;
-
         let initial_proofs = StateProofs::new(
             &initial_state_trie,
             &initial_storage_tries,
-            &address_storage_keys,
-        )?;
-        let final_proofs = StateProofs::new(
-            &final_state_trie,
-            &final_storage_tries,
             &address_storage_keys,
         )?;
 
@@ -148,7 +135,6 @@ impl ExecutionDB {
             block_hashes,
             chain_config,
             initial_proofs,
-            final_proofs,
         })
     }
 
@@ -160,12 +146,6 @@ impl ExecutionDB {
     /// hash.
     pub fn verify_initial_state(&self, state_root: H256) -> Result<bool, StateProofsError> {
         self.verify_state_proofs(state_root, &self.initial_proofs)
-    }
-
-    /// Verifies that [self] holds the final state (after block execution) with some root
-    /// hash.
-    pub fn verify_final_state(&self, state_root: H256) -> Result<bool, StateProofsError> {
-        self.verify_state_proofs(state_root, &self.final_proofs)
     }
 
     fn verify_state_proofs(

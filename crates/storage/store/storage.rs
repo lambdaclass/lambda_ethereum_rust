@@ -412,58 +412,6 @@ impl Store {
         Ok(Some(state_trie.hash()?))
     }
 
-    /// Returns a state trie after applying accound updates without committing the changes to the
-    /// database.
-    #[allow(clippy::type_complexity)]
-    pub fn simulate_account_updates(
-        &self,
-        block_hash: BlockHash,
-        account_updates: &[AccountUpdate],
-    ) -> Result<Option<(Trie, HashMap<Address, Trie>)>, StoreError> {
-        let Some(mut state_trie) = self.state_trie(block_hash)? else {
-            return Ok(None);
-        };
-        let mut storage_tries = HashMap::new();
-        for update in account_updates.iter() {
-            let hashed_address = hash_address(&update.address);
-            if update.removed {
-                // Remove account from trie
-                state_trie.remove(hashed_address)?;
-            } else {
-                // Add or update AccountState in the trie
-                // Fetch current state or create a new state to be inserted
-                let mut account_state = match state_trie.get(&hashed_address)? {
-                    Some(encoded_state) => AccountState::decode(&encoded_state)?,
-                    None => AccountState::default(),
-                };
-                if let Some(info) = &update.info {
-                    account_state.nonce = info.nonce;
-                    account_state.balance = info.balance;
-                    account_state.code_hash = info.code_hash;
-                }
-                // Store the added storage in the account's storage trie and compute its new root
-                if !update.added_storage.is_empty() {
-                    let mut storage_trie = self.engine.open_storage_trie(
-                        H256::from_slice(&hashed_address),
-                        account_state.storage_root,
-                    );
-                    for (storage_key, storage_value) in &update.added_storage {
-                        let hashed_key = hash_key(storage_key);
-                        if storage_value.is_zero() {
-                            storage_trie.remove(hashed_key)?;
-                        } else {
-                            storage_trie.insert(hashed_key, storage_value.encode_to_vec())?;
-                        }
-                    }
-                    account_state.storage_root = storage_trie.hash_no_commit()?;
-                    storage_tries.insert(update.address, storage_trie);
-                }
-                state_trie.insert(hashed_address, account_state.encode_to_vec())?;
-            }
-        }
-        Ok(Some((state_trie, storage_tries)))
-    }
-
     /// Adds all genesis accounts and returns the genesis block's state_root
     pub fn setup_genesis_state_trie(
         &self,
