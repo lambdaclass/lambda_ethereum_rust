@@ -315,11 +315,13 @@ mod test {
         };
 
         assert_eq!(
-            node.get(&trie.state, Nibbles::from_bytes(&[0x00])).unwrap(),
+            node.get(&trie.state, Nibbles::from_hex(vec![0, 0, 0, 16]))
+                .unwrap(),
             Some(vec![0x12, 0x34, 0x56, 0x78]),
         );
         assert_eq!(
-            node.get(&trie.state, Nibbles::from_bytes(&[0x10])).unwrap(),
+            node.get(&trie.state, Nibbles::from_hex(vec![1, 1, 0, 16]))
+                .unwrap(),
             Some(vec![0x34, 0x56, 0x78, 0x9A]),
         );
     }
