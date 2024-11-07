@@ -437,15 +437,16 @@ impl RpcHandler for EstimateGasRequest {
             _ => return Ok(Value::Null),
         };
 
-        let transaction = if self.transaction.nonce.is_none() {
-            let transaction_nonce =
-                storage.get_nonce_by_account_address(block_header.number, self.transaction.from)?;
+        let transaction = match self.transaction.nonce {
+            Some(_nonce) => self.transaction.clone(),
+            None => {
+                let transaction_nonce = storage
+                    .get_nonce_by_account_address(block_header.number, self.transaction.from)?;
 
-            let mut cloned_transaction = self.transaction.clone();
-            cloned_transaction.nonce = transaction_nonce;
-            cloned_transaction
-        } else {
-            self.transaction.clone()
+                let mut cloned_transaction = self.transaction.clone();
+                cloned_transaction.nonce = transaction_nonce;
+                cloned_transaction
+            }
         };
 
         let spec_id =
