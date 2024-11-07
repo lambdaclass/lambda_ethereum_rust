@@ -1,3 +1,6 @@
+use bytes::Bytes;
+use ethereum_rust_rlp::structs::Encoder;
+
 use crate::{
     dumb_nibbles::DumbNibbles,
     error::TrieError,
@@ -106,19 +109,13 @@ impl LeafNode {
     }
 
     /// Encodes the node given the offset in the path traversed before reaching this node
-    /// TODO: Fix
     pub fn encode_raw(&self) -> Vec<u8> {
-        let path_len = NodeEncoder::path_len(self.partial.len());
-        let value_len = NodeEncoder::bytes_len(
-            self.value.len(),
-            self.value.first().copied().unwrap_or_default(),
-        );
-
-        let mut encoder = crate::node_hash::NodeEncoder::new();
-        encoder.write_list_header(path_len + value_len);
-        encoder.write_path_slice(&self.partial);
-        encoder.write_bytes(&self.value);
-        encoder.finalize()
+        let mut buf = vec![];
+        Encoder::new(&mut buf)
+            .encode_field(&Bytes::copy_from_slice(&self.partial.encode_compact()))
+            .encode_field(&Bytes::copy_from_slice(&self.value))
+            .finish();
+        buf
     }
 
     /// Inserts the node into the state and returns its hash
