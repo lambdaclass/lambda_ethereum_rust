@@ -50,13 +50,13 @@ RUN cargo build --release --manifest-path crates/l2/contracts/Cargo.toml
 FROM ubuntu:24.04
 WORKDIR /usr/local/bin
 
-COPY --from=builder ethereum_rust/target/release/ethereum_rust_l2_l1_deployer .
-
 RUN apt-get update && apt-get -y install git gnupg
 RUN echo 'deb https://ppa.launchpadcontent.net/ethereum/ethereum/ubuntu noble main' > /etc/apt/sources.list.d/ethereum-ethereum-noble.list && \
     echo 'deb-src https://ppa.launchpadcontent.net/ethereum/ethereum/ubuntu noble main' >> /etc/apt/sources.list.d/ethereum-ethereum-noble.list
 RUN apt-key adv --keyserver keyserver.ubuntu.com --recv-keys E66CB8FE57F8218E96B13446B50ABD2EE384B7D4
 RUN apt-get update && apt-get -y install solc
+
+COPY --from=builder ethereum_rust/target/release/ethereum_rust_l2_l1_deployer .
 
 EXPOSE 1729
 ENTRYPOINT [ "./ethereum_rust_l2_l1_deployer" ]
