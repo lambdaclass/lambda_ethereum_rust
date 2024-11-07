@@ -159,7 +159,7 @@ impl Trie {
             node_path.push(node.to_vec());
         }
         if let Some(root_node) = self.state.get_node(root.clone())? {
-            root_node.get_encoded_path(&self.state, NibbleSlice::new(path), &mut node_path)?;
+            root_node.get_path(&self.state, NibbleSlice::new(path), &mut node_path)?;
         }
         Ok(node_path)
     }

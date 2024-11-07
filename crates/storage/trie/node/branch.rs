@@ -317,7 +317,7 @@ impl BranchNode {
     /// Traverses own subtrie until reaching the node containing `path`
     /// Appends all encoded nodes traversed to `node_path` (including self)
     /// Only nodes with encoded len over or equal to 32 bytes are included
-    pub fn get_encoded_path(
+    pub fn get_path(
         &self,
         state: &TrieState,
         mut path: NibbleSlice,
@@ -336,7 +336,7 @@ impl BranchNode {
                 let child_node = state
                     .get_node(child_hash.clone())?
                     .expect("inconsistent internal tree structure");
-                child_node.get_encoded_path(state, path, node_path)?;
+                child_node.get_path(state, path, node_path)?;
             }
         }
         Ok(())
