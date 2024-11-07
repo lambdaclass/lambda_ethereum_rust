@@ -25,15 +25,14 @@ impl Iterator for TrieIterator {
             return None;
         };
         // Fetch the last node in the stack
-        let (current_path, next_node_hash) = self.stack.pop()?;
+        let (mut path, next_node_hash) = self.stack.pop()?;
         let next_node = self.trie.state.get_node(next_node_hash).ok()??;
-        let mut next_path = current_path.clone();
         match &next_node {
             Node::Branch(branch_node) => {
                 // Add all children to the stack (in reverse order so we process first child frist)
                 for (choice, child) in branch_node.choices.iter().enumerate().rev() {
                     if child.is_valid() {
-                        let mut child_path = current_path.clone();
+                        let mut child_path = path.clone();
                         child_path.append(choice as u8);
                         self.stack.push((child_path, child.clone()))
                     }
@@ -41,16 +40,16 @@ impl Iterator for TrieIterator {
             }
             Node::Extension(extension_node) => {
                 // Update path
-                next_path.extend(&extension_node.prefix);
+                path.extend(&extension_node.prefix);
                 // Add child to the stack
                 self.stack
-                    .push((next_path.clone(), extension_node.child.clone()));
+                    .push((path.clone(), extension_node.child.clone()));
             }
             Node::Leaf(leaf) => {
-                next_path.extend(&leaf.partial);
+                path.extend(&leaf.partial);
             }
         }
-        Some((next_path, next_node))
+        Some((path, next_node))
     }
 }
 
