@@ -1666,7 +1666,7 @@ mod serde_impl {
         fn from(value: EIP4844Transaction) -> Self {
             Self {
                 r#type: TxType::EIP4844,
-                nonce: value.nonce,
+                nonce: Some(value.nonce),
                 to: TxKind::Call(value.to),
                 gas: Some(value.gas),
                 value: value.value,
