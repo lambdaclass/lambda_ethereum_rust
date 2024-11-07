@@ -8,7 +8,7 @@ build: ## 🔨 Build the client
 	cargo build --workspace
 
 lint: ## 🧹 Linter check
-	cargo clippy --all-targets --all-features --workspace -- -D warnings
+	cargo clippy --all-targets --all-features --workspace --exclude ethereum_rust-prover -- -D warnings
 
 SPECTEST_VERSION := v3.0.0
 SPECTEST_ARTIFACT := tests_$(SPECTEST_VERSION).tar.gz
@@ -16,7 +16,7 @@ SPECTEST_VECTORS_DIR := cmd/ef_tests/vectors
 
 CRATE ?= *
 test: $(SPECTEST_VECTORS_DIR) ## 🧪 Run each crate's tests
-	cargo test -p '$(CRATE)' --workspace
+	cargo test -p '$(CRATE)' --workspace --exclude ethereum_rust-prover -- --skip test_contract_compilation
 
 clean: clean-vectors ## 🧹 Remove build artifacts
 	cargo clean

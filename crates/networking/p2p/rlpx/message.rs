@@ -6,7 +6,9 @@ use super::eth::blocks::{BlockBodies, BlockHeaders, GetBlockBodies, GetBlockHead
 use super::eth::status::StatusMessage;
 use super::eth::transactions::Transactions;
 use super::p2p::{DisconnectMessage, HelloMessage, PingMessage, PongMessage};
-use super::snap::{AccountRange, GetAccountRange};
+use super::snap::{
+    AccountRange, ByteCodes, GetAccountRange, GetByteCodes, GetStorageRanges, StorageRanges,
+};
 
 use ethereum_rust_rlp::encode::RLPEncode;
 
@@ -31,6 +33,10 @@ pub enum Message {
     // snap capability
     GetAccountRange(GetAccountRange),
     AccountRange(AccountRange),
+    GetStorageRanges(GetStorageRanges),
+    StorageRanges(StorageRanges),
+    GetByteCodes(GetByteCodes),
+    ByteCodes(ByteCodes),
 }
 
 impl Message {
@@ -59,6 +65,12 @@ impl Message {
             0x15 => Ok(Message::GetBlockBodies(GetBlockBodies::decode(msg_data)?)),
             0x21 => Ok(Message::GetAccountRange(GetAccountRange::decode(msg_data)?)),
             0x22 => Ok(Message::AccountRange(AccountRange::decode(msg_data)?)),
+            0x23 => Ok(Message::GetStorageRanges(GetStorageRanges::decode(
+                msg_data,
+            )?)),
+            0x24 => Ok(Message::StorageRanges(StorageRanges::decode(msg_data)?)),
+            0x25 => Ok(Message::GetByteCodes(GetByteCodes::decode(msg_data)?)),
+            0x26 => Ok(Message::ByteCodes(ByteCodes::decode(msg_data)?)),
             _ => Err(RLPDecodeError::MalformedData),
         }
     }
@@ -98,6 +110,22 @@ impl Message {
                 0x22_u8.encode(buf);
                 msg.encode(buf)
             }
+            Message::GetStorageRanges(msg) => {
+                0x23_u8.encode(buf);
+                msg.encode(buf)
+            }
+            Message::StorageRanges(msg) => {
+                0x24_u8.encode(buf);
+                msg.encode(buf)
+            }
+            Message::GetByteCodes(msg) => {
+                0x25_u8.encode(buf);
+                msg.encode(buf)
+            }
+            Message::ByteCodes(msg) => {
+                0x26_u8.encode(buf);
+                msg.encode(buf)
+            }
         }
     }
 }
@@ -117,6 +145,10 @@ impl Display for Message {
             Message::GetBlockBodies(_) => "eth:GetBlockBodies".fmt(f),
             Message::GetAccountRange(_) => "snap:GetAccountRange".fmt(f),
             Message::AccountRange(_) => "snap:AccountRange".fmt(f),
+            Message::GetStorageRanges(_) => "snap:GetStorageRanges".fmt(f),
+            Message::StorageRanges(_) => "snap:StorageRanges".fmt(f),
+            Message::GetByteCodes(_) => "snap:GetByteCodes".fmt(f),
+            Message::ByteCodes(_) => "snap:ByteCodes".fmt(f),
         }
     }
 }

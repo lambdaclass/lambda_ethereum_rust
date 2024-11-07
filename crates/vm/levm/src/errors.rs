@@ -1,9 +1,7 @@
-use std::collections::HashMap;
-
+use crate::account::Account;
 use bytes::Bytes;
-use ethereum_types::Address;
-
-use crate::{call_frame::Log, vm::Account};
+use ethereum_rust_core::{types::Log, Address};
+use std::collections::HashMap;
 
 /// Errors that halt the program
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
@@ -19,9 +17,11 @@ pub enum VMError {
     OverflowInArithmeticOp,
     FatalError,
     InvalidTransaction,
+    RevertOpcode,
+    InvalidOpcode,
     MissingBlobHashes,
     BlobHashIndexOutOfBounds,
-    RevertOpcode,
+    SenderAccountDoesNotExist,
     AddressDoesNotMatchAnAccount,
     SenderAccountShouldNotHaveBytecode,
     SenderBalanceShouldContainTransferValue,
@@ -42,6 +42,7 @@ pub enum ResultReason {
     Stop,
     Revert,
     Return,
+    SelfDestruct,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]

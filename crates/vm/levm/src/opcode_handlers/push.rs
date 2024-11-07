@@ -1,6 +1,14 @@
+use crate::{
+    call_frame::CallFrame,
+    constants::gas_cost,
+    errors::{OpcodeSuccess, VMError},
+    opcodes::Opcode,
+    vm::VM,
+};
+use ethereum_rust_core::U256;
+
 // Push Operations
 // Opcodes: PUSH0, PUSH1 ... PUSH32
-use super::*;
 
 impl VM {
     // PUSH operation
