@@ -190,7 +190,6 @@ impl VM {
         let shift = current_call_frame.stack.pop()?;
         let value = current_call_frame.stack.pop()?;
         if shift < U256::from(256) {
-            println!("CHECKED SHIFT LEFT");
             current_call_frame
                 .stack
                 .push(checked_shift_left(value, shift)?)?;
@@ -290,7 +289,7 @@ fn checked_shift_right(value: U256, shift: U256) -> Result<U256, VMError> {
     while shifts_left > U256::zero() {
         result = result
             .checked_div(U256::from(2))
-            .ok_or(VMError::InvalidRightShifting)?;
+            .ok_or(VMError::Internal)?; // '2' will never be zero
         shifts_left = shifts_left
             .checked_sub(U256::one())
             .ok_or(VMError::Internal)?; // Should not reach negative values

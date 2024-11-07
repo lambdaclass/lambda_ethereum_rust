@@ -33,7 +33,7 @@ impl VM {
             / WORD_SIZE;
         let memory_expansion_cost = current_call_frame
             .memory
-            .expansion_cost(offset.checked_add(size).ok_or(VMError::DataSizeOverflow)?)?;
+            .expansion_cost(offset.checked_add(size).ok_or(VMError::OffsetOverflow)?)?;
         let minimum_word_size_cost = gas_cost::KECCAK25_DYNAMIC_BASE
             .checked_mul(minimum_word_size.into())
             .ok_or(VMError::GasCostOverflow)?;

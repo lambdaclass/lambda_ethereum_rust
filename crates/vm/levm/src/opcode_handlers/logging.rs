@@ -47,7 +47,7 @@ impl VM {
         let memory_expansion_cost = current_call_frame.memory.expansion_cost(
             offset
                 .checked_add(size)
-                .ok_or(VMError::OverflowInArithmeticOp)?,
+                .ok_or(VMError::OffsetOverflow)?,
         )?;
 
         let topics_cost = gas_cost::LOGN_DYNAMIC_BASE

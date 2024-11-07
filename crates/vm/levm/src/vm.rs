@@ -420,17 +420,17 @@ impl VM {
             if *byte != 0 {
                 calldata_cost = calldata_cost
                     .checked_add(16)
-                    .ok_or(VMError::VeryLargeNumber)?;
+                    .ok_or(VMError::GasUsedOverflow)?;
             } else {
                 calldata_cost = calldata_cost
                     .checked_add(4)
-                    .ok_or(VMError::VeryLargeNumber)?;
+                    .ok_or(VMError::GasUsedOverflow)?;
             }
         }
         report.gas_used = report
             .gas_used
             .checked_add(calldata_cost)
-            .ok_or(VMError::ConsumedGasOverflow)?;
+            .ok_or(VMError::GasUsedOverflow)?;
 
         if self.is_create() {
             // If create should check if transaction failed. If failed should revert (delete created contract, )
@@ -466,8 +466,8 @@ impl VM {
             report.gas_used = report
                 .gas_used
                 .checked_add(creation_cost)
-                .ok_or(VMError::ConsumedGasOverflow)?; //GasUsedOverflow??;
-                                                       // Charge 22100 gas for each storage variable set
+                .ok_or(VMError::GasUsedOverflow)?;
+            // Charge 22100 gas for each storage variable set
 
             // GInitCodeword * number_of_words rounded up. GinitCodeWord = 2
             let number_of_words = self.call_frames[0].calldata.chunks(32).len() as u64;
@@ -478,7 +478,7 @@ impl VM {
                         .checked_mul(2)
                         .ok_or(VMError::VeryLargeNumber)?,
                 )
-                .ok_or(VMError::ConsumedGasOverflow)?; //GasUsedOverflow??
+                .ok_or(VMError::GasUsedOverflow)?; 
 
             let contract_address = self.call_frames.first().unwrap().to;
             let mut created_contract = self.get_account(&contract_address);
@@ -514,7 +514,7 @@ impl VM {
             .ok_or(VMError::GasPriceIsLowerThanBaseFee)?;
         let coinbase_fee = (U256::from(report.gas_used))
             .checked_mul(priority_fee_per_gas)
-            .ok_or(VMError::CoinbaseFeeOverflow)?;
+            .ok_or(VMError::GasUsedOverflow)?;
 
         let mut coinbase_account = self.get_account(&coinbase_address);
         coinbase_account.info.balance = coinbase_account

@@ -67,7 +67,7 @@ impl VM {
         let memory_expansion_cost = current_call_frame.memory.expansion_cost(
             offset
                 .checked_add(WORD_SIZE)
-                .ok_or(VMError::OverflowInArithmeticOp)?,
+                .ok_or(VMError::OffsetOverflow)?,
         )?;
         let gas_cost = gas_cost::MLOAD_STATIC
             .checked_add(memory_expansion_cost)
@@ -95,7 +95,7 @@ impl VM {
         let memory_expansion_cost = current_call_frame.memory.expansion_cost(
             offset
                 .checked_add(WORD_SIZE)
-                .ok_or(VMError::OverflowInArithmeticOp)?,
+                .ok_or(VMError::OffsetOverflow)?,
         )?;
         let gas_cost = gas_cost::MSTORE_STATIC
             .checked_add(memory_expansion_cost)
@@ -123,7 +123,7 @@ impl VM {
         let offset: usize = current_call_frame.stack.pop()?.try_into().unwrap();
         let memory_expansion_cost = current_call_frame
             .memory
-            .expansion_cost(offset.checked_add(1).ok_or(VMError::VeryLargeNumber)?)?;
+            .expansion_cost(offset.checked_add(1).ok_or(VMError::OffsetOverflow)?)?;
         let gas_cost = gas_cost::MSTORE8_STATIC
             .checked_add(memory_expansion_cost)
             .ok_or(VMError::GasCostOverflow)?;
@@ -293,7 +293,7 @@ impl VM {
 
         let words_copied = (size
             .checked_add(WORD_SIZE)
-            .ok_or(VMError::VeryLargeNumber)?
+            .ok_or(VMError::DataSizeOverflow)?
             .saturating_sub(1))
             / WORD_SIZE;
 

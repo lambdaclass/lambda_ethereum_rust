@@ -90,10 +90,10 @@ impl Memory {
         let max_size = std::cmp::max(
             src_offset
                 .checked_add(size)
-                .ok_or(VMError::DataSizeOverflow)?,
+                .ok_or(VMError::OffsetOverflow)?,
             dest_offset
                 .checked_add(size)
-                .ok_or(VMError::DataSizeOverflow)?,
+                .ok_or(VMError::OffsetOverflow)?,
         );
         self.resize(max_size);
         let mut temp = vec![0u8; size];
