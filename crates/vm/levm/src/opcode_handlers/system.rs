@@ -1,6 +1,6 @@
 use crate::{
     call_frame::CallFrame,
-    constants::{call_opcode, gas_cost, SUCCESS_FOR_RETURN},
+    constants::{call_opcode::{self, COLD_ADDRESS_ACCESS_COST, NON_ZERO_VALUE_COST, WARM_ADDRESS_ACCESS_COST}, gas_cost, SUCCESS_FOR_RETURN},
     errors::{OpcodeSuccess, ResultReason, VMError},
     vm::{word_to_address, VM},
 };
@@ -111,35 +111,73 @@ impl VM {
         &mut self,
         current_call_frame: &mut CallFrame,
     ) -> Result<OpcodeSuccess, VMError> {
+        // gas: amount of gas to send to the sub context to execute. The gas that is not used by the sub context is returned to this one.
         let gas = current_call_frame.stack.pop()?;
+        //address: the account which code to execute.
         let code_address = word_to_address(current_call_frame.stack.pop()?);
+        //value: value in wei to send to the account.
         let value = current_call_frame.stack.pop()?;
-        let args_offset = current_call_frame
+        //argsOffset: byte offset in the memory in bytes, the calldata of the sub context.
+        let args_offset: usize = current_call_frame
             .stack
             .pop()?
             .try_into()
             .map_err(|_err| VMError::VeryLargeNumber)?;
+        //argsSize: byte size to copy (size of the calldata).
         let args_size = current_call_frame
             .stack
             .pop()?
             .try_into()
             .map_err(|_err| VMError::VeryLargeNumber)?;
-        let ret_offset = current_call_frame
+        //retOffset: byte offset in the memory in bytes, where to store the return data of the sub context.
+        let ret_offset: usize = current_call_frame
             .stack
             .pop()?
             .try_into()
             .map_err(|_err| VMError::VeryLargeNumber)?;
+        //retSize: byte size to copy (size of the return data).
         let ret_size = current_call_frame
             .stack
             .pop()?
             .try_into()
             .map_err(|_err| VMError::VeryLargeNumber)?;
 
+        println!("Value: {}, argsOffset: {}, argsSize: {}, retOffset: {}, retSize: {}, currentMemorySize: {}", value, args_offset, args_size, ret_offset, ret_size, current_call_frame.memory.size());
+
         // Sender and recipient are the same in this case. But the code executed is from another account.
         let msg_sender = current_call_frame.to;
         let to = current_call_frame.to;
         let is_static = current_call_frame.is_static;
 
+        // Gas consumed
+        let memory_byte_size = args_offset
+        .checked_add(args_size)
+        .and_then(|src_sum| {
+            ret_offset
+                .checked_add(ret_size)
+                .map(|dest_sum| src_sum.max(dest_sum))
+        })
+        .ok_or(VMError::OverflowInArithmeticOp)?;
+        let memory_expansion_cost = current_call_frame.memory.expansion_cost(memory_byte_size)?;
+
+        let access_cost = if self.cache.is_account_cached(&code_address) {
+            WARM_ADDRESS_ACCESS_COST
+        } else {
+            self.cache_from_db(&code_address);
+            COLD_ADDRESS_ACCESS_COST
+        };
+
+        let transfer_cost = if value == U256::zero() { U256::zero() } else { NON_ZERO_VALUE_COST };
+
+        let gas_cost = memory_expansion_cost
+        .checked_add(access_cost)
+        .ok_or(VMError::GasCostOverflow)?
+        .checked_add(transfer_cost)
+        .ok_or(VMError::GasCostOverflow)?;
+
+        self.increase_consumed_gas(current_call_frame, gas_cost)?;
+
+        // See if it's computing the gas consumed in generic_call. I think yes, line 638 of vm.rs
         self.generic_call(
             current_call_frame,
             gas,
