@@ -351,7 +351,7 @@ mod test {
                 1 => leaf { &[0x10] => vec![0x34, 0x56, 0x78, 0x9A] },
             }
         };
-        let path = Nibbles::from_bytes(&[0x2]);
+        let path = Nibbles::from_hex(vec![2]);
         let value = vec![0x3];
 
         let node = node

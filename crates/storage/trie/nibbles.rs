@@ -127,7 +127,11 @@ impl Nibbles {
     }
 
     pub fn is_leaf(&self) -> bool {
-        self.data[self.data.len() - 1] == 16
+        if self.is_empty() {
+            false
+        } else {
+            self.data[self.data.len() - 1] == 16
+        }
     }
 
     pub fn to_bytes(&self) -> Vec<u8> {
