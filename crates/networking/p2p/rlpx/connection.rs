@@ -242,6 +242,7 @@ impl<S: AsyncWrite + AsyncRead + std::marker::Unpin> RLPxConnection<S> {
                                     let new_msg = Message::TransactionsMessage(Transactions { transactions: cloned });
                                     self.send(new_msg).await;
                                 }
+                                // FIXME: Remove this todo, log or return an err.
                                 _ => todo!()
                             }
                         }
