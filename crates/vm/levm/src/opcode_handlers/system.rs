@@ -43,14 +43,14 @@ impl VM {
             return Err(VMError::OpcodeNotAllowedInStaticContext);
         }
 
-        let memory_byte_size = (args_offset
+        let memory_byte_size = args_offset
             .checked_add(args_size)
-            .ok_or(VMError::VeryLargeNumber)?)
-        .max(
-            ret_offset
-                .checked_add(ret_size)
-                .ok_or(VMError::VeryLargeNumber)?,
-        );
+            .ok_or(VMError::VeryLargeNumber)?
+            .max(
+                ret_offset
+                    .checked_add(ret_size)
+                    .ok_or(VMError::VeryLargeNumber)?,
+            );
         let memory_expansion_cost = current_call_frame.memory.expansion_cost(memory_byte_size)?;
 
         let positive_value_cost = if !value.is_zero() {
