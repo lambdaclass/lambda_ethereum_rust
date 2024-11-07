@@ -157,25 +157,18 @@ impl ExtensionNode {
 
     /// Encodes the node
     pub fn encode_raw(&self) -> Vec<u8> {
-        let child_hash = &self.child;
-        let prefix_len = NodeEncoder::path_len(self.prefix.len());
-        let child_len = match child_hash {
-            NodeHash::Inline(ref x) => x.len(),
-            NodeHash::Hashed(x) => NodeEncoder::bytes_len(32, x[0]),
-        };
-
-        let mut encoder = NodeEncoder::new();
-        encoder.write_list_header(prefix_len + child_len);
-        encoder.write_path_slice(&self.prefix);
-        match child_hash {
+        let mut buf = vec![];
+        let mut encoder = Encoder::new(&mut buf).encode_bytes(&self.prefix.encode_compact());
+        match &self.child {
             NodeHash::Inline(x) => {
-                encoder.write_raw(x);
+                encoder = encoder.encode_raw(x);
             }
             NodeHash::Hashed(x) => {
-                encoder.write_bytes(&x.0);
+                encoder = encoder.encode_bytes(&x.0);
             }
         }
-        encoder.finalize()
+        encoder.finish();
+        buf
     }
 
     /// Inserts the node into the state and returns its hash
