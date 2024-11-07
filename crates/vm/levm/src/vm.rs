@@ -98,7 +98,7 @@ impl VM {
 
                 // (2)
                 let new_contract_address =
-                    VM::calculate_create_address(env.origin, sender_account_info.nonce).unwrap();
+                    VM::calculate_create_address(env.origin, sender_account_info.nonce).unwrap(); // TODO: Remove after merging the PR that removes unwraps.
 
                 // (3)
                 let created_contract = Account::new(value, calldata.clone(), 1, HashMap::new());
