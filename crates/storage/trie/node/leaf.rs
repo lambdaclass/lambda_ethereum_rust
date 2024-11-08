@@ -316,7 +316,7 @@ mod test {
     }
 
     #[test]
-    fn symetric_encoding_a() {
+    fn symmetric_encoding_a() {
         let node: Node = LeafNode::new(
             Nibbles::from_bytes(b"key".as_ref()),
             b"a comparatively long value".to_vec(),
@@ -326,7 +326,7 @@ mod test {
     }
 
     #[test]
-    fn symetric_encoding_b() {
+    fn symmetric_encoding_b() {
         let node: Node = LeafNode::new(
             Nibbles::from_bytes(&[0x12, 0x34]),
             vec![0x12, 0x34, 0x56, 0x78],
@@ -336,7 +336,7 @@ mod test {
     }
 
     #[test]
-    fn symetric_encoding_c() {
+    fn symmetric_encoding_c() {
         let node: Node = LeafNode::new(
             Nibbles::from_bytes(&[]),
             vec![1, 2, 3, 4, 5, 6, 7, 8, 9, 20],

@@ -475,7 +475,7 @@ mod test {
     }
 
     #[test]
-    fn symetric_encoding_a() {
+    fn symmetric_encoding_a() {
         let mut trie = Trie::new_temp();
         let node: Node = pmt_node! { @(trie)
             extension { [0], branch {
@@ -488,7 +488,7 @@ mod test {
     }
 
     #[test]
-    fn symetric_encoding_b() {
+    fn symmetric_encoding_b() {
         let mut trie = Trie::new_temp();
         let node: Node = pmt_node! { @(trie)
             extension { [0], branch {
@@ -505,7 +505,7 @@ mod test {
     }
 
     #[test]
-    fn symetric_encoding_c() {
+    fn symmetric_encoding_c() {
         let mut trie = Trie::new_temp();
         let node: Node = pmt_node! { @(trie)
             extension { [0], branch {
