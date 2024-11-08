@@ -20,7 +20,7 @@ use ethereum_rust_vm::{evm_state, ExecutionResult, SpecId};
 use serde::Serialize;
 
 use serde_json::Value;
-use tracing::info;
+use tracing::{info, warn};
 
 pub const ESTIMATE_ERROR_RATIO: f64 = 0.015;
 pub const CALL_STIPEND: u64 = 2_300; // Free gas given at beginning of call.
@@ -422,10 +422,9 @@ impl RpcHandler for EstimateGasRequest {
             Some(value) => Some(BlockIdentifier::parse(value.clone(), 1)?),
             None => None,
         };
-        Ok(EstimateGasRequest {
-            transaction: serde_json::from_value(params[0].clone())?,
-            block,
-        })
+        let transaction = serde_json::from_value(params[0].clone())?;
+        warn!("DESERIALIZED tx: {transaction:?}");
+        Ok(EstimateGasRequest { transaction, block })
     }
     fn handle(&self, context: RpcApiContext) -> Result<Value, RpcErr> {
         let storage = &context.storage;
