@@ -16,7 +16,7 @@ use tracing::{debug, error, info, warn};
 
 use ethereum_rust_core::{
     types::{Block, BlockHeader},
-    Address, H256, U256,
+    Address, H256,
 };
 
 use risc0_zkvm::sha::{Digest, Digestible};
@@ -247,9 +247,10 @@ impl ProverServer {
                 info!("SELECTOR(): {selector}");
                 let seal = hex::encode(inner.clone().seal);
                 selector.push_str(&seal);
-                selector
+                info!("SEAL: 0x{selector}");
+                hex::decode(selector).unwrap()
             }
-            Err(_) => hex::encode("00"),
+            Err(_) => vec![32; 0],
         };
 
         let mut image_id: [u32; 8] = [0; 8];
@@ -258,11 +259,13 @@ impl ProverServer {
         }
 
         let image_id: risc0_zkvm::sha::Digest = image_id.into();
+        info!("IMAGE_ID: {image_id}");
 
         let journal_digest = Digestible::digest(&receipt.0.journal);
+        info!("JOURNAL_DIGEST: {journal_digest}");
 
         match self
-            .send_proof(block_number, seal, image_id, journal_digest)
+            .send_proof(block_number, &seal, image_id, journal_digest)
             .await
         {
             Ok(tx_hash) => {
@@ -313,7 +316,7 @@ impl ProverServer {
     pub async fn send_proof(
         &self,
         block_number: u64,
-        seal: String,
+        seal: &[u8],
         image_id: Digest,
         journal_digest: Digest,
     ) -> Result<H256, ProverServerError> {
@@ -339,17 +342,28 @@ impl ProverServer {
         //calldata.extend(block_number_bytes);
         //calldata.extend(H256::from_low_u64_be(32).as_bytes());
 
-        // extend with seal
-        calldata.extend(H256::from_low_u64_be(seal.len() as u64).as_bytes());
-        calldata.extend(seal.as_bytes());
-        let leading_zeros = 32 - ((calldata.len() - 4) % 32);
-        calldata.extend(vec![0; leading_zeros]);
+        // The calldata has to be structures in the following way:
+        // size in bytes
+        // image_id digest
+        // journal digest
+        // size of seal
+        // seal
+
+        // extend with size in bytes
+        // 3 u256 goes after this field so: 0x60 == 96bytes == 32bytes * 3
+        calldata.extend(H256::from_low_u64_be(3 * 32).as_bytes());
 
         // extend with image_id
         calldata.extend(image_id.as_bytes());
 
         // extend with journal_digest
         calldata.extend(journal_digest.as_bytes());
+
+        // extend with seal
+        calldata.extend(H256::from_low_u64_be(seal.len() as u64).as_bytes());
+        calldata.extend(seal);
+        let leading_zeros = 32 - ((calldata.len() - 4) % 32);
+        calldata.extend(vec![0; leading_zeros]);
 
         let verify_tx_hash = send_transaction_with_calldata(
             &self.eth_client,
@@ -362,7 +376,6 @@ impl ProverServer {
         .await?;
 
         info!("Proof sent: {verify_tx_hash:#x}");
-
         while self
             .eth_client
             .get_transaction_receipt(verify_tx_hash)
