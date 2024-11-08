@@ -4,7 +4,9 @@ use crate::{
         call_opcode::{
             self, COLD_ADDRESS_ACCESS_COST, NON_ZERO_VALUE_COST, WARM_ADDRESS_ACCESS_COST,
         },
-        gas_cost, SUCCESS_FOR_RETURN,
+        create_opcode::{CODE_DEPOSIT_COST, CREATE_BASE_COST, INIT_CODE_WORD_COST},
+        gas_cost::{self, KECCAK25_DYNAMIC_BASE},
+        SUCCESS_FOR_RETURN,
     },
     errors::{OpcodeSuccess, ResultReason, VMError},
     vm::{word_to_address, VM},
@@ -332,7 +334,7 @@ impl VM {
     }
 
     // CREATE operation
-    // TODO: https://github.com/lambdaclass/lambda_ethereum_rust/issues/1086
+    // TODO: add tests
     pub fn op_create(
         &mut self,
         current_call_frame: &mut CallFrame,
@@ -340,6 +342,15 @@ impl VM {
         let value_in_wei_to_send = current_call_frame.stack.pop()?;
         let code_offset_in_memory = current_call_frame.stack.pop()?;
         let code_size_in_memory = current_call_frame.stack.pop()?;
+
+        // Gas Cost
+        let gas_cost = self.compute_gas_create(
+            current_call_frame,
+            code_offset_in_memory,
+            code_size_in_memory,
+            false,
+        )?;
+        self.increase_consumed_gas(current_call_frame, gas_cost)?;
 
         self.create(
             value_in_wei_to_send,
@@ -351,7 +362,7 @@ impl VM {
     }
 
     // CREATE2 operation
-    // TODO: https://github.com/lambdaclass/lambda_ethereum_rust/issues/1086
+    // TODO: add tests
     pub fn op_create2(
         &mut self,
         current_call_frame: &mut CallFrame,
@@ -361,6 +372,16 @@ impl VM {
         let code_size_in_memory = current_call_frame.stack.pop()?;
         let salt = current_call_frame.stack.pop()?;
 
+        // Gas Cost
+        let gas_cost = self.compute_gas_create(
+            current_call_frame,
+            code_offset_in_memory,
+            code_size_in_memory,
+            true,
+        )?;
+
+        self.increase_consumed_gas(current_call_frame, gas_cost)?;
+
         self.create(
             value_in_wei_to_send,
             code_offset_in_memory,
@@ -368,6 +389,54 @@ impl VM {
             Some(salt),
             current_call_frame,
         )
+    }
+
+    fn compute_gas_create(
+        &mut self,
+        current_call_frame: &mut CallFrame,
+        code_offset_in_memory: U256,
+        code_size_in_memory: U256,
+        is_create_2: bool,
+    ) -> Result<U256, VMError> {
+        let minimum_word_size = (code_size_in_memory
+            .checked_add(U256::from(31))
+            .ok_or(VMError::DataSizeOverflow)?)
+        .checked_div(U256::from(32))
+        .ok_or(VMError::Internal)?; // '32' will never be zero
+
+        let init_code_cost = minimum_word_size
+            .checked_mul(INIT_CODE_WORD_COST)
+            .ok_or(VMError::GasCostOverflow)?;
+
+        let code_deposit_cost = code_size_in_memory
+            .checked_mul(CODE_DEPOSIT_COST)
+            .ok_or(VMError::GasCostOverflow)?;
+
+        let memory_expansion_cost = current_call_frame.memory.expansion_cost(
+            code_size_in_memory
+                .checked_add(code_offset_in_memory)
+                .ok_or(VMError::OffsetOverflow)?
+                .try_into()
+                .map_err(|_err| VMError::OffsetOverflow)?,
+        )?;
+
+        let hash_cost = if is_create_2 {
+            minimum_word_size
+                .checked_mul(KECCAK25_DYNAMIC_BASE)
+                .ok_or(VMError::GasCostOverflow)?
+        } else {
+            U256::zero()
+        };
+
+        init_code_cost
+            .checked_add(memory_expansion_cost)
+            .ok_or(VMError::CreationCostIsTooHigh)?
+            .checked_add(code_deposit_cost)
+            .ok_or(VMError::CreationCostIsTooHigh)?
+            .checked_add(CREATE_BASE_COST)
+            .ok_or(VMError::CreationCostIsTooHigh)?
+            .checked_add(hash_cost)
+            .ok_or(VMError::CreationCostIsTooHigh)
     }
 
     // REVERT operation
