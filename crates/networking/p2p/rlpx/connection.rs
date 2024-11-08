@@ -32,12 +32,16 @@ use k256::{
     PublicKey, SecretKey,
 };
 use sha3::{Digest, Keccak256};
-use tokio::io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt};
+use tokio::{
+    io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt},
+    time::{timeout_at, Instant},
+};
 use tracing::info;
 const CAP_P2P: (Capability, u8) = (Capability::P2p, 5);
 const CAP_ETH: (Capability, u8) = (Capability::Eth, 68);
 const CAP_SNAP: (Capability, u8) = (Capability::Snap, 1);
 const SUPPORTED_CAPABILITIES: [(Capability, u8); 3] = [CAP_P2P, CAP_ETH, CAP_SNAP];
+const PERIODIC_TASKS_CHECK_INTERVAL: std::time::Duration = std::time::Duration::from_secs(15);
 
 pub(crate) type Aes256Ctr64BE = ctr::Ctr64BE<aes::Aes256>;
 
@@ -48,6 +52,7 @@ pub(crate) struct RLPxConnection<S> {
     stream: S,
     storage: Store,
     capabilities: Vec<(Capability, u8)>,
+    next_periodic_task_check: Instant,
 }
 
 impl<S: AsyncWrite + AsyncRead + std::marker::Unpin> RLPxConnection<S> {
@@ -58,6 +63,7 @@ impl<S: AsyncWrite + AsyncRead + std::marker::Unpin> RLPxConnection<S> {
             stream,
             storage,
             capabilities: vec![],
+            next_periodic_task_check: Instant::now() + PERIODIC_TASKS_CHECK_INTERVAL,
         }
     }
 
@@ -153,70 +159,6 @@ impl<S: AsyncWrite + AsyncRead + std::marker::Unpin> RLPxConnection<S> {
         }
     }
 
-    pub async fn handle_peer(&mut self) -> Result<(), RLPxError> {
-        self.start_capabilities().await?;
-        match &self.state {
-            RLPxConnectionState::Established(_) => {
-                info!("Started peer main loop");
-                loop {
-                    match tokio::time::timeout(std::time::Duration::from_millis(1500), self.receive()).await {
-                        Err(_) => {
-                            // Timeout elapsed proceed with any timed task
-                            self.send(Message::Ping(PingMessage {})).await?;
-                            info!("Ping sent");
-                        },
-                        Ok(message) =>
-                            match message? {
-                                // TODO: implement handlers for each message type
-                                // https://github.com/lambdaclass/lambda_ethereum_rust/issues/1030
-                                Message::Disconnect(_) => info!("Received Disconnect"),
-                                Message::Ping(_) => {
-                                    info!("Received Ping");
-                                    self.send(Message::Pong(PongMessage {})).await?;
-                                    info!("Pong sent");
-                                }
-                                Message::Pong(_) => {
-                                    // Ignore received Pong messages
-                                }
-                                Message::Status(_) => info!("Received Status"),
-                                Message::GetAccountRange(req) => {
-                                    let response =
-                                        process_account_range_request(req, self.storage.clone())?;
-                                    self.send(Message::AccountRange(response)).await?
-                                }
-                                Message::GetBlockHeaders(msg_data) => {
-                                    let response = BlockHeaders {
-                                        id: msg_data.id,
-                                        block_headers: msg_data.fetch_headers(&self.storage),
-                                    };
-                                    self.send(Message::BlockHeaders(response)).await?
-                                }
-                                Message::GetBlockBodies(msg_data) => {
-                                    let response = BlockBodies {
-                                        id: msg_data.id,
-                                        block_bodies: msg_data.fetch_blocks(&self.storage),
-                                    };
-                                    self.send(Message::BlockBodies(response)).await?
-                                }
-                                Message::GetStorageRanges(req) => {
-                                    let response =
-                                        process_storage_ranges_request(req, self.storage.clone())?;
-                                    self.send(Message::StorageRanges(response)).await?
-                                }
-                                Message::GetByteCodes(req) => {
-                                    let response = process_byte_codes_request(req, self.storage.clone())?;
-                                    self.send(Message::ByteCodes(response)).await?
-                                }
-                                // TODO: Add new message types and handlers as they are implemented
-                                _ => return Err(RLPxError::MessageNotHandled()),
-                            }
-                    }
-                }
-            }
-            _ => Err(RLPxError::InvalidState()),
-        }
-    }
-
     pub fn get_remote_node_id(&self) -> Result<H512, RLPxError> {
         match &self.state {
             RLPxConnectionState::Established(state) => Ok(state.remote_node_id),
@@ -224,7 +166,84 @@ impl<S: AsyncWrite + AsyncRead + std::marker::Unpin> RLPxConnection<S> {
         }
     }
 
-    async fn start_capabilities(&mut self) -> Result<(), RLPxError> {
+    pub async fn handle_peer_conn(&mut self) -> Result<(), RLPxError> {
+        match &self.state {
+            RLPxConnectionState::Established(_) => {
+                self.init_peer_conn().await?;
+                info!("Starting peer main loop");
+                loop {
+                    match timeout_at(self.next_periodic_task_check, self.receive()).await {
+                        Err(_) => {
+                            // Timeout elapsed: run next loop iteration to
+                            // check periodic tasks
+                        }
+                        Ok(message) => self.handle_message(message?).await?,
+                    }
+                    // Before starting next loop iteration and awaiting on receive
+                    // check periodic tasks
+                    self.check_periodic_tasks().await?;
+                }
+            }
+            _ => Err(RLPxError::InvalidState()),
+        }
+    }
+
+    async fn check_periodic_tasks(&mut self) -> Result<(), RLPxError> {
+        if Instant::now() > self.next_periodic_task_check {
+            self.send(Message::Ping(PingMessage {})).await?;
+            info!("Ping sent");
+            self.next_periodic_task_check = Instant::now() + PERIODIC_TASKS_CHECK_INTERVAL;
+        };
+        Ok(())
+    }
+
+    async fn handle_message(&mut self, message: Message) -> Result<(), RLPxError> {
+        match message {
+            // TODO: implement handlers for each message type
+            // https://github.com/lambdaclass/lambda_ethereum_rust/issues/1030
+            Message::Disconnect(_) => info!("Received Disconnect"),
+            Message::Ping(_) => {
+                info!("Received Ping");
+                self.send(Message::Pong(PongMessage {})).await?;
+                info!("Pong sent");
+            }
+            Message::Pong(_) => {
+                // Ignore received Pong messages
+            }
+            Message::Status(_) => info!("Received Status"),
+            Message::GetAccountRange(req) => {
+                let response = process_account_range_request(req, self.storage.clone())?;
+                self.send(Message::AccountRange(response)).await?
+            }
+            Message::GetBlockHeaders(msg_data) => {
+                let response = BlockHeaders {
+                    id: msg_data.id,
+                    block_headers: msg_data.fetch_headers(&self.storage),
+                };
+                self.send(Message::BlockHeaders(response)).await?
+            }
+            Message::GetBlockBodies(msg_data) => {
+                let response = BlockBodies {
+                    id: msg_data.id,
+                    block_bodies: msg_data.fetch_blocks(&self.storage),
+                };
+                self.send(Message::BlockBodies(response)).await?
+            }
+            Message::GetStorageRanges(req) => {
+                let response = process_storage_ranges_request(req, self.storage.clone())?;
+                self.send(Message::StorageRanges(response)).await?
+            }
+            Message::GetByteCodes(req) => {
+                let response = process_byte_codes_request(req, self.storage.clone())?;
+                self.send(Message::ByteCodes(response)).await?
+            }
+            // TODO: Add new message types and handlers as they are implemented
+            _ => return Err(RLPxError::MessageNotHandled()),
+        };
+        Ok(())
+    }
+
+    async fn init_peer_conn(&mut self) -> Result<(), RLPxError> {
         // Sending eth Status if peer supports it
         if self.capabilities.contains(&CAP_ETH) {
             let status = backend::get_status(&self.storage)?;
