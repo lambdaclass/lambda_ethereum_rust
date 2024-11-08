@@ -32,7 +32,7 @@ $(SPECTEST_VECTORS_DIR): $(SPECTEST_ARTIFACT)
 download-ef-tests: $(SPECTEST_VECTORS_DIR) ## 📥 Download EF Tests
 
 run-ef-tests: ## 🏃‍♂️ Run EF Tests
-	cargo test ef::testito
+	cargo test ef::testito -- --ignored
 
 clean-ef-tests: ## 🗑️  Clean test vectors
 	rm -rf $(SPECTEST_VECTORS_DIR)
