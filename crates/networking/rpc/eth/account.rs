@@ -3,7 +3,7 @@ use serde_json::Value;
 use tracing::info;
 
 use crate::types::account_proof::{AccountProof, StorageProof};
-use crate::types::block_identifier::{BlockIdentifier, BlockIdentifierOrHash, BlockTag};
+use crate::types::block_identifier::{BlockIdentifierOrHash, BlockTag};
 use crate::RpcApiContext;
 use crate::{utils::RpcErr, RpcHandler};
 use ethereum_rust_core::{Address, BigEndianHash, H256, U256};
@@ -160,13 +160,8 @@ impl RpcHandler for GetTransactionCountRequest {
             self.address, self.block
         );
 
-        let has_pending_tag = matches!(
-            self.block,
-            BlockIdentifierOrHash::Identifier(BlockIdentifier::Tag(BlockTag::Pending))
-        );
-
         // If the tag is Pending, we need to get the nonce from the mempool
-        let pending_nonce = if has_pending_tag {
+        let pending_nonce = if self.block == BlockTag::Pending {
             mempool::get_nonce(&self.address, &context.storage)?
         } else {
             None
