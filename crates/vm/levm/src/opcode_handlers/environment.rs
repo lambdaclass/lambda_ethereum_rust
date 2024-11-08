@@ -192,9 +192,7 @@ impl VM {
             vec![0u8; size]
         };
 
-        current_call_frame
-            .memory
-            .store_bytes(dest_offset, &result)?;
+        current_call_frame.memory.store_bytes(dest_offset, &result);
 
         Ok(OpcodeSuccess::Continue)
     }
@@ -259,7 +257,7 @@ impl VM {
             vec![0u8; size].into()
         };
 
-        current_call_frame.memory.store_bytes(dest_offset, &code)?;
+        current_call_frame.memory.store_bytes(dest_offset, &code);
 
         Ok(OpcodeSuccess::Continue)
     }
@@ -353,7 +351,7 @@ impl VM {
         }
         current_call_frame
             .memory
-            .store_bytes(dest_offset, &bytecode[offset..offset + size])?;
+            .store_bytes(dest_offset, &bytecode[offset..offset + size]);
 
         Ok(OpcodeSuccess::Continue)
     }
@@ -416,7 +414,7 @@ impl VM {
             vec![0u8; size].into()
         };
 
-        current_call_frame.memory.store_bytes(dest_offset, &data)?;
+        current_call_frame.memory.store_bytes(dest_offset, &data);
 
         Ok(OpcodeSuccess::Continue)
     }

@@ -31,7 +31,6 @@ pub enum VMError {
     InvalidInitialByte,
     NonceOverflow,
     MemoryLoadOutOfBounds,
-    MemoryStoreOutOfBounds,
     GasLimitPriceProductOverflow,
 }
 
