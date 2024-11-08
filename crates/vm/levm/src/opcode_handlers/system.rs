@@ -219,14 +219,14 @@ impl VM {
     }
 
     // DELEGATECALL operation
-    // TODO: https://github.com/lambdaclass/lambda_ethereum_rust/issues/1086
+    // TODO: add tests
     pub fn op_delegatecall(
         &mut self,
         current_call_frame: &mut CallFrame,
     ) -> Result<OpcodeSuccess, VMError> {
         let gas = current_call_frame.stack.pop()?;
         let code_address = word_to_address(current_call_frame.stack.pop()?);
-        let args_offset = current_call_frame
+        let args_offset: usize = current_call_frame
             .stack
             .pop()?
             .try_into()
@@ -236,7 +236,7 @@ impl VM {
             .pop()?
             .try_into()
             .map_err(|_err| VMError::VeryLargeNumber)?;
-        let ret_offset = current_call_frame
+        let ret_offset: usize = current_call_frame
             .stack
             .pop()?
             .try_into()
@@ -251,6 +251,30 @@ impl VM {
         let value = current_call_frame.msg_value;
         let to = current_call_frame.to;
         let is_static = current_call_frame.is_static;
+
+        // Gas consumed
+        let memory_byte_size = args_offset
+        .checked_add(args_size)
+        .and_then(|src_sum| {
+            ret_offset
+                .checked_add(ret_size)
+                .map(|dest_sum| src_sum.max(dest_sum))
+        })
+        .ok_or(VMError::OverflowInArithmeticOp)?;
+        let memory_expansion_cost = current_call_frame.memory.expansion_cost(memory_byte_size)?;
+
+        let access_cost = if self.cache.is_account_cached(&code_address) {
+            WARM_ADDRESS_ACCESS_COST
+        } else {
+            self.cache_from_db(&code_address);
+            COLD_ADDRESS_ACCESS_COST
+        };
+
+        let gas_cost = memory_expansion_cost
+        .checked_add(access_cost)
+        .ok_or(VMError::GasCostOverflow)?;
+
+        self.increase_consumed_gas(current_call_frame, gas_cost)?;
 
         self.generic_call(
             current_call_frame,
