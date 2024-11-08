@@ -13,13 +13,13 @@ use ethereum_rust_levm::{
     Environment,
 };
 use execution_db::ExecutionDB;
-use std::{cmp::min, collections::HashMap, sync::Arc};
+use std::{cmp::min, sync::Arc};
 
 use ethereum_rust_core::{
     types::{
-        code_hash, AccountInfo, Block, BlockHash, BlockHeader, ChainConfig, Fork,
-        GenericTransaction, PrivilegedTxType, Receipt, Transaction, TxKind, TxType, Withdrawal,
-        GWEI_TO_WEI, INITIAL_BASE_FEE,
+        AccountInfo, Block, BlockHash, BlockHeader, ChainConfig, Fork, GenericTransaction,
+        PrivilegedTxType, Receipt, Transaction, TxKind, TxType, Withdrawal, GWEI_TO_WEI,
+        INITIAL_BASE_FEE,
     },
     Address, BigEndianHash, H256, U256,
 };

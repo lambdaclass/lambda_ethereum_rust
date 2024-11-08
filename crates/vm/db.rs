@@ -1,4 +1,4 @@
-use ethereum_rust_core::{types::BlockHash, Address as CoreAddress, H256 as CoreH256, U256};
+use ethereum_rust_core::{types::BlockHash, Address as CoreAddress, H256 as CoreH256};
 use ethereum_rust_levm::db::Database as LevmDatabase;
 use ethereum_rust_storage::{error::StoreError, Store};
 use revm::primitives::{

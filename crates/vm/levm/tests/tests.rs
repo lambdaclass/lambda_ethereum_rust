@@ -3379,7 +3379,7 @@ fn logs_from_multiple_callers() {
 //     vm.execute(&mut current_call_frame);
 
 //     assert_eq!(
-//         vm.current_call_frame_mut().stack.pop().unwrap(), 
+//         vm.current_call_frame_mut().stack.pop().unwrap(),
 //         U256::from(HALT_FOR_CALL)
 //     );
 // }
@@ -3691,10 +3691,7 @@ fn create_happy_path() {
     assert_eq!(word_to_address(return_of_created_callframe), returned_addr);
 
     // check the created account is correct
-    let new_account = vm
-        .cache
-        .get_account(returned_addr)
-        .unwrap();
+    let new_account = vm.cache.get_account(returned_addr).unwrap();
     assert_eq!(new_account.info.balance, U256::from(value_to_transfer));
     assert_eq!(new_account.info.nonce, 0); // This was previously set to 1 but I understand that a new account should have nonce 0
 
