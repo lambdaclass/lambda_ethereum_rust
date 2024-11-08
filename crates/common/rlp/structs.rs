@@ -119,7 +119,7 @@ impl<'a> Decoder<'a> {
     /// Decodes the next field as bytes
     pub fn decode_bytes(self, name: &'a str) -> Result<(&[u8], Self), RLPDecodeError> {
         let (field, rest) =
-            decode_bytes(&self.payload).map_err(|err| field_decode_error::<&[u8]>(name, err))?;
+            decode_bytes(self.payload).map_err(|err| field_decode_error::<&[u8]>(name, err))?;
         let updated_self = Self {
             payload: rest,
             ..self

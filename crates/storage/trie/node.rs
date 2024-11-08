@@ -128,7 +128,7 @@ impl Node {
             // Leaf or Extension Node
             2 => {
                 let (path, _) = decode_bytes(&rlp_items[0])?;
-                let path = Nibbles::decode_compact(&path);
+                let path = Nibbles::decode_compact(path);
                 if path.is_leaf() {
                     // Decode as Leaf
                     let (value, _) = decode_bytes(&rlp_items[1])?;
@@ -166,9 +166,9 @@ impl Node {
 }
 
 fn decode_child(rlp: &[u8]) -> NodeHash {
-    match decode_bytes(&rlp) {
+    match decode_bytes(rlp) {
         Ok((hash, &[])) if hash.len() == 32 => NodeHash::Hashed(H256::from_slice(hash)),
-        Ok((hash, &[])) if hash.is_empty() => NodeHash::Inline(vec![]),
+        Ok((&[], &[])) => NodeHash::Inline(vec![]),
         _ => NodeHash::Inline(rlp.to_vec()),
     }
 }
