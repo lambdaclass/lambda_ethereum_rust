@@ -4,7 +4,7 @@ use crate::{
     errors::{OpcodeSuccess, ResultReason, VMError},
     vm::{word_to_address, VM},
 };
-use ethereum_rust_core::{types::TxKind, U256};
+use ethereum_rust_core::{types::TxKind, Address, U256};
 
 // System Operations (10)
 // Opcodes: CREATE, CALL, CALLCODE, RETURN, DELEGATECALL, CREATE2, STATICCALL, REVERT, INVALID, SELFDESTRUCT
@@ -143,28 +143,11 @@ impl VM {
         let is_static = current_call_frame.is_static;
 
         // Gas consumed
-        let memory_byte_size = args_offset
-        .checked_add(args_size)
-        .and_then(|src_sum| {
-            ret_offset
-                .checked_add(ret_size)
-                .map(|dest_sum| src_sum.max(dest_sum))
-        })
-        .ok_or(VMError::OverflowInArithmeticOp)?;
-        let memory_expansion_cost = current_call_frame.memory.expansion_cost(memory_byte_size)?;
-
-        let access_cost = if self.cache.is_account_cached(&code_address) {
-            WARM_ADDRESS_ACCESS_COST
-        } else {
-            self.cache_from_db(&code_address);
-            COLD_ADDRESS_ACCESS_COST
-        };
+        let mut gas_cost = self.compute_gas_call(current_call_frame, code_address, args_size, args_offset, ret_size, ret_offset)?;
 
         let transfer_cost = if value == U256::zero() { U256::zero() } else { NON_ZERO_VALUE_COST };
 
-        let gas_cost = memory_expansion_cost
-        .checked_add(access_cost)
-        .ok_or(VMError::GasCostOverflow)?
+        gas_cost = gas_cost
         .checked_add(transfer_cost)
         .ok_or(VMError::GasCostOverflow)?;
 
@@ -253,26 +236,7 @@ impl VM {
         let is_static = current_call_frame.is_static;
 
         // Gas consumed
-        let memory_byte_size = args_offset
-        .checked_add(args_size)
-        .and_then(|src_sum| {
-            ret_offset
-                .checked_add(ret_size)
-                .map(|dest_sum| src_sum.max(dest_sum))
-        })
-        .ok_or(VMError::OverflowInArithmeticOp)?;
-        let memory_expansion_cost = current_call_frame.memory.expansion_cost(memory_byte_size)?;
-
-        let access_cost = if self.cache.is_account_cached(&code_address) {
-            WARM_ADDRESS_ACCESS_COST
-        } else {
-            self.cache_from_db(&code_address);
-            COLD_ADDRESS_ACCESS_COST
-        };
-
-        let gas_cost = memory_expansion_cost
-        .checked_add(access_cost)
-        .ok_or(VMError::GasCostOverflow)?;
+        let gas_cost = self.compute_gas_call(current_call_frame, code_address, args_size, args_offset, ret_size, ret_offset)?;
 
         self.increase_consumed_gas(current_call_frame, gas_cost)?;
 
@@ -300,7 +264,7 @@ impl VM {
     ) -> Result<OpcodeSuccess, VMError> {
         let gas = current_call_frame.stack.pop()?;
         let code_address = word_to_address(current_call_frame.stack.pop()?);
-        let args_offset = current_call_frame
+        let args_offset: usize = current_call_frame
             .stack
             .pop()?
             .try_into()
@@ -324,6 +288,11 @@ impl VM {
         let value = U256::zero();
         let msg_sender = current_call_frame.to; // The new sender will be the current contract.
         let to = code_address; // In this case code_address and the sub-context account are the same. Unlike CALLCODE or DELEGATECODE.
+
+        // Gas consumed
+        let gas_cost = self.compute_gas_call(current_call_frame, code_address, args_size, args_offset, ret_size, ret_offset)?;
+
+        self.increase_consumed_gas(current_call_frame, gas_cost)?;
 
         self.generic_call(
             current_call_frame,
@@ -482,5 +451,28 @@ impl VM {
         self.increase_consumed_gas(current_call_frame, gas_cost)?;
 
         Ok(OpcodeSuccess::Result(ResultReason::SelfDestruct))
+    }
+
+    fn compute_gas_call(&mut self, current_call_frame: &mut CallFrame, code_address: Address, args_size: usize, args_offset: usize, ret_size: usize, ret_offset: usize) -> Result<U256, VMError> {
+        let memory_byte_size = args_offset
+        .checked_add(args_size)
+        .and_then(|src_sum| {
+            ret_offset
+                .checked_add(ret_size)
+                .map(|dest_sum| src_sum.max(dest_sum))
+        })
+        .ok_or(VMError::OverflowInArithmeticOp)?;
+        let memory_expansion_cost = current_call_frame.memory.expansion_cost(memory_byte_size)?;
+
+        let access_cost = if self.cache.is_account_cached(&code_address) {
+            WARM_ADDRESS_ACCESS_COST
+        } else {
+            self.cache_from_db(&code_address);
+            COLD_ADDRESS_ACCESS_COST
+        };
+
+        memory_expansion_cost
+        .checked_add(access_cost)
+        .ok_or(VMError::GasCostOverflow)
     }
 }
