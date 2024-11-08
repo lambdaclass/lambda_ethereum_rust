@@ -1,3 +1,7 @@
+use super::{
+    message::RLPxMessage,
+    utils::{snappy_compress, snappy_decompress},
+};
 use bytes::{BufMut, Bytes};
 use ethereum_rust_core::{
     types::{AccountState, EMPTY_KECCACK_HASH, EMPTY_TRIE_HASH},
@@ -9,9 +13,6 @@ use ethereum_rust_rlp::{
     error::{RLPDecodeError, RLPEncodeError},
     structs::{Decoder, Encoder},
 };
-use snap::raw::Decoder as SnappyDecoder;
-
-use super::{message::RLPxMessage, utils::snappy_encode};
 
 // Snap Capability Messages
 
@@ -90,16 +91,13 @@ impl RLPxMessage for GetAccountRange {
             .encode_field(&self.response_bytes)
             .finish();
 
-        let msg_data = snappy_encode(encoded_data)?;
+        let msg_data = snappy_compress(encoded_data)?;
         buf.put_slice(&msg_data);
         Ok(())
     }
 
     fn decode(msg_data: &[u8]) -> Result<Self, RLPDecodeError> {
-        let mut snappy_decoder = SnappyDecoder::new();
-        let decompressed_data = snappy_decoder
-            .decompress_vec(msg_data)
-            .map_err(|e| RLPDecodeError::Custom(e.to_string()))?;
+        let decompressed_data = snappy_decompress(msg_data)?;
         let decoder = Decoder::new(&decompressed_data)?;
         let (id, decoder) = decoder.decode_field("request-id")?;
         let (root_hash, decoder) = decoder.decode_field("rootHash")?;
@@ -127,16 +125,13 @@ impl RLPxMessage for AccountRange {
             .encode_field(&self.proof)
             .finish();
 
-        let msg_data = snappy_encode(encoded_data)?;
+        let msg_data = snappy_compress(encoded_data)?;
         buf.put_slice(&msg_data);
         Ok(())
     }
 
     fn decode(msg_data: &[u8]) -> Result<Self, RLPDecodeError> {
-        let mut snappy_decoder = SnappyDecoder::new();
-        let decompressed_data = snappy_decoder
-            .decompress_vec(msg_data)
-            .map_err(|e| RLPDecodeError::Custom(e.to_string()))?;
+        let decompressed_data = snappy_decompress(msg_data)?;
         let decoder = Decoder::new(&decompressed_data)?;
         let (id, decoder) = decoder.decode_field("request-id")?;
         let (accounts, decoder) = decoder.decode_field("accounts")?;
@@ -163,16 +158,13 @@ impl RLPxMessage for GetStorageRanges {
             .encode_field(&self.response_bytes)
             .finish();
 
-        let msg_data = snappy_encode(encoded_data)?;
+        let msg_data = snappy_compress(encoded_data)?;
         buf.put_slice(&msg_data);
         Ok(())
     }
 
     fn decode(msg_data: &[u8]) -> Result<Self, RLPDecodeError> {
-        let mut snappy_decoder = SnappyDecoder::new();
-        let decompressed_data = snappy_decoder
-            .decompress_vec(msg_data)
-            .map_err(|e| RLPDecodeError::Custom(e.to_string()))?;
+        let decompressed_data = snappy_decompress(msg_data)?;
         let decoder = Decoder::new(&decompressed_data)?;
         let (id, decoder) = decoder.decode_field("request-id")?;
         let (root_hash, decoder) = decoder.decode_field("rootHash")?;
@@ -202,16 +194,13 @@ impl RLPxMessage for StorageRanges {
             .encode_field(&self.proof)
             .finish();
 
-        let msg_data = snappy_encode(encoded_data)?;
+        let msg_data = snappy_compress(encoded_data)?;
         buf.put_slice(&msg_data);
         Ok(())
     }
 
     fn decode(msg_data: &[u8]) -> Result<Self, RLPDecodeError> {
-        let mut snappy_decoder = SnappyDecoder::new();
-        let decompressed_data = snappy_decoder
-            .decompress_vec(msg_data)
-            .map_err(|e| RLPDecodeError::Custom(e.to_string()))?;
+        let decompressed_data = snappy_decompress(msg_data)?;
         let decoder = Decoder::new(&decompressed_data)?;
         let (id, decoder) = decoder.decode_field("request-id")?;
         let (slots, decoder) = decoder.decode_field("slots")?;
@@ -231,16 +220,13 @@ impl RLPxMessage for GetByteCodes {
             .encode_field(&self.bytes)
             .finish();
 
-        let msg_data = snappy_encode(encoded_data)?;
+        let msg_data = snappy_compress(encoded_data)?;
         buf.put_slice(&msg_data);
         Ok(())
     }
 
     fn decode(msg_data: &[u8]) -> Result<Self, RLPDecodeError> {
-        let mut snappy_decoder = SnappyDecoder::new();
-        let decompressed_data = snappy_decoder
-            .decompress_vec(msg_data)
-            .map_err(|e| RLPDecodeError::Custom(e.to_string()))?;
+        let decompressed_data = snappy_decompress(msg_data)?;
         let decoder = Decoder::new(&decompressed_data)?;
         let (id, decoder) = decoder.decode_field("request-id")?;
         let (hashes, decoder) = decoder.decode_field("hashes")?;
@@ -259,16 +245,13 @@ impl RLPxMessage for ByteCodes {
             .encode_field(&self.codes)
             .finish();
 
-        let msg_data = snappy_encode(encoded_data)?;
+        let msg_data = snappy_compress(encoded_data)?;
         buf.put_slice(&msg_data);
         Ok(())
     }
 
     fn decode(msg_data: &[u8]) -> Result<Self, RLPDecodeError> {
-        let mut snappy_decoder = SnappyDecoder::new();
-        let decompressed_data = snappy_decoder
-            .decompress_vec(msg_data)
-            .map_err(|e| RLPDecodeError::Custom(e.to_string()))?;
+        let decompressed_data = snappy_decompress(msg_data)?;
         let decoder = Decoder::new(&decompressed_data)?;
         let (id, decoder) = decoder.decode_field("request-id")?;
         let (codes, decoder) = decoder.decode_field("codes")?;
@@ -288,16 +271,13 @@ impl RLPxMessage for GetTrieNodes {
             .encode_field(&self.bytes)
             .finish();
 
-        let msg_data = snappy_encode(encoded_data)?;
+        let msg_data = snappy_compress(encoded_data)?;
         buf.put_slice(&msg_data);
         Ok(())
     }
 
     fn decode(msg_data: &[u8]) -> Result<Self, RLPDecodeError> {
-        let mut snappy_decoder = SnappyDecoder::new();
-        let decompressed_data = snappy_decoder
-            .decompress_vec(msg_data)
-            .map_err(|e| RLPDecodeError::Custom(e.to_string()))?;
+        let decompressed_data = snappy_decompress(msg_data)?;
         let decoder = Decoder::new(&decompressed_data)?;
         let (id, decoder) = decoder.decode_field("request-id")?;
         let (root_hash, decoder) = decoder.decode_field("root_hash")?;
@@ -322,16 +302,13 @@ impl RLPxMessage for TrieNodes {
             .encode_field(&self.nodes)
             .finish();
 
-        let msg_data = snappy_encode(encoded_data)?;
+        let msg_data = snappy_compress(encoded_data)?;
         buf.put_slice(&msg_data);
         Ok(())
     }
 
     fn decode(msg_data: &[u8]) -> Result<Self, RLPDecodeError> {
-        let mut snappy_decoder = SnappyDecoder::new();
-        let decompressed_data = snappy_decoder
-            .decompress_vec(msg_data)
-            .map_err(|e| RLPDecodeError::Custom(e.to_string()))?;
+        let decompressed_data = snappy_decompress(msg_data)?;
         let decoder = Decoder::new(&decompressed_data)?;
         let (id, decoder) = decoder.decode_field("request-id")?;
         let (nodes, decoder) = decoder.decode_field("nodes")?;
