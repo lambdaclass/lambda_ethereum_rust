@@ -6,7 +6,7 @@ use crate::{
         },
         handshake::encode_ack_message,
         message::Message,
-        p2p,
+        p2p::{self, PingMessage, PongMessage},
         utils::id2pubkey,
     },
     snap::{
@@ -159,44 +159,58 @@ impl<S: AsyncWrite + AsyncRead + std::marker::Unpin> RLPxConnection<S> {
             RLPxConnectionState::Established(_) => {
                 info!("Started peer main loop");
                 loop {
-                    match self.receive().await? {
-                        // TODO: implement handlers for each message type
-                        // https://github.com/lambdaclass/lambda_ethereum_rust/issues/1030
-                        Message::Disconnect(_) => info!("Received Disconnect"),
-                        Message::Ping(_) => info!("Received Ping"),
-                        Message::Pong(_) => info!("Received Pong"),
-                        Message::Status(_) => info!("Received Status"),
-                        Message::GetAccountRange(req) => {
-                            let response =
-                                process_account_range_request(req, self.storage.clone())?;
-                            self.send(Message::AccountRange(response)).await?
-                        }
-                        Message::GetBlockHeaders(msg_data) => {
-                            let response = BlockHeaders {
-                                id: msg_data.id,
-                                block_headers: msg_data.fetch_headers(&self.storage),
-                            };
-                            self.send(Message::BlockHeaders(response)).await?
-                        }
-                        Message::GetBlockBodies(msg_data) => {
-                            let response = BlockBodies {
-                                id: msg_data.id,
-                                block_bodies: msg_data.fetch_blocks(&self.storage),
-                            };
-                            self.send(Message::BlockBodies(response)).await?
-                        }
-                        Message::GetStorageRanges(req) => {
-                            let response =
-                                process_storage_ranges_request(req, self.storage.clone())?;
-                            self.send(Message::StorageRanges(response)).await?
-                        }
-                        Message::GetByteCodes(req) => {
-                            let response = process_byte_codes_request(req, self.storage.clone())?;
-                            self.send(Message::ByteCodes(response)).await?
-                        }
-                        // TODO: Add new message types and handlers as they are implemented
-                        _ => return Err(RLPxError::MessageNotHandled()),
-                    };
+                    match tokio::time::timeout(std::time::Duration::from_millis(1500), self.receive()).await {
+                        Err(_) => {
+                            // Timeout elapsed proceed with any timed task
+                            self.send(Message::Ping(PingMessage {})).await?;
+                            info!("Ping sent");
+                        },
+                        Ok(message) =>
+                            match message? {
+                                // TODO: implement handlers for each message type
+                                // https://github.com/lambdaclass/lambda_ethereum_rust/issues/1030
+                                Message::Disconnect(_) => info!("Received Disconnect"),
+                                Message::Ping(_) => {
+                                    info!("Received Ping");
+                                    self.send(Message::Pong(PongMessage {})).await?;
+                                    info!("Pong sent");
+                                }
+                                Message::Pong(_) => {
+                                    // Ignore received Pong messages
+                                }
+                                Message::Status(_) => info!("Received Status"),
+                                Message::GetAccountRange(req) => {
+                                    let response =
+                                        process_account_range_request(req, self.storage.clone())?;
+                                    self.send(Message::AccountRange(response)).await?
+                                }
+                                Message::GetBlockHeaders(msg_data) => {
+                                    let response = BlockHeaders {
+                                        id: msg_data.id,
+                                        block_headers: msg_data.fetch_headers(&self.storage),
+                                    };
+                                    self.send(Message::BlockHeaders(response)).await?
+                                }
+                                Message::GetBlockBodies(msg_data) => {
+                                    let response = BlockBodies {
+                                        id: msg_data.id,
+                                        block_bodies: msg_data.fetch_blocks(&self.storage),
+                                    };
+                                    self.send(Message::BlockBodies(response)).await?
+                                }
+                                Message::GetStorageRanges(req) => {
+                                    let response =
+                                        process_storage_ranges_request(req, self.storage.clone())?;
+                                    self.send(Message::StorageRanges(response)).await?
+                                }
+                                Message::GetByteCodes(req) => {
+                                    let response = process_byte_codes_request(req, self.storage.clone())?;
+                                    self.send(Message::ByteCodes(response)).await?
+                                }
+                                // TODO: Add new message types and handlers as they are implemented
+                                _ => return Err(RLPxError::MessageNotHandled()),
+                            }
+                    }
                 }
             }
             _ => Err(RLPxError::InvalidState()),
