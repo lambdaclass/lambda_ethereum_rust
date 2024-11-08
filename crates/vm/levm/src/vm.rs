@@ -395,15 +395,15 @@ impl VM {
 
         self.env.consumed_gas = initial_gas;
 
-        let mut current_call_frame = self.call_frames.pop().unwrap();
+        let mut initial_call_frame = self.call_frames.pop().unwrap();
+        let sender = initial_call_frame.msg_sender;
 
-        let mut report = self.execute(&mut current_call_frame);
-        let sender = self.call_frames.first().unwrap().msg_sender;
+        let mut report = self.execute(&mut initial_call_frame);
 
         // This cost applies both for call and create
         // 4 gas for each zero byte in the transaction data 16 gas for each non-zero byte in the transaction.
         let mut calldata_cost = 0;
-        for byte in &self.call_frames[0].calldata {
+        for byte in &initial_call_frame.calldata {
             if *byte != 0 {
                 calldata_cost += 16;
             } else {
@@ -439,10 +439,10 @@ impl VM {
             // Charge 22100 gas for each storage variable set
 
             // GInitCodeword * number_of_words rounded up. GinitCodeWord = 2
-            let number_of_words = self.call_frames[0].calldata.chunks(32).len() as u64;
+            let number_of_words = initial_call_frame.calldata.chunks(32).len() as u64;
             report.add_gas_with_max(number_of_words * 2, max_gas);
 
-            let contract_address = self.call_frames.first().unwrap().to;
+            let contract_address = initial_call_frame.to;
             let mut created_contract = self.get_account(&contract_address);
 
             created_contract.info.bytecode = contract_code;
@@ -459,13 +459,7 @@ impl VM {
             .checked_sub(U256::from(report.gas_used) * self.env.gas_price)
             .ok_or(VMError::OutOfGas)?;
 
-        let call_frame = self
-            .call_frames
-            .first()
-            .ok_or(VMError::InternalError)?
-            .clone();
-
-        let receiver_address = call_frame.to;
+        let receiver_address = initial_call_frame.to;
         let mut receiver_account = self.get_account(&receiver_address);
         // If execution was successful we want to transfer value from sender to receiver
         if report.is_success() {
@@ -473,12 +467,12 @@ impl VM {
             sender_account.info.balance = sender_account
                 .info
                 .balance
-                .checked_sub(call_frame.msg_value)
+                .checked_sub(initial_call_frame.msg_value)
                 .ok_or(VMError::OutOfGas)?; // This error shouldn't be OutOfGas
             receiver_account.info.balance = receiver_account
                 .info
                 .balance
-                .checked_add(call_frame.msg_value)
+                .checked_add(initial_call_frame.msg_value)
                 .ok_or(VMError::OutOfGas)?; // This error shouldn't be OutOfGas
         }
 
