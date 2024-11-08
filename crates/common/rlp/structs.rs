@@ -1,3 +1,5 @@
+use crate::decode::decode_bytes;
+
 use super::{
     decode::{decode_rlp_item, get_item_with_prefix, RLPDecode},
     encode::{encode_length, RLPEncode},
@@ -107,6 +109,17 @@ impl<'a> Decoder<'a> {
     /// instead of failing.
     pub fn finish_unchecked(self) -> &'a [u8] {
         self.remaining
+    }
+
+    /// Decodes the next field as bytes
+    pub fn decode_bytes(self, name: &'a str) -> Result<(&[u8], Self), RLPDecodeError> {
+        let (field, rest) =
+            decode_bytes(&self.payload).map_err(|err| field_decode_error::<&[u8]>(name, err))?;
+        let updated_self = Self {
+            payload: rest,
+            ..self
+        };
+        Ok((field, updated_self))
     }
 }
 
