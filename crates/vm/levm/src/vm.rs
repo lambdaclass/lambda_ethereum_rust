@@ -572,8 +572,8 @@ impl VM {
             current_call_frame.depth + 1,
         );
 
-        // EIP-7686 + log((gaslimit + 6300) / 6400) / log(64/63) = 537
-        if new_call_frame.depth > 537 {
+        // TODO: Increase this to 1024
+        if new_call_frame.depth > 257 {
             current_call_frame.stack.push(U256::from(REVERT_FOR_CALL))?;
             return Ok(OpcodeSuccess::Result(ResultReason::Revert));
         }
@@ -746,7 +746,12 @@ impl VM {
             code_size_in_memory,
             code_offset_in_memory,
             code_size_in_memory,
-        )
+        )?;
+
+        // Erases the success value in the stack result of calling generic call
+        current_call_frame.stack.pop().unwrap();
+
+        Ok(OpcodeSuccess::Continue)
     }
 
     /// Increases gas consumption of CallFrame and Environment, returning an error if the callframe gas limit is reached.

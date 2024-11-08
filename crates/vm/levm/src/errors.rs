@@ -31,10 +31,10 @@ pub enum VMError {
     InvalidInitialByte,
     NonceOverflow,
     MemoryLoadOutOfBounds,
-    MemoryStoreOutOfBounds,
     GasLimitPriceProductOverflow,
 }
 
+#[derive(Debug, Clone)]
 pub enum OpcodeSuccess {
     Continue,
     Result(ResultReason),

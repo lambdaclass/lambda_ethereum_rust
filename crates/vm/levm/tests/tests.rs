@@ -3670,13 +3670,15 @@ fn create_happy_path() {
     vm.execute(&mut current_call_frame);
 
     let call_frame = vm.current_call_frame_mut();
-    let return_of_created_callframe = call_frame.stack.pop().unwrap();
-    assert_eq!(return_of_created_callframe, U256::from(SUCCESS_FOR_RETURN));
-    let returned_addr = call_frame.stack.pop().unwrap();
+    let returned_address = call_frame.stack.pop().unwrap();
+
+    let expected_address = VM::calculate_create_address(sender_addr, sender_nonce + 1);
+    assert_eq!(word_to_address(returned_address), expected_address);
+
     // check the created account is correct
     let new_account = vm
         .cache
-        .get_account(word_to_address(returned_addr))
+        .get_account(word_to_address(returned_address))
         .unwrap();
     assert_eq!(new_account.info.balance, U256::from(value_to_transfer));
     assert_eq!(new_account.info.nonce, 0); // This was previously set to 1 but I understand that a new account should have nonce 0
@@ -3935,14 +3937,12 @@ fn create2_happy_path() {
     vm.execute(&mut current_call_frame);
 
     let call_frame = vm.current_call_frame_mut();
-    let return_of_created_callframe = call_frame.stack.pop().unwrap();
-    assert_eq!(return_of_created_callframe, U256::from(SUCCESS_FOR_RETURN));
-    let returned_addr = call_frame.stack.pop().unwrap();
-    assert_eq!(word_to_address(returned_addr), expected_address);
+    let returned_address = call_frame.stack.pop().unwrap();
+    assert_eq!(word_to_address(returned_address), expected_address);
     // check the created account is correct
     let new_account = vm
         .cache
-        .get_account(word_to_address(returned_addr))
+        .get_account(word_to_address(returned_address))
         .unwrap();
     assert_eq!(new_account.info.balance, U256::from(value));
     assert_eq!(new_account.info.nonce, 0); // I understand new account should have nonce 0, not 1.
