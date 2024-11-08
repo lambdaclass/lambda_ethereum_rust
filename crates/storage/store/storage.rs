@@ -812,7 +812,7 @@ impl Store {
     }
 
     /// Receives the root of the state trie and a list of paths where the first path will correspond to a path in the state trie
-    /// (aka a hashed account address) and the following paths will be paths in the accoun's storage trie (aka hashed storage keys)
+    /// (aka a hashed account address) and the following paths will be paths in the account's storage trie (aka hashed storage keys)
     /// If only one hash (account) is received, then the state trie node containing the account will be returned.
     /// If more than one hash is received, then the storage trie nodes where each storage key is stored will be returned
     /// For more information check out snap capability message [`GetTrieNodes`](https://github.com/ethereum/devp2p/blob/master/caps/snap.md#gettrienodes-0x06)

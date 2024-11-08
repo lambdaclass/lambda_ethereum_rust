@@ -1,6 +1,6 @@
 use ethereum_types::H256;
 
-use crate::{PathRLP, Trie, TrieError, ValueRLP};
+use crate::{Trie, TrieError, ValueRLP};
 
 /// The boolead indicates if there is more state to be fetched
 fn verify_range_proof(root: H256, first_key: H256, keys: Vec<H256>, values: Vec<ValueRLP>, proof: Vec<Vec<u8>>) -> Result<bool, TrieError> {
