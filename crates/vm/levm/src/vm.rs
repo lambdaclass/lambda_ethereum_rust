@@ -17,6 +17,7 @@ use std::{
     str::FromStr,
     sync::Arc,
 };
+use keccak_hash::keccak;
 
 pub type Storage = HashMap<U256, H256>;
 
@@ -615,17 +616,24 @@ impl VM {
         initialization_code: &Bytes,
         salt: U256,
     ) -> Address {
-        let mut hasher = Keccak256::new();
-        hasher.update(initialization_code.clone());
-        let initialization_code_hash = hasher.finalize();
-        let mut hasher = Keccak256::new();
+        let init_code_hash = keccak(initialization_code);
         let mut salt_bytes = [0; 32];
         salt.to_big_endian(&mut salt_bytes);
-        hasher.update([0xff]);
-        hasher.update(sender_address.as_bytes());
-        hasher.update(salt_bytes);
-        hasher.update(initialization_code_hash);
-        Address::from_slice(&hasher.finalize()[12..])
+
+        Address::from_slice(
+            keccak(
+                [
+                    &[0xff],
+                    sender_address.as_bytes(),
+                    &salt_bytes,
+                    init_code_hash.as_bytes(),
+                ]
+                .concat(),
+            )
+            .as_bytes()
+            .get(12..)
+            .expect("Failed to get create2 address"),
+        )
     }
 
     /// Common behavior for CREATE and CREATE2 opcodes
