@@ -16,7 +16,7 @@ use tracing::{debug, error, info, warn};
 
 use ethereum_rust_core::{
     types::{Block, BlockHeader},
-    Address, H256,
+    Address, H256, U256,
 };
 
 use risc0_zkvm::sha::{Digest, Digestible};
@@ -95,9 +95,6 @@ struct ProverServer {
     store: Store,
     eth_client: EthClient,
     on_chain_proposer_address: Address,
-    /// Only for testing purposes, used to override
-    /// the on_chain_proposer. address
-    verifier_address: Address,
     l1_address: Address,
     l1_private_key: SecretKey,
     latest_proven_block: u64,
@@ -116,7 +113,6 @@ impl ProverServer {
             store,
             eth_client: EthClient::new(&eth_config.rpc_url),
             on_chain_proposer_address: proposer_config.on_chain_proposer_address,
-            verifier_address: proposer_config.verifier_address,
             l1_address: proposer_config.l1_address,
             l1_private_key: proposer_config.l1_private_key,
             latest_proven_block: 0,
@@ -329,29 +325,30 @@ impl ProverServer {
         // function verify(bytes,bytes32,bytes32)
         // blockNumber, seal, imageId, journalDigest
         // From crates/l2/contracts/l1/interfaces/IOnChainProposer.sol
-        let verify_proof_selector = keccak(b"verify(bytes,bytes32,bytes32)")
+        let verify_proof_selector = keccak(b"verify(uint256,bytes,bytes32,bytes32)")
             .as_bytes()
             .get(..4)
             .expect("Failed to get initialize selector")
             .to_vec();
         calldata.extend(verify_proof_selector);
 
-        // extend with block_number
-        //let mut block_number_bytes = [0_u8; 32];
-        //U256::from(block_number).to_big_endian(&mut block_number_bytes);
-        //calldata.extend(block_number_bytes);
-        //calldata.extend(H256::from_low_u64_be(32).as_bytes());
-
         // The calldata has to be structures in the following way:
         // size in bytes
+        // block_number
         // image_id digest
         // journal digest
         // size of seal
         // seal
 
         // extend with size in bytes
-        // 3 u256 goes after this field so: 0x60 == 96bytes == 32bytes * 3
-        calldata.extend(H256::from_low_u64_be(3 * 32).as_bytes());
+        // 4 u256 goes after this field so: 0x80 == 128bytes == 32bytes * 4
+        calldata.extend(H256::from_low_u64_be(4 * 32).as_bytes());
+
+        // extend with block_number
+        let mut block_number_bytes = [0_u8; 32];
+        U256::from(block_number).to_big_endian(&mut block_number_bytes);
+        calldata.extend(block_number_bytes);
+        calldata.extend(H256::from_low_u64_be(32).as_bytes());
 
         // extend with image_id
         calldata.extend(image_id.as_bytes());
@@ -370,7 +367,7 @@ impl ProverServer {
             self.l1_address,
             self.l1_private_key,
             // Change it back to self.on_chain_proposer_address
-            self.verifier_address,
+            self.on_chain_proposer_address,
             calldata.into(),
         )
         .await?;
