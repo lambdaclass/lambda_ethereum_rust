@@ -320,10 +320,13 @@ impl ProverServer {
         info!("Sending proof");
         let mut calldata = Vec::new();
 
+        // IOnChainProposer
         // function verify(uint256,bytes,bytes32,bytes32)
+        // Verifier
+        // function verify(bytes,bytes32,bytes32)
         // blockNumber, seal, imageId, journalDigest
         // From crates/l2/contracts/l1/interfaces/IOnChainProposer.sol
-        let verify_proof_selector = keccak(b"verify(uint256,bytes,bytes32,bytes32)")
+        let verify_proof_selector = keccak(b"verify(bytes,bytes32,bytes32)")
             .as_bytes()
             .get(..4)
             .expect("Failed to get initialize selector")
@@ -331,10 +334,10 @@ impl ProverServer {
         calldata.extend(verify_proof_selector);
 
         // extend with block_number
-        let mut block_number_bytes = [0_u8; 32];
-        U256::from(block_number).to_big_endian(&mut block_number_bytes);
-        calldata.extend(block_number_bytes);
-        calldata.extend(H256::from_low_u64_be(32).as_bytes());
+        //let mut block_number_bytes = [0_u8; 32];
+        //U256::from(block_number).to_big_endian(&mut block_number_bytes);
+        //calldata.extend(block_number_bytes);
+        //calldata.extend(H256::from_low_u64_be(32).as_bytes());
 
         // extend with seal
         calldata.extend(H256::from_low_u64_be(seal.len() as u64).as_bytes());
