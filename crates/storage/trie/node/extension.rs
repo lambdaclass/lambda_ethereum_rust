@@ -1,9 +1,4 @@
-use ethereum_rust_rlp::{
-    decode::decode_bytes,
-    error::RLPDecodeError,
-    structs::{Decoder, Encoder},
-};
-use ethereum_types::H256;
+use ethereum_rust_rlp::structs::Encoder;
 
 use crate::error::TrieError;
 use crate::nibbles::Nibbles;
@@ -167,22 +162,6 @@ impl ExtensionNode {
         }
         encoder.finish();
         buf
-    }
-
-    /// Decodes the node
-    pub fn decode_raw(rlp: &[u8]) -> Result<Self, RLPDecodeError> {
-        let decoder = Decoder::new(rlp)?;
-        let (prefix, decoder) = decoder.decode_bytes("prefix")?;
-        let (child, decoder) = decoder.get_encoded_item()?;
-        let child = match decode_bytes(&child) {
-            Ok((hash, &[])) if hash.len() == 32 => NodeHash::Hashed(H256::from_slice(hash)),
-            _ => NodeHash::Inline(child),
-        };
-        decoder.finish()?;
-        Ok(Self {
-            prefix: Nibbles::decode_compact(prefix),
-            child,
-        })
     }
 
     /// Inserts the node into the state and returns its hash
@@ -498,19 +477,20 @@ mod test {
     #[test]
     fn symetric_encoding_a() {
         let mut trie = Trie::new_temp();
-        let node = pmt_node! { @(trie)
+        let node: Node = pmt_node! { @(trie)
             extension { [0], branch {
                 0 => leaf { vec![16] => vec![0x12, 0x34, 0x56, 0x78] },
                 1 => leaf { vec![16] => vec![0x34, 0x56, 0x78, 0x9A] },
             } }
-        };
-        assert_eq!(ExtensionNode::decode_raw(&node.encode_raw()).unwrap(), node)
+        }
+        .into();
+        assert_eq!(Node::decode_raw(&node.encode_raw()).unwrap(), node)
     }
 
     #[test]
     fn symetric_encoding_b() {
         let mut trie = Trie::new_temp();
-        let node = pmt_node! { @(trie)
+        let node: Node = pmt_node! { @(trie)
             extension { [0], branch {
                 0 => leaf { vec![16] => vec![0x00] },
                 1 => extension { [0], branch {
@@ -518,15 +498,16 @@ mod test {
                     1 => leaf { vec![16] => vec![0x01, 0x01] },
                 } },
             } }
-        };
+        }
+        .into();
 
-        assert_eq!(ExtensionNode::decode_raw(&node.encode_raw()).unwrap(), node)
+        assert_eq!(Node::decode_raw(&node.encode_raw()).unwrap(), node)
     }
 
     #[test]
     fn symetric_encoding_c() {
         let mut trie = Trie::new_temp();
-        let node = pmt_node! { @(trie)
+        let node: Node = pmt_node! { @(trie)
             extension { [0], branch {
                 0 => leaf { vec![16] => vec![0x00] },
                 1 => extension { [0], branch {
@@ -544,7 +525,8 @@ mod test {
                     11 => leaf { vec![16] => vec![0x11, 0x01] },
                 } },
             } }
-        };
-        assert_eq!(ExtensionNode::decode_raw(&node.encode_raw()).unwrap(), node)
+        }
+        .into();
+        assert_eq!(Node::decode_raw(&node.encode_raw()).unwrap(), node)
     }
 }

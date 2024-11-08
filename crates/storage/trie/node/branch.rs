@@ -1,9 +1,4 @@
-use ethereum_rust_rlp::{
-    decode::decode_bytes,
-    error::RLPDecodeError,
-    structs::{Decoder, Encoder},
-};
-use ethereum_types::H256;
+use ethereum_rust_rlp::structs::Encoder;
 
 use crate::{error::TrieError, nibbles::Nibbles, node_hash::NodeHash, state::TrieState, ValueRLP};
 
@@ -229,32 +224,6 @@ impl BranchNode {
         encoder = encoder.encode_bytes(&self.value);
         encoder.finish();
         buf
-    }
-
-    /// Decodes the node
-    pub fn decode_raw(rlp: &[u8]) -> Result<Self, RLPDecodeError> {
-        let mut decoder = Decoder::new(rlp)?;
-        let mut choices = BranchNode::EMPTY_CHOICES;
-        let mut child;
-        for i in 0..16 {
-            (child, decoder) = decoder.get_encoded_item()?;
-            match decode_bytes(&child) {
-                // hashed child
-                Ok((hash, &[])) if hash.len() == 32 => {
-                    choices[i] = NodeHash::Hashed(H256::from_slice(hash))
-                }
-                // no child
-                Ok((&[], &[])) => {}
-                // inlined child
-                _ => choices[i] = NodeHash::Inline(child),
-            }
-        }
-        let (value, decoder) = decoder.decode_bytes("value")?;
-        decoder.finish()?;
-        Ok(Self {
-            choices: Box::new(choices),
-            value: value.to_vec(),
-        })
     }
 
     /// Inserts the node into the state and returns its hash
@@ -638,19 +607,20 @@ mod test {
     #[test]
     fn symetric_encoding_a() {
         let mut trie = Trie::new_temp();
-        let node = pmt_node! { @(trie)
+        let node: Node = pmt_node! { @(trie)
             branch {
                 0 => leaf { vec![0,16] => vec![0x12, 0x34, 0x56, 0x78] },
                 1 => leaf { vec![0,16] => vec![0x34, 0x56, 0x78, 0x9A] },
             }
-        };
-        assert_eq!(BranchNode::decode_raw(&node.encode_raw()).unwrap(), node)
+        }
+        .into();
+        assert_eq!(Node::decode_raw(&node.encode_raw()).unwrap(), node)
     }
 
     #[test]
     fn symetric_encoding_b() {
         let mut trie = Trie::new_temp();
-        let node = pmt_node! { @(trie)
+        let node: Node = pmt_node! { @(trie)
             branch {
                 0 => leaf { vec![0, 16] => vec![0x00] },
                 1 => leaf { vec![0, 16] => vec![0x10] },
@@ -659,14 +629,15 @@ mod test {
                     1 => leaf { vec![16] => vec![0x01, 0x01] },
                 } },
             }
-        };
-        assert_eq!(BranchNode::decode_raw(&node.encode_raw()).unwrap(), node)
+        }
+        .into();
+        assert_eq!(Node::decode_raw(&node.encode_raw()).unwrap(), node)
     }
 
     #[test]
     fn symetric_encoding_c() {
         let mut trie = Trie::new_temp();
-        let node = pmt_node! { @(trie)
+        let node: Node = pmt_node! { @(trie)
             branch {
                 0x0 => leaf { vec![0, 16] => vec![0x00] },
                 0x1 => leaf { vec![0, 16] => vec![0x10] },
@@ -685,7 +656,8 @@ mod test {
                 0xE => leaf { vec![0, 16] => vec![0xE0] },
                 0xF => leaf { vec![0, 16] => vec![0xF0] },
             } with_leaf { &[0x1] => vec![0x1] }
-        };
-        assert_eq!(BranchNode::decode_raw(&node.encode_raw()).unwrap(), node)
+        }
+        .into();
+        assert_eq!(Node::decode_raw(&node.encode_raw()).unwrap(), node)
     }
 }

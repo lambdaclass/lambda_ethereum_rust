@@ -1,7 +1,4 @@
-use ethereum_rust_rlp::{
-    error::RLPDecodeError,
-    structs::{Decoder, Encoder},
-};
+use ethereum_rust_rlp::structs::Encoder;
 
 use crate::{
     error::TrieError, nibbles::Nibbles, node::BranchNode, node_hash::NodeHash, state::TrieState,
@@ -115,18 +112,6 @@ impl LeafNode {
             .encode_bytes(&self.value)
             .finish();
         buf
-    }
-
-    /// Decodes the node
-    pub fn decode_raw(rlp: &[u8]) -> Result<Self, RLPDecodeError> {
-        let decoder = Decoder::new(rlp)?;
-        let (partial, decoder) = decoder.decode_bytes("partial")?;
-        let (value, decoder) = decoder.decode_bytes("value")?;
-        decoder.finish()?;
-        Ok(Self {
-            partial: Nibbles::decode_compact(partial),
-            value: value.to_vec(),
-        })
     }
 
     /// Inserts the node into the state and returns its hash
@@ -332,28 +317,31 @@ mod test {
 
     #[test]
     fn symetric_encoding_a() {
-        let node = LeafNode::new(
+        let node: Node = LeafNode::new(
             Nibbles::from_bytes(b"key".as_ref()),
             b"a comparatively long value".to_vec(),
-        );
-        assert_eq!(LeafNode::decode_raw(&node.encode_raw()).unwrap(), node)
+        )
+        .into();
+        assert_eq!(Node::decode_raw(&node.encode_raw()).unwrap(), node)
     }
 
     #[test]
     fn symetric_encoding_b() {
-        let node = LeafNode::new(
+        let node: Node = LeafNode::new(
             Nibbles::from_bytes(&[0x12, 0x34]),
             vec![0x12, 0x34, 0x56, 0x78],
-        );
-        assert_eq!(LeafNode::decode_raw(&node.encode_raw()).unwrap(), node)
+        )
+        .into();
+        assert_eq!(Node::decode_raw(&node.encode_raw()).unwrap(), node)
     }
 
     #[test]
     fn symetric_encoding_c() {
-        let node = LeafNode::new(
+        let node: Node = LeafNode::new(
             Nibbles::from_bytes(&[]),
             vec![1, 2, 3, 4, 5, 6, 7, 8, 9, 20],
-        );
-        assert_eq!(LeafNode::decode_raw(&node.encode_raw()).unwrap(), node)
+        )
+        .into();
+        assert_eq!(Node::decode_raw(&node.encode_raw()).unwrap(), node)
     }
 }
