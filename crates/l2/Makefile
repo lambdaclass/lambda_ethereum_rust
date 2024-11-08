@@ -68,4 +68,4 @@ init-l2-prover: ## 🚀 Initializes the Prover
 	cargo run --release --features build_zkvm --manifest-path ../../Cargo.toml --bin ethereum_rust_prover
 
 init-l2-prover-gpu: ## 🚀 Initializes the Prover with GPU support
-	cargo run --release --features "build_zkvm,cuda" --manifest-path ../../Cargo.toml --bin ethereum_rust_prover
+	cargo run --release --features "build_zkvm,gpu" --manifest-path ../../Cargo.toml --bin ethereum_rust_prover
