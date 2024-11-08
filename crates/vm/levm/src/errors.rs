@@ -34,6 +34,7 @@ pub enum VMError {
     GasLimitPriceProductOverflow,
 }
 
+#[derive(Debug, Clone)]
 pub enum OpcodeSuccess {
     Continue,
     Result(ResultReason),
