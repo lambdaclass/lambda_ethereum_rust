@@ -418,15 +418,15 @@ impl EthClient {
 #[derive(Serialize, Deserialize, Debug)]
 #[serde(rename_all = "camelCase")]
 pub struct GetTransactionByHashTransaction {
-    #[serde(default)]
+    #[serde(default, with = "ethereum_rust_core::serde_utils::u64::hex_str")]
     pub chain_id: u64,
-    #[serde(default)]
+    #[serde(default, with = "ethereum_rust_core::serde_utils::u64::hex_str")]
     pub nonce: u64,
-    #[serde(default)]
+    #[serde(default, with = "ethereum_rust_core::serde_utils::u64::hex_str")]
     pub max_priority_fee_per_gas: u64,
-    #[serde(default)]
+    #[serde(default, with = "ethereum_rust_core::serde_utils::u64::hex_str")]
     pub max_fee_per_gas: u64,
-    #[serde(default)]
+    #[serde(default, with = "ethereum_rust_core::serde_utils::u64::hex_str")]
     pub gas_limit: u64,
     #[serde(default)]
     pub to: Address,
