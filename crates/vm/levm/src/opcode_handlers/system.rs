@@ -106,36 +106,29 @@ impl VM {
     }
 
     // CALLCODE operation
-    // TODO: https://github.com/lambdaclass/lambda_ethereum_rust/issues/1086
+    // TODO: add tests
     pub fn op_callcode(
         &mut self,
         current_call_frame: &mut CallFrame,
     ) -> Result<OpcodeSuccess, VMError> {
-        // gas: amount of gas to send to the sub context to execute. The gas that is not used by the sub context is returned to this one.
         let gas = current_call_frame.stack.pop()?;
-        //address: the account which code to execute.
         let code_address = word_to_address(current_call_frame.stack.pop()?);
-        //value: value in wei to send to the account.
         let value = current_call_frame.stack.pop()?;
-        //argsOffset: byte offset in the memory in bytes, the calldata of the sub context.
         let args_offset: usize = current_call_frame
             .stack
             .pop()?
             .try_into()
             .map_err(|_err| VMError::VeryLargeNumber)?;
-        //argsSize: byte size to copy (size of the calldata).
         let args_size = current_call_frame
             .stack
             .pop()?
             .try_into()
             .map_err(|_err| VMError::VeryLargeNumber)?;
-        //retOffset: byte offset in the memory in bytes, where to store the return data of the sub context.
         let ret_offset: usize = current_call_frame
             .stack
             .pop()?
             .try_into()
             .map_err(|_err| VMError::VeryLargeNumber)?;
-        //retSize: byte size to copy (size of the return data).
         let ret_size = current_call_frame
             .stack
             .pop()?
@@ -177,7 +170,7 @@ impl VM {
 
         self.increase_consumed_gas(current_call_frame, gas_cost)?;
 
-        // See if it's computing the gas consumed in generic_call. I think yes, line 638 of vm.rs
+        // The gas consumed is computing in generic_call
         self.generic_call(
             current_call_frame,
             gas,
