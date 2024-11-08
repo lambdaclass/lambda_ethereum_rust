@@ -98,11 +98,11 @@ impl Node {
         }
     }
 
-    pub fn encode_raw(self, path_offset: usize) -> Vec<u8> {
+    pub fn encode_raw(self) -> Vec<u8> {
         match self {
             Node::Branch(n) => n.encode_raw(),
             Node::Extension(n) => n.encode_raw(),
-            Node::Leaf(n) => n.encode_raw(path_offset),
+            Node::Leaf(n) => n.encode_raw(),
         }
     }
 }

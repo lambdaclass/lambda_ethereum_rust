@@ -1,5 +1,4 @@
 mod db;
-mod encoding;
 mod error;
 mod node;
 mod node_hash;
@@ -11,9 +10,6 @@ mod nibbles;
 #[cfg(test)]
 mod test_utils;
 
-use std::borrow::Cow;
-
-use encoding::compact_nibbles_to_bytes;
 use ethereum_rust_rlp::constants::RLP_NULL;
 use ethereum_types::H256;
 use nibbles::Nibbles;
@@ -190,14 +186,11 @@ impl Trie {
     /// Allows usage of full paths (byte slice of 32 bytes) or compact-encoded nibble slices (with length lower than 32)
     pub fn get_node(&self, partial_path: &PathRLP) -> Result<Vec<u8>, TrieError> {
         // Convert compact-encoded nibbles into a byte slice if necessary
-        let (partial_path, last_byte_is_half) = match partial_path.len() {
+        let partial_path = match partial_path.len() {
             // Compact-encoded nibbles
-            n if n < 32 => {
-                let (p, l) = compact_nibbles_to_bytes(partial_path);
-                (Cow::Owned(p), l)
-            }
+            n if n < 32 => Nibbles::decode_compact(partial_path),
             // Full path (No conversion needed)
-            32 => (Cow::Borrowed(partial_path), false),
+            32 => Nibbles::from_bytes(partial_path),
             // We won't handle paths with length over 32
             _ => return Ok(vec![]),
         };
@@ -212,33 +205,24 @@ impl Trie {
         else {
             return Ok(vec![]);
         };
-        self.get_node_inner(
-            root_node,
-            NibbleSlice::new(&partial_path),
-            last_byte_is_half,
-        )
+        self.get_node_inner(root_node, partial_path)
     }
 
-    fn get_node_inner(
-        &self,
-        node: Node,
-        mut partial_path: NibbleSlice,
-        last_byte_is_half: bool,
-    ) -> Result<Vec<u8>, TrieError> {
+    fn get_node_inner(&self, node: Node, mut partial_path: Nibbles) -> Result<Vec<u8>, TrieError> {
         // If we reached the end of the partial path, return the current node
-        if partial_path.len() == last_byte_is_half as usize {
-            return Ok(node.encode_raw(partial_path.offset()));
+        if partial_path.is_empty() {
+            return Ok(node.encode_raw());
         }
         match node {
-            Node::Branch(branch_node) => match partial_path.next().map(usize::from) {
-                Some(idx) if idx < 16 => {
+            Node::Branch(branch_node) => match partial_path.next_choice() {
+                Some(idx) => {
                     let child_hash = &branch_node.choices[idx];
                     if child_hash.is_valid() {
                         let child_node = self
                             .state
                             .get_node(child_hash.clone())?
                             .expect("inconsistent internal tree structure");
-                        self.get_node_inner(child_node, partial_path, last_byte_is_half)
+                        self.get_node_inner(child_node, partial_path)
                     } else {
                         Ok(vec![])
                     }
@@ -253,7 +237,7 @@ impl Trie {
                         .state
                         .get_node(extension_node.child.clone())?
                         .expect("inconsistent internal tree structure");
-                    self.get_node_inner(child_node, partial_path, last_byte_is_half)
+                    self.get_node_inner(child_node, partial_path)
                 } else {
                     Ok(vec![])
                 }
