@@ -10,6 +10,7 @@ use ethereum_rust_core::types::{
 use ethereum_rust_rlp::encode::RLPEncode;
 use ethereum_rust_rpc::{
     types::{
+        block::RpcBlock,
         receipt::{RpcLog, RpcReceipt},
         transaction::WrappedEIP4844Transaction,
     },
@@ -171,7 +172,6 @@ impl EthClient {
             "to": format!("{to:#x}"),
             "input": format!("{:#x}", transaction.input),
             "from": format!("{:#x}", transaction.from),
-            "nonce": format!("{:#x}", transaction.nonce),
             "value": format!("{:#x}", transaction.value),
         });
 
@@ -281,7 +281,7 @@ impl EthClient {
         }
     }
 
-    pub async fn get_block_by_hash(&self, block_hash: H256) -> Result<BlockBody, EthClientError> {
+    pub async fn get_block_by_hash(&self, block_hash: H256) -> Result<RpcBlock, EthClientError> {
         let request = RpcRequest {
             id: RpcRequestId::Number(1),
             jsonrpc: "2.0".to_string(),
