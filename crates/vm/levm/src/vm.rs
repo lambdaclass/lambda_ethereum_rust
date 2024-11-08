@@ -11,13 +11,13 @@ use bytes::Bytes;
 use ethereum_rust_core::{types::TxKind, Address, H256, U256};
 use ethereum_rust_rlp;
 use ethereum_rust_rlp::encode::RLPEncode;
+use keccak_hash::keccak;
 use sha3::{Digest, Keccak256};
 use std::{
     collections::{HashMap, HashSet},
     str::FromStr,
     sync::Arc,
 };
-use keccak_hash::keccak;
 
 pub type Storage = HashMap<U256, H256>;
 
