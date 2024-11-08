@@ -153,7 +153,8 @@ impl Proposer {
                 }
                 Err(error) => {
                     error!("Failed to send commitment to block {head_block_hash:#x}. Manual intervention required: {error}");
-                    panic!("Failed to send commitment to block {head_block_hash:#x}. Manual intervention required: {error}");
+                    // TODO uncomment
+                    //panic!("Failed to send commitment to block {head_block_hash:#x}. Manual intervention required: {error}");
                 }
             }
 

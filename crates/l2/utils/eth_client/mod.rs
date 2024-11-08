@@ -171,7 +171,7 @@ impl EthClient {
         };
         let data = json!({
             "to": format!("{to:#x}"),
-            "input": format!("{:#x}", transaction.input),
+            "input": format!("0x{:#x}", transaction.input),
             "from": format!("{:#x}", transaction.from),
             "nonce": format!("{:#x}", transaction.nonce),
         });

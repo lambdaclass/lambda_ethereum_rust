@@ -95,6 +95,9 @@ struct ProverServer {
     store: Store,
     eth_client: EthClient,
     on_chain_proposer_address: Address,
+    /// Only for testing purposes, used to override
+    /// the on_chain_proposer. address
+    verifier_address: Address,
     l1_address: Address,
     l1_private_key: SecretKey,
     latest_proven_block: u64,
@@ -113,6 +116,7 @@ impl ProverServer {
             store,
             eth_client: EthClient::new(&eth_config.rpc_url),
             on_chain_proposer_address: proposer_config.on_chain_proposer_address,
+            verifier_address: proposer_config.verifier_address,
             l1_address: proposer_config.l1_address,
             l1_private_key: proposer_config.l1_private_key,
             latest_proven_block: 0,
@@ -267,6 +271,7 @@ impl ProverServer {
 
             Err(e) => {
                 error!("Failed to send proof to block {block_number:#x}. Manual intervention required: {e}");
+                // TODO: uncomment
                 panic!("Failed to send proof to block {block_number:#x}. Manual intervention required: {e}");
             }
         }
@@ -347,7 +352,8 @@ impl ProverServer {
             &self.eth_client,
             self.l1_address,
             self.l1_private_key,
-            self.on_chain_proposer_address,
+            // Change it back to self.on_chain_proposer_address
+            self.verifier_address,
             calldata.into(),
         )
         .await?;
