@@ -1,6 +1,11 @@
 use crate::{
     call_frame::CallFrame,
-    constants::{call_opcode::{self, COLD_ADDRESS_ACCESS_COST, NON_ZERO_VALUE_COST, WARM_ADDRESS_ACCESS_COST}, gas_cost, SUCCESS_FOR_RETURN},
+    constants::{
+        call_opcode::{
+            self, COLD_ADDRESS_ACCESS_COST, NON_ZERO_VALUE_COST, WARM_ADDRESS_ACCESS_COST,
+        },
+        gas_cost, SUCCESS_FOR_RETURN,
+    },
     errors::{OpcodeSuccess, ResultReason, VMError},
     vm::{word_to_address, VM},
 };
@@ -43,15 +48,14 @@ impl VM {
             return Err(VMError::OpcodeNotAllowedInStaticContext);
         }
 
-        let memory_byte_size = args_size
-            .checked_add(args_offset)
-            .ok_or(VMError::DataSizeOverflow)?
-            .max(
-                ret_size
-                    .checked_add(ret_offset)
-                    .ok_or(VMError::DataSizeOverflow)?,
-            );
-        let memory_expansion_cost = current_call_frame.memory.expansion_cost(memory_byte_size)?;
+        let mut gas_cost = self.compute_gas_call(
+            current_call_frame,
+            code_address,
+            args_size,
+            args_offset,
+            ret_size,
+            ret_offset,
+        )?;
 
         let positive_value_cost = if !value.is_zero() {
             call_opcode::NON_ZERO_VALUE_COST
@@ -61,12 +65,6 @@ impl VM {
             U256::zero()
         };
 
-        let address_access_cost = if !self.cache.is_account_cached(&code_address) {
-            self.cache_from_db(&code_address);
-            call_opcode::COLD_ADDRESS_ACCESS_COST
-        } else {
-            call_opcode::WARM_ADDRESS_ACCESS_COST
-        };
         let account = self.cache.get_account(code_address).unwrap().clone();
 
         let value_to_empty_account_cost = if !value.is_zero() && account.is_empty() {
@@ -75,9 +73,7 @@ impl VM {
             U256::zero()
         };
 
-        let gas_cost = memory_expansion_cost
-            .checked_add(address_access_cost)
-            .ok_or(VMError::GasCostOverflow)?
+        gas_cost = gas_cost
             .checked_add(positive_value_cost)
             .ok_or(VMError::GasCostOverflow)?
             .checked_add(value_to_empty_account_cost)
@@ -143,13 +139,24 @@ impl VM {
         let is_static = current_call_frame.is_static;
 
         // Gas consumed
-        let mut gas_cost = self.compute_gas_call(current_call_frame, code_address, args_size, args_offset, ret_size, ret_offset)?;
+        let mut gas_cost = self.compute_gas_call(
+            current_call_frame,
+            code_address,
+            args_size,
+            args_offset,
+            ret_size,
+            ret_offset,
+        )?;
 
-        let transfer_cost = if value == U256::zero() { U256::zero() } else { NON_ZERO_VALUE_COST };
+        let transfer_cost = if value == U256::zero() {
+            U256::zero()
+        } else {
+            NON_ZERO_VALUE_COST
+        };
 
         gas_cost = gas_cost
-        .checked_add(transfer_cost)
-        .ok_or(VMError::GasCostOverflow)?;
+            .checked_add(transfer_cost)
+            .ok_or(VMError::GasCostOverflow)?;
 
         self.increase_consumed_gas(current_call_frame, gas_cost)?;
 
@@ -236,7 +243,14 @@ impl VM {
         let is_static = current_call_frame.is_static;
 
         // Gas consumed
-        let gas_cost = self.compute_gas_call(current_call_frame, code_address, args_size, args_offset, ret_size, ret_offset)?;
+        let gas_cost = self.compute_gas_call(
+            current_call_frame,
+            code_address,
+            args_size,
+            args_offset,
+            ret_size,
+            ret_offset,
+        )?;
 
         self.increase_consumed_gas(current_call_frame, gas_cost)?;
 
@@ -290,7 +304,14 @@ impl VM {
         let to = code_address; // In this case code_address and the sub-context account are the same. Unlike CALLCODE or DELEGATECODE.
 
         // Gas consumed
-        let gas_cost = self.compute_gas_call(current_call_frame, code_address, args_size, args_offset, ret_size, ret_offset)?;
+        let gas_cost = self.compute_gas_call(
+            current_call_frame,
+            code_address,
+            args_size,
+            args_offset,
+            ret_size,
+            ret_offset,
+        )?;
 
         self.increase_consumed_gas(current_call_frame, gas_cost)?;
 
@@ -453,15 +474,23 @@ impl VM {
         Ok(OpcodeSuccess::Result(ResultReason::SelfDestruct))
     }
 
-    fn compute_gas_call(&mut self, current_call_frame: &mut CallFrame, code_address: Address, args_size: usize, args_offset: usize, ret_size: usize, ret_offset: usize) -> Result<U256, VMError> {
+    fn compute_gas_call(
+        &mut self,
+        current_call_frame: &mut CallFrame,
+        code_address: Address,
+        args_size: usize,
+        args_offset: usize,
+        ret_size: usize,
+        ret_offset: usize,
+    ) -> Result<U256, VMError> {
         let memory_byte_size = args_offset
-        .checked_add(args_size)
-        .and_then(|src_sum| {
-            ret_offset
-                .checked_add(ret_size)
-                .map(|dest_sum| src_sum.max(dest_sum))
-        })
-        .ok_or(VMError::OverflowInArithmeticOp)?;
+            .checked_add(args_size)
+            .and_then(|src_sum| {
+                ret_offset
+                    .checked_add(ret_size)
+                    .map(|dest_sum| src_sum.max(dest_sum))
+            })
+            .ok_or(VMError::OverflowInArithmeticOp)?;
         let memory_expansion_cost = current_call_frame.memory.expansion_cost(memory_byte_size)?;
 
         let access_cost = if self.cache.is_account_cached(&code_address) {
@@ -472,7 +501,7 @@ impl VM {
         };
 
         memory_expansion_cost
-        .checked_add(access_cost)
-        .ok_or(VMError::GasCostOverflow)
+            .checked_add(access_cost)
+            .ok_or(VMError::GasCostOverflow)
     }
 }
