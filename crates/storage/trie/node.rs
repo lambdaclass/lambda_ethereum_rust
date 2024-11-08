@@ -102,6 +102,7 @@ impl Node {
         }
     }
 
+    /// Encodes the node
     pub fn encode_raw(&self) -> Vec<u8> {
         match self {
             Node::Branch(n) => n.encode_raw(),
@@ -110,6 +111,7 @@ impl Node {
         }
     }
 
+    /// Decodes the node
     pub fn decode_raw(rlp: &[u8]) -> Result<Self, RLPDecodeError> {
         let mut rlp_items = vec![];
         let mut decoder = Decoder::new(rlp)?;
