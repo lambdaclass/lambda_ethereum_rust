@@ -21,6 +21,7 @@ use libsecp256k1::{sign, Message, SecretKey};
 use reqwest::Client;
 use serde::{Deserialize, Serialize};
 use serde_json::json;
+use tracing::info;
 use transaction::PayloadRLPEncode;
 
 pub mod errors;
@@ -95,6 +96,7 @@ impl EthClient {
         tx: &mut EIP1559Transaction,
         private_key: SecretKey,
     ) -> Result<H256, EthClientError> {
+        info!("CALLDATA: {:?}", tx.data);
         let mut payload = vec![TxType::EIP1559 as u8];
         payload.append(tx.encode_payload_to_vec().as_mut());
 

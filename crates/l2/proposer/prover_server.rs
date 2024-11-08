@@ -8,7 +8,10 @@ use std::{
     net::{IpAddr, Shutdown, TcpListener, TcpStream},
     sync::mpsc::{self, Receiver},
 };
-use tokio::signal::unix::{signal, SignalKind};
+use tokio::{
+    signal::unix::{signal, SignalKind},
+    time::sleep,
+};
 use tracing::{debug, error, info, warn};
 
 use ethereum_rust_core::{
@@ -164,7 +167,7 @@ impl ProverServer {
                     panic!("Failed to handle submit_ack: {e}");
                 }
                 // Seems to be stopping the prover_server <--> prover_client
-                //self.handle_proof_submission(block_number, receipt).await?;
+                self.handle_proof_submission(block_number, receipt).await?;
 
                 assert!(block_number == (self.latest_proven_block + 1), "Prover Client submitted an invalid block_number: {block_number}. The last_proved_block is: {}", self.latest_proven_block);
                 self.latest_proven_block = block_number;
@@ -233,7 +236,15 @@ impl ProverServer {
         //
         // The RISC0_DEV_MODE=1 should only be used with DEPLOYER_CONTRACT_VERIFIER=0xAA
         let seal = match receipt.0.inner.groth16() {
-            Ok(inner) => hex::encode(inner.clone().seal),
+            Ok(inner) => {
+                // The SELECTOR is used to perform an extra check inside the groth16 verifier contract.
+                let mut selector =
+                    hex::encode(inner.verifier_parameters.as_bytes().get(..4).unwrap());
+                info!("SELECTOR(): {selector}");
+                let seal = hex::encode(inner.clone().seal);
+                selector.push_str(&seal);
+                selector
+            }
             Err(_) => hex::encode("00"),
         };
 
@@ -349,7 +360,8 @@ impl ProverServer {
             .await?
             .is_none()
         {
-            std::thread::sleep(std::time::Duration::from_secs(1));
+            warn!("WAITING for Tx Receipt");
+            sleep(std::time::Duration::from_secs(1)).await;
         }
 
         Ok(verify_tx_hash)
