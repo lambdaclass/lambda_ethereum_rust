@@ -7,7 +7,7 @@ use engines::api::StoreEngine;
 use ethereum_rust_core::types::{
     code_hash, AccountInfo, AccountState, BlobsBundle, Block, BlockBody, BlockHash, BlockHeader,
     BlockNumber, ChainConfig, Genesis, GenesisAccount, Index, MempoolTransaction, Receipt,
-    Transaction, EMPTY_TRIE_HASH,
+    Transaction, TxType, EMPTY_TRIE_HASH,
 };
 use ethereum_rust_rlp::decode::RLPDecode;
 use ethereum_rust_rlp::encode::RLPEncode;
@@ -16,7 +16,7 @@ use ethereum_types::{Address, H256, U256};
 use sha3::{Digest as _, Keccak256};
 use std::collections::HashMap;
 use std::fmt::Debug;
-use std::sync::Arc;
+use std::sync::{Arc, Mutex};
 use tracing::info;
 
 mod engines;
@@ -27,6 +27,8 @@ mod rlp;
 pub struct Store {
     // TODO: Check if we can remove this mutex and move it to the in_memory::Store struct
     engine: Arc<dyn StoreEngine>,
+    pub mempool: Arc<Mutex<HashMap<H256, MempoolTransaction>>>,
+    pub blobs_bundle_pool: Arc<Mutex<HashMap<H256, BlobsBundle>>>,
 }
 
 #[allow(dead_code)]
@@ -74,9 +76,13 @@ impl Store {
             #[cfg(feature = "libmdbx")]
             EngineType::Libmdbx => Self {
                 engine: Arc::new(LibmdbxStore::new(path)?),
+                mempool: Arc::new(Mutex::new(HashMap::new())),
+                blobs_bundle_pool: Arc::new(Mutex::new(HashMap::new())),
             },
             EngineType::InMemory => Self {
                 engine: Arc::new(InMemoryStore::new()),
+                mempool: Arc::new(Mutex::new(HashMap::new())),
+                blobs_bundle_pool: Arc::new(Mutex::new(HashMap::new())),
             },
         };
         info!("Started store engine");
@@ -228,15 +234,13 @@ impl Store {
         hash: H256,
         transaction: MempoolTransaction,
     ) -> Result<(), StoreError> {
-        self.engine.add_transaction_to_pool(hash, transaction)
-    }
+        let mut mempool = self
+            .mempool
+            .lock()
+            .map_err(|error| StoreError::Custom(error.to_string()))?;
+        mempool.insert(hash, transaction);
 
-    /// Get a transaction from the pool
-    pub fn get_transaction_from_pool(
-        &self,
-        hash: H256,
-    ) -> Result<Option<MempoolTransaction>, StoreError> {
-        self.engine.get_transaction_from_pool(hash)
+        Ok(())
     }
 
     /// Add a blobs bundle to the pool by its blob transaction hash
@@ -245,7 +249,11 @@ impl Store {
         tx_hash: H256,
         blobs_bundle: BlobsBundle,
     ) -> Result<(), StoreError> {
-        self.engine.add_blobs_bundle_to_pool(tx_hash, blobs_bundle)
+        self.blobs_bundle_pool
+            .lock()
+            .map_err(|error| StoreError::Custom(error.to_string()))?
+            .insert(tx_hash, blobs_bundle);
+        Ok(())
     }
 
     /// Get a blobs bundle to the pool given its blob transaction hash
@@ -253,12 +261,32 @@ impl Store {
         &self,
         tx_hash: H256,
     ) -> Result<Option<BlobsBundle>, StoreError> {
-        self.engine.get_blobs_bundle_from_pool(tx_hash)
+        Ok(self
+            .blobs_bundle_pool
+            .lock()
+            .map_err(|error| StoreError::Custom(error.to_string()))?
+            .get(&tx_hash)
+            .cloned())
     }
 
     /// Remove a transaction from the pool
-    pub fn remove_transaction_from_pool(&self, hash: H256) -> Result<(), StoreError> {
-        self.engine.remove_transaction_from_pool(hash)
+    pub fn remove_transaction_from_pool(&self, hash: &H256) -> Result<(), StoreError> {
+        let mut mempool = self
+            .mempool
+            .lock()
+            .map_err(|error| StoreError::Custom(error.to_string()))?;
+        if let Some(tx) = mempool.get(hash) {
+            if matches!(tx.tx_type(), TxType::EIP4844) {
+                self.blobs_bundle_pool
+                    .lock()
+                    .map_err(|error| StoreError::Custom(error.to_string()))?
+                    .remove(&tx.compute_hash());
+            }
+
+            mempool.remove(hash);
+        };
+
+        Ok(())
     }
 
     /// Applies the filter and returns a set of suitable transactions from the mempool.
@@ -267,7 +295,23 @@ impl Store {
         &self,
         filter: &dyn Fn(&Transaction) -> bool,
     ) -> Result<HashMap<Address, Vec<MempoolTransaction>>, StoreError> {
-        self.engine.filter_pool_transactions(filter)
+        let mut txs_by_sender: HashMap<Address, Vec<MempoolTransaction>> = HashMap::new();
+        let mempool = self
+            .mempool
+            .lock()
+            .map_err(|error| StoreError::Custom(error.to_string()))?;
+
+        for (_, tx) in mempool.iter() {
+            if filter(tx) {
+                txs_by_sender
+                    .entry(tx.sender())
+                    .or_default()
+                    .push(tx.clone())
+            }
+        }
+
+        txs_by_sender.iter_mut().for_each(|(_, txs)| txs.sort());
+        Ok(txs_by_sender)
     }
 
     fn add_account_code(&self, code_hash: H256, code: Bytes) -> Result<(), StoreError> {
@@ -348,9 +392,10 @@ impl Store {
                 }
                 // Store the added storage in the account's storage trie and compute its new root
                 if !update.added_storage.is_empty() {
-                    let mut storage_trie = self
-                        .engine
-                        .open_storage_trie(update.address, account_state.storage_root);
+                    let mut storage_trie = self.engine.open_storage_trie(
+                        H256::from_slice(&hashed_address),
+                        account_state.storage_root,
+                    );
                     for (storage_key, storage_value) in &update.added_storage {
                         let hashed_key = hash_key(storage_key);
                         if storage_value.is_zero() {
@@ -374,11 +419,14 @@ impl Store {
     ) -> Result<H256, StoreError> {
         let mut genesis_state_trie = self.engine.open_state_trie(*EMPTY_TRIE_HASH);
         for (address, account) in genesis_accounts {
+            let hashed_address = hash_address(&address);
             // Store account code (as this won't be stored in the trie)
             let code_hash = code_hash(&account.code);
             self.add_account_code(code_hash, account.code)?;
             // Store the account's storage in a clean storage trie and compute its root
-            let mut storage_trie = self.engine.open_storage_trie(address, *EMPTY_TRIE_HASH);
+            let mut storage_trie = self
+                .engine
+                .open_storage_trie(H256::from_slice(&hashed_address), *EMPTY_TRIE_HASH);
             for (storage_key, storage_value) in account.storage {
                 if !storage_value.is_zero() {
                     let hashed_key = hash_key(&storage_key);
@@ -393,7 +441,6 @@ impl Store {
                 storage_root,
                 code_hash,
             };
-            let hashed_address = hash_address(&address);
             genesis_state_trie.insert(hashed_address, account_state.encode_to_vec())?;
         }
         Ok(genesis_state_trie.hash()?)
@@ -644,7 +691,10 @@ impl Store {
         let account = AccountState::decode(&encoded_account)?;
         // Open storage_trie
         let storage_root = account.storage_root;
-        Ok(Some(self.engine.open_storage_trie(address, storage_root)))
+        Ok(Some(self.engine.open_storage_trie(
+            H256::from_slice(&hashed_address),
+            storage_root,
+        )))
     }
 
     pub fn get_account_state(
@@ -686,7 +736,9 @@ impl Store {
         storage_root: H256,
         storage_key: &H256,
     ) -> Result<Vec<Vec<u8>>, StoreError> {
-        let trie = self.engine.open_storage_trie(address, storage_root);
+        let trie = self
+            .engine
+            .open_storage_trie(hash_address_fixed(&address), storage_root);
         Ok(trie.get_proof(&hash_key(storage_key))?)
     }
 
@@ -702,6 +754,29 @@ impl Store {
             })
     }
 
+    // Returns an iterator across all accounts in the state trie given by the state_root
+    // Does not check that the state_root is valid
+    pub fn iter_storage(
+        &self,
+        state_root: H256,
+        hashed_address: H256,
+    ) -> Result<Option<impl Iterator<Item = (H256, U256)>>, StoreError> {
+        let state_trie = self.engine.open_state_trie(state_root);
+        let Some(account_rlp) = state_trie.get(&hashed_address.as_bytes().to_vec())? else {
+            return Ok(None);
+        };
+        let storage_root = AccountState::decode(&account_rlp)?.storage_root;
+        Ok(Some(
+            self.engine
+                .open_storage_trie(hashed_address, storage_root)
+                .into_iter()
+                .content()
+                .map_while(|(path, value)| {
+                    Some((H256::from_slice(&path), U256::decode(&value).ok()?))
+                }),
+        ))
+    }
+
     pub fn get_account_range_proof(
         &self,
         state_root: H256,
@@ -714,6 +789,26 @@ impl Store {
             proof.extend_from_slice(&state_trie.get_proof(&last_hash.as_bytes().to_vec())?);
         }
         Ok(proof)
+    }
+
+    pub fn get_storage_range_proof(
+        &self,
+        state_root: H256,
+        hashed_address: H256,
+        starting_hash: H256,
+        last_hash: Option<H256>,
+    ) -> Result<Option<Vec<Vec<u8>>>, StoreError> {
+        let state_trie = self.engine.open_state_trie(state_root);
+        let Some(account_rlp) = state_trie.get(&hashed_address.as_bytes().to_vec())? else {
+            return Ok(None);
+        };
+        let storage_root = AccountState::decode(&account_rlp)?.storage_root;
+        let storage_trie = self.engine.open_storage_trie(hashed_address, storage_root);
+        let mut proof = storage_trie.get_proof(&starting_hash.as_bytes().to_vec())?;
+        if let Some(last_hash) = last_hash {
+            proof.extend_from_slice(&storage_trie.get_proof(&last_hash.as_bytes().to_vec())?);
+        }
+        Ok(Some(proof))
     }
 
     pub fn add_payload(&self, payload_id: u64, block: Block) -> Result<(), StoreError> {
@@ -734,6 +829,13 @@ fn hash_address(address: &Address) -> Vec<u8> {
     Keccak256::new_with_prefix(address.to_fixed_bytes())
         .finalize()
         .to_vec()
+}
+fn hash_address_fixed(address: &Address) -> H256 {
+    H256(
+        Keccak256::new_with_prefix(address.to_fixed_bytes())
+            .finalize()
+            .into(),
+    )
 }
 
 fn hash_key(key: &H256) -> Vec<u8> {
