@@ -141,12 +141,13 @@ impl EthClient {
             max_fee_per_gas: overrides
                 .gas_price
                 .unwrap_or(self.get_gas_price().await?.as_u64()),
-            max_priority_fee_per_gas: overrides.priority_gas_price.unwrap_or_default(),
+            // Should the max_priority_fee_per_gas be dynamic?
+            max_priority_fee_per_gas: 10u64,
             ..Default::default()
         };
         tx.gas_limit = overrides
             .gas_limit
-            .unwrap_or(self.estimate_gas(generic_transaction).await?);
+            .unwrap_or(self.estimate_gas(generic_transaction).await?) * 2;
 
         Ok(tx)
     }
