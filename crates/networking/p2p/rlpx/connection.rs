@@ -160,36 +160,32 @@ impl<S: AsyncWrite + AsyncRead + std::marker::Unpin> RLPxConnection<S> {
     }
 
     pub fn get_remote_node_id(&self) -> Result<H512, RLPxError> {
-        match &self.state {
-            RLPxConnectionState::Established(state) => Ok(state.remote_node_id),
-            _ => Err(RLPxError::InvalidState()),
+        if let RLPxConnectionState::Established(state) = &self.state {
+            Ok(state.remote_node_id)
+        } else {
+            Err(RLPxError::InvalidState())
         }
     }
 
     pub async fn handle_peer_conn(&mut self) -> Result<(), RLPxError> {
-        match &self.state {
-            RLPxConnectionState::Established(_) => {
-                self.init_peer_conn().await?;
-                info!("Starting peer main loop");
-                loop {
-                    match timeout_at(self.next_periodic_task_check, self.receive()).await {
-                        Err(_) => {
-                            // Timeout elapsed: run next loop iteration to
-                            // check periodic tasks
-                        }
-                        Ok(message) => self.handle_message(message?).await?,
-                    }
-                    // Before starting next loop iteration and awaiting on receive
-                    // check periodic tasks
-                    self.check_periodic_tasks().await?;
+        if let RLPxConnectionState::Established(_) = &self.state {
+            self.init_peer_conn().await?;
+            info!("Starting peer main loop");
+            loop {
+                // Waits for an incomming message or timeouts to check periodic tasks
+                // If the receive operation timeouted, it returns None
+                if let Some(message) = self.receive_or_timeout().await {
+                    self.handle_message(message?).await?;
                 }
+                self.check_periodic_tasks().await?;
             }
-            _ => Err(RLPxError::InvalidState()),
+        } else {
+            Err(RLPxError::InvalidState())
         }
     }
 
     async fn check_periodic_tasks(&mut self) -> Result<(), RLPxError> {
-        if Instant::now() > self.next_periodic_task_check {
+        if Instant::now() >= self.next_periodic_task_check {
             self.send(Message::Ping(PingMessage {})).await?;
             info!("Ping sent");
             self.next_periodic_task_check = Instant::now() + PERIODIC_TASKS_CHECK_INTERVAL;
@@ -406,6 +402,13 @@ impl<S: AsyncWrite + AsyncRead + std::marker::Unpin> RLPxConnection<S> {
             }
             _ => Err(RLPxError::InvalidState()),
         }
+    }
+
+    // None means the receive operation timeouted
+    async fn receive_or_timeout(&mut self) -> Option<Result<rlpx::Message, RLPxError>> {
+        timeout_at(self.next_periodic_task_check, self.receive())
+            .await
+            .ok()
     }
 
     async fn receive(&mut self) -> Result<rlpx::Message, RLPxError> {
