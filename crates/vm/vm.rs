@@ -114,7 +114,7 @@ cfg_if::cfg_if! {
                     transaction.tx_type(),
                     matches!(result.result, TxResult::Success),
                     cumulative_gas_used,
-                    // TODO: map our logs to the logs expected by ethereum_rust
+                    // TODO: https://github.com/lambdaclass/lambda_ethereum_rust/issues/1089
                     vec![],
                 );
                 receipts.push(receipt);
@@ -160,8 +160,6 @@ cfg_if::cfg_if! {
             block_header: &BlockHeader,
             db: Arc<dyn LevmDatabase>,
         ) -> Result<TransactionReport, VMError> {
-            dbg!(&tx.tx_type());
-
             let gas_price: U256 = match tx.tx_type() {
                 TxType::Legacy => tx.gas_price().into(),
                 TxType::EIP2930 => tx.gas_price().into(),
@@ -762,7 +760,7 @@ fn tx_env_from_generic(tx: &GenericTransaction, basefee: u64) -> TxEnv {
             .iter()
             .map(|hash| B256::from(hash.0))
             .collect(),
-        max_fee_per_blob_gas: tx.max_fee_per_blob_gas.map(RevmU256::from),
+        max_fee_per_blob_gas: tx.max_fee_per_blob_gas.map(|x| RevmU256::from_limbs(x.0)),
         // TODO revise
         // https://eips.ethereum.org/EIPS/eip-7702
         authorization_list: None,

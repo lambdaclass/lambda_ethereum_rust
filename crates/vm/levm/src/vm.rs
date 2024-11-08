@@ -130,7 +130,7 @@ impl VM {
                 }
             }
         }
-        // TODO: Substate and Cache should be initialized with the right values.
+        // TODO: https://github.com/lambdaclass/lambda_ethereum_rust/issues/1088
     }
 
     pub fn execute(&mut self, current_call_frame: &mut CallFrame) -> TransactionReport {
@@ -330,7 +330,9 @@ impl VM {
         }
 
         let origin = self.env.origin;
+        let to = self.call_frames[0].to;
 
+        let mut receiver_account = self.get_account(&to);
         let mut sender_account = self.get_account(&origin);
 
         // See if it's raised in upper layers
@@ -349,8 +351,12 @@ impl VM {
         if sender_account.info.balance < self.call_frames[0].msg_value {
             return Err(VMError::SenderBalanceShouldContainTransferValue);
         }
+        // TODO: This belongs elsewhere.
+        sender_account.info.balance -= self.call_frames[0].msg_value;
+        receiver_account.info.balance += self.call_frames[0].msg_value;
 
         self.cache.add_account(&origin, &sender_account);
+        self.cache.add_account(&to, &receiver_account);
 
         // (7)
         if self.env.gas_price < self.env.base_fee_per_gas {
