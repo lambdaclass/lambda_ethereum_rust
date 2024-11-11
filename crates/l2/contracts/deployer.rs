@@ -396,7 +396,7 @@ async fn wait_for_transaction_receipt(tx_hash: H256, eth_client: &EthClient) {
 #[cfg(test)]
 mod test {
     use crate::{compile_contracts, download_contract_deps};
-    use std::env;
+    use std::{env, path::Path};
 
     #[test]
     fn test_contract_compilation() {
@@ -419,8 +419,8 @@ mod test {
             }
         }
 
-        download_contract_deps();
-        compile_contracts();
+        download_contract_deps(Path::new("contracts"));
+        compile_contracts(Path::new("contracts"));
 
         std::fs::remove_dir_all(solc_out).unwrap();
         std::fs::remove_dir_all(lib).unwrap();
