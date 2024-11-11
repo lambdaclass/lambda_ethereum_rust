@@ -7,6 +7,7 @@ edition = "2021"
 
 [dependencies]
 risc0-zkvm = { version = "1.1.2", default-features = false, features = ["std"] }
+zkvm_interface = { path = "../" }
 
 ethereum_rust-core = { path = "../../../../../common", default-features = false }
 ethereum_rust-rlp = { path = "../../../../../common/rlp" }

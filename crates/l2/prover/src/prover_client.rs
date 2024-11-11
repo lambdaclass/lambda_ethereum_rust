@@ -7,9 +7,10 @@ use std::{
 use tokio::time::sleep;
 use tracing::{debug, error, info, warn};
 
+use zkvm_interface::io::ProgramInput;
+
 use ethereum_rust_l2::{
-    proposer::prover_server::{ProofData, ProverInputData},
-    utils::config::prover_client::ProverClientConfig,
+    proposer::prover_server::ProofData, utils::config::prover_client::ProverClientConfig,
 };
 
 use super::prover::Prover;
@@ -36,7 +37,7 @@ impl ProverClient {
         loop {
             match self.request_new_data() {
                 Ok((Some(block_number), input)) => {
-                    match prover.set_input(input).prove() {
+                    match prover.prove(input) {
                         Ok(proof) => {
                             if let Err(e) = self.submit_proof(block_number, proof) {
                                 // TODO: Retry
@@ -55,7 +56,7 @@ impl ProverClient {
         }
     }
 
-    fn request_new_data(&self) -> Result<(Option<u64>, ProverInputData), String> {
+    fn request_new_data(&self) -> Result<(Option<u64>, ProgramInput), String> {
         let stream = TcpStream::connect(&self.prover_server_endpoint)
             .map_err(|e| format!("Failed to connect to Prover Server: {e}"))?;
         let buf_writer = BufWriter::new(&stream);
@@ -76,7 +77,14 @@ impl ProverClient {
             ProofData::Response {
                 block_number,
                 input,
-            } => Ok((block_number, input)),
+            } => Ok((
+                block_number,
+                ProgramInput {
+                    block: input.block,
+                    parent_block_header: input.parent_block_header,
+                    db: input.db,
+                },
+            )),
             _ => Err(format!("Unexpected response {response:?}")),
         }
     }

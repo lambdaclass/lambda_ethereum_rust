@@ -3,6 +3,12 @@ name = "zkvm_interface"
 version = "0.1.0"
 edition = "2021"
 
+[dependencies]
+serde = { version = "1.0.203", features = ["derive"] }
+
+ethereum_rust-core = { path = "../../../../common/", default-features = false }
+ethereum_rust-vm = { path = "../../../../vm", default-features = false }
+
 [build-dependencies]
 risc0-build = { version = "1.1.2" }
 
