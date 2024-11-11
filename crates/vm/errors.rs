@@ -43,8 +43,8 @@ pub enum ExecutionDBError {
     BlockHashNotFound(u64),
     #[error("Missing account {0} info while trying to create ExecutionDB")]
     NewMissingAccountInfo(RevmAddress),
-    #[error("Missing earliest or latest block number while trying to create ExecutionDB")]
-    NewMissingBlockNumber(),
+    #[error("Missing block number of hash {0}")]
+    NewMissingBlockNumber(H256),
     #[error("Missing state trie of block {0} while trying to create ExecutionDB")]
     NewMissingStateTrie(BlockHash),
     #[error(
