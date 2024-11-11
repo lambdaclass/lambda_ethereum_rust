@@ -881,7 +881,6 @@ mod tests {
             tokio::task::Id,
             Arc<RLPXMessage>,
         )>(MAX_MESSAGES_TO_BROADCAST);
-        // FIXME: Restore this before opening PR.
         if should_start_server {
             tokio::spawn(discover_peers_server(
                 addr,
