@@ -58,16 +58,13 @@ pub(crate) struct RLPxConnection<S> {
     capabilities: Vec<(Capability, u8)>,
     /// Send end of the channel used to broadcast messages
     /// to other connected peers, is ok to have it here,
-    /// since we're only cloning an Arc.
+    /// since internally it's an Arc.
     /// The ID is to ignore the message sent from the same task.
+    /// This is used both to send messages and to received broadcasted
+    /// messages from other connections (sent from other peers).
+    /// The receive end is instantiated after the handshake is completed
+    /// under `handle_peer`.
     connection_broadcast_send: broadcast::Sender<(tokio::task::Id, Arc<Message>)>,
-    /// Receive end of the channel used to receive messages
-    /// from other connections connected to peers,
-    /// this one will be None when the connection is started,
-    /// and will be updated to Some(receiver) when we
-    /// confirm this connection supports a capability (for example,
-    /// if the eth capabaility handshake is successful)
-    connection_broadcast_receive: Option<broadcast::Receiver<Arc<Message>>>,
 }
 
 impl<S: AsyncWrite + AsyncRead + std::marker::Unpin> RLPxConnection<S> {
