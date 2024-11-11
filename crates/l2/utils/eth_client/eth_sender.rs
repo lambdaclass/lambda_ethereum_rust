@@ -147,7 +147,7 @@ impl EthClient {
         };
         tx.gas_limit = overrides
             .gas_limit
-            .unwrap_or(self.estimate_gas(generic_transaction).await?) * 2;
+            .unwrap_or(self.estimate_gas(generic_transaction).await?);
 
         Ok(tx)
     }

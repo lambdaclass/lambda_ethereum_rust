@@ -333,16 +333,12 @@ impl ProverServer {
         calldata.extend(verify_proof_selector);
 
         // The calldata has to be structures in the following way:
-        // size in bytes
         // block_number
+        // size in bytes
         // image_id digest
         // journal digest
         // size of seal
         // seal
-
-        // extend with size in bytes
-        // 4 u256 goes after this field so: 0x80 == 128bytes == 32bytes * 4
-        calldata.extend(H256::from_low_u64_be(4 * 32).as_bytes());
 
         // extend with block_number
         let mut block_number_bytes = [0_u8; 32];
@@ -350,15 +346,21 @@ impl ProverServer {
         calldata.extend(block_number_bytes);
         calldata.extend(H256::from_low_u64_be(32).as_bytes());
 
+        // extend with size in bytes
+        // 4 u256 goes after this field so: 0x80 == 128bytes == 32bytes * 4
+        calldata.extend(H256::from_low_u64_be(4 * 32).as_bytes());
+
         // extend with image_id
         calldata.extend(image_id.as_bytes());
 
         // extend with journal_digest
         calldata.extend(journal_digest.as_bytes());
 
-        // extend with seal
+        // extend with size of seal
         calldata.extend(H256::from_low_u64_be(seal.len() as u64).as_bytes());
+        // extend with seal
         calldata.extend(seal);
+        // extend with zero padding
         let leading_zeros = 32 - ((calldata.len() - 4) % 32);
         calldata.extend(vec![0; leading_zeros]);
 
@@ -366,7 +368,6 @@ impl ProverServer {
             &self.eth_client,
             self.l1_address,
             self.l1_private_key,
-            // Change it back to self.on_chain_proposer_address
             self.on_chain_proposer_address,
             calldata.into(),
         )
