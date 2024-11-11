@@ -168,6 +168,9 @@ fn validate_transaction(tx: &Transaction, store: Store) -> Result<(), MempoolErr
     let header_no = store
         .get_latest_block_number()?
         .ok_or(MempoolError::NoBlockHeaderError)?;
+    let block_header = store
+        .get_block_header(header_no)?
+        .ok_or(MempoolError::NoBlockHeaderError)?;
     let header = store
         .get_block_header(header_no)?
         .ok_or(MempoolError::NoBlockHeaderError)?;
@@ -203,6 +206,34 @@ fn validate_transaction(tx: &Transaction, store: Store) -> Result<(), MempoolErr
         // Blob tx
         if fee < MIN_BASE_FEE_PER_BLOB_GAS.into() {
             return Err(MempoolError::TxBlobBaseFeeTooLowError);
+        }
+    }
+
+    let maybe_sender_acc_info = store.get_account_info(header_no, tx.sender())?;
+
+    if let Some(sender_acc_info) = maybe_sender_acc_info {
+        if tx.nonce() < sender_acc_info.nonce {
+            return Err(MempoolError::InvalidNonce);
+        }
+
+        let effective_gas_price: U256 = tx
+            .effective_gas_price(block_header.base_fee_per_gas)
+            .ok_or(MempoolError::InvalidTxGasvalues)?
+            .into();
+        let gas_limit = U256::from(tx.gas_limit());
+        let tx_cost: U256 = effective_gas_price * gas_limit + tx.value();
+
+        if tx_cost > sender_acc_info.balance {
+            return Err(MempoolError::NotEnoughBalance);
+        }
+    } else {
+        // An account that is not in the database cannot possibly have enough balance to cover the transaction cost
+        return Err(MempoolError::NotEnoughBalance);
+    }
+
+    if let Some(chain_id) = tx.chain_id() {
+        if chain_id != config.chain_id {
+            return Err(MempoolError::InvalidChainId);
         }
     }
 
