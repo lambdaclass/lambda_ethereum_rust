@@ -103,7 +103,7 @@ impl ExecutionDB {
             );
         }
 
-        // Compute Merkle proofs for the initial and final state values
+        // Compute Merkle proofs for the initial state values
         let initial_state_trie = store.state_trie(block.header.parent_hash)?.ok_or(
             ExecutionDBError::NewMissingStateTrie(block.header.parent_hash),
         )?;
