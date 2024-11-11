@@ -48,7 +48,7 @@ fn address_to_word(address: Address) -> U256 {
 }
 
 pub fn word_to_address(word: U256) -> Address {
-    let mut bytes = [0u8; 32];
+    let mut bytes = [0u8; WORD_SIZE];
     word.to_big_endian(&mut bytes);
     Address::from_slice(&bytes[12..])
 }
@@ -486,7 +486,7 @@ impl VM {
             // Charge 22100 gas for each storage variable set
 
             // GInitCodeword * number_of_words rounded up. GinitCodeWord = 2
-            let number_of_words = self.call_frames[0].calldata.chunks(32).len() as u64;
+            let number_of_words = self.call_frames[0].calldata.chunks(WORD_SIZE).len() as u64;
             report.gas_used = report
                 .gas_used
                 .checked_add(

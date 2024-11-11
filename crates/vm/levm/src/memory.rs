@@ -25,16 +25,16 @@ impl Memory {
     }
 
     fn resize(&mut self, offset: usize) {
-        if offset.next_multiple_of(32) > self.data.len() {
-            self.data.resize(offset.next_multiple_of(32), 0);
+        if offset.next_multiple_of(WORD_SIZE) > self.data.len() {
+            self.data.resize(offset.next_multiple_of(WORD_SIZE), 0);
         }
     }
 
     pub fn load(&mut self, offset: usize) -> Result<U256, VMError> {
-        self.resize(offset.checked_add(32).ok_or(VMError::OffsetOverflow)?);
-        let value_bytes: [u8; 32] = self
+        self.resize(offset.checked_add(WORD_SIZE).ok_or(VMError::OffsetOverflow)?);
+        let value_bytes: [u8; WORD_SIZE] = self
             .data
-            .get(offset..offset.checked_add(32).ok_or(VMError::OffsetOverflow)?)
+            .get(offset..offset.checked_add(WORD_SIZE).ok_or(VMError::OffsetOverflow)?)
             .ok_or(VMError::MemoryLoadOutOfBounds)?
             .try_into()
             .unwrap();
