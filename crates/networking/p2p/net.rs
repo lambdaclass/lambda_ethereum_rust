@@ -888,7 +888,7 @@ mod tests {
                 storage.clone(),
                 table.clone(),
                 signer.clone(),
-                channel_broadcast_send_end
+                channel_broadcast_send_end,
             ));
         }
 

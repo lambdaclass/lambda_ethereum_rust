@@ -14,7 +14,7 @@ pub enum RLPDecodeError {
     #[error("UnexpectedString")]
     UnexpectedString,
     #[error("{0}")]
-    Custom(String)
+    Custom(String),
 }
 
 // TODO: improve errors
