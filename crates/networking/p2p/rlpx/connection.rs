@@ -1,4 +1,4 @@
-use std::sync::Arc;
+use std::{sync::Arc, time::Duration};
 
 use crate::{
     rlpx::{
@@ -38,7 +38,8 @@ use k256::{
 use sha3::{Digest, Keccak256};
 use tokio::{
     io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt},
-    sync::broadcast,
+    sync::broadcast::{self, error::RecvError},
+    time::timeout,
 };
 use tracing::{error, info};
 const CAP_P2P: (Capability, u8) = (Capability::P2p, 5);
@@ -55,8 +56,18 @@ pub(crate) struct RLPxConnection<S> {
     stream: S,
     storage: Store,
     capabilities: Vec<(Capability, u8)>,
-    tx_broadcast_send: broadcast::Sender<Arc<Message>>,
-    tx_broadcast_receive: broadcast::Receiver<Arc<Message>>,
+    /// Send end of the channel used to broadcast messages
+    /// to other connected peers, is ok to have it here,
+    /// since we're only cloning an Arc.
+    /// The ID is to ignore the message sent from the same task.
+    connection_broadcast_send: broadcast::Sender<(tokio::task::Id, Arc<Message>)>,
+    /// Receive end of the channel used to receive messages
+    /// from other connections connected to peers,
+    /// this one will be None when the connection is started,
+    /// and will be updated to Some(receiver) when we
+    /// confirm this connection supports a capability (for example,
+    /// if the eth capabaility handshake is successful)
+    connection_broadcast_receive: Option<broadcast::Receiver<Arc<Message>>>,
 }
 
 impl<S: AsyncWrite + AsyncRead + std::marker::Unpin> RLPxConnection<S> {
@@ -65,18 +76,16 @@ impl<S: AsyncWrite + AsyncRead + std::marker::Unpin> RLPxConnection<S> {
         stream: S,
         state: RLPxConnectionState,
         storage: Store,
-        tx_broadcast_send: broadcast::Sender<Arc<Message>>,
+        connection_broadcast: broadcast::Sender<(tokio::task::Id, Arc<Message>)>,
     ) -> Self {
-        // FIXME: Only subscribe after handshake.
-        let broadcast_receive = tx_broadcast_send.subscribe();
         Self {
             signer,
             state,
             stream,
             storage,
             capabilities: vec![],
-            tx_broadcast_send,
-            tx_broadcast_receive: broadcast_receive,
+            connection_broadcast_send: connection_broadcast,
+            connection_broadcast_receive: None,
         }
     }
 
@@ -84,7 +93,7 @@ impl<S: AsyncWrite + AsyncRead + std::marker::Unpin> RLPxConnection<S> {
         signer: SigningKey,
         stream: S,
         storage: Store,
-        tx_broadcast_send: broadcast::Sender<Arc<Message>>,
+        connection_broadcast: broadcast::Sender<(tokio::task::Id, Arc<Message>)>,
     ) -> Self {
         let mut rng = rand::thread_rng();
         Self::new(
@@ -95,7 +104,7 @@ impl<S: AsyncWrite + AsyncRead + std::marker::Unpin> RLPxConnection<S> {
                 SecretKey::random(&mut rng),
             )),
             storage,
-            tx_broadcast_send,
+            connection_broadcast,
         )
     }
 
@@ -104,7 +113,7 @@ impl<S: AsyncWrite + AsyncRead + std::marker::Unpin> RLPxConnection<S> {
         msg: &[u8],
         stream: S,
         storage: Store,
-        tx_broadcast_send: broadcast::Sender<Arc<Message>>,
+        connection_broadcast_send: broadcast::Sender<(tokio::task::Id, Arc<Message>)>,
     ) -> Self {
         let mut rng = rand::thread_rng();
         let digest = Keccak256::digest(&msg[65..]);
@@ -116,7 +125,7 @@ impl<S: AsyncWrite + AsyncRead + std::marker::Unpin> RLPxConnection<S> {
             SecretKey::random(&mut rng),
             pubkey2id(&peer_pk.into()),
         ));
-        RLPxConnection::new(signer, stream, state, storage, tx_broadcast_send)
+        RLPxConnection::new(signer, stream, state, storage, connection_broadcast_send)
     }
 
     pub async fn handshake(&mut self) -> Result<(), RLPxError> {
@@ -179,27 +188,33 @@ impl<S: AsyncWrite + AsyncRead + std::marker::Unpin> RLPxConnection<S> {
         match &self.state {
             RLPxConnectionState::Established(_) => {
                 info!("Started peer main loop");
-                let mut broadcast = self.tx_broadcast_send.subscribe();
+                // Wait for eth status message or timeout.
+                timeout(Duration::from_secs(15), self.wait_status_msg())
+                    .await
+                    .map_err(|_err| {
+                        RLPxError::HandshakeError("Timeout waiting for status msg".to_string())
+                    })?;
+                let mut broadcaster_receive = self.connection_broadcast_send.subscribe();
+                // Status message received, start listening for connections,
+                // and subscribe this connection to the broadcasting.
                 loop {
-                    // FIXME: Add select macro to expect messages from the channel.
                     tokio::select! {
                         received_msg = self.receive() => {
                             match received_msg {
                                 // TODO: implement handlers for each message type
-                                Message::Disconnect(_) => info!("Received Disconnect"),
-                                Message::Ping(_) => info!("Received Ping"),
-                                Message::Pong(_) => info!("Received Pong"),
-                                Message::Status(_) => info!("Received Status"),
                                 Message::GetAccountRange(req) => {
                                     let response =
                                         process_account_range_request(req, self.storage.clone())?;
                                     self.send(Message::AccountRange(response)).await
                                 }
-                                // FIXME: Maybe this should add it to the mempool, to discuss.
                                 txs_msg @ Message::TransactionsMessage(_) => {
                                     let txs = Arc::new(txs_msg);
                                     // FIXME: Remove this unwrap
-                                    self.tx_broadcast_send.send(txs).unwrap();
+                                    let task_id = tokio::task::id();
+                                    let Ok(_) = self.connection_broadcast_send.send((task_id, txs)) else {
+                                        error!("Could not broadcast message in task!");
+                                        return Err(RLPxError::Broadcast("Could not broadcast received transactions".to_owned()));
+                                    };
                                 }
                                 Message::GetBlockHeaders(msg_data) => {
                                     let response = BlockHeaders {
@@ -230,11 +245,11 @@ impl<S: AsyncWrite + AsyncRead + std::marker::Unpin> RLPxConnection<S> {
                         }
                         // FIXME: Add an identifier to ignore the message if it
                         // was already sent from this thread.
-                        broadcasted_msg = broadcast.recv() => {
+                        Ok((id, broadcasted_msg)) = broadcaster_receive.recv() => {
+                            if id != tokio::task::id() {
                             // FIXME: Properly do this.
-                            let msg = broadcasted_msg.unwrap();
                             println!("BROADCASTING MSG");
-                            match *msg {
+                            match *broadcasted_msg {
                                 Message::TransactionsMessage(ref txs) => {
                                     // FIXME: Avoid cloning.
                                     // FIXME: Avoid always re-encoding this message,
@@ -245,6 +260,8 @@ impl<S: AsyncWrite + AsyncRead + std::marker::Unpin> RLPxConnection<S> {
                                 }
                                 // FIXME: Remove this todo, log or return an err.
                                 _ => todo!()
+                            }
+
                             }
                         }
                     }
@@ -267,7 +284,7 @@ impl<S: AsyncWrite + AsyncRead + std::marker::Unpin> RLPxConnection<S> {
     async fn start_capabilities(&mut self) -> Result<(), RLPxError> {
         // Sending eth Status if peer supports it
         if self.capabilities.contains(&CAP_ETH) {
-            let status = backend::get_status(&self.storage).unwrap();
+            let status = backend::get_status(&self.storage)?;
             self.send(Message::Status(status)).await;
         }
         // TODO: add new capabilities startup when required (eg. snap)
@@ -422,6 +439,23 @@ impl<S: AsyncWrite + AsyncRead + std::marker::Unpin> RLPxConnection<S> {
             }
             // TODO proper error
             _ => panic!("Received an unexpected message"),
+        }
+    }
+
+    pub async fn wait_status_msg(&mut self) {
+        loop {
+            match self.receive().await {
+                Message::Disconnect(_) => info!("Received Disconnect"),
+                Message::Ping(_) => info!("Received Ping"),
+                Message::Pong(_) => info!("Received Pong"),
+                Message::Status(_) => {
+                    info!("Received Status");
+                    // TODO: Check peer's status message.
+                    return;
+                }
+                // FIXME: Remove this panic.
+                _ => panic!("UNEXPECTED MESSAGE"),
+            }
         }
     }
 }

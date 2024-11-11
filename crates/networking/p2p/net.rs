@@ -18,7 +18,7 @@ use k256::{
 };
 use kademlia::{bucket_number, KademliaTable, MAX_NODES_PER_BUCKET};
 use rand::rngs::OsRng;
-use rlpx::connection::RLPxConnection;
+use rlpx::{connection::RLPxConnection, message::Message as RLPXMessage};
 use tokio::{
     net::{TcpSocket, TcpStream, UdpSocket},
     sync::{broadcast, Mutex},
@@ -36,6 +36,12 @@ pub mod types;
 
 const MAX_DISC_PACKET_SIZE: usize = 1280;
 
+// Totally arbitrary limit on how
+// many messages the connections can queue,
+// if we miss messages to broadcast, maybe
+// we should bump this limit.
+const MAX_MESSAGES_TO_BROADCAST: usize = 1000;
+
 pub async fn start_network(
     udp_addr: SocketAddr,
     tcp_addr: SocketAddr,
@@ -47,25 +53,22 @@ pub async fn start_network(
     info!("Listening for requests at {tcp_addr}");
     let local_node_id = node_id_from_signing_key(&signer);
     let table = Arc::new(Mutex::new(KademliaTable::new(local_node_id)));
-    // FIXME: Maybe rename this later to something less specific.
-    // FIXME: Double check this 100 is right.
-    // FIXME: Make this less messy.
-    let (tx_broadcaster_send, _tx_broadcaster_receive) =
-        tokio::sync::broadcast::channel::<Arc<rlpx::message::Message>>(100);
+    let (channel_broadcast_send_end, _) =
+        tokio::sync::broadcast::channel::<(tokio::task::Id, Arc<RLPXMessage>)>(100);
     let discovery_handle = tokio::spawn(discover_peers(
         udp_addr,
         signer.clone(),
         storage.clone(),
         table.clone(),
         bootnodes,
-        tx_broadcaster_send.clone(), // tx_broadcaster_receive.resubscribe()
+        channel_broadcast_send_end.clone(),
     ));
     let server_handle = tokio::spawn(serve_requests(
         tcp_addr,
         signer.clone(),
         storage.clone(),
         table.clone(),
-        tx_broadcaster_send,
+        channel_broadcast_send_end,
     ));
 
     try_join!(discovery_handle, server_handle).unwrap();
@@ -77,7 +80,7 @@ async fn discover_peers(
     storage: Store,
     table: Arc<Mutex<KademliaTable>>,
     bootnodes: Vec<BootNode>,
-    tx_broadcaster_send: broadcast::Sender<Arc<rlpx::message::Message>>,
+    connection_broadcast: broadcast::Sender<(tokio::task::Id, Arc<RLPXMessage>)>,
 ) {
     let udp_socket = Arc::new(UdpSocket::bind(udp_addr).await.unwrap());
 
@@ -87,7 +90,7 @@ async fn discover_peers(
         storage,
         table.clone(),
         signer.clone(),
-        tx_broadcaster_send,
+        connection_broadcast,
     ));
     let revalidation_handler = tokio::spawn(peers_revalidation(
         udp_addr,
@@ -126,7 +129,7 @@ async fn discover_peers_server(
     storage: Store,
     table: Arc<Mutex<KademliaTable>>,
     signer: SigningKey,
-    tx_broadcaster_send: broadcast::Sender<Arc<rlpx::message::Message>>,
+    tx_broadcaster_send: broadcast::Sender<(tokio::task::Id, Arc<RLPXMessage>)>,
 ) {
     let mut buf = vec![0; MAX_DISC_PACKET_SIZE];
 
@@ -752,8 +755,7 @@ async fn serve_requests(
     signer: SigningKey,
     storage: Store,
     table: Arc<Mutex<KademliaTable>>,
-    // FIXME: Clean up this arguments and imports
-    tx_broadcaster: broadcast::Sender<Arc<rlpx::message::Message>>,
+    connection_broadcast: broadcast::Sender<(tokio::task::Id, Arc<RLPXMessage>)>,
 ) {
     let tcp_socket = TcpSocket::new_v4().unwrap();
     tcp_socket.bind(tcp_addr).unwrap();
@@ -766,7 +768,7 @@ async fn serve_requests(
             stream,
             storage.clone(),
             table.clone(),
-            tx_broadcaster.clone(),
+            connection_broadcast.clone(),
         ));
     }
 }
@@ -776,9 +778,9 @@ async fn handle_peer_as_receiver(
     stream: TcpStream,
     storage: Store,
     table: Arc<Mutex<KademliaTable>>,
-    tx_broadcaster: broadcast::Sender<Arc<rlpx::message::Message>>,
+    connection_broadcast: broadcast::Sender<(tokio::task::Id, Arc<RLPXMessage>)>,
 ) {
-    let conn = RLPxConnection::receiver(signer, stream, storage, tx_broadcaster);
+    let conn = RLPxConnection::receiver(signer, stream, storage, connection_broadcast);
     handle_peer(conn, table).await;
 }
 
@@ -788,7 +790,7 @@ async fn handle_peer_as_initiator(
     node: &Node,
     storage: Store,
     table: Arc<Mutex<KademliaTable>>,
-    tx_broadcaster_send: broadcast::Sender<Arc<rlpx::message::Message>>,
+    connection_broadcast: broadcast::Sender<(tokio::task::Id, Arc<RLPXMessage>)>,
 ) {
     info!("Trying RLPx connection with {node:?}");
     let stream = TcpSocket::new_v4()
@@ -796,7 +798,7 @@ async fn handle_peer_as_initiator(
         .connect(SocketAddr::new(node.ip, node.tcp_port))
         .await
         .unwrap();
-    let conn = RLPxConnection::initiator(signer, msg, stream, storage, tx_broadcaster_send).await;
+    let conn = RLPxConnection::initiator(signer, msg, stream, storage, connection_broadcast).await;
     handle_peer(conn, table).await;
 }
 
