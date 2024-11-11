@@ -1792,7 +1792,7 @@ fn nested_calls() {
     let success = current_call_frame.stack.pop().unwrap();
     assert_eq!(success, U256::one());
 
-    let ret_offset = 0;
+    let ret_offset: usize = 0;
     let ret_size = 64;
     let return_data = current_call_frame
         .sub_return_data
@@ -4011,7 +4011,8 @@ fn caller_op() {
         Default::default(),
         Arc::new(db),
         cache,
-    );
+    )
+    .unwrap();
 
     let mut current_call_frame = vm.call_frames.pop().unwrap();
     vm.execute(&mut current_call_frame);
@@ -4051,7 +4052,8 @@ fn origin_op() {
         Default::default(),
         Arc::new(db),
         cache,
-    );
+    )
+    .unwrap();
 
     let mut current_call_frame = vm.call_frames.pop().unwrap();
     vm.execute(&mut current_call_frame);
@@ -4117,7 +4119,8 @@ fn address_op() {
         Default::default(),
         Arc::new(db),
         cache,
-    );
+    )
+    .unwrap();
     let mut current_call_frame = vm.call_frames.pop().unwrap();
     vm.execute(&mut current_call_frame);
 
@@ -4160,7 +4163,8 @@ fn selfbalance_op() {
         Default::default(),
         Arc::new(db),
         cache,
-    );
+    )
+    .unwrap();
     let mut current_call_frame = vm.call_frames.pop().unwrap();
     vm.execute(&mut current_call_frame);
 
@@ -4197,7 +4201,8 @@ fn callvalue_op() {
         Default::default(),
         Arc::new(db),
         cache,
-    );
+    )
+    .unwrap();
 
     let mut current_call_frame = vm.call_frames.pop().unwrap();
     vm.execute(&mut current_call_frame);
@@ -4234,7 +4239,8 @@ fn codesize_op() {
         Default::default(),
         Arc::new(db),
         cache,
-    );
+    )
+    .unwrap();
 
     let mut current_call_frame = vm.call_frames.pop().unwrap();
     vm.execute(&mut current_call_frame);
@@ -4273,7 +4279,8 @@ fn gasprice_op() {
         Default::default(),
         Arc::new(db),
         cache,
-    );
+    )
+    .unwrap();
 
     let mut current_call_frame = vm.call_frames.pop().unwrap();
     vm.execute(&mut current_call_frame);
@@ -4328,7 +4335,8 @@ fn codecopy_op() {
         Default::default(),
         Arc::new(db),
         cache,
-    );
+    )
+    .unwrap();
 
     let mut current_call_frame = vm.call_frames.pop().unwrap();
     vm.execute(&mut current_call_frame);
