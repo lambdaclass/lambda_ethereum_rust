@@ -1,7 +1,7 @@
 use ethereum_rust_core::types::BlockHash;
 use ethereum_rust_storage::error::StoreError;
 use ethereum_rust_trie::TrieError;
-use ethereum_types::H160;
+use ethereum_types::{H160, H256};
 use revm::primitives::{
     result::EVMError as RevmError, Address as RevmAddress, B256 as RevmB256, U256 as RevmU256,
 };
@@ -43,8 +43,6 @@ pub enum ExecutionDBError {
     BlockHashNotFound(u64),
     #[error("Missing account {0} info while trying to create ExecutionDB")]
     NewMissingAccountInfo(RevmAddress),
-    #[error("Missing block number of hash {0}")]
-    NewMissingBlockNumber(H256),
     #[error("Missing state trie of block {0} while trying to create ExecutionDB")]
     NewMissingStateTrie(BlockHash),
     #[error(

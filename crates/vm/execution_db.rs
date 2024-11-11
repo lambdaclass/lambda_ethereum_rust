@@ -13,11 +13,12 @@ use revm::{
         AccountInfo as RevmAccountInfo, Address as RevmAddress, Bytecode as RevmBytecode,
         B256 as RevmB256, U256 as RevmU256,
     },
-    DatabaseRef,
+    Database, DatabaseRef,
 };
 use serde::{Deserialize, Serialize};
 
 use crate::{
+    db::StoreWrapper,
     errors::{ExecutionDBError, StateProofsError},
     evm_state, execute_block, get_state_transitions,
 };
@@ -73,10 +74,8 @@ impl ExecutionDB {
         for account_update in account_updates.iter() {
             let address = RevmAddress::from_slice(account_update.address.as_bytes());
             let account_state = store
-                .get_account_state(
-                    store.get_block_number(block.header.parent_hash)?.ok_or(
-                        ExecutionDBError::NewMissingBlockNumber(block.header.parent_hash),
-                    )?,
+                .get_account_state_by_hash(
+                    block.header.parent_hash,
                     H160::from_slice(address.as_slice()),
                 )?
                 .ok_or(ExecutionDBError::NewMissingAccountInfo(address))?;
