@@ -81,8 +81,7 @@ impl<S: AsyncWrite + AsyncRead + std::marker::Unpin> RLPxConnection<S> {
             stream,
             storage,
             capabilities: vec![],
-            connection_broadcast_send: connection_broadcast,
-            connection_broadcast_receive: None,
+            connection_broadcast_send: connection_broadcast
         }
     }
 
