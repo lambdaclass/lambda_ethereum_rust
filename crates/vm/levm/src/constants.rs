@@ -1,6 +1,5 @@
-use ethereum_rust_core::U256;
-
 use crate::errors::VMError;
+use ethereum_rust_core::U256;
 
 pub const SUCCESS_FOR_CALL: i32 = 1;
 pub const REVERT_FOR_CALL: i32 = 0;
@@ -144,6 +143,14 @@ pub fn init_code_cost(init_code_length: usize) -> Result<u64, VMError> {
         / 32) as u64)
 }
 
+pub mod create_opcode {
+    use ethereum_rust_core::U256;
+
+    pub const INIT_CODE_WORD_COST: U256 = U256([2, 0, 0, 0]);
+    pub const CODE_DEPOSIT_COST: U256 = U256([200, 0, 0, 0]);
+    pub const CREATE_BASE_COST: U256 = U256([32000, 0, 0, 0]);
+}
+
 pub const VERSIONED_HASH_VERSION_KZG: u8 = 0x01;
 pub const MAX_BLOB_NUMBER_PER_BLOCK: usize = 6;
 
@@ -158,4 +165,4 @@ pub const COLD_STORAGE_ACCESS_COST: U256 = U256([2100, 0, 0, 0]);
 // Block constants
 pub const LAST_AVAILABLE_BLOCK_LIMIT: U256 = U256([256, 0, 0, 0]);
 
-//
+pub const MAX_BLOCK_GAS_LIMIT: U256 = U256([30_000_000, 0, 0, 0]);

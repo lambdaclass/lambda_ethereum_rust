@@ -4,7 +4,7 @@
 use crate::{
     call_frame::CallFrame,
     constants::gas_cost,
-    errors::{OpcodeSuccess, VMError},
+    errors::{InternalError, OpcodeSuccess, VMError},
     opcodes::Opcode,
     vm::VM,
 };
@@ -26,16 +26,16 @@ impl VM {
             .checked_sub(Opcode::LOG0 as u8)
             .ok_or(VMError::InvalidOpcode)?;
 
-        let offset = current_call_frame
+        let offset: usize = current_call_frame
             .stack
             .pop()?
             .try_into()
-            .unwrap_or(usize::MAX);
+            .map_err(|_err| VMError::VeryLargeNumber)?;
         let size = current_call_frame
             .stack
             .pop()?
             .try_into()
-            .unwrap_or(usize::MAX);
+            .map_err(|_err| VMError::VeryLargeNumber)?;
         let mut topics = Vec::new();
         for _ in 0..number_of_topics {
             let topic = current_call_frame.stack.pop()?;
@@ -44,9 +44,12 @@ impl VM {
             topics.push(H256::from_slice(&topic_bytes));
         }
 
-        let memory_expansion_cost = current_call_frame
-            .memory
-            .expansion_cost(offset.checked_add(size).ok_or(VMError::OffsetOverflow)?)?;
+        let memory_expansion_cost =
+            current_call_frame
+                .memory
+                .expansion_cost(offset.checked_add(size).ok_or(VMError::Internal(
+                    InternalError::ArithmeticOperationOverflow,
+                ))?)?;
 
         let topics_cost = gas_cost::LOGN_DYNAMIC_BASE
             .checked_mul(number_of_topics.into())

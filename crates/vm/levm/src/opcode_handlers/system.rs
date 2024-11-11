@@ -8,7 +8,7 @@ use crate::{
         gas_cost::{self, KECCAK25_DYNAMIC_BASE},
         SUCCESS_FOR_RETURN,
     },
-    errors::{OpcodeSuccess, ResultReason, VMError},
+    errors::{InternalError, OpcodeSuccess, ResultReason, VMError},
     vm::{word_to_address, VM},
 };
 use ethereum_rust_core::{types::TxKind, Address, U256};
@@ -62,7 +62,9 @@ impl VM {
         let positive_value_cost = if !value.is_zero() {
             call_opcode::NON_ZERO_VALUE_COST
                 .checked_add(call_opcode::BASIC_FALLBACK_FUNCTION_STIPEND)
-                .ok_or(VMError::Internal)?
+                .ok_or(VMError::Internal(
+                    InternalError::ArithmeticOperationOverflow,
+                ))?
         } else {
             U256::zero()
         };
@@ -133,7 +135,17 @@ impl VM {
             .try_into()
             .map_err(|_err| VMError::VeryLargeNumber)?;
 
-        println!("Value: {}, argsOffset: {}, argsSize: {}, retOffset: {}, retSize: {}, currentMemorySize: {}", value, args_offset, args_size, ret_offset, ret_size, current_call_frame.memory.size());
+        // Gas consumed
+        let gas_cost = self.compute_gas_call(
+            current_call_frame,
+            code_address,
+            args_size,
+            args_offset,
+            ret_size,
+            ret_offset,
+        )?;
+      
+        self.increase_consumed_gas(current_call_frame, gas_cost)?;
 
         // Sender and recipient are the same in this case. But the code executed is from another account.
         let msg_sender = current_call_frame.to;
@@ -195,9 +207,12 @@ impl VM {
             .try_into()
             .unwrap_or(usize::MAX);
 
-        let gas_cost = current_call_frame
-            .memory
-            .expansion_cost(offset.checked_add(size).ok_or(VMError::OffsetOverflow)?)?;
+        let gas_cost =
+            current_call_frame
+                .memory
+                .expansion_cost(offset.checked_add(size).ok_or(VMError::Internal(
+                    InternalError::ArithmeticOperationOverflow,
+                ))?)?;
 
         self.increase_consumed_gas(current_call_frame, gas_cost)?;
 
@@ -253,7 +268,7 @@ impl VM {
             ret_size,
             ret_offset,
         )?;
-
+      
         self.increase_consumed_gas(current_call_frame, gas_cost)?;
 
         self.generic_call(
@@ -290,7 +305,7 @@ impl VM {
             .pop()?
             .try_into()
             .map_err(|_err| VMError::VeryLargeNumber)?;
-        let ret_offset = current_call_frame
+        let ret_offset: usize = current_call_frame
             .stack
             .pop()?
             .try_into()
@@ -314,7 +329,7 @@ impl VM {
             ret_size,
             ret_offset,
         )?;
-
+      
         self.increase_consumed_gas(current_call_frame, gas_cost)?;
 
         self.generic_call(
@@ -453,9 +468,12 @@ impl VM {
 
         let size = current_call_frame.stack.pop()?.as_usize();
 
-        let gas_cost = current_call_frame
-            .memory
-            .expansion_cost(offset.checked_add(size).ok_or(VMError::OffsetOverflow)?)?;
+        let gas_cost =
+            current_call_frame
+                .memory
+                .expansion_cost(offset.checked_add(size).ok_or(VMError::Internal(
+                    InternalError::ArithmeticOperationOverflow,
+                ))?)?;
 
         self.increase_consumed_gas(current_call_frame, gas_cost)?;
 

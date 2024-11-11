@@ -4,7 +4,10 @@ use bytes::Bytes;
 use ethereum_rust_core::{H256, U256};
 use keccak_hash::keccak;
 
-use crate::{constants::EMPTY_CODE_HASH_STR, errors::VMError};
+use crate::{
+    constants::EMPTY_CODE_HASH_STR,
+    errors::{InternalError, VMError},
+};
 
 #[derive(Clone, Default, Debug, PartialEq, Eq)]
 pub struct AccountInfo {
@@ -87,7 +90,7 @@ impl Account {
             .info
             .nonce
             .checked_add(1)
-            .ok_or(VMError::NonceOverflow)?;
+            .ok_or(VMError::Internal(InternalError::NonceOverflowed))?;
         Ok(())
     }
 }

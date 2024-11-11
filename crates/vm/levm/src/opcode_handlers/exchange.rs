@@ -18,7 +18,7 @@ impl VM {
     ) -> Result<OpcodeSuccess, VMError> {
         self.increase_consumed_gas(current_call_frame, gas_cost::SWAPN)?;
 
-        let depth = (op as u8)
+      let depth = (op as u8)
             .checked_sub(Opcode::SWAP1 as u8)
             .ok_or(VMError::InvalidOpcode)?
             .checked_add(1)
@@ -27,18 +27,17 @@ impl VM {
         if current_call_frame.stack.len() < depth as usize {
             return Err(VMError::StackUnderflow);
         }
-        let stack_top_index = current_call_frame.stack.len();
+        let stack_top_index = current_call_frame.stack.len().checked_sub(1)
+            .ok_or(VMError::StackUnderflow)?;
+
         let to_swap_index = stack_top_index
-            .checked_sub(depth as usize)
+            .checked_sub(depth.into())
             .ok_or(VMError::StackUnderflow)?;
         current_call_frame.stack.swap(
-            stack_top_index
-                .checked_sub(1)
-                .ok_or(VMError::StackUnderflow)?,
+            stack_top_index,
             to_swap_index
-                .checked_sub(1)
-                .ok_or(VMError::StackUnderflow)?,
         )?;
+
 
         Ok(OpcodeSuccess::Continue)
     }
