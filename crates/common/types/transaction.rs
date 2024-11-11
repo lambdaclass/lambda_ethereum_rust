@@ -1202,7 +1202,7 @@ mod serde_impl {
             S: serde::Serializer,
         {
             let mut struct_serializer = serializer.serialize_struct("Eip1559Transaction", 14)?;
-            struct_serializer.serialize_field("type", &TxType::EIP1559)?;
+            struct_serializer.serialize_field("type", &TxType::Privileged)?;
             struct_serializer.serialize_field("nonce", &format!("{:#x}", self.nonce))?;
             struct_serializer.serialize_field("to", &self.to)?;
             struct_serializer.serialize_field("gas", &format!("{:#x}", self.gas_limit))?;
@@ -1283,7 +1283,9 @@ mod serde_impl {
                     serde::de::value::MapDeserializer::new(iter),
                 )
                 .map(Transaction::PrivilegedL2Transaction)
-                .map_err(|e| serde::de::Error::custom(format!("Couldn't Deserialize Legacy {e}"))),
+                .map_err(|e| {
+                    serde::de::Error::custom(format!("Couldn't Deserialize Privileged {e}"))
+                }),
             }
         }
     }
