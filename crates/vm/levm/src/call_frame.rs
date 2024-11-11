@@ -114,10 +114,10 @@ impl CallFrame {
         }
     }
 
-    pub fn next_opcode(&mut self) -> Result<Opcode, VMError> {
-        let opcode = self.opcode_at(self.pc).ok_or(VMError::InvalidOpcode);
+    pub fn next_opcode(&mut self) -> Result<Option<Opcode>, VMError> {
+        let opcode = self.opcode_at(self.pc);
         self.increment_pc()?;
-        opcode
+        Ok(opcode)
     }
 
     pub fn increment_pc_by(&mut self, count: usize) -> Result<(), VMError> {

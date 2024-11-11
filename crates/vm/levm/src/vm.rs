@@ -142,7 +142,23 @@ impl VM {
         );
 
         loop {
-            let opcode = current_call_frame.next_opcode().unwrap_or(Opcode::STOP);
+            let opcode = match current_call_frame.next_opcode() {
+                Ok(opt) => {
+                    opt.unwrap_or(Opcode::STOP)
+                },
+                Err(e) => {
+                    return TransactionReport {
+                        result: TxResult::Revert(e),
+                        new_state: self.cache.accounts.clone(),
+                        gas_used: current_call_frame.gas_used.low_u64(),
+                        gas_refunded: self.env.refunded_gas.low_u64(),
+                        output: current_call_frame.returndata.clone(), // Bytes::new() if error is not RevertOpcode
+                        logs: current_call_frame.logs.clone(),
+                        created_address: None,
+                    };
+                }
+            };
+            
             // Note: these are commented because they're still being used in development.
             // dbg!(&current_call_frame.gas_used);
             // dbg!(&opcode);

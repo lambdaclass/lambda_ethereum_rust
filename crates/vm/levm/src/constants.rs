@@ -1,5 +1,4 @@
 use ethereum_rust_core::U256;
-
 use crate::errors::VMError;
 
 pub const SUCCESS_FOR_CALL: i32 = 1;
