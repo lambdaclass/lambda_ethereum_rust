@@ -5,7 +5,7 @@ use errors::{
     GetTransactionReceiptError, SendRawTransactionError,
 };
 use ethereum_rust_core::types::{
-    BlockBody, EIP1559Transaction, GenericTransaction, PrivilegedL2Transaction, TxKind, TxType,
+    EIP1559Transaction, GenericTransaction, PrivilegedL2Transaction, TxKind, TxType,
 };
 use ethereum_rust_rlp::encode::RLPEncode;
 use ethereum_rust_rpc::{

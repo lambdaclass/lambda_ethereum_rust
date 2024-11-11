@@ -142,7 +142,6 @@ pub async fn claim_withdraw(
         }
     };
 
-    println!("Withdrawal transaction found in L2 at block {withdrawal_l2_block_number}");
     let (index, proof) = get_withdraw_merkle_proof(proposer_client, l2_withdrawal_tx_hash).await?;
 
     let claim_withdrawal_data = {
