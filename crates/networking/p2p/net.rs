@@ -876,7 +876,6 @@ mod tests {
             Store::new("temp.db", EngineType::InMemory).expect("Failed to create test DB");
         let table = Arc::new(Mutex::new(KademliaTable::new(node_id)));
         // FIXME: Restore this before opening PR.
-        todo!();
         // if should_start_server {
         //     tokio::spawn(discover_peers_server(
         //         addr,

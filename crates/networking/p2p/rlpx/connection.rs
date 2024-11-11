@@ -189,7 +189,7 @@ impl<S: AsyncWrite + AsyncRead + std::marker::Unpin> RLPxConnection<S> {
             RLPxConnectionState::Established(_) => {
                 info!("Started peer main loop");
                 // Wait for eth status message or timeout.
-                timeout(Duration::from_secs(15), self.wait_status_msg())
+                let _ = timeout(Duration::from_secs(15), self.wait_status_msg())
                     .await
                     .map_err(|_err| {
                         RLPxError::HandshakeError("Timeout waiting for status msg".to_string())
@@ -207,9 +207,9 @@ impl<S: AsyncWrite + AsyncRead + std::marker::Unpin> RLPxConnection<S> {
                                         process_account_range_request(req, self.storage.clone())?;
                                     self.send(Message::AccountRange(response)).await
                                 }
+                                // TODO(#1129) Add the transaction to the mempool once received.
                                 txs_msg @ Message::TransactionsMessage(_) => {
                                     let txs = Arc::new(txs_msg);
-                                    // FIXME: Remove this unwrap
                                     let task_id = tokio::task::id();
                                     let Ok(_) = self.connection_broadcast_send.send((task_id, txs)) else {
                                         error!("Could not broadcast message in task!");
@@ -243,24 +243,20 @@ impl<S: AsyncWrite + AsyncRead + std::marker::Unpin> RLPxConnection<S> {
                                 message => return Err(RLPxError::UnexpectedMessage(message)),
                             }
                         }
-                        // FIXME: Add an identifier to ignore the message if it
-                        // was already sent from this thread.
                         Ok((id, broadcasted_msg)) = broadcaster_receive.recv() => {
                             if id != tokio::task::id() {
-                            // FIXME: Properly do this.
-                            println!("BROADCASTING MSG");
-                            match *broadcasted_msg {
-                                Message::TransactionsMessage(ref txs) => {
-                                    // FIXME: Avoid cloning.
-                                    // FIXME: Avoid always re-encoding this message,
-                                    // or filter per-peer
-                                    let cloned = txs.transactions.clone();
-                                    let new_msg = Message::TransactionsMessage(Transactions { transactions: cloned });
-                                    self.send(new_msg).await;
+                                match broadcasted_msg.as_ref() {
+                                    Message::TransactionsMessage(ref txs) => {
+                                        // TODO(#1131): Avoid cloning this vector.
+                                        let cloned = txs.transactions.clone();
+                                        let new_msg = Message::TransactionsMessage(Transactions { transactions: cloned });
+                                        self.send(new_msg).await;
+                                    }
+                                    msg => {
+                                        error!("Unsupported message was broadcasted: {msg}");
+                                        return Err(RLPxError::Broadcast(format!("Non-supported message broadcasted {}", msg)))
+                                    }
                                 }
-                                // FIXME: Remove this todo, log or return an err.
-                                _ => todo!()
-                            }
 
                             }
                         }
@@ -442,7 +438,7 @@ impl<S: AsyncWrite + AsyncRead + std::marker::Unpin> RLPxConnection<S> {
         }
     }
 
-    pub async fn wait_status_msg(&mut self) {
+    pub async fn wait_status_msg(&mut self) -> Result<(), RLPxError> {
         loop {
             match self.receive().await {
                 Message::Disconnect(_) => info!("Received Disconnect"),
@@ -451,10 +447,13 @@ impl<S: AsyncWrite + AsyncRead + std::marker::Unpin> RLPxConnection<S> {
                 Message::Status(_) => {
                     info!("Received Status");
                     // TODO: Check peer's status message.
-                    return;
+                    return Ok(());
                 }
-                // FIXME: Remove this panic.
-                _ => panic!("UNEXPECTED MESSAGE"),
+                _ => {
+                    return Err(RLPxError::HandshakeError(
+                        "Failed to receive status message".to_owned(),
+                    ))
+                }
             }
         }
     }
