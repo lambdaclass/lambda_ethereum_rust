@@ -37,7 +37,7 @@ pub enum RpcResponse {
 
 pub struct EthClient {
     client: Client,
-    url: String,
+    pub url: String,
 }
 
 // 0x08c379a0 == Error(String)

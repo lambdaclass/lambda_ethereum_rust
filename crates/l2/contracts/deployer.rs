@@ -15,7 +15,7 @@ const DETERMINISTIC_CREATE2_ADDRESS: Address = H160([
     0xc0, 0xb4, 0x95, 0x6c,
 ]);
 const SALT: H256 = H256([
-    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0x6,
+    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0x52,
     0x97,
 ]);
 
@@ -138,7 +138,12 @@ async fn deploy_contracts(
     deployer_private_key: SecretKey,
     eth_client: &EthClient,
 ) -> (Address, Address) {
-    let gas_price = Some(eth_client.get_gas_price().await.unwrap().as_u64() * 2);
+    let gas_price = if eth_client.url.contains("localhost:8545") {
+        Some(1_000_000_000)
+    } else {
+        Some(eth_client.get_gas_price().await.unwrap().as_u64() * 2)
+    };
+
     let overrides = Overrides {
         gas_limit: Some(GAS_LIMIT_MINIMUM * GAS_LIMIT_ADJUSTMENT_FACTOR),
         gas_price,
@@ -277,7 +282,12 @@ async fn initialize_contracts(
     contract_verifier_address: Address,
     eth_client: &EthClient,
 ) {
-    let gas_price = Some(eth_client.get_gas_price().await.unwrap().as_u64() * 2);
+    let gas_price = if eth_client.url.contains("localhost:8545") {
+        Some(1_000_000_000)
+    } else {
+        Some(eth_client.get_gas_price().await.unwrap().as_u64() * 2)
+    };
+
     let overrides = Overrides {
         gas_limit: Some(GAS_LIMIT_MINIMUM * GAS_LIMIT_ADJUSTMENT_FACTOR),
         gas_price,
