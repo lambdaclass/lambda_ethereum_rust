@@ -26,7 +26,7 @@ impl VM {
             .checked_sub(Opcode::LOG0 as u8)
             .ok_or(VMError::InvalidOpcode)?;
 
-        let offset = current_call_frame
+        let offset: usize = current_call_frame
             .stack
             .pop()?
             .try_into()

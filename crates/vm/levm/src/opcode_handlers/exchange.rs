@@ -34,7 +34,7 @@ impl VM {
             .checked_sub(depth.into())
             .ok_or(VMError::StackUnderflow)?;
         current_call_frame.stack.swap(
-            stack_top_index
+            stack_top_index,
             to_swap_index
         )?;
 

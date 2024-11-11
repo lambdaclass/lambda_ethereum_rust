@@ -144,11 +144,11 @@ impl VM {
                     .checked_add(ret_size)
                     .map(|dest_sum| src_sum.max(dest_sum))
             })
-            .ok_or(VMError::OverflowInArithmeticOp)?;
+            .ok_or(VMError::Internal(InternalError::ArithmeticOperationOverflow))?;
         let memory_expansion_cost = current_call_frame.memory.expansion_cost(memory_byte_size)?;
 
         let gas_cost = memory_expansion_cost;
-        self.increase_consumed_gas(current_call_frame, memory_expansion_cost)?;
+        self.increase_consumed_gas(current_call_frame, gas_cost)?;
 
         // Sender and recipient are the same in this case. But the code executed is from another account.
         let msg_sender = current_call_frame.to;
@@ -246,11 +246,11 @@ impl VM {
                     .checked_add(ret_size)
                     .map(|dest_sum| src_sum.max(dest_sum))
             })
-            .ok_or(VMError::OverflowInArithmeticOp)?;
+            .ok_or(VMError::Internal(InternalError::ArithmeticOperationOverflow))?;
         let memory_expansion_cost = current_call_frame.memory.expansion_cost(memory_byte_size)?;
 
         let gas_cost = memory_expansion_cost;
-        self.increase_consumed_gas(current_call_frame, memory_expansion_cost)?;
+        self.increase_consumed_gas(current_call_frame, gas_cost)?;
 
         self.generic_call(
             current_call_frame,
@@ -308,11 +308,11 @@ impl VM {
                     .checked_add(ret_size)
                     .map(|dest_sum| src_sum.max(dest_sum))
             })
-            .ok_or(VMError::OverflowInArithmeticOp)?;
+            .ok_or(VMError::Internal(InternalError::ArithmeticOperationOverflow))?;
         let memory_expansion_cost = current_call_frame.memory.expansion_cost(memory_byte_size)?;
 
         let gas_cost = memory_expansion_cost;
-        self.increase_consumed_gas(current_call_frame, memory_expansion_cost)?;
+        self.increase_consumed_gas(current_call_frame, gas_cost)?;
 
         self.generic_call(
             current_call_frame,

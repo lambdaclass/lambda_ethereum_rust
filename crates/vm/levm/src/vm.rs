@@ -720,9 +720,9 @@ impl VM {
     ) -> Result<U256, VMError> {
         let minimum_word_size = (code_size_in_memory
             .checked_add(U256::from(31))
-            .ok_or(VMError::DataSizeOverflow)?)
+            .ok_or(VMError::Internal(InternalError::ArithmeticOperationOverflow))?)
         .checked_div(U256::from(32))
-        .ok_or(VMError::Internal)?; // '32' will never be zero
+        .ok_or(VMError::Internal(InternalError::ArithmeticOperationDividedByZero))?; // '32' will never be zero
 
         let init_code_cost = minimum_word_size
             .checked_mul(INIT_CODE_WORD_COST)
@@ -735,9 +735,9 @@ impl VM {
         let memory_expansion_cost = current_call_frame.memory.expansion_cost(
             code_size_in_memory
                 .checked_add(code_offset_in_memory)
-                .ok_or(VMError::OffsetOverflow)?
+                .ok_or(VMError::Internal(InternalError::ArithmeticOperationOverflow))?
                 .try_into()
-                .map_err(|_err| VMError::OffsetOverflow)?,
+                .map_err(|_err| VMError::Internal(InternalError::ArithmeticOperationOverflow))?,
         )?;
 
         let hash_cost = if is_create_2 {
