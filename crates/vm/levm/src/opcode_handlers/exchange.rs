@@ -18,7 +18,7 @@ impl VM {
     ) -> Result<OpcodeSuccess, VMError> {
         self.increase_consumed_gas(current_call_frame, gas_cost::SWAPN)?;
 
-        let depth = op.to_usize() - Opcode::SWAP1.to_usize() + 1;
+        let depth = usize::from(op) - usize::from(Opcode::SWAP1) + 1;
 
         if current_call_frame.stack.len() < depth {
             return Err(VMError::StackUnderflow);

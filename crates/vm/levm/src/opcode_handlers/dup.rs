@@ -18,7 +18,7 @@ impl VM {
     ) -> Result<OpcodeSuccess, VMError> {
         // Calculate the depth based on the opcode
 
-        let depth = op.to_usize() - Opcode::DUP1.to_usize() + 1;
+        let depth = usize::from(op) - usize::from(Opcode::DUP1) + 1;
 
         // Increase the consumed gas
         self.increase_consumed_gas(current_call_frame, gas_cost::DUPN)?;

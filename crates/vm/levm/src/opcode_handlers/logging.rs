@@ -22,7 +22,7 @@ impl VM {
             return Err(VMError::OpcodeNotAllowedInStaticContext);
         }
 
-        let number_of_topics = op.to_u8() - Opcode::LOG0.to_u8();
+        let number_of_topics = u8::from(op) - u8::from(Opcode::LOG0);
         let offset = current_call_frame
             .stack
             .pop()?

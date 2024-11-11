@@ -19,7 +19,7 @@ impl VM {
     ) -> Result<OpcodeSuccess, VMError> {
         self.increase_consumed_gas(current_call_frame, gas_cost::PUSHN)?;
 
-        let n_bytes = op.to_usize() - Opcode::PUSH1.to_usize() + 1;
+        let n_bytes = usize::from(op) - usize::from(Opcode::PUSH1) + 1;
 
         let next_n_bytes = current_call_frame
             .bytecode

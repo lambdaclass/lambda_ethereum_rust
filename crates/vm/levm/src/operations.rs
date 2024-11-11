@@ -93,7 +93,7 @@ pub enum Operation {
 impl Operation {
     pub fn to_bytecode(&self) -> Result<Bytes, VMError> {
         let bytecode = match self {
-            Operation::Stop => Bytes::copy_from_slice(&[Opcode::STOP.to_u8()]),
+            Operation::Stop => Bytes::copy_from_slice(&[u8::from(Opcode::STOP)]),
             Operation::Add => Bytes::copy_from_slice(&[Opcode::ADD.to_u8()]),
             Operation::Mul => Bytes::copy_from_slice(&[Opcode::MUL.to_u8()]),
             Operation::Sub => Bytes::copy_from_slice(&[Opcode::SUB.to_u8()]),
