@@ -36,6 +36,7 @@ init-local-l1: ## 🚀 Initializes an L1 Lambda Ethereum Rust Client
 
 down-local-l1: ## 🛑 Shuts down the L1 Lambda Ethereum Rust Client
 	docker compose -f ${ETHEREUM_RUST_DEV_DOCKER_COMPOSE_PATH} down
+	docker compose -f docker-compose-l2.yaml down
 
 restart-local-l1: down-local-l1 init-local-l1 ## 🔄 Restarts the L1 Lambda Ethereum Rust Client
 
@@ -69,6 +70,7 @@ init-l2-prover-gpu: ## 🚀 Initializes the Prover with GPU support
 # CI Testing
 
 test:
+	docker compose -f ${ETHEREUM_RUST_L2_DOCKER_COMPOSE_PATH} down
 	docker compose -f ${ETHEREUM_RUST_L2_DOCKER_COMPOSE_PATH} up -d
-	cargo test --release testito
+	cargo test --release testito -- --nocapture
 	docker compose -f ${ETHEREUM_RUST_L2_DOCKER_COMPOSE_PATH} down
