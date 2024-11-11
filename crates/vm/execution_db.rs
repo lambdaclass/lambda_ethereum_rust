@@ -38,7 +38,7 @@ pub struct ExecutionDB {
     block_hashes: HashMap<u64, RevmB256>,
     /// stored chain config
     chain_config: ChainConfig,
-    /// proofs of inclusion of account and storage values of the initialent state
+    /// proofs of inclusion of account and storage values of the initial state
     initial_proofs: StateProofs,
 }
 
