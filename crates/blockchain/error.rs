@@ -60,8 +60,8 @@ pub enum MempoolError {
     BlobsBundleWrongLen,
     #[error("Nonce for account too low")]
     InvalidNonce,
-    #[error("Transaction chain id mismatch")]
-    InvalidChainId,
+    #[error("Transaction chain id mismatch, expected chain id: {0}")]
+    InvalidChainId(u64),
     #[error("Account does not have enough balance to cover the tx cost")]
     NotEnoughBalance,
     #[error("Transaction gas fields are invalid")]
