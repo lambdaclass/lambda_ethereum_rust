@@ -7,7 +7,7 @@ use ethereum_rust_l2::utils::{
     },
     merkle_tree::merkle_proof,
 };
-use ethereum_rust_rpc::types::receipt::RpcReceipt;
+use ethereum_rust_rpc::types::{block::BlockBodyWrapper, receipt::RpcReceipt};
 use ethereum_types::{Address, H160, H256, U256};
 use itertools::Itertools;
 use keccak_hash::keccak;
@@ -142,6 +142,7 @@ pub async fn claim_withdraw(
         }
     };
 
+    println!("Withdrawal transaction found in L2 at block {withdrawal_l2_block_number}");
     let (index, proof) = get_withdraw_merkle_proof(proposer_client, l2_withdrawal_tx_hash).await?;
 
     let claim_withdrawal_data = {
@@ -204,19 +205,23 @@ pub async fn get_withdraw_merkle_proof(
 ) -> Result<(u64, Vec<H256>), EthClientError> {
     let tx_receipt = client.get_transaction_receipt(tx_hash).await?.unwrap();
 
-    let transactions = client
+    let block = client
         .get_block_by_hash(tx_receipt.block_info.block_hash)
-        .await?
-        .transactions;
+        .await?;
+
+    let transactions = match block.body {
+        BlockBodyWrapper::Full(body) => body.transactions,
+        BlockBodyWrapper::OnlyHashes(_) => unreachable!(),
+    };
 
     let (index, tx_withdrawal_hash) = transactions
         .iter()
-        .filter(|tx| match tx {
+        .filter(|tx| match &tx.tx {
             Transaction::PrivilegedL2Transaction(tx) => tx.tx_type == PrivilegedTxType::Withdrawal,
             _ => false,
         })
-        .find_position(|tx| tx.compute_hash() == tx_hash)
-        .map(|(i, tx)| match tx {
+        .find_position(|tx| tx.hash == tx_hash)
+        .map(|(i, tx)| match &tx.tx {
             Transaction::PrivilegedL2Transaction(tx) => {
                 (i as u64, tx.get_withdrawal_hash().unwrap())
             }
@@ -227,7 +232,7 @@ pub async fn get_withdraw_merkle_proof(
     let path = merkle_proof(
         transactions
             .iter()
-            .filter_map(|tx| match tx {
+            .filter_map(|tx| match &tx.tx {
                 Transaction::PrivilegedL2Transaction(tx) => tx.get_withdrawal_hash(),
                 _ => None,
             })

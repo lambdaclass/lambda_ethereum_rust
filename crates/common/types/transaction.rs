@@ -1250,6 +1250,8 @@ mod serde_impl {
                         }
                         TxType::EIP1559
                     });
+
+            let iter = map.into_iter();
             match tx_type {
                 TxType::Legacy => {
                     LegacyTransaction::deserialize(serde::de::value::MapDeserializer::new(iter))
