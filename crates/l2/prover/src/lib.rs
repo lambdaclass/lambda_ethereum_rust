@@ -1,8 +1,6 @@
 pub mod prover;
 pub mod prover_client;
 
-pub use zkvm_interface;
-
 use ethereum_rust_l2::utils::config::prover_client::ProverClientConfig;
 use tracing::warn;
 
