@@ -1,17 +1,18 @@
 mod db;
 mod error;
-mod nibble;
 mod node;
 mod node_hash;
 mod rlp;
 mod state;
 mod trie_iter;
 
+mod nibbles;
 #[cfg(test)]
 mod test_utils;
 
 use ethereum_rust_rlp::constants::RLP_NULL;
 use ethereum_types::H256;
+use nibbles::Nibbles;
 use node::Node;
 use node_hash::NodeHash;
 use sha3::{Digest, Keccak256};
@@ -22,7 +23,7 @@ pub use self::db::{libmdbx::LibmdbxTrieDB, libmdbx_dupsort::LibmdbxDupsortTrieDB
 pub use self::db::{in_memory::InMemoryTrieDB, TrieDB};
 
 pub use self::error::TrieError;
-use self::{nibble::NibbleSlice, node::LeafNode, state::TrieState, trie_iter::TrieIterator};
+use self::{node::LeafNode, state::TrieState, trie_iter::TrieIterator};
 
 use lazy_static::lazy_static;
 
@@ -42,7 +43,6 @@ pub type PathRLP = Vec<u8>;
 pub type ValueRLP = Vec<u8>;
 
 /// Libmdx-based Ethereum Compatible Merkle Patricia Trie
-/// Adapted from https://github.com/lambdaclass/merkle_patricia_tree
 pub struct Trie {
     /// Hash of the current node
     root: Option<NodeHash>,
@@ -75,7 +75,7 @@ impl Trie {
                 .state
                 .get_node(root.clone())?
                 .expect("inconsistent internal tree structure");
-            root_node.get(&self.state, NibbleSlice::new(path))
+            root_node.get(&self.state, Nibbles::from_bytes(path))
         } else {
             Ok(None)
         }
@@ -91,12 +91,12 @@ impl Trie {
         {
             // If the trie is not empty, call the root node's insertion logic
             let root_node =
-                root_node.insert(&mut self.state, NibbleSlice::new(&path), value.clone())?;
-            self.root = Some(root_node.insert_self(0, &mut self.state)?)
+                root_node.insert(&mut self.state, Nibbles::from_bytes(&path), value.clone())?;
+            self.root = Some(root_node.insert_self(&mut self.state)?)
         } else {
             // If the trie is empty, just add a leaf.
-            let new_leaf = Node::from(LeafNode::new(path.clone(), value));
-            self.root = Some(new_leaf.insert_self(0, &mut self.state)?)
+            let new_leaf = Node::from(LeafNode::new(Nibbles::from_bytes(&path), value));
+            self.root = Some(new_leaf.insert_self(&mut self.state)?)
         }
         Ok(())
     }
@@ -111,9 +111,9 @@ impl Trie {
                 .get_node(root)?
                 .expect("inconsistent internal tree structure");
             let (root_node, old_value) =
-                root_node.remove(&mut self.state, NibbleSlice::new(&path))?;
+                root_node.remove(&mut self.state, Nibbles::from_bytes(&path))?;
             self.root = root_node
-                .map(|root| root.insert_self(0, &mut self.state))
+                .map(|root| root.insert_self(&mut self.state))
                 .transpose()?;
             Ok(old_value)
         } else {
@@ -149,7 +149,7 @@ impl Trie {
             node_path.push(node.to_vec());
         }
         if let Some(root_node) = self.state.get_node(root.clone())? {
-            root_node.get_path(&self.state, NibbleSlice::new(path), &mut node_path)?;
+            root_node.get_path(&self.state, Nibbles::from_bytes(path), &mut node_path)?;
         }
         Ok(node_path)
     }
@@ -237,6 +237,70 @@ impl Trie {
             .unwrap_or(*EMPTY_TRIE_HASH)
     }
 
+    /// Obtain the encoded node given its path.
+    /// Allows usage of full paths (byte slice of 32 bytes) or compact-encoded nibble slices (with length lower than 32)
+    pub fn get_node(&self, partial_path: &PathRLP) -> Result<Vec<u8>, TrieError> {
+        // Convert compact-encoded nibbles into a byte slice if necessary
+        let partial_path = match partial_path.len() {
+            // Compact-encoded nibbles
+            n if n < 32 => Nibbles::decode_compact(partial_path),
+            // Full path (No conversion needed)
+            32 => Nibbles::from_bytes(partial_path),
+            // We won't handle paths with length over 32
+            _ => return Ok(vec![]),
+        };
+
+        // Fetch node
+        let Some(root_node) = self
+            .root
+            .as_ref()
+            .map(|root| self.state.get_node(root.clone()))
+            .transpose()?
+            .flatten()
+        else {
+            return Ok(vec![]);
+        };
+        self.get_node_inner(root_node, partial_path)
+    }
+
+    fn get_node_inner(&self, node: Node, mut partial_path: Nibbles) -> Result<Vec<u8>, TrieError> {
+        // If we reached the end of the partial path, return the current node
+        if partial_path.is_empty() {
+            return Ok(node.encode_raw());
+        }
+        match node {
+            Node::Branch(branch_node) => match partial_path.next_choice() {
+                Some(idx) => {
+                    let child_hash = &branch_node.choices[idx];
+                    if child_hash.is_valid() {
+                        let child_node = self
+                            .state
+                            .get_node(child_hash.clone())?
+                            .expect("inconsistent internal tree structure");
+                        self.get_node_inner(child_node, partial_path)
+                    } else {
+                        Ok(vec![])
+                    }
+                }
+                _ => Ok(vec![]),
+            },
+            Node::Extension(extension_node) => {
+                if partial_path.skip_prefix(&extension_node.prefix)
+                    && extension_node.child.is_valid()
+                {
+                    let child_node = self
+                        .state
+                        .get_node(extension_node.child.clone())?
+                        .expect("inconsistent internal tree structure");
+                    self.get_node_inner(child_node, partial_path)
+                } else {
+                    Ok(vec![])
+                }
+            }
+            Node::Leaf(_) => Ok(vec![]),
+        }
+    }
+
     #[cfg(all(test, feature = "libmdbx"))]
     /// Creates a new Trie based on a temporary Libmdbx DB
     fn new_temp() -> Self {
@@ -261,7 +325,7 @@ impl Trie {
 }
 
 impl IntoIterator for Trie {
-    type Item = Node;
+    type Item = (Nibbles, Node);
 
     type IntoIter = TrieIterator;
 

@@ -184,7 +184,7 @@ cfg_if::cfg_if! {
 
             let env = Environment {
                 origin: tx.sender(),
-                consumed_gas: U256::zero(),
+                consumed_gas: U256::from(21000), // Base gas cost for a transaction
                 refunded_gas: U256::zero(),
                 gas_limit: tx.gas_limit().into(),
                 block_number: block_header.number.into(),
@@ -737,7 +737,7 @@ fn tx_env_from_generic(tx: &GenericTransaction, basefee: u64) -> TxEnv {
         },
         value: RevmU256::from_limbs(tx.value.0),
         data: tx.input.clone().into(),
-        nonce: Some(tx.nonce),
+        nonce: tx.nonce,
         chain_id: tx.chain_id,
         access_list: tx
             .access_list
