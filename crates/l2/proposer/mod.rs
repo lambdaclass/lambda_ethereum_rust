@@ -1,7 +1,7 @@
 use crate::utils::{
     config::{eth::EthConfig, proposer::ProposerConfig, read_env_file},
     eth_client::{
-        errors::EthClientError, eth_sender::Overrides, transaction::blob_from_bytes, EthClient,
+        errors::EthClientError, transaction::blob_from_bytes, EthClient,
     },
     merkle_tree::merkelize,
 };

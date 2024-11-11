@@ -16,7 +16,7 @@ use tracing::{debug, error, info, warn};
 
 use ethereum_rust_core::{
     types::{Block, BlockHeader},
-    Address, H256, U256,
+    Address, H256,
 };
 
 use risc0_zkvm::sha::{Digest, Digestible};
