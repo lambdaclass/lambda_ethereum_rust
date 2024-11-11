@@ -36,7 +36,8 @@ pub enum VMError {
     Internal,
     GasCostOverflow,
     OffsetOverflow,
-    CreationCostIsTooHigh
+    CreationCostIsTooHigh,
+    MaxGasLimitExceeded,
 }
 
 #[derive(Debug, Clone)]

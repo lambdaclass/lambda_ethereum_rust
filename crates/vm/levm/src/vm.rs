@@ -65,7 +65,7 @@ impl VM {
         calldata: Bytes,
         db: Arc<dyn Database>,
         mut cache: Cache,
-    ) -> Self {
+    ) -> Result<Self, VMError> {
         // Maybe this decision should be made in an upper layer
 
         match to {
@@ -79,19 +79,19 @@ impl VM {
                     value,
                     calldata.clone(),
                     false,
-                    env.gas_limit,
+                    env.gas_limit.min(MAX_BLOCK_GAS_LIMIT),
                     TX_BASE_COST,
                     0,
                 );
 
-                Self {
+                Ok(Self {
                     call_frames: vec![initial_call_frame],
                     db,
                     env,
                     accrued_substate: Substate::default(),
                     cache,
                     tx_kind: to,
-                }
+                })
             }
             TxKind::Create => {
                 // CREATE tx
@@ -117,19 +117,19 @@ impl VM {
                     value,
                     calldata.clone(),
                     false,
-                    env.gas_limit,
+                    env.gas_limit.min(MAX_BLOCK_GAS_LIMIT),
                     TX_BASE_COST,
                     0,
                 );
 
-                Self {
+                Ok(Self {
                     call_frames: vec![initial_call_frame],
                     db,
                     env,
                     accrued_substate: Substate::default(),
                     cache,
                     tx_kind: TxKind::Create,
-                }
+                })
             }
         }
         // TODO: https://github.com/lambdaclass/lambda_ethereum_rust/issues/1088
@@ -678,7 +678,7 @@ impl VM {
             .checked_add(hash_cost)
             .ok_or(VMError::CreationCostIsTooHigh)
     }
-    
+
     /// Common behavior for CREATE and CREATE2 opcodes
     ///
     /// Could be used for CREATE type transactions

@@ -147,3 +147,4 @@ pub const COLD_STORAGE_ACCESS_COST: U256 = U256([2100, 0, 0, 0]);
 
 // Block constants
 pub const LAST_AVAILABLE_BLOCK_LIMIT: U256 = U256([256, 0, 0, 0]);
+pub const MAX_BLOCK_GAS_LIMIT: U256 = U256([30_000_000, 0, 0, 0]);

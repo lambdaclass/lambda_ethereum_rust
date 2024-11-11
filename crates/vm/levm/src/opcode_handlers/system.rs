@@ -1,5 +1,8 @@
 use crate::{
-    call_frame::CallFrame, constants::{call_opcode, gas_cost, SUCCESS_FOR_RETURN}, errors::{OpcodeSuccess, ResultReason, VMError}, vm::{word_to_address, VM}
+    call_frame::CallFrame,
+    constants::{call_opcode, gas_cost, SUCCESS_FOR_RETURN},
+    errors::{OpcodeSuccess, ResultReason, VMError},
+    vm::{word_to_address, VM},
 };
 use ethereum_rust_core::{types::TxKind, U256};
 
@@ -40,7 +43,14 @@ impl VM {
             return Err(VMError::OpcodeNotAllowedInStaticContext);
         }
 
-        let memory_byte_size = (args_offset.checked_add(args_size).ok_or(VMError::MemoryLoadOutOfBounds)?).max(ret_offset.checked_add(ret_size).ok_or(VMError::MemoryLoadOutOfBounds)?);
+        let memory_byte_size = (args_offset
+            .checked_add(args_size)
+            .ok_or(VMError::MemoryLoadOutOfBounds)?)
+        .max(
+            ret_offset
+                .checked_add(ret_size)
+                .ok_or(VMError::MemoryLoadOutOfBounds)?,
+        );
         let memory_expansion_cost = current_call_frame.memory.expansion_cost(memory_byte_size)?;
 
         let positive_value_cost = if !value.is_zero() {
@@ -121,12 +131,13 @@ impl VM {
             .map_err(|_err| VMError::VeryLargeNumber)?;
 
         let memory_byte_size = args_offset
-        .checked_add(args_size)
-        .and_then(|src_sum| {
-            ret_offset
-                .checked_add(ret_size)
-                .map(|dest_sum| src_sum.max(dest_sum))
-        }).ok_or(VMError::OverflowInArithmeticOp)?;
+            .checked_add(args_size)
+            .and_then(|src_sum| {
+                ret_offset
+                    .checked_add(ret_size)
+                    .map(|dest_sum| src_sum.max(dest_sum))
+            })
+            .ok_or(VMError::OverflowInArithmeticOp)?;
         let memory_expansion_cost = current_call_frame.memory.expansion_cost(memory_byte_size)?;
 
         let gas_cost = memory_expansion_cost;
@@ -169,7 +180,11 @@ impl VM {
             .try_into()
             .unwrap_or(usize::MAX);
 
-        let gas_cost = current_call_frame.memory.expansion_cost(offset.checked_add(size).ok_or(VMError::MemoryLoadOutOfBounds)?)?;
+        let gas_cost = current_call_frame.memory.expansion_cost(
+            offset
+                .checked_add(size)
+                .ok_or(VMError::MemoryLoadOutOfBounds)?,
+        )?;
 
         self.increase_consumed_gas(current_call_frame, gas_cost)?;
 
@@ -217,12 +232,13 @@ impl VM {
         let is_static = current_call_frame.is_static;
 
         let memory_byte_size = args_offset
-        .checked_add(args_size)
-        .and_then(|src_sum| {
-            ret_offset
-                .checked_add(ret_size)
-                .map(|dest_sum| src_sum.max(dest_sum))
-        }).ok_or(VMError::OverflowInArithmeticOp)?;
+            .checked_add(args_size)
+            .and_then(|src_sum| {
+                ret_offset
+                    .checked_add(ret_size)
+                    .map(|dest_sum| src_sum.max(dest_sum))
+            })
+            .ok_or(VMError::OverflowInArithmeticOp)?;
         let memory_expansion_cost = current_call_frame.memory.expansion_cost(memory_byte_size)?;
 
         let gas_cost = memory_expansion_cost;
@@ -278,12 +294,13 @@ impl VM {
         let to = code_address; // In this case code_address and the sub-context account are the same. Unlike CALLCODE or DELEGATECODE.
 
         let memory_byte_size = args_offset
-        .checked_add(args_size)
-        .and_then(|src_sum| {
-            ret_offset
-                .checked_add(ret_size)
-                .map(|dest_sum| src_sum.max(dest_sum))
-        }).ok_or(VMError::OverflowInArithmeticOp)?;
+            .checked_add(args_size)
+            .and_then(|src_sum| {
+                ret_offset
+                    .checked_add(ret_size)
+                    .map(|dest_sum| src_sum.max(dest_sum))
+            })
+            .ok_or(VMError::OverflowInArithmeticOp)?;
         let memory_expansion_cost = current_call_frame.memory.expansion_cost(memory_byte_size)?;
 
         let gas_cost = memory_expansion_cost;
@@ -358,7 +375,11 @@ impl VM {
 
         let size = current_call_frame.stack.pop()?.as_usize();
 
-        let gas_cost = current_call_frame.memory.expansion_cost(offset.checked_add(size).ok_or(VMError::MemoryLoadOutOfBounds)?)?;
+        let gas_cost = current_call_frame.memory.expansion_cost(
+            offset
+                .checked_add(size)
+                .ok_or(VMError::MemoryLoadOutOfBounds)?,
+        )?;
 
         self.increase_consumed_gas(current_call_frame, gas_cost)?;
 

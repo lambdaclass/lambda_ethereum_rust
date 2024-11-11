@@ -163,9 +163,11 @@ impl VM {
             .map_err(|_err| VMError::VeryLargeNumber)?;
 
         let minimum_word_size = (size + WORD_SIZE - 1) / WORD_SIZE;
-        let memory_expansion_cost = current_call_frame
-            .memory
-            .expansion_cost(dest_offset.checked_add(size).ok_or(VMError::MemoryLoadOutOfBounds)?)?;
+        let memory_expansion_cost = current_call_frame.memory.expansion_cost(
+            dest_offset
+                .checked_add(size)
+                .ok_or(VMError::MemoryLoadOutOfBounds)?,
+        )?;
         let gas_cost = gas_cost::CALLDATACOPY_STATIC
             + gas_cost::CALLDATACOPY_DYNAMIC_BASE * minimum_word_size
             + memory_expansion_cost;
@@ -192,7 +194,9 @@ impl VM {
             vec![0u8; size]
         };
 
-        current_call_frame.memory.store_bytes(dest_offset, &result)?;
+        current_call_frame
+            .memory
+            .store_bytes(dest_offset, &result)?;
 
         Ok(OpcodeSuccess::Continue)
     }
@@ -238,9 +242,11 @@ impl VM {
 
         let minimum_word_size = (size + WORD_SIZE - 1) / WORD_SIZE;
 
-        let memory_expansion_cost = current_call_frame
-            .memory
-            .expansion_cost(dest_offset.checked_add(size).ok_or(VMError::MemoryLoadOutOfBounds)?)?;
+        let memory_expansion_cost = current_call_frame.memory.expansion_cost(
+            dest_offset
+                .checked_add(size)
+                .ok_or(VMError::MemoryLoadOutOfBounds)?,
+        )?;
 
         let gas_cost = gas_cost::CODECOPY_STATIC
             + gas_cost::CODECOPY_DYNAMIC_BASE * minimum_word_size
@@ -250,9 +256,13 @@ impl VM {
 
         let bytecode_len = current_call_frame.bytecode.len();
         let code = if offset < bytecode_len {
-            current_call_frame
-                .bytecode
-                .slice(offset..(offset.checked_add(size).ok_or(VMError::MemoryLoadOutOfBounds)?).min(bytecode_len))
+            current_call_frame.bytecode.slice(
+                offset
+                    ..(offset
+                        .checked_add(size)
+                        .ok_or(VMError::MemoryLoadOutOfBounds)?)
+                    .min(bytecode_len),
+            )
         } else {
             vec![0u8; size].into()
         };
@@ -323,9 +333,11 @@ impl VM {
             .map_err(|_| VMError::VeryLargeNumber)?;
 
         let minimum_word_size = (size + WORD_SIZE - 1) / WORD_SIZE;
-        let memory_expansion_cost = current_call_frame
-            .memory
-            .expansion_cost(dest_offset.checked_add(size).ok_or(VMError::MemoryLoadOutOfBounds)?)?;
+        let memory_expansion_cost = current_call_frame.memory.expansion_cost(
+            dest_offset
+                .checked_add(size)
+                .ok_or(VMError::MemoryLoadOutOfBounds)?,
+        )?;
         let gas_cost =
             gas_cost::EXTCODECOPY_DYNAMIC_BASE * minimum_word_size + memory_expansion_cost;
 
@@ -344,14 +356,27 @@ impl VM {
             .bytecode
             .clone();
 
-        if bytecode.len() < offset.checked_add(size).ok_or(VMError::MemoryLoadOutOfBounds)? {
+        if bytecode.len()
+            < offset
+                .checked_add(size)
+                .ok_or(VMError::MemoryLoadOutOfBounds)?
+        {
             let mut extended_code = bytecode.to_vec();
-            extended_code.resize(offset.checked_add(size).ok_or(VMError::MemoryLoadOutOfBounds)?, 0);
+            extended_code.resize(
+                offset
+                    .checked_add(size)
+                    .ok_or(VMError::MemoryLoadOutOfBounds)?,
+                0,
+            );
             bytecode = Bytes::from(extended_code);
         }
-        current_call_frame
-            .memory
-            .store_bytes(dest_offset, &bytecode[offset..offset.checked_add(size).ok_or(VMError::MemoryLoadOutOfBounds)?])?;
+        current_call_frame.memory.store_bytes(
+            dest_offset,
+            &bytecode[offset
+                ..offset
+                    .checked_add(size)
+                    .ok_or(VMError::MemoryLoadOutOfBounds)?],
+        )?;
 
         Ok(OpcodeSuccess::Continue)
     }
@@ -392,9 +417,11 @@ impl VM {
             .unwrap_or(usize::MAX);
 
         let minimum_word_size = (size + WORD_SIZE - 1) / WORD_SIZE;
-        let memory_expansion_cost = current_call_frame
-            .memory
-            .expansion_cost(dest_offset.checked_add(size).ok_or(VMError::MemoryLoadOutOfBounds)?)?;
+        let memory_expansion_cost = current_call_frame.memory.expansion_cost(
+            dest_offset
+                .checked_add(size)
+                .ok_or(VMError::MemoryLoadOutOfBounds)?,
+        )?;
         let gas_cost = gas_cost::RETURNDATACOPY_STATIC
             + gas_cost::RETURNDATACOPY_DYNAMIC_BASE * minimum_word_size
             + memory_expansion_cost;
@@ -407,9 +434,13 @@ impl VM {
 
         let sub_return_data_len = current_call_frame.sub_return_data.len();
         let data = if returndata_offset < sub_return_data_len {
-            current_call_frame
-                .sub_return_data
-                .slice(returndata_offset..(returndata_offset.checked_add(size).ok_or(VMError::MemoryLoadOutOfBounds)?).min(sub_return_data_len))
+            current_call_frame.sub_return_data.slice(
+                returndata_offset
+                    ..(returndata_offset
+                        .checked_add(size)
+                        .ok_or(VMError::MemoryLoadOutOfBounds)?)
+                    .min(sub_return_data_len),
+            )
         } else {
             vec![0u8; size].into()
         };
