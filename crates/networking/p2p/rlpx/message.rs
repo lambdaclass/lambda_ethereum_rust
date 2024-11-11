@@ -7,7 +7,8 @@ use super::eth::status::StatusMessage;
 use super::eth::transactions::Transactions;
 use super::p2p::{DisconnectMessage, HelloMessage, PingMessage, PongMessage};
 use super::snap::{
-    AccountRange, ByteCodes, GetAccountRange, GetByteCodes, GetStorageRanges, StorageRanges,
+    AccountRange, ByteCodes, GetAccountRange, GetByteCodes, GetStorageRanges, GetTrieNodes,
+    StorageRanges, TrieNodes,
 };
 
 use ethereum_rust_rlp::encode::RLPEncode;
@@ -37,6 +38,8 @@ pub(crate) enum Message {
     StorageRanges(StorageRanges),
     GetByteCodes(GetByteCodes),
     ByteCodes(ByteCodes),
+    GetTrieNodes(GetTrieNodes),
+    TrieNodes(TrieNodes),
 }
 
 impl Message {
@@ -57,9 +60,7 @@ impl Message {
             // - https://ethereum.stackexchange.com/questions/37051/ethereum-network-messaging
             // - https://github.com/ethereum/devp2p/blob/master/caps/eth.md#status-0x00
             0x10 => Ok(Message::Status(StatusMessage::decode(msg_data)?)),
-            0x12 => Ok(Message::Transactions(Transactions::decode(
-                msg_data,
-            )?)),
+            0x12 => Ok(Message::Transactions(Transactions::decode(msg_data)?)),
             0x13 => Ok(Message::GetBlockHeaders(GetBlockHeaders::decode(msg_data)?)),
             0x14 => Ok(Message::BlockHeaders(BlockHeaders::decode(msg_data)?)),
             0x15 => Ok(Message::GetBlockBodies(GetBlockBodies::decode(msg_data)?)),
@@ -71,17 +72,34 @@ impl Message {
             0x24 => Ok(Message::StorageRanges(StorageRanges::decode(msg_data)?)),
             0x25 => Ok(Message::GetByteCodes(GetByteCodes::decode(msg_data)?)),
             0x26 => Ok(Message::ByteCodes(ByteCodes::decode(msg_data)?)),
+            0x27 => Ok(Message::GetTrieNodes(GetTrieNodes::decode(msg_data)?)),
+            0x28 => Ok(Message::TrieNodes(TrieNodes::decode(msg_data)?)),
             _ => Err(RLPDecodeError::MalformedData),
         }
     }
 
     pub fn encode(&self, buf: &mut dyn BufMut) -> Result<(), RLPEncodeError> {
         match self {
-            Message::Hello(msg) => msg.encode(buf),
-            Message::Disconnect(msg) => msg.encode(buf),
-            Message::Ping(msg) => msg.encode(buf),
-            Message::Pong(msg) => msg.encode(buf),
-            Message::Status(msg) => msg.encode(buf),
+            Message::Hello(msg) => {
+                0x00_u8.encode(buf);
+                msg.encode(buf)
+            }
+            Message::Disconnect(msg) => {
+                0x01_u8.encode(buf);
+                msg.encode(buf)
+            }
+            Message::Ping(msg) => {
+                0x02_u8.encode(buf);
+                msg.encode(buf)
+            }
+            Message::Pong(msg) => {
+                0x03_u8.encode(buf);
+                msg.encode(buf)
+            }
+            Message::Status(msg) => {
+                0x10_u8.encode(buf);
+                msg.encode(buf)
+            }
             Message::Transactions(msg) => {
                 0x12_u8.encode(buf);
                 msg.encode(buf)
@@ -126,6 +144,14 @@ impl Message {
                 0x26_u8.encode(buf);
                 msg.encode(buf)
             }
+            Message::GetTrieNodes(msg) => {
+                0x27_u8.encode(buf);
+                msg.encode(buf)
+            }
+            Message::TrieNodes(msg) => {
+                0x28_u8.encode(buf);
+                msg.encode(buf)
+            }
         }
     }
 }
@@ -149,6 +175,8 @@ impl Display for Message {
             Message::StorageRanges(_) => "snap:StorageRanges".fmt(f),
             Message::GetByteCodes(_) => "snap:GetByteCodes".fmt(f),
             Message::ByteCodes(_) => "snap:ByteCodes".fmt(f),
+            Message::GetTrieNodes(_) => "snap:GetTrieNodes".fmt(f),
+            Message::TrieNodes(_) => "snap:TrieNodes".fmt(f),
         }
     }
 }

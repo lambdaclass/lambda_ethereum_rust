@@ -53,10 +53,6 @@ pub enum EvmState {
 }
 
 impl EvmState {
-    pub fn from_exec_db(db: ExecutionDB) -> Self {
-        EvmState::Execution(revm::db::CacheDB::new(db))
-    }
-
     /// Get a reference to inner `Store` database
     pub fn database(&self) -> Option<&Store> {
         if let EvmState::Store(db) = self {
@@ -72,6 +68,12 @@ impl EvmState {
             EvmState::Store(db) => db.database.store.get_chain_config().map_err(EvmError::from),
             EvmState::Execution(db) => Ok(db.db.get_chain_config()),
         }
+    }
+}
+
+impl From<ExecutionDB> for EvmState {
+    fn from(value: ExecutionDB) -> Self {
+        EvmState::Execution(revm::db::CacheDB::new(value))
     }
 }
 
@@ -182,7 +184,7 @@ cfg_if::cfg_if! {
 
             let env = Environment {
                 origin: tx.sender(),
-                consumed_gas: U256::zero(),
+                consumed_gas: U256::from(21000), // Base gas cost for a transaction
                 refunded_gas: U256::zero(),
                 gas_limit: tx.gas_limit().into(),
                 block_number: block_header.number.into(),
@@ -735,7 +737,7 @@ fn tx_env_from_generic(tx: &GenericTransaction, basefee: u64) -> TxEnv {
         },
         value: RevmU256::from_limbs(tx.value.0),
         data: tx.input.clone().into(),
-        nonce: Some(tx.nonce),
+        nonce: tx.nonce,
         chain_id: tx.chain_id,
         access_list: tx
             .access_list
