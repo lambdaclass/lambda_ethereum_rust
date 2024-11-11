@@ -8,7 +8,6 @@ use super::errors::ConfigError;
 #[derive(Deserialize)]
 pub struct ProposerConfig {
     pub on_chain_proposer_address: Address,
-    pub verifier_address: Address,
     pub l1_address: Address,
     #[serde(deserialize_with = "secret_key_deserializer")]
     pub l1_private_key: SecretKey,

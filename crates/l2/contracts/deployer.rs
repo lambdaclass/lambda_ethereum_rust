@@ -14,7 +14,10 @@ const DETERMINISTIC_CREATE2_ADDRESS: Address = H160([
     0x4e, 0x59, 0xb4, 0x48, 0x47, 0xb3, 0x79, 0x57, 0x85, 0x88, 0x92, 0x0c, 0xa7, 0x8f, 0xbf, 0x26,
     0xc0, 0xb4, 0x95, 0x6c,
 ]);
-const SALT: H256 = H256::zero();
+const SALT: H256 = H256([
+    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0x6,
+    0x97,
+]);
 
 #[tokio::main]
 async fn main() {
@@ -114,9 +117,10 @@ async fn deploy_contracts(
     deployer_private_key: SecretKey,
     eth_client: &EthClient,
 ) -> (Address, Address) {
+    let gas_price = Some(eth_client.get_gas_price().await.unwrap().as_u64() * 2);
     let overrides = Overrides {
         gas_limit: Some(GAS_LIMIT_MINIMUM * GAS_LIMIT_ADJUSTMENT_FACTOR),
-        gas_price: Some(1_000_000_000),
+        gas_price,
         ..Default::default()
     };
 
@@ -252,6 +256,13 @@ async fn initialize_contracts(
     contract_verifier_address: Address,
     eth_client: &EthClient,
 ) {
+    let gas_price = Some(eth_client.get_gas_price().await.unwrap().as_u64() * 2);
+    let overrides = Overrides {
+        gas_limit: Some(GAS_LIMIT_MINIMUM * GAS_LIMIT_ADJUSTMENT_FACTOR),
+        gas_price,
+        ..Default::default()
+    };
+
     initialize_on_chain_proposer(
         on_chain_proposer,
         bridge,
@@ -259,6 +270,7 @@ async fn initialize_contracts(
         deployer,
         deployer_private_key,
         eth_client,
+        overrides.clone(),
     )
     .await;
     initialize_bridge(
@@ -267,6 +279,7 @@ async fn initialize_contracts(
         deployer,
         deployer_private_key,
         eth_client,
+        overrides,
     )
     .await;
 }
@@ -278,6 +291,7 @@ async fn initialize_on_chain_proposer(
     deployer: Address,
     deployer_private_key: SecretKey,
     eth_client: &EthClient,
+    overrides: Overrides,
 ) {
     let on_chain_proposer_initialize_selector = keccak(b"initialize(address,address)")
         .as_bytes()
@@ -310,7 +324,7 @@ async fn initialize_on_chain_proposer(
             deployer,
             TxKind::Call(on_chain_proposer),
             deployer_private_key,
-            Overrides::default(),
+            overrides,
         )
         .await
         .expect("Failed to send initialize transaction");
@@ -326,6 +340,7 @@ async fn initialize_bridge(
     deployer: Address,
     deployer_private_key: SecretKey,
     eth_client: &EthClient,
+    overrides: Overrides,
 ) {
     let bridge_initialize_selector = keccak(b"initialize(address)")
         .as_bytes()
@@ -349,7 +364,7 @@ async fn initialize_bridge(
             deployer,
             TxKind::Call(bridge),
             deployer_private_key,
-            Overrides::default(),
+            overrides,
         )
         .await
         .expect("Failed to send initialize transaction");
@@ -366,6 +381,7 @@ async fn wait_for_transaction_receipt(tx_hash: H256, eth_client: &EthClient) {
         .expect("Failed to get transaction receipt")
         .is_none()
     {
+        println!("Waiting for Tx: {tx_hash:?}");
         tokio::time::sleep(std::time::Duration::from_secs(1)).await;
     }
 }

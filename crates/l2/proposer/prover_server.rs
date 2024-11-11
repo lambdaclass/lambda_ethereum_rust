@@ -198,19 +198,21 @@ impl ProverServer {
             .unwrap();
 
         let response = if block_number > latest_block_number {
-            ProofData::Response {
+            let response = ProofData::Response {
                 block_number: None,
                 input: None,
-            }
+            };
+            warn!("Didn't send response");
+            response
         } else {
             let input = self.create_prover_input(block_number)?;
-            ProofData::Response {
+            let response = ProofData::Response {
                 block_number: Some(block_number),
                 input: Some(input),
-            }
+            };
+            info!("Sent Response for block_number: {block_number}");
+            response
         };
-
-        info!("Sent Response for block_number: {block_number}");
 
         let writer = BufWriter::new(stream);
         serde_json::to_writer(writer, &response).map_err(|e| e.to_string())
@@ -260,18 +262,39 @@ impl ProverServer {
         let journal_digest = Digestible::digest(&receipt.0.journal);
         info!("JOURNAL_DIGEST: {journal_digest}");
 
-        match self
-            .send_proof(block_number, &seal, image_id, journal_digest)
-            .await
-        {
-            Ok(tx_hash) => {
-                info!("Sent proof for block {block_number}, with transaction hash {tx_hash:#x}");
-            }
+        // Retry proof verification, the transaction may fail if the blobs commited were not included.
+        // The error message is `address already reserved`. Retrying 100 times, if there is another error it panics.
+        let mut attempts = 0;
+        let max_retries = 100;
+        let retry_secs = std::time::Duration::from_secs(5);
+        while attempts < max_retries {
+            match self
+                .send_proof(block_number, &seal, image_id, journal_digest)
+                .await
+            {
+                Ok(tx_hash) => {
+                    info!(
+                        "Sent proof for block {block_number}, with transaction hash {tx_hash:#x}"
+                    );
+                    break; // Exit the while loop
+                }
 
-            Err(e) => {
-                error!("Failed to send proof to block {block_number:#x}. Manual intervention required: {e}");
-                // TODO: uncomment
-                panic!("Failed to send proof to block {block_number:#x}. Manual intervention required: {e}");
+                Err(e) => {
+                    warn!("Failed to send proof to block {block_number:#x}. Error: {e}");
+                    if format!("{e}").contains("address already reserved") {
+                        attempts += 1;
+                        if attempts < max_retries {
+                            warn!("Retrying... Attempt {}/{}", attempts, max_retries);
+                            sleep(retry_secs).await; // Wait before retrying
+                        } else {
+                            error!("Max retries reached. Giving up on sending proof for block {block_number:#x}.");
+                            panic!("Failed to send proof after {} attempts.", max_retries);
+                        }
+                    } else {
+                        error!("Failed to send proof to block {block_number:#x}. Manual intervention required: {e}");
+                        panic!("Failed to send proof to block {block_number:#x}. Manual intervention required: {e}");
+                    }
+                }
             }
         }
 
@@ -341,10 +364,7 @@ impl ProverServer {
         // seal
 
         // extend with block_number
-        let mut block_number_bytes = [0_u8; 32];
-        U256::from(block_number).to_big_endian(&mut block_number_bytes);
-        calldata.extend(block_number_bytes);
-        calldata.extend(H256::from_low_u64_be(32).as_bytes());
+        calldata.extend(H256::from_low_u64_be(block_number).as_bytes());
 
         // extend with size in bytes
         // 4 u256 goes after this field so: 0x80 == 128bytes == 32bytes * 4

@@ -135,7 +135,6 @@ impl Proposer {
 
             let (blob_commitment, blob_proof) = self.prepare_blob_commitment(state_diff.clone())?;
 
-            /*
             match self
                 .send_commitment(
                     block.header.number,
@@ -154,12 +153,9 @@ impl Proposer {
                 }
                 Err(error) => {
                     error!("Failed to send commitment to block {head_block_hash:#x}. Manual intervention required: {error}");
-                    // TODO uncomment
-                    //panic!("Failed to send commitment to block {head_block_hash:#x}. Manual intervention required: {error}");
+                    panic!("Failed to send commitment to block {head_block_hash:#x}. Manual intervention required: {error}");
                 }
             }
-            */
-            info!("MOCK(consumes too much gas) Sent commitment to block {head_block_hash:#x}");
 
             sleep(self.block_production_interval).await;
         }
@@ -424,9 +420,10 @@ impl Proposer {
             nonce: self.eth_client.get_nonce(self.l1_address).await?,
             chain_id: self.eth_client.get_chain_id().await?.as_u64(),
             blob_versioned_hashes: vec![H256::from_slice(&blob_versioned_hash)],
-            max_fee_per_blob_gas: U256::from_dec_str("10000000000").unwrap(),
+            // TODO: blob_gas is too high, it should be set dynamically
+            max_fee_per_blob_gas: U256::from_dec_str("1000000").unwrap(),
             // Should the max_priority_fee_per_gas be dynamic?
-            max_priority_fee_per_gas: 1u64,
+            max_priority_fee_per_gas: 100u64,
             ..Default::default()
         };
 
@@ -498,11 +495,11 @@ async fn send_transaction_with_calldata(
     let mut generic_tx = GenericTransaction::from(tx.clone());
     generic_tx.from = l1_address;
 
-    //tx.gas_limit = eth_client
-    //    .estimate_gas(generic_tx)
-    //    .await?
-    //    .saturating_add(TX_GAS_COST);
-    tx.gas_limit = 100000;
+    tx.gas_limit = eth_client
+        .estimate_gas(generic_tx)
+        .await?
+        .saturating_add(TX_GAS_COST);
+
     eth_client
         .send_eip1559_transaction(&mut tx, l1_private_key)
         .await
