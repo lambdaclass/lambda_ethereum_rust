@@ -53,8 +53,10 @@ pub async fn start_network(
     info!("Listening for requests at {tcp_addr}");
     let local_node_id = node_id_from_signing_key(&signer);
     let table = Arc::new(Mutex::new(KademliaTable::new(local_node_id)));
-    let (channel_broadcast_send_end, _) =
-        tokio::sync::broadcast::channel::<(tokio::task::Id, Arc<RLPXMessage>)>(100);
+    let (channel_broadcast_send_end, _) = tokio::sync::broadcast::channel::<(
+        tokio::task::Id,
+        Arc<RLPXMessage>,
+    )>(MAX_MESSAGES_TO_BROADCAST);
     let discovery_handle = tokio::spawn(discover_peers(
         udp_addr,
         signer.clone(),
@@ -875,16 +877,21 @@ mod tests {
         let storage =
             Store::new("temp.db", EngineType::InMemory).expect("Failed to create test DB");
         let table = Arc::new(Mutex::new(KademliaTable::new(node_id)));
+        let (channel_broadcast_send_end, _) = tokio::sync::broadcast::channel::<(
+            tokio::task::Id,
+            Arc<RLPXMessage>,
+        )>(MAX_MESSAGES_TO_BROADCAST);
         // FIXME: Restore this before opening PR.
-        // if should_start_server {
-        //     tokio::spawn(discover_peers_server(
-        //         addr,
-        //         udp_socket.clone(),
-        //         storage.clone(),
-        //         table.clone(),
-        //         signer.clone(),
-        //     ));
-        // }
+        if should_start_server {
+            tokio::spawn(discover_peers_server(
+                addr,
+                udp_socket.clone(),
+                storage.clone(),
+                table.clone(),
+                signer.clone(),
+                channel_broadcast_send_end
+            ));
+        }
 
         MockServer {
             addr,
