@@ -8,5 +8,5 @@ pub enum TrieError {
     #[error(transparent)]
     RLPDecode(#[from] RLPDecodeError),
     #[error("Verification Error: {0}")]
-    Verify(String)
+    Verify(String),
 }

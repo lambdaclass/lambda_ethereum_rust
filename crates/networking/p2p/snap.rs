@@ -157,9 +157,16 @@ pub fn process_trie_nodes_request(
 
 // Response Processing
 
-fn validate_account_range_response(request: &GetAccountRange, response: &AccountRange) -> Result<(), RLPxError> {
+fn validate_account_range_response(
+    request: &GetAccountRange,
+    response: &AccountRange,
+) -> Result<(), RLPxError> {
     // Reconstruct a partial trie from the response and verify it
-    let (keys, accounts)= response.accounts.iter().map(|unit| (unit.hash, unit.account)).unzip();
+    let (keys, accounts) = response
+        .accounts
+        .iter()
+        .map(|unit| (unit.hash, unit.account))
+        .unzip();
     Ok(())
     // verify_range(origin, keys, accounts, nodes)
 }

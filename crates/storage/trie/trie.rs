@@ -3,10 +3,10 @@ mod encoding;
 mod error;
 mod node;
 mod node_hash;
+mod proof;
 mod rlp;
 mod state;
 mod trie_iter;
-mod proof;
 
 mod nibbles;
 #[cfg(test)]
