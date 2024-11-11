@@ -31,10 +31,10 @@ impl Memory {
     }
 
     pub fn load(&mut self, offset: usize) -> Result<U256, VMError> {
-        self.resize(offset + 32);
+        self.resize(offset.checked_add(32).ok_or(VMError::MemoryLoadOutOfBounds)?);
         let value_bytes: [u8; 32] = self
             .data
-            .get(offset..offset + 32)
+            .get(offset..offset.checked_add(32).ok_or(VMError::MemoryLoadOutOfBounds)?)
             .ok_or(VMError::MemoryLoadOutOfBounds)?
             .try_into()
             .unwrap();
@@ -42,38 +42,42 @@ impl Memory {
     }
 
     pub fn load_range(&mut self, offset: usize, size: usize) -> Result<Vec<u8>, VMError> {
-        self.resize(offset + size);
+        self.resize(offset.checked_add(size).ok_or(VMError::MemoryLoadOutOfBounds)?);
         self.data
-            .get(offset..offset + size)
+            .get(offset..offset.checked_add(size).ok_or(VMError::MemoryLoadOutOfBounds)?)
             .ok_or(VMError::MemoryLoadOutOfBounds)
             .map(|slice| slice.to_vec())
     }
 
-    pub fn store_bytes(&mut self, offset: usize, value: &[u8]) {
+    pub fn store_bytes(&mut self, offset: usize, value: &[u8]) -> Result<(), VMError> {
         let len = value.len();
-        self.resize(offset + len);
+        self.resize(offset.checked_add(len).ok_or(VMError::MemoryLoadOutOfBounds)?);
         self.data
-            .splice(offset..offset + len, value.iter().copied());
+            .splice(offset..offset.checked_add(len).ok_or(VMError::MemoryLoadOutOfBounds)?, value.iter().copied());
+        Ok(())
     }
 
-    pub fn store_n_bytes(&mut self, offset: usize, value: &[u8], size: usize) {
-        self.resize(offset + size);
+    pub fn store_n_bytes(&mut self, offset: usize, value: &[u8], size: usize) -> Result<(), VMError> {
+        self.resize(offset.checked_add(size).ok_or(VMError::MemoryLoadOutOfBounds)?);
         self.data
-            .splice(offset..offset + size, value.iter().copied());
+            .splice(offset..offset.checked_add(size).ok_or(VMError::MemoryLoadOutOfBounds)?, value.iter().copied());
+        Ok(())
     }
 
     pub fn size(&self) -> U256 {
         U256::from(self.data.len())
     }
 
-    pub fn copy(&mut self, src_offset: usize, dest_offset: usize, size: usize) {
-        let max_size = std::cmp::max(src_offset + size, dest_offset + size);
+    pub fn copy(&mut self, src_offset: usize, dest_offset: usize, size: usize) -> Result<(), VMError> {
+        let max_size = std::cmp::max(src_offset.checked_add(size).ok_or(VMError::MemoryLoadOutOfBounds)?, dest_offset.checked_add(size).ok_or(VMError::MemoryLoadOutOfBounds)?);
         self.resize(max_size);
         let mut temp = vec![0u8; size];
 
-        temp.copy_from_slice(&self.data[src_offset..src_offset + size]);
+        temp.copy_from_slice(&self.data[src_offset..src_offset.checked_add(size).ok_or(VMError::MemoryLoadOutOfBounds)?]);
 
-        self.data[dest_offset..dest_offset + size].copy_from_slice(&temp);
+        self.data[dest_offset..dest_offset.checked_add(size).ok_or(VMError::MemoryLoadOutOfBounds)?].copy_from_slice(&temp);
+
+        Ok(())
     }
 
     pub fn expansion_cost(&self, memory_byte_size: usize) -> Result<U256, VMError> {

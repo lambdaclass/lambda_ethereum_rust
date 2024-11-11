@@ -506,6 +506,7 @@ impl VM {
         ret_offset: usize,
         ret_size: usize,
     ) -> Result<OpcodeSuccess, VMError> {
+        println!("Inside generic call");
         let mut sender_account = self.get_account(&current_call_frame.msg_sender);
 
         if sender_account.info.balance < value {
@@ -555,9 +556,10 @@ impl VM {
         );
 
         // TODO: Increase this to 1024
-        if new_call_frame.depth > 100 {
+        if new_call_frame.depth > 10 {
             current_call_frame.stack.push(U256::from(REVERT_FOR_CALL))?;
-            return Ok(OpcodeSuccess::Result(ResultReason::Revert));
+            // return Ok(OpcodeSuccess::Result(ResultReason::Revert));
+            return Err(VMError::OutOfGas); // This is wrong but it is for testing purposes.
         }
 
         current_call_frame.sub_return_data_offset = ret_offset;
@@ -575,7 +577,7 @@ impl VM {
         current_call_frame.logs.extend(tx_report.logs);
         current_call_frame
             .memory
-            .store_n_bytes(ret_offset, &tx_report.output, ret_size);
+            .store_n_bytes(ret_offset, &tx_report.output, ret_size)?;
         current_call_frame.sub_return_data = tx_report.output;
 
         // What to do, depending on TxResult
@@ -640,7 +642,7 @@ impl VM {
         salt: Option<U256>,
         current_call_frame: &mut CallFrame,
     ) -> Result<OpcodeSuccess, VMError> {
-        
+        return Err(VMError::OutOfGas);
 
         let code_size_in_memory = code_size_in_memory
             .try_into()

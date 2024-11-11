@@ -1792,7 +1792,7 @@ fn nested_calls() {
     let success = current_call_frame.stack.pop().unwrap();
     assert_eq!(success, U256::one());
 
-    let ret_offset = 0;
+    let ret_offset: usize = 0;
     let ret_size = 64;
     let return_data = current_call_frame
         .sub_return_data

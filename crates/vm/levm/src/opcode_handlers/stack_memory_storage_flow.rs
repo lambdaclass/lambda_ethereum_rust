@@ -98,7 +98,7 @@ impl VM {
         let mut value_bytes = [0u8; WORD_SIZE];
         value.to_big_endian(&mut value_bytes);
 
-        current_call_frame.memory.store_bytes(offset, &value_bytes);
+        current_call_frame.memory.store_bytes(offset, &value_bytes)?;
 
         Ok(OpcodeSuccess::Continue)
     }
@@ -120,7 +120,7 @@ impl VM {
 
         current_call_frame
             .memory
-            .store_bytes(offset, value_bytes[WORD_SIZE - 1..WORD_SIZE].as_ref());
+            .store_bytes(offset, value_bytes[WORD_SIZE - 1..WORD_SIZE].as_ref())?;
 
         Ok(OpcodeSuccess::Continue)
     }
@@ -281,7 +281,7 @@ impl VM {
         if size > 0 {
             current_call_frame
                 .memory
-                .copy(src_offset, dest_offset, size);
+                .copy(src_offset, dest_offset, size)?;
         }
 
         Ok(OpcodeSuccess::Continue)
