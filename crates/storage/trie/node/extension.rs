@@ -473,4 +473,60 @@ mod test {
             ],
         );
     }
+
+    #[test]
+    fn symmetric_encoding_a() {
+        let mut trie = Trie::new_temp();
+        let node: Node = pmt_node! { @(trie)
+            extension { [0], branch {
+                0 => leaf { vec![16] => vec![0x12, 0x34, 0x56, 0x78] },
+                1 => leaf { vec![16] => vec![0x34, 0x56, 0x78, 0x9A] },
+            } }
+        }
+        .into();
+        assert_eq!(Node::decode_raw(&node.encode_raw()).unwrap(), node)
+    }
+
+    #[test]
+    fn symmetric_encoding_b() {
+        let mut trie = Trie::new_temp();
+        let node: Node = pmt_node! { @(trie)
+            extension { [0], branch {
+                0 => leaf { vec![16] => vec![0x00] },
+                1 => extension { [0], branch {
+                    0 => leaf { vec![16] => vec![0x01, 0x00] },
+                    1 => leaf { vec![16] => vec![0x01, 0x01] },
+                } },
+            } }
+        }
+        .into();
+
+        assert_eq!(Node::decode_raw(&node.encode_raw()).unwrap(), node)
+    }
+
+    #[test]
+    fn symmetric_encoding_c() {
+        let mut trie = Trie::new_temp();
+        let node: Node = pmt_node! { @(trie)
+            extension { [0], branch {
+                0 => leaf { vec![16] => vec![0x00] },
+                1 => extension { [0], branch {
+                    0 => leaf { vec![16] => vec![0x01, 0x00] },
+                    1 => leaf { vec![16] => vec![0x01, 0x01] },
+                    2 => leaf { vec![16] => vec![0x01, 0x00] },
+                    3 => leaf { vec![16] => vec![0x03, 0x01] },
+                    4 => leaf { vec![16] => vec![0x04, 0x00] },
+                    5 => leaf { vec![16] => vec![0x05, 0x01] },
+                    6 => leaf { vec![16] => vec![0x06, 0x00] },
+                    7 => leaf { vec![16] => vec![0x07, 0x01] },
+                    8 => leaf { vec![16] => vec![0x08, 0x00] },
+                    9 => leaf { vec![16] => vec![0x09, 0x01] },
+                    10 => leaf { vec![16] => vec![0x10, 0x00] },
+                    11 => leaf { vec![16] => vec![0x11, 0x01] },
+                } },
+            } }
+        }
+        .into();
+        assert_eq!(Node::decode_raw(&node.encode_raw()).unwrap(), node)
+    }
 }
