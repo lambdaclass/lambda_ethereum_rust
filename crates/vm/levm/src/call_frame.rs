@@ -1,4 +1,9 @@
-use crate::{constants::STACK_LIMIT, errors::VMError, memory::Memory, opcodes::Opcode};
+use crate::{
+    constants::STACK_LIMIT,
+    errors::{InternalError, VMError},
+    memory::Memory,
+    opcodes::Opcode,
+};
 use bytes::Bytes;
 use ethereum_rust_core::{types::Log, Address, U256};
 use std::collections::HashMap;
@@ -121,7 +126,10 @@ impl CallFrame {
     }
 
     pub fn increment_pc_by(&mut self, count: usize) -> Result<(), VMError> {
-        self.pc = self.pc.checked_add(count).ok_or(VMError::PCOverflow)?;
+        self.pc = self
+            .pc
+            .checked_add(count)
+            .ok_or(VMError::Internal(InternalError::PCOverflowed))?;
         Ok(())
     }
 

@@ -4,7 +4,7 @@ use crate::{
         call_opcode::{COLD_ADDRESS_ACCESS_COST, WARM_ADDRESS_ACCESS_COST},
         gas_cost, WORD_SIZE,
     },
-    errors::{OpcodeSuccess, VMError},
+    errors::{InternalError, OpcodeSuccess, VMError},
     vm::{word_to_address, VM},
 };
 use bytes::Bytes;
@@ -164,14 +164,14 @@ impl VM {
 
         let minimum_word_size = (size
             .checked_add(WORD_SIZE)
-            .ok_or(VMError::DataSizeOverflow)?
+            .ok_or(VMError::Internal(InternalError::ArithmeticOperationOverflow))?
             .saturating_sub(1))
             / WORD_SIZE;
 
         let memory_expansion_cost = current_call_frame.memory.expansion_cost(
             dest_offset
                 .checked_add(size)
-                .ok_or(VMError::OffsetOverflow)?,
+                .ok_or(VMError::Internal(InternalError::ArithmeticOperationOverflow))?,
         )?;
 
         let minimum_word_size_cost = gas_cost::CALLDATACOPY_DYNAMIC_BASE
@@ -221,7 +221,7 @@ impl VM {
             .env
             .consumed_gas
             .checked_add(gas_cost::CODESIZE)
-            .ok_or(VMError::ConsumedGasOverflow)?
+            .ok_or(VMError::OutOfGas)?
             > self.env.gas_limit
         {
             return Err(VMError::OutOfGas);
@@ -259,14 +259,14 @@ impl VM {
 
         let minimum_word_size = (size
             .checked_add(WORD_SIZE)
-            .ok_or(VMError::DataSizeOverflow)?
+            .ok_or(VMError::Internal(InternalError::ArithmeticOperationOverflow))?
             .saturating_sub(1))
             / WORD_SIZE;
 
         let memory_expansion_cost = current_call_frame.memory.expansion_cost(
             dest_offset
                 .checked_add(size)
-                .ok_or(VMError::OffsetOverflow)?,
+                .ok_or(VMError::Internal(InternalError::ArithmeticOperationOverflow))?,
         )?;
 
         let minimum_word_size_cost = gas_cost::CODECOPY_DYNAMIC_BASE
@@ -284,7 +284,7 @@ impl VM {
         let code = if offset < bytecode_len {
             current_call_frame.bytecode.slice(
                 offset
-                    ..(offset.checked_add(size).ok_or(VMError::OffsetOverflow)?).min(bytecode_len),
+                    ..(offset.checked_add(size).ok_or(VMError::Internal(InternalError::ArithmeticOperationOverflow))?).min(bytecode_len),
             )
         } else {
             vec![0u8; size].into()
@@ -357,14 +357,14 @@ impl VM {
 
         let minimum_word_size = (size
             .checked_add(WORD_SIZE)
-            .ok_or(VMError::DataSizeOverflow)?
+            .ok_or(VMError::Internal(InternalError::ArithmeticOperationOverflow))?
             .saturating_sub(1))
             / WORD_SIZE;
 
         let memory_expansion_cost = current_call_frame.memory.expansion_cost(
             dest_offset
                 .checked_add(size)
-                .ok_or(VMError::OffsetOverflow)?,
+                .ok_or(VMError::Internal(InternalError::ArithmeticOperationOverflow))?,
         )?;
         let minimum_word_size_cost = gas_cost::EXTCODECOPY_DYNAMIC_BASE
             .checked_add(minimum_word_size.into())
@@ -398,7 +398,7 @@ impl VM {
             .bytecode
             .clone();
 
-        let new_offset = offset.checked_add(size).ok_or(VMError::OffsetOverflow)?;
+        let new_offset = offset.checked_add(size).ok_or(VMError::Internal(InternalError::ArithmeticOperationOverflow))?;
 
         if bytecode.len() < new_offset {
             let mut extended_code = bytecode.to_vec();
@@ -449,13 +449,13 @@ impl VM {
 
         let minimum_word_size = (size
             .checked_add(WORD_SIZE)
-            .ok_or(VMError::DataSizeOverflow)?
+            .ok_or(VMError::Internal(InternalError::ArithmeticOperationOverflow))?
             .saturating_sub(1))
             / WORD_SIZE;
         let memory_expansion_cost = current_call_frame.memory.expansion_cost(
             dest_offset
                 .checked_add(size)
-                .ok_or(VMError::OffsetOverflow)?,
+                .ok_or(VMError::Internal(InternalError::ArithmeticOperationOverflow))?,
         )?;
         let minumum_word_size_cost = gas_cost::RETURNDATACOPY_DYNAMIC_BASE
             .checked_mul(minimum_word_size.into())
@@ -478,7 +478,7 @@ impl VM {
                 returndata_offset
                     ..(returndata_offset
                         .checked_add(size)
-                        .ok_or(VMError::OffsetOverflow)?)
+                        .ok_or(VMError::Internal(InternalError::ArithmeticOperationOverflow))?)
                     .min(sub_return_data_len),
             )
         } else {

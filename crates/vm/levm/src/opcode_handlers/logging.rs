@@ -4,7 +4,7 @@
 use crate::{
     call_frame::CallFrame,
     constants::gas_cost,
-    errors::{OpcodeSuccess, VMError},
+    errors::{InternalError, OpcodeSuccess, VMError},
     opcodes::Opcode,
     vm::VM,
 };
@@ -46,7 +46,7 @@ impl VM {
 
         let memory_expansion_cost = current_call_frame
             .memory
-            .expansion_cost(offset.checked_add(size).ok_or(VMError::OffsetOverflow)?)?;
+            .expansion_cost(offset.checked_add(size).ok_or(VMError::Internal(InternalError::ArithmeticOperationOverflow))?)?;
 
         let topics_cost = gas_cost::LOGN_DYNAMIC_BASE
             .checked_mul(number_of_topics.into())

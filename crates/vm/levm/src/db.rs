@@ -1,6 +1,6 @@
 use crate::{
     account::{Account, AccountInfo, StorageSlot},
-    errors::VMError,
+    errors::{InternalError, VMError},
 };
 use ethereum_rust_core::{Address, H256, U256};
 use std::collections::HashMap;
@@ -111,7 +111,7 @@ impl Cache {
                 .info
                 .nonce
                 .checked_add(1)
-                .ok_or(VMError::NonceOverflow)?;
+                .ok_or(VMError::Internal(InternalError::NonceOverflowed))?;
         }
         Ok(())
     }

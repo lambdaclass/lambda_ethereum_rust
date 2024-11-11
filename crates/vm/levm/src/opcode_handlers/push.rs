@@ -1,7 +1,7 @@
 use crate::{
     call_frame::CallFrame,
     constants::gas_cost,
-    errors::{OpcodeSuccess, VMError},
+    errors::{InternalError, OpcodeSuccess, VMError},
     opcodes::Opcode,
     vm::VM,
 };
@@ -32,7 +32,7 @@ impl VM {
                     ..current_call_frame
                         .pc()
                         .checked_add(n_bytes as usize)
-                        .ok_or(VMError::PCOverflow)?,
+                        .ok_or(VMError::Internal(InternalError::PCOverflowed))?,
             )
             .ok_or(VMError::InvalidBytecode)?; // This shouldn't happen during execution
 

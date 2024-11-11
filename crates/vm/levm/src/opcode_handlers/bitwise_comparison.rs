@@ -1,7 +1,7 @@
 use crate::{
     call_frame::CallFrame,
     constants::{gas_cost, WORD_SIZE},
-    errors::{OpcodeSuccess, VMError},
+    errors::{InternalError, OpcodeSuccess, VMError},
     vm::VM,
 };
 use ethereum_rust_core::U256;
@@ -171,9 +171,9 @@ impl VM {
         if byte_index < WORD_SIZE {
             let byte_to_push = WORD_SIZE
                 .checked_sub(byte_index)
-                .ok_or(VMError::IndexIsTooHigh)?
+                .ok_or(VMError::Internal(InternalError::ArithmeticOperationUnderflow))?
                 .checked_sub(1)
-                .ok_or(VMError::IndexIsTooHigh)?; // Same case as above
+                .ok_or(VMError::Internal(InternalError::ArithmeticOperationUnderflow))?; // Same case as above
             current_call_frame
                 .stack
                 .push(U256::from(op2.byte(byte_to_push)))?;
@@ -240,9 +240,9 @@ pub fn arithmetic_shift_right(value: U256, shift: U256) -> Result<U256, VMError>
         let shifted = checked_shift_right(value, shift)?;
         let mask = checked_shift_left(
             U256::MAX,
-            U256::from(256)
-                .checked_sub(shift)
-                .ok_or(VMError::Internal)?, // Note that this is already checked in op_sar
+            U256::from(256).checked_sub(shift).ok_or(VMError::Internal(
+                InternalError::ArithmeticOperationUnderflow,
+            ))?, // Note that this is already checked in op_sar
         )?;
 
         Ok(shifted | mask)
@@ -264,18 +264,20 @@ pub fn checked_shift_left(value: U256, shift: U256) -> Result<U256, VMError> {
             None => {
                 let only_most_representative_bit_on = U256::from(2)
                     .checked_pow(U256::from(255))
-                    .ok_or(VMError::OverflowInArithmeticOp)?;
-                let partial_result = result
-                    .checked_sub(only_most_representative_bit_on)
-                    .ok_or(VMError::Internal)?; //Should not happen bc checked_mul overflows
+                    .ok_or(VMError::Internal(InternalError::ArithmeticOperationOverflow))?;
+                let partial_result = result.checked_sub(only_most_representative_bit_on).ok_or(
+                    VMError::Internal(InternalError::ArithmeticOperationUnderflow),
+                )?; //Should not happen bc checked_mul overflows
                 partial_result
                     .checked_mul(2.into())
-                    .ok_or(VMError::OverflowInArithmeticOp)?
+                    .ok_or(VMError::Internal(InternalError::ArithmeticOperationOverflow))?
             }
         };
         shifts_left = shifts_left
             .checked_sub(U256::one())
-            .ok_or(VMError::Internal)?; // Should not reach negative values
+            .ok_or(VMError::Internal(
+                InternalError::ArithmeticOperationUnderflow,
+            ))?; // Should not reach negative values
     }
 
     Ok(result)
@@ -287,10 +289,14 @@ fn checked_shift_right(value: U256, shift: U256) -> Result<U256, VMError> {
     let mut shifts_left = shift;
 
     while shifts_left > U256::zero() {
-        result = result.checked_div(U256::from(2)).ok_or(VMError::Internal)?; // '2' will never be zero
+        result = result.checked_div(U256::from(2)).ok_or(VMError::Internal(
+            InternalError::ArithmeticOperationDividedByZero,
+        ))?; // '2' will never be zero
         shifts_left = shifts_left
             .checked_sub(U256::one())
-            .ok_or(VMError::Internal)?; // Should not reach negative values
+            .ok_or(VMError::Internal(
+                InternalError::ArithmeticOperationUnderflow,
+            ))?; // Should not reach negative values
     }
 
     Ok(result)

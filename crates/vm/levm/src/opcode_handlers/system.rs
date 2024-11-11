@@ -1,7 +1,7 @@
 use crate::{
     call_frame::CallFrame,
     constants::{call_opcode, gas_cost, SUCCESS_FOR_RETURN},
-    errors::{OpcodeSuccess, ResultReason, VMError},
+    errors::{InternalError, OpcodeSuccess, ResultReason, VMError},
     vm::{word_to_address, VM},
 };
 use ethereum_rust_core::{types::TxKind, U256};
@@ -45,18 +45,20 @@ impl VM {
 
         let memory_byte_size = args_size
             .checked_add(args_offset)
-            .ok_or(VMError::DataSizeOverflow)?
+            .ok_or(VMError::Internal(InternalError::ArithmeticOperationOverflow))?
             .max(
                 ret_size
                     .checked_add(ret_offset)
-                    .ok_or(VMError::DataSizeOverflow)?,
+                    .ok_or(VMError::Internal(InternalError::ArithmeticOperationOverflow))?,
             );
         let memory_expansion_cost = current_call_frame.memory.expansion_cost(memory_byte_size)?;
 
         let positive_value_cost = if !value.is_zero() {
             call_opcode::NON_ZERO_VALUE_COST
                 .checked_add(call_opcode::BASIC_FALLBACK_FUNCTION_STIPEND)
-                .ok_or(VMError::Internal)?
+                .ok_or(VMError::Internal(
+                    InternalError::ArithmeticOperationOverflow,
+                ))?
         } else {
             U256::zero()
         };
@@ -174,7 +176,7 @@ impl VM {
 
         let gas_cost = current_call_frame
             .memory
-            .expansion_cost(offset.checked_add(size).ok_or(VMError::OffsetOverflow)?)?;
+            .expansion_cost(offset.checked_add(size).ok_or(VMError::Internal(InternalError::ArithmeticOperationOverflow))?)?;
 
         self.increase_consumed_gas(current_call_frame, gas_cost)?;
 
@@ -341,7 +343,7 @@ impl VM {
 
         let gas_cost = current_call_frame
             .memory
-            .expansion_cost(offset.checked_add(size).ok_or(VMError::OffsetOverflow)?)?;
+            .expansion_cost(offset.checked_add(size).ok_or(VMError::Internal(InternalError::ArithmeticOperationOverflow))?)?;
 
         self.increase_consumed_gas(current_call_frame, gas_cost)?;
 

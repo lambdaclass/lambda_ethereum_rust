@@ -1,7 +1,7 @@
 use crate::{
     call_frame::CallFrame,
     constants::gas_cost,
-    errors::{OpcodeSuccess, VMError},
+    errors::{InternalError, OpcodeSuccess, VMError},
     opcode_handlers::bitwise_comparison::checked_shift_left,
     vm::VM,
 };
@@ -118,7 +118,9 @@ impl VM {
             current_call_frame.stack.push(U256::zero())?;
             return Ok(OpcodeSuccess::Continue);
         }
-        let remainder = dividend.checked_rem(divisor).ok_or(VMError::Internal)?; // Cannot be zero bc if above;
+        let remainder = dividend.checked_rem(divisor).ok_or(VMError::Internal(
+            InternalError::ArithmeticOperationDividedByZero,
+        ))?; // Cannot be zero bc if above;
         current_call_frame.stack.push(remainder)?;
 
         Ok(OpcodeSuccess::Continue)
@@ -139,9 +141,12 @@ impl VM {
             let normalized_dividend = abs(dividend);
             let normalized_divisor = abs(divisor);
 
-            let mut remainder = normalized_dividend
-                .checked_rem(normalized_divisor)
-                .ok_or(VMError::Internal)?; // Cannot be zero bc if above;
+            let mut remainder =
+                normalized_dividend
+                    .checked_rem(normalized_divisor)
+                    .ok_or(VMError::Internal(
+                        InternalError::ArithmeticOperationDividedByZero,
+                    ))?; // Cannot be zero bc if above;
 
             // The remainder should have the same sign as the dividend
             if is_negative(dividend) {
@@ -169,7 +174,9 @@ impl VM {
             return Ok(OpcodeSuccess::Continue);
         }
         let (sum, overflow) = augend.overflowing_add(addend);
-        let mut remainder = sum.checked_rem(divisor).ok_or(VMError::Internal)?; // Cannot be zero bc if above;
+        let mut remainder = sum.checked_rem(divisor).ok_or(VMError::Internal(
+            InternalError::ArithmeticOperationDividedByZero,
+        ))?; // Cannot be zero bc if above;
         if overflow || remainder > divisor {
             remainder = remainder.overflowing_sub(divisor).0;
         }
@@ -195,7 +202,9 @@ impl VM {
         }
 
         let (product, overflow) = multiplicand.overflowing_mul(multiplier);
-        let mut remainder = product.checked_rem(divisor).ok_or(VMError::Internal)?; // Cannot be zero bc if above
+        let mut remainder = product.checked_rem(divisor).ok_or(VMError::Internal(
+            InternalError::ArithmeticOperationDividedByZero,
+        ))?; // Cannot be zero bc if above
         if overflow || remainder > divisor {
             remainder = remainder.overflowing_sub(divisor).0;
         }
@@ -221,7 +230,7 @@ impl VM {
         let exponent_byte_size = (exponent
             .bits()
             .checked_add(7)
-            .ok_or(VMError::DataSizeOverflow)? as u64)
+            .ok_or(VMError::Internal(InternalError::ArithmeticOperationOverflow))? as u64)
             / 8;
         let exponent_byte_size_cost = gas_cost::EXP_DYNAMIC_BASE
             .checked_mul(exponent_byte_size.into())
@@ -256,15 +265,17 @@ impl VM {
 
         let total_bits = bits_per_byte
             .checked_mul(byte_size)
-            .ok_or(VMError::DataSizeOverflow)?;
+            .ok_or(VMError::Internal(InternalError::ArithmeticOperationOverflow))?;
         let sign_bit_index = total_bits
             .checked_add(sign_bit_position_on_byte.into())
-            .ok_or(VMError::DataSizeOverflow)?;
+            .ok_or(VMError::Internal(InternalError::ArithmeticOperationOverflow))?;
 
         let is_negative = value_to_extend.bit(sign_bit_index.as_usize());
         let sign_bit_mask = checked_shift_left(U256::one(), sign_bit_index)?
             .checked_sub(U256::one())
-            .ok_or(VMError::Internal)?; //Shifted should be at least one
+            .ok_or(VMError::Internal(
+                InternalError::ArithmeticOperationUnderflow,
+            ))?; //Shifted should be at least one
 
         let result = if is_negative {
             value_to_extend | !sign_bit_mask

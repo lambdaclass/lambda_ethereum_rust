@@ -4,7 +4,7 @@ use crate::{
     constants::*,
     db::{Cache, Database},
     environment::Environment,
-    errors::{OpcodeSuccess, ResultReason, TransactionReport, TxResult, VMError},
+    errors::{InternalError, OpcodeSuccess, ResultReason, TransactionReport, TxResult, VMError},
     opcodes::Opcode,
 };
 use bytes::Bytes;
@@ -143,9 +143,7 @@ impl VM {
 
         loop {
             let opcode = match current_call_frame.next_opcode() {
-                Ok(opt) => {
-                    opt.unwrap_or(Opcode::STOP)
-                },
+                Ok(opt) => opt.unwrap_or(Opcode::STOP),
                 Err(e) => {
                     return TransactionReport {
                         result: TxResult::Revert(e),
@@ -158,7 +156,7 @@ impl VM {
                     };
                 }
             };
-            
+
             // Note: these are commented because they're still being used in development.
             // dbg!(&current_call_frame.gas_used);
             // dbg!(&opcode);
@@ -360,7 +358,7 @@ impl VM {
             .info
             .nonce
             .checked_add(1)
-            .ok_or(VMError::NonceOverflow)?;
+            .ok_or(VMError::Internal(InternalError::NonceOverflowed))?;
 
         // (4)
         if sender_account.has_code() {
@@ -403,7 +401,7 @@ impl VM {
             .info
             .nonce
             .checked_sub(1)
-            .ok_or(VMError::NonceUnderflow)?;
+            .ok_or(VMError::Internal(InternalError::NonceUnderflowed))?;
 
         let new_contract_address = self.call_frames.first().unwrap().to;
 
@@ -492,7 +490,7 @@ impl VM {
                 .checked_add(
                     number_of_words
                         .checked_mul(2)
-                        .ok_or(VMError::VeryLargeNumber)?,
+                        .ok_or(VMError::Internal(InternalError::ArithmeticOperationOverflow))?,
                 )
                 .ok_or(VMError::GasUsedOverflow)?;
 
@@ -610,11 +608,9 @@ impl VM {
             .checked_sub(current_call_frame.gas_used)
             .ok_or(VMError::RemainingGasUnderflow)?;
         potential_remaining_gas = potential_remaining_gas
-            .checked_sub(
-                potential_remaining_gas
-                    .checked_div(64.into())
-                    .ok_or(VMError::Internal)?,
-            )
+            .checked_sub(potential_remaining_gas.checked_div(64.into()).ok_or(
+                VMError::Internal(InternalError::ArithmeticOperationOverflow),
+            )?)
             .ok_or(VMError::RemainingGasUnderflow)?;
         let gas_limit = std::cmp::min(gas_limit, potential_remaining_gas);
 
