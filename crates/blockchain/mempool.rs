@@ -168,9 +168,6 @@ fn validate_transaction(tx: &Transaction, store: Store) -> Result<(), MempoolErr
     let header_no = store
         .get_latest_block_number()?
         .ok_or(MempoolError::NoBlockHeaderError)?;
-    let block_header = store
-        .get_block_header(header_no)?
-        .ok_or(MempoolError::NoBlockHeaderError)?;
     let header = store
         .get_block_header(header_no)?
         .ok_or(MempoolError::NoBlockHeaderError)?;
@@ -217,7 +214,7 @@ fn validate_transaction(tx: &Transaction, store: Store) -> Result<(), MempoolErr
         }
 
         let effective_gas_price: U256 = tx
-            .effective_gas_price(block_header.base_fee_per_gas)
+            .effective_gas_price(header.base_fee_per_gas)
             .ok_or(MempoolError::InvalidTxGasvalues)?
             .into();
         let gas_limit = U256::from(tx.gas_limit());
