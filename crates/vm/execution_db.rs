@@ -13,12 +13,11 @@ use revm::{
         AccountInfo as RevmAccountInfo, Address as RevmAddress, Bytecode as RevmBytecode,
         B256 as RevmB256, U256 as RevmU256,
     },
-    Database, DatabaseRef,
+    DatabaseRef,
 };
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    db::StoreWrapper,
     errors::{ExecutionDBError, StateProofsError},
     evm_state, execute_block, get_state_transitions,
 };
