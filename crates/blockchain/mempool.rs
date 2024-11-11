@@ -312,10 +312,7 @@ mod tests {
         TX_DATA_ZERO_GAS_COST, TX_GAS_COST, TX_INIT_CODE_WORD_GAS_COST,
     };
 
-    use super::{
-        add_transaction, get_transaction, transaction_intrinsic_gas, validate_blobs_bundle,
-        validate_transaction,
-    };
+    use super::{transaction_intrinsic_gas, validate_blobs_bundle, validate_transaction};
     use ethereum_rust_core::types::{
         BlobsBundle, BlockHeader, ChainConfig, EIP1559Transaction, EIP4844Transaction, Transaction,
         TxKind, BYTES_PER_BLOB,
