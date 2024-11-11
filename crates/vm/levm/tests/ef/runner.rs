@@ -53,15 +53,15 @@ pub fn run_ef_tests() -> Result<EFTestsReport, Box<dyn Error>> {
 
 pub fn run_ef_test(test: EFTest, report: &mut EFTestsReport) -> Result<(), Box<dyn Error>> {
     dbg!(&test.name);
-    let mut evm = prepare_vm(&test);
+    let mut evm = prepare_vm(&test, report)?;
     ensure_pre_state(&evm, &test, report)?;
     let execution_result = evm.transact();
     ensure_post_state(execution_result, &evm, &test, report)?;
     Ok(())
 }
 
-pub fn prepare_vm(test: &EFTest) -> VM {
-    VM::new(
+pub fn prepare_vm(test: &EFTest, report: &mut EFTestsReport) -> Result<VM, Box<dyn Error>> {
+    let vm_result = VM::new(
         test.transaction.to.clone(),
         Environment {
             origin: test.transaction.sender,
@@ -83,7 +83,16 @@ pub fn prepare_vm(test: &EFTest) -> VM {
         test.transaction.data.first().unwrap().clone(),
         Arc::new(Db::from(test)),
         Cache::default(),
-    )
+    );
+
+    match vm_result {
+        Ok(vm) => Ok(vm),
+        Err(err) => {
+            let error_reason = format!("VM initialization failed: {err:?}");
+            report.register_fail(&test.name, &error_reason);
+            Err(error_reason.into())
+        }
+    }
 }
 
 pub fn ensure_pre_state(
