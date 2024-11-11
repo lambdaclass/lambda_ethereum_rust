@@ -193,17 +193,21 @@ impl<S: AsyncWrite + AsyncRead + std::marker::Unpin> RLPxConnection<S> {
 
     async fn handle_message(&mut self, message: Message) -> Result<(), RLPxError> {
         match message {
-            // TODO: implement handlers for each message type
-            // https://github.com/lambdaclass/lambda_ethereum_rust/issues/1030
-            Message::Disconnect(_) => info!("Received Disconnect"),
+            Message::Disconnect(msg_data) => {
+                info!("Received Disconnect: {:?}", msg_data.reason);
+                // Returning a Disonnect error to be handled later at the call stack
+                return Err(RLPxError::Disconnect());
+            }
             Message::Ping(_) => {
                 info!("Received Ping");
                 self.send(Message::Pong(PongMessage {})).await?;
                 info!("Pong sent");
             }
             Message::Pong(_) => {
-                // Ignore received Pong messages
+                // We ignore received Pong messages
             }
+            // Implmenent Status vaidations
+            // https://github.com/lambdaclass/lambda_ethereum_rust/issues/420
             Message::Status(_) => info!("Received Status"),
             Message::GetAccountRange(req) => {
                 let response = process_account_range_request(req, self.storage.clone())?;

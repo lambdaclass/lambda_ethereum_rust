@@ -11,6 +11,8 @@ pub(crate) enum RLPxError {
     ConnectionError(String),
     #[error("Invalid connection state")]
     InvalidState(),
+    #[error("Disconnect received")]
+    Disconnect(),
     #[error("Not Found: {0}")]
     NotFound(String),
     #[error("Invalid peer id")]
