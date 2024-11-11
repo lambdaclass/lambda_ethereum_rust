@@ -142,7 +142,7 @@ impl EthClient {
                 .gas_price
                 .unwrap_or(self.get_gas_price().await?.as_u64()),
             // Should the max_priority_fee_per_gas be dynamic?
-            max_priority_fee_per_gas: 10u64,
+            max_priority_fee_per_gas: 100u64,
             ..Default::default()
         };
         tx.gas_limit = overrides

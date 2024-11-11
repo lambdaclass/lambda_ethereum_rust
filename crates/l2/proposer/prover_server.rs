@@ -29,7 +29,7 @@ pub struct ProverInputData {
 }
 
 use crate::{
-    proposer::{send_transaction_with_calldata, GLOBAL_NONCE_COUNT},
+    proposer::send_transaction_with_calldata,
     utils::{
         config::{eth::EthConfig, proposer::ProposerConfig, prover_server::ProverServerConfig},
         eth_client::EthClient,
@@ -95,8 +95,8 @@ struct ProverServer {
     store: Store,
     eth_client: EthClient,
     on_chain_proposer_address: Address,
-    l1_address: Address,
-    l1_private_key: SecretKey,
+    verifier_address: Address,
+    verifier_private_key: SecretKey,
     latest_proven_block: u64,
 }
 
@@ -113,8 +113,8 @@ impl ProverServer {
             store,
             eth_client: EthClient::new(&eth_config.rpc_url),
             on_chain_proposer_address: proposer_config.on_chain_proposer_address,
-            l1_address: proposer_config.l1_address,
-            l1_private_key: proposer_config.l1_private_key,
+            verifier_address: config.verifier_address,
+            verifier_private_key: config.verifier_private_key,
             latest_proven_block: 0,
         }
     }
@@ -384,12 +384,16 @@ impl ProverServer {
         let leading_zeros = 32 - ((calldata.len() - 4) % 32);
         calldata.extend(vec![0; leading_zeros]);
 
+        let nonce = self.eth_client.get_nonce(self.verifier_address).await?;
+
+        info!("Sending Verify Tx with nonce: {nonce}");
+
         let verify_tx_hash = send_transaction_with_calldata(
             &self.eth_client,
-            self.l1_address,
-            self.l1_private_key,
+            self.verifier_address,
+            self.verifier_private_key,
             self.on_chain_proposer_address,
-            Some(GLOBAL_NONCE_COUNT.fetch_add(1, std::sync::atomic::Ordering::AcqRel)),
+            Some(nonce),
             calldata.into(),
         )
         .await?;
