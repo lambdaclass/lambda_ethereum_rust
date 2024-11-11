@@ -31,18 +31,16 @@ impl Memory {
     }
 
     pub fn load(&mut self, offset: usize) -> Result<U256, VMError> {
-        self.resize(
-            offset
-                .checked_add(WORD_SIZE)
-                .ok_or(VMError::Internal(InternalError::ArithmeticOperationOverflow))?,
-        );
+        self.resize(offset.checked_add(WORD_SIZE).ok_or(VMError::Internal(
+            InternalError::ArithmeticOperationOverflow,
+        ))?);
         let value_bytes: [u8; WORD_SIZE] = self
             .data
             .get(
                 offset
-                    ..offset
-                        .checked_add(WORD_SIZE)
-                        .ok_or(VMError::Internal(InternalError::ArithmeticOperationOverflow))?,
+                    ..offset.checked_add(WORD_SIZE).ok_or(VMError::Internal(
+                        InternalError::ArithmeticOperationOverflow,
+                    ))?,
             )
             .ok_or(VMError::MemoryLoadOutOfBounds)?
             .try_into()
@@ -51,7 +49,9 @@ impl Memory {
     }
 
     pub fn load_range(&mut self, offset: usize, size: usize) -> Result<Vec<u8>, VMError> {
-        let size_to_load = offset.checked_add(size).ok_or(VMError::Internal(InternalError::ArithmeticOperationOverflow))?;
+        let size_to_load = offset.checked_add(size).ok_or(VMError::Internal(
+            InternalError::ArithmeticOperationOverflow,
+        ))?;
         self.resize(size_to_load);
         self.data
             .get(offset..size_to_load)
@@ -62,7 +62,9 @@ impl Memory {
     pub fn store_bytes(&mut self, offset: usize, value: &[u8]) -> Result<(), VMError> {
         let len = value.len();
         let data_len = self.data.len();
-        let size_to_store = offset.checked_add(len).ok_or(VMError::Internal(InternalError::ArithmeticOperationOverflow))?;
+        let size_to_store = offset.checked_add(len).ok_or(VMError::Internal(
+            InternalError::ArithmeticOperationOverflow,
+        ))?;
         if data_len < offset || data_len < size_to_store {
             return Err(VMError::MemoryStoreOutOfBounds);
         }
@@ -78,7 +80,9 @@ impl Memory {
         value: &[u8],
         size: usize,
     ) -> Result<(), VMError> {
-        let size_to_store = offset.checked_add(size).ok_or(VMError::Internal(InternalError::ArithmeticOperationOverflow))?;
+        let size_to_store = offset.checked_add(size).ok_or(VMError::Internal(
+            InternalError::ArithmeticOperationOverflow,
+        ))?;
         self.resize(size_to_store);
         self.data
             .splice(offset..size_to_store, value.iter().copied());
@@ -95,12 +99,12 @@ impl Memory {
         dest_offset: usize,
         size: usize,
     ) -> Result<(), VMError> {
-        let src_copy_size = src_offset
-            .checked_add(size)
-            .ok_or(VMError::Internal(InternalError::ArithmeticOperationOverflow))?;
-        let dest_copy_size = dest_offset
-            .checked_add(size)
-            .ok_or(VMError::Internal(InternalError::ArithmeticOperationOverflow))?;
+        let src_copy_size = src_offset.checked_add(size).ok_or(VMError::Internal(
+            InternalError::ArithmeticOperationOverflow,
+        ))?;
+        let dest_copy_size = dest_offset.checked_add(size).ok_or(VMError::Internal(
+            InternalError::ArithmeticOperationOverflow,
+        ))?;
         let max_size = std::cmp::max(src_copy_size, dest_copy_size);
         self.resize(max_size);
         let mut temp = vec![0u8; size];
@@ -116,29 +120,38 @@ impl Memory {
             return Ok(U256::zero());
         }
 
-        let new_memory_size_word = memory_byte_size
-            .checked_add(WORD_SIZE - 1)
-            .ok_or(VMError::Internal(InternalError::ArithmeticOperationOverflow))?
-            / WORD_SIZE;
+        let new_memory_size_word =
+            memory_byte_size
+                .checked_add(WORD_SIZE - 1)
+                .ok_or(VMError::Internal(
+                    InternalError::ArithmeticOperationOverflow,
+                ))?
+                / WORD_SIZE;
 
         let new_memory_cost = new_memory_size_word
             .checked_mul(new_memory_size_word)
             .map(|square| square / MEMORY_EXPANSION_QUOTIENT)
             .and_then(|cost| cost.checked_add(new_memory_size_word.checked_mul(3)?))
-            .ok_or(VMError::Internal(InternalError::ArithmeticOperationOverflow))?;
+            .ok_or(VMError::Internal(
+                InternalError::ArithmeticOperationOverflow,
+            ))?;
 
-        let last_memory_size_word = self
-            .data
-            .len()
-            .checked_add(WORD_SIZE - 1)
-            .ok_or(VMError::Internal(InternalError::ArithmeticOperationOverflow))?
-            / WORD_SIZE;
+        let last_memory_size_word =
+            self.data
+                .len()
+                .checked_add(WORD_SIZE - 1)
+                .ok_or(VMError::Internal(
+                    InternalError::ArithmeticOperationOverflow,
+                ))?
+                / WORD_SIZE;
 
         let last_memory_cost = last_memory_size_word
             .checked_mul(last_memory_size_word)
             .map(|square| square / MEMORY_EXPANSION_QUOTIENT)
             .and_then(|cost| cost.checked_add(last_memory_size_word.checked_mul(3)?))
-            .ok_or(VMError::Internal(InternalError::ArithmeticOperationOverflow))?;
+            .ok_or(VMError::Internal(
+                InternalError::ArithmeticOperationOverflow,
+            ))?;
 
         Ok((new_memory_cost
             .checked_sub(last_memory_cost)

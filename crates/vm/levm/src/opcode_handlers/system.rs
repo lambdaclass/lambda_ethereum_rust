@@ -45,12 +45,12 @@ impl VM {
 
         let memory_byte_size = args_size
             .checked_add(args_offset)
-            .ok_or(VMError::Internal(InternalError::ArithmeticOperationOverflow))?
-            .max(
-                ret_size
-                    .checked_add(ret_offset)
-                    .ok_or(VMError::Internal(InternalError::ArithmeticOperationOverflow))?,
-            );
+            .ok_or(VMError::Internal(
+                InternalError::ArithmeticOperationOverflow,
+            ))?
+            .max(ret_size.checked_add(ret_offset).ok_or(VMError::Internal(
+                InternalError::ArithmeticOperationOverflow,
+            ))?);
         let memory_expansion_cost = current_call_frame.memory.expansion_cost(memory_byte_size)?;
 
         let positive_value_cost = if !value.is_zero() {
@@ -174,9 +174,12 @@ impl VM {
             .try_into()
             .unwrap_or(usize::MAX);
 
-        let gas_cost = current_call_frame
-            .memory
-            .expansion_cost(offset.checked_add(size).ok_or(VMError::Internal(InternalError::ArithmeticOperationOverflow))?)?;
+        let gas_cost =
+            current_call_frame
+                .memory
+                .expansion_cost(offset.checked_add(size).ok_or(VMError::Internal(
+                    InternalError::ArithmeticOperationOverflow,
+                ))?)?;
 
         self.increase_consumed_gas(current_call_frame, gas_cost)?;
 
@@ -341,9 +344,12 @@ impl VM {
 
         let size = current_call_frame.stack.pop()?.as_usize();
 
-        let gas_cost = current_call_frame
-            .memory
-            .expansion_cost(offset.checked_add(size).ok_or(VMError::Internal(InternalError::ArithmeticOperationOverflow))?)?;
+        let gas_cost =
+            current_call_frame
+                .memory
+                .expansion_cost(offset.checked_add(size).ok_or(VMError::Internal(
+                    InternalError::ArithmeticOperationOverflow,
+                ))?)?;
 
         self.increase_consumed_gas(current_call_frame, gas_cost)?;
 

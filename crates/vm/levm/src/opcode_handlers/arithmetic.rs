@@ -227,10 +227,9 @@ impl VM {
         let base = current_call_frame.stack.pop()?;
         let exponent = current_call_frame.stack.pop()?;
 
-        let exponent_byte_size = (exponent
-            .bits()
-            .checked_add(7)
-            .ok_or(VMError::Internal(InternalError::ArithmeticOperationOverflow))? as u64)
+        let exponent_byte_size = (exponent.bits().checked_add(7).ok_or(VMError::Internal(
+            InternalError::ArithmeticOperationOverflow,
+        ))? as u64)
             / 8;
         let exponent_byte_size_cost = gas_cost::EXP_DYNAMIC_BASE
             .checked_mul(exponent_byte_size.into())
@@ -265,10 +264,14 @@ impl VM {
 
         let total_bits = bits_per_byte
             .checked_mul(byte_size)
-            .ok_or(VMError::Internal(InternalError::ArithmeticOperationOverflow))?;
+            .ok_or(VMError::Internal(
+                InternalError::ArithmeticOperationOverflow,
+            ))?;
         let sign_bit_index = total_bits
             .checked_add(sign_bit_position_on_byte.into())
-            .ok_or(VMError::Internal(InternalError::ArithmeticOperationOverflow))?;
+            .ok_or(VMError::Internal(
+                InternalError::ArithmeticOperationOverflow,
+            ))?;
 
         let is_negative = value_to_extend.bit(sign_bit_index.as_usize());
         let sign_bit_mask = checked_shift_left(U256::one(), sign_bit_index)?

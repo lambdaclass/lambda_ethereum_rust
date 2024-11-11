@@ -28,12 +28,17 @@ impl VM {
 
         let minimum_word_size = (size
             .checked_add(WORD_SIZE)
-            .ok_or(VMError::Internal(InternalError::ArithmeticOperationOverflow))?
+            .ok_or(VMError::Internal(
+                InternalError::ArithmeticOperationOverflow,
+            ))?
             .saturating_sub(1))
             / WORD_SIZE;
-        let memory_expansion_cost = current_call_frame
-            .memory
-            .expansion_cost(offset.checked_add(size).ok_or(VMError::Internal(InternalError::ArithmeticOperationOverflow))?)?;
+        let memory_expansion_cost =
+            current_call_frame
+                .memory
+                .expansion_cost(offset.checked_add(size).ok_or(VMError::Internal(
+                    InternalError::ArithmeticOperationOverflow,
+                ))?)?;
         let minimum_word_size_cost = gas_cost::KECCAK25_DYNAMIC_BASE
             .checked_mul(minimum_word_size.into())
             .ok_or(VMError::GasCostOverflow)?;

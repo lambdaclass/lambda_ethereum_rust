@@ -64,11 +64,12 @@ impl VM {
             .pop()?
             .try_into()
             .unwrap_or(usize::MAX);
-        let memory_expansion_cost = current_call_frame.memory.expansion_cost(
-            offset
-                .checked_add(WORD_SIZE)
-                .ok_or(VMError::Internal(InternalError::ArithmeticOperationOverflow))?,
-        )?;
+        let memory_expansion_cost =
+            current_call_frame
+                .memory
+                .expansion_cost(offset.checked_add(WORD_SIZE).ok_or(VMError::Internal(
+                    InternalError::ArithmeticOperationOverflow,
+                ))?)?;
         let gas_cost = gas_cost::MLOAD_STATIC
             .checked_add(memory_expansion_cost)
             .ok_or(VMError::GasCostOverflow)?;
@@ -92,11 +93,12 @@ impl VM {
             .pop()?
             .try_into()
             .map_err(|_err| VMError::VeryLargeNumber)?;
-        let memory_expansion_cost = current_call_frame.memory.expansion_cost(
-            offset
-                .checked_add(WORD_SIZE)
-                .ok_or(VMError::Internal(InternalError::ArithmeticOperationOverflow))?,
-        )?;
+        let memory_expansion_cost =
+            current_call_frame
+                .memory
+                .expansion_cost(offset.checked_add(WORD_SIZE).ok_or(VMError::Internal(
+                    InternalError::ArithmeticOperationOverflow,
+                ))?)?;
         let gas_cost = gas_cost::MSTORE_STATIC
             .checked_add(memory_expansion_cost)
             .ok_or(VMError::GasCostOverflow)?;
@@ -121,9 +123,12 @@ impl VM {
     ) -> Result<OpcodeSuccess, VMError> {
         // TODO: modify expansion cost to accept U256
         let offset: usize = current_call_frame.stack.pop()?.try_into().unwrap();
-        let memory_expansion_cost = current_call_frame
-            .memory
-            .expansion_cost(offset.checked_add(1).ok_or(VMError::Internal(InternalError::ArithmeticOperationOverflow))?)?;
+        let memory_expansion_cost =
+            current_call_frame
+                .memory
+                .expansion_cost(offset.checked_add(1).ok_or(VMError::Internal(
+                    InternalError::ArithmeticOperationOverflow,
+                ))?)?;
         let gas_cost = gas_cost::MSTORE8_STATIC
             .checked_add(memory_expansion_cost)
             .ok_or(VMError::GasCostOverflow)?;
@@ -293,7 +298,9 @@ impl VM {
 
         let words_copied = (size
             .checked_add(WORD_SIZE)
-            .ok_or(VMError::Internal(InternalError::ArithmeticOperationOverflow))?
+            .ok_or(VMError::Internal(
+                InternalError::ArithmeticOperationOverflow,
+            ))?
             .saturating_sub(1))
             / WORD_SIZE;
 
@@ -304,7 +311,9 @@ impl VM {
                     .checked_add(size)
                     .map(|dest_sum| src_sum.max(dest_sum))
             })
-            .ok_or(VMError::Internal(InternalError::ArithmeticOperationOverflow))?;
+            .ok_or(VMError::Internal(
+                InternalError::ArithmeticOperationOverflow,
+            ))?;
 
         let memory_expansion_cost = current_call_frame.memory.expansion_cost(memory_byte_size)?;
         let copied_words_cost = gas_cost::MCOPY_DYNAMIC_BASE

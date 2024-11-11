@@ -487,11 +487,9 @@ impl VM {
             let number_of_words = self.call_frames[0].calldata.chunks(WORD_SIZE).len() as u64;
             report.gas_used = report
                 .gas_used
-                .checked_add(
-                    number_of_words
-                        .checked_mul(2)
-                        .ok_or(VMError::Internal(InternalError::ArithmeticOperationOverflow))?,
-                )
+                .checked_add(number_of_words.checked_mul(2).ok_or(VMError::Internal(
+                    InternalError::ArithmeticOperationOverflow,
+                ))?)
                 .ok_or(VMError::GasUsedOverflow)?;
 
             let contract_address = self.call_frames.first().unwrap().to;

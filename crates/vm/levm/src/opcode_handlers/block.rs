@@ -219,28 +219,32 @@ fn address_to_word(address: Address) -> U256 {
 fn fake_exponential(factor: U256, numerator: U256, denominator: U256) -> Result<U256, VMError> {
     let mut i = U256::one();
     let mut output = U256::zero();
-    let mut numerator_accum = factor
-        .checked_mul(denominator)
-        .ok_or(VMError::Internal(InternalError::ArithmeticOperationOverflow))?;
+    let mut numerator_accum = factor.checked_mul(denominator).ok_or(VMError::Internal(
+        InternalError::ArithmeticOperationOverflow,
+    ))?;
     while numerator_accum > U256::zero() {
         output = output
             .checked_add(numerator_accum)
-            .ok_or(VMError::Internal(InternalError::ArithmeticOperationOverflow))?;
+            .ok_or(VMError::Internal(
+                InternalError::ArithmeticOperationOverflow,
+            ))?;
         let mult_numerator = numerator_accum
             .checked_mul(numerator)
-            .ok_or(VMError::Internal(InternalError::ArithmeticOperationOverflow))?;
-        let mult_denominator = denominator
-            .checked_mul(i)
-            .ok_or(VMError::Internal(InternalError::ArithmeticOperationOverflow))?;
+            .ok_or(VMError::Internal(
+                InternalError::ArithmeticOperationOverflow,
+            ))?;
+        let mult_denominator = denominator.checked_mul(i).ok_or(VMError::Internal(
+            InternalError::ArithmeticOperationOverflow,
+        ))?;
         numerator_accum =
             (mult_numerator)
                 .checked_div(mult_denominator)
                 .ok_or(VMError::Internal(
                     InternalError::ArithmeticOperationDividedByZero,
                 ))?; // Neither denominator or i can be zero
-        i = i
-            .checked_add(U256::one())
-            .ok_or(VMError::Internal(InternalError::ArithmeticOperationOverflow))?;
+        i = i.checked_add(U256::one()).ok_or(VMError::Internal(
+            InternalError::ArithmeticOperationOverflow,
+        ))?;
     }
     output.checked_div(denominator).ok_or(VMError::Internal(
         InternalError::ArithmeticOperationDividedByZero,
