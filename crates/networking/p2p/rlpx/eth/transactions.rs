@@ -1,8 +1,5 @@
 use bytes::BufMut;
-use ethereum_rust_core::{
-    types::{EIP1559Transaction, LegacyTransaction, Transaction},
-    H256,
-};
+use ethereum_rust_core::{types::Transaction, H256};
 use ethereum_rust_rlp::{
     error::{RLPDecodeError, RLPEncodeError},
     structs::{Decoder, Encoder},
@@ -31,8 +28,8 @@ impl RLPxMessage for Transactions {
     fn encode(&self, buf: &mut dyn BufMut) -> Result<(), RLPEncodeError> {
         let mut encoded_data = vec![];
         let mut encoder = Encoder::new(&mut encoded_data);
-        let mut txs_iter = self.transactions.iter();
-        while let Some(tx) = txs_iter.next() {
+        let txs_iter = self.transactions.iter();
+        for tx in txs_iter {
             encoder = encoder.encode_field(tx)
         }
         encoder.finish();

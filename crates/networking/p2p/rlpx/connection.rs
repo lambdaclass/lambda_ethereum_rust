@@ -38,7 +38,7 @@ use k256::{
 use sha3::{Digest, Keccak256};
 use tokio::{
     io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt},
-    sync::broadcast::{self, error::RecvError},
+    sync::broadcast,
     time::timeout,
 };
 use tracing::{error, info};
@@ -204,7 +204,7 @@ impl<S: AsyncWrite + AsyncRead + std::marker::Unpin> RLPxConnection<S> {
                                     self.send(Message::AccountRange(response)).await
                                 }
                                 // TODO(#1129) Add the transaction to the mempool once received.
-                                txs_msg @ Message::TransactionsMessage(_) => {
+                                txs_msg @ Message::Transactions(_) => {
                                     let txs = Arc::new(txs_msg);
                                     let task_id = tokio::task::id();
                                     let Ok(_) = self.connection_broadcast_send.send((task_id, txs)) else {
@@ -242,10 +242,10 @@ impl<S: AsyncWrite + AsyncRead + std::marker::Unpin> RLPxConnection<S> {
                         Ok((id, broadcasted_msg)) = broadcaster_receive.recv() => {
                             if id != tokio::task::id() {
                                 match broadcasted_msg.as_ref() {
-                                    Message::TransactionsMessage(ref txs) => {
+                                    Message::Transactions(ref txs) => {
                                         // TODO(#1131): Avoid cloning this vector.
                                         let cloned = txs.transactions.clone();
-                                        let new_msg = Message::TransactionsMessage(Transactions { transactions: cloned });
+                                        let new_msg = Message::Transactions(Transactions { transactions: cloned });
                                         self.send(new_msg).await;
                                     }
                                     msg => {
