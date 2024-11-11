@@ -70,13 +70,13 @@ impl VM {
         let sender_account_info = db.get_account_info(env.origin);
         cache.add_account(
             &env.origin,
-            &Account::new_with_info(sender_account_info.clone()),
+            &Account::from(sender_account_info.clone()),
         );
 
         let coinbase_account_info = db.get_account_info(env.coinbase);
         cache.add_account(
             &env.coinbase,
-            &Account::new_with_info(coinbase_account_info),
+            &Account::from(coinbase_account_info),
         );
 
         match to {
@@ -85,7 +85,7 @@ impl VM {
                 let recipient_account_info = db.get_account_info(address_to);
                 cache.add_account(
                     &address_to,
-                    &Account::new_with_info(recipient_account_info.clone()),
+                    &Account::from(recipient_account_info.clone()),
                 );
 
                 // CALL tx
