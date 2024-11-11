@@ -74,11 +74,7 @@ contract OnChainProposer is IOnChainProposer, ReentrancyGuard {
         bytes32 depositLogs
     ) external override {
         require(
-            blockNumber == lastVerifiedBlock + 1,
-            "OnChainProposer: block already verified"
-        );
-        require(
-            blockCommitments[blockNumber].commitmentHash != bytes32(0),
+            blockCommitments[blockNumber].commitmentHash == bytes32(0),
             "OnChainProposer: block already committed"
         );
         // Check if commitment is equivalent to blob's KZG commitment.
