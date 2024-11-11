@@ -76,6 +76,8 @@ pub enum VMError {
     CreationCostIsTooHigh,
     #[error("Consumed Gas Overflow")]
     ConsumedGasOverflow,
+    #[error("Max Gas Limit Exceeded")]
+    MaxGasLimitExceeded
     // Internal
     #[error("Internal error: {0}")]
     Internal(#[from] InternalError),
@@ -99,6 +101,7 @@ pub enum InternalError {
     ArithmeticOperationDividedByZero,
 }
 
+#[derive(Debug, Clone)]
 pub enum OpcodeSuccess {
     Continue,
     Result(ResultReason),

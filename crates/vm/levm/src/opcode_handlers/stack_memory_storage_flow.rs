@@ -87,7 +87,6 @@ impl VM {
         &mut self,
         current_call_frame: &mut CallFrame,
     ) -> Result<OpcodeSuccess, VMError> {
-        // TODO: Turn this usize into U256?
         let offset: usize = current_call_frame
             .stack
             .pop()?

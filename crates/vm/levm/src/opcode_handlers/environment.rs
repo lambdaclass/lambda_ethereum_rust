@@ -477,6 +477,7 @@ impl VM {
         let minumum_word_size_cost = gas_cost::RETURNDATACOPY_DYNAMIC_BASE
             .checked_mul(minimum_word_size.into())
             .ok_or(VMError::GasCostOverflow)?;
+
         let gas_cost = gas_cost::RETURNDATACOPY_STATIC
             .checked_add(minumum_word_size_cost)
             .ok_or(VMError::GasCostOverflow)?

@@ -42,6 +42,7 @@ impl VM {
         let minimum_word_size_cost = gas_cost::KECCAK25_DYNAMIC_BASE
             .checked_mul(minimum_word_size.into())
             .ok_or(VMError::GasCostOverflow)?;
+
         let gas_cost = gas_cost::KECCAK25_STATIC
             .checked_add(minimum_word_size_cost)
             .ok_or(VMError::GasCostOverflow)?

@@ -41,6 +41,7 @@ impl Memory {
                     ..offset.checked_add(WORD_SIZE).ok_or(VMError::Internal(
                         InternalError::ArithmeticOperationOverflow,
                     ))?,
+
             )
             .ok_or(VMError::MemoryLoadOutOfBounds)?
             .try_into()
@@ -55,6 +56,7 @@ impl Memory {
         self.resize(size_to_load);
         self.data
             .get(offset..size_to_load)
+
             .ok_or(VMError::MemoryLoadOutOfBounds)
             .map(|slice| slice.to_vec())
     }
@@ -71,6 +73,7 @@ impl Memory {
         self.resize(size_to_store);
         self.data
             .splice(offset..size_to_store, value.iter().copied());
+
         Ok(())
     }
 
@@ -86,6 +89,7 @@ impl Memory {
         self.resize(size_to_store);
         self.data
             .splice(offset..size_to_store, value.iter().copied());
+
         Ok(())
     }
 
@@ -112,6 +116,7 @@ impl Memory {
         temp.copy_from_slice(&self.data[src_offset..src_copy_size]);
 
         self.data[dest_offset..dest_copy_size].copy_from_slice(&temp);
+
         Ok(())
     }
 
