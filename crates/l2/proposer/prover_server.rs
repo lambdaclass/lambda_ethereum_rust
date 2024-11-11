@@ -29,7 +29,7 @@ pub struct ProverInputData {
 }
 
 use crate::{
-    proposer::send_transaction_with_calldata,
+    proposer::{send_transaction_with_calldata, GLOBAL_NONCE_COUNT},
     utils::{
         config::{eth::EthConfig, proposer::ProposerConfig, prover_server::ProverServerConfig},
         eth_client::EthClient,
@@ -389,6 +389,7 @@ impl ProverServer {
             self.l1_address,
             self.l1_private_key,
             self.on_chain_proposer_address,
+            Some(GLOBAL_NONCE_COUNT.fetch_add(1, std::sync::atomic::Ordering::AcqRel)),
             calldata.into(),
         )
         .await?;

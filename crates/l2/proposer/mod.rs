@@ -1,6 +1,8 @@
 use crate::utils::{
     config::{eth::EthConfig, proposer::ProposerConfig, read_env_file},
-    eth_client::{errors::EthClientError, transaction::blob_from_bytes, EthClient},
+    eth_client::{
+        errors::EthClientError, eth_sender::Overrides, transaction::blob_from_bytes, EthClient,
+    },
     merkle_tree::merkelize,
 };
 use bytes::Bytes;
@@ -25,6 +27,7 @@ use sha2::{Digest, Sha256};
 use state_diff::{AccountStateDiff, DepositLog, StateDiff, WithdrawalLog};
 use std::{
     collections::HashMap,
+    sync::atomic::AtomicU64,
     time::{Duration, SystemTime, UNIX_EPOCH},
 };
 use tokio::time::sleep;
@@ -37,6 +40,8 @@ pub mod state_diff;
 pub mod errors;
 
 const COMMIT_FUNCTION_SELECTOR: [u8; 4] = [132, 97, 12, 179];
+
+static GLOBAL_NONCE_COUNT: AtomicU64 = AtomicU64::new(0);
 
 pub struct Proposer {
     eth_client: EthClient,
@@ -101,6 +106,10 @@ impl Proposer {
     pub async fn start(&self, head_block_hash: H256, store: Store) -> Result<(), ProposerError> {
         let mut head_block_hash = head_block_hash;
         loop {
+            // Setting the nonce in the Atomic variable.
+            let nonce = self.eth_client.get_nonce(self.l1_address).await?;
+            GLOBAL_NONCE_COUNT.store(nonce, std::sync::atomic::Ordering::Relaxed);
+
             head_block_hash = self.produce_block(head_block_hash).await?;
 
             // TODO: Check what happens with the transactions included in the payload of the failed block.
@@ -417,7 +426,7 @@ impl Proposer {
             to: self.on_chain_proposer_address,
             data: Bytes::from(calldata),
             max_fee_per_gas: self.eth_client.get_gas_price().await?.as_u64(),
-            nonce: self.eth_client.get_nonce(self.l1_address).await?,
+            nonce: GLOBAL_NONCE_COUNT.fetch_add(1, std::sync::atomic::Ordering::AcqRel),
             chain_id: self.eth_client.get_chain_id().await?.as_u64(),
             blob_versioned_hashes: vec![H256::from_slice(&blob_versioned_hash)],
             // TODO: blob_gas is too high, it should be set dynamically
@@ -479,13 +488,14 @@ async fn send_transaction_with_calldata(
     l1_address: Address,
     l1_private_key: SecretKey,
     to: Address,
+    nonce: Option<u64>,
     calldata: Bytes,
 ) -> Result<H256, EthClientError> {
     let mut tx = EIP1559Transaction {
         to: TxKind::Call(to),
         data: calldata,
         max_fee_per_gas: eth_client.get_gas_price().await?.as_u64() * 2,
-        nonce: eth_client.get_nonce(l1_address).await?,
+        nonce: nonce.unwrap_or(eth_client.get_nonce(l1_address).await?),
         chain_id: eth_client.get_chain_id().await?.as_u64(),
         // Should the max_priority_fee_per_gas be dynamic?
         max_priority_fee_per_gas: 10u64,
