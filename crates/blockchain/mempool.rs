@@ -213,15 +213,9 @@ fn validate_transaction(tx: &Transaction, store: Store) -> Result<(), MempoolErr
             return Err(MempoolError::InvalidNonce);
         }
 
-        let effective_gas_price: U256 = tx
-            .effective_gas_price(header.base_fee_per_gas)
-            .ok_or(MempoolError::InvalidTxGasvalues)?
-            .into();
-        let gas_limit = U256::from(tx.gas_limit());
-        let tx_cost = U256::saturating_add(
-            U256::saturating_mul(effective_gas_price, gas_limit),
-            tx.value(),
-        );
+        let tx_cost = tx
+            .cost_without_base_fee()
+            .ok_or(MempoolError::InvalidTxGasvalues)?;
 
         if tx_cost > sender_acc_info.balance {
             return Err(MempoolError::NotEnoughBalance);

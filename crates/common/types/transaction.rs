@@ -166,6 +166,21 @@ impl Transaction {
             TxType::Privileged => Some(self.gas_price()),
         }
     }
+
+    pub fn cost_without_base_fee(&self) -> Option<U256> {
+        let price = match self.tx_type() {
+            TxType::Legacy => self.gas_price(),
+            TxType::EIP2930 => self.gas_price(),
+            TxType::EIP1559 => self.max_fee_per_gas()?,
+            TxType::EIP4844 => self.max_fee_per_gas()?,
+            TxType::Privileged => self.gas_price(),
+        };
+
+        Some(U256::saturating_add(
+            U256::saturating_mul(price.into(), self.gas_limit().into()),
+            self.value(),
+        ))
+    }
 }
 
 impl RLPEncode for Transaction {
