@@ -10,7 +10,7 @@ use ethereum_rust_levm::{
     vm::{word_to_address, Storage, VM},
     Environment,
 };
-use std::collections::HashMap;
+use std::{collections::HashMap, sync::Arc};
 
 fn create_opcodes(size: usize, offset: usize, value_to_transfer: usize) -> Vec<Operation> {
     vec![
@@ -2256,16 +2256,61 @@ fn jumpi_for_zero() {
     assert_eq!(vm.env.consumed_gas, TX_BASE_COST + 19);
 }
 
+// This test is just for trying things out, not a real test. But it is useful to have this as an example for conversions between bytes and u256.
+#[test]
+fn testing_bytes_u256_conversion() {
+    // From Bytes to U256 to Bytes again
+    let data: Bytes = vec![0x11, 0x22, 0x33, 0x44].into();
+    println!("{:?}", data);
+
+    let result = U256::from_big_endian(&data);
+    println!("{:?}", result);
+
+    // Convert from U256 to bytes
+    let mut temp_bytes = vec![0u8; 32];
+    result.to_big_endian(&mut temp_bytes);
+    println!("{:?}", temp_bytes);
+
+    let mut i = 0;
+    while i < temp_bytes.len() {
+        if temp_bytes[i] == 0 {
+            temp_bytes.remove(i);
+        } else {
+            i += 1;
+        }
+    }
+
+    println!("{:?}", temp_bytes);
+    let temp_bytes = Bytes::from(temp_bytes);
+    println!("{:?}", temp_bytes);
+
+    // Pad the rest with zeroes
+    let mut final_data = vec![];
+    for i in 0..32 {
+        if i < temp_bytes.len() {
+            final_data.push(temp_bytes[i]);
+        } else {
+            final_data.push(0);
+        }
+    }
+
+    let final_data = Bytes::from(final_data);
+    println!("{:?}", final_data);
+
+    let result = U256::from_big_endian(&final_data);
+    println!("{:?}", result);
+}
+
 #[test]
 fn calldataload() {
     let calldata = vec![
         0x11, 0x22, 0x33, 0x44, 0x55, 0x66, 0x77, 0x88, 0x99, 0xAA, 0xBB, 0xCC, 0xDD, 0xEE, 0xFF,
-        0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09, 0x0A, 0x0B, 0x0C, 0x0D, 0x0E,
-        0x0F, 0x10,
+        0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09,
     ]
     .into();
+    println!("{:?}", calldata);
     let ops = vec![
-        Operation::Push((32, U256::from(0))), // offset
+        Operation::Push((32, U256::from(1))), // offset
         Operation::CallDataLoad,
         Operation::Stop,
     ];
@@ -2281,9 +2326,9 @@ fn calldataload() {
     assert_eq!(
         top_of_stack,
         U256::from_big_endian(&[
-            0x11, 0x22, 0x33, 0x44, 0x55, 0x66, 0x77, 0x88, 0x99, 0xAA, 0xBB, 0xCC, 0xDD, 0xEE,
-            0xFF, 0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09, 0x0A, 0x0B, 0x0C,
-            0x0D, 0x0E, 0x0F, 0x10
+            0x22, 0x33, 0x44, 0x55, 0x66, 0x77, 0x88, 0x99, 0xAA, 0xBB, 0xCC, 0xDD, 0xEE, 0xFF,
+            0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09, 0x00, 0x00, 0x00, 0x00,
+            0x00, 0x00, 0x00, 0x00
         ])
     );
     assert_eq!(vm.env.consumed_gas, TX_BASE_COST + 6);
@@ -3650,7 +3695,7 @@ fn create_happy_path() {
         .get_account(word_to_address(returned_addr))
         .unwrap();
     assert_eq!(new_account.info.balance, U256::from(value_to_transfer));
-    assert_eq!(new_account.info.nonce, 1);
+    assert_eq!(new_account.info.nonce, 0); // This was previously set to 1 but I understand that a new account should have nonce 0
 
     // Check that the sender account is updated
     let sender_account = vm.cache.get_account(sender_addr).unwrap();
@@ -3916,7 +3961,7 @@ fn create2_happy_path() {
         .get_account(word_to_address(returned_addr))
         .unwrap();
     assert_eq!(new_account.info.balance, U256::from(value));
-    assert_eq!(new_account.info.nonce, 1);
+    assert_eq!(new_account.info.nonce, 0); // I understand new account should have nonce 0, not 1.
 
     // Check that the sender account is updated
     let sender_account = vm.cache.get_account(sender_addr).unwrap();
@@ -3980,10 +4025,8 @@ fn caller_op() {
         env,
         Default::default(),
         Default::default(),
-        Box::new(db),
+        Arc::new(db),
         cache,
-        Default::default(),
-        None,
     );
 
     let mut current_call_frame = vm.call_frames.pop().unwrap();
@@ -4022,10 +4065,8 @@ fn origin_op() {
         env,
         Default::default(),
         Default::default(),
-        Box::new(db),
+        Arc::new(db),
         cache,
-        Default::default(),
-        None,
     );
 
     let mut current_call_frame = vm.call_frames.pop().unwrap();
@@ -4090,12 +4131,9 @@ fn address_op() {
         env,
         Default::default(),
         Default::default(),
-        Box::new(db),
+        Arc::new(db),
         cache,
-        Default::default(),
-        None,
     );
-
     let mut current_call_frame = vm.call_frames.pop().unwrap();
     vm.execute(&mut current_call_frame);
 
@@ -4136,12 +4174,9 @@ fn selfbalance_op() {
         env,
         Default::default(),
         Default::default(),
-        Box::new(db),
+        Arc::new(db),
         cache,
-        Default::default(),
-        None,
     );
-
     let mut current_call_frame = vm.call_frames.pop().unwrap();
     vm.execute(&mut current_call_frame);
 
@@ -4176,10 +4211,8 @@ fn callvalue_op() {
         env,
         value,
         Default::default(),
-        Box::new(db),
+        Arc::new(db),
         cache,
-        Default::default(),
-        None,
     );
 
     let mut current_call_frame = vm.call_frames.pop().unwrap();
@@ -4215,15 +4248,12 @@ fn codesize_op() {
         env,
         Default::default(),
         Default::default(),
-        Box::new(db),
+        Arc::new(db),
         cache,
-        Default::default(),
-        None,
     );
 
     let mut current_call_frame = vm.call_frames.pop().unwrap();
     vm.execute(&mut current_call_frame);
-
     assert_eq!(
         vm.current_call_frame_mut().stack.pop().unwrap(),
         U256::from(2)
@@ -4257,15 +4287,12 @@ fn gasprice_op() {
         env,
         Default::default(),
         Default::default(),
-        Box::new(db),
+        Arc::new(db),
         cache,
-        Default::default(),
-        None,
     );
 
     let mut current_call_frame = vm.call_frames.pop().unwrap();
     vm.execute(&mut current_call_frame);
-
     assert_eq!(
         vm.current_call_frame_mut().stack.pop().unwrap(),
         U256::from(0x9876)
@@ -4315,10 +4342,8 @@ fn codecopy_op() {
         env,
         Default::default(),
         Default::default(),
-        Box::new(db),
+        Arc::new(db),
         cache,
-        Default::default(),
-        None,
     );
 
     let mut current_call_frame = vm.call_frames.pop().unwrap();
@@ -4468,4 +4493,70 @@ fn extcodehash_non_existing_account() {
         "c5d2460186f7233c927e7db2dcc703c0e500b653ca82273b7bfad8045d85a470".into()
     );
     assert_eq!(vm.env.consumed_gas, 23603.into());
+}
+
+#[test]
+fn invalid_opcode() {
+    let operations = [Operation::Invalid, Operation::Stop];
+
+    let mut vm = new_vm_with_ops(&operations);
+
+    let mut current_call_frame = vm.call_frames.pop().unwrap();
+    let tx_report = vm.execute(&mut current_call_frame);
+
+    assert!(matches!(
+        tx_report.result,
+        TxResult::Revert(VMError::InvalidOpcode)
+    ));
+}
+
+// Revert Opcode has correct output and result
+#[test]
+fn revert_opcode() {
+    let ops = vec![
+        Operation::Push((32, U256::from(0xA))),  // value
+        Operation::Push((32, U256::from(0xFF))), // offset
+        Operation::Mstore,
+        Operation::Push((32, U256::from(32))),   // size
+        Operation::Push((32, U256::from(0xFF))), // offset
+        Operation::Revert,
+    ];
+
+    let mut vm = new_vm_with_ops(&ops);
+
+    let mut current_call_frame = vm.call_frames.pop().unwrap();
+    let tx_report = vm.execute(&mut current_call_frame);
+
+    assert_eq!(U256::from_big_endian(&tx_report.output), U256::from(0xA));
+    assert!(matches!(
+        tx_report.result,
+        TxResult::Revert(VMError::RevertOpcode)
+    ));
+}
+
+// Store something in the database, then revert. Database should be like it was before the store.
+#[test]
+fn revert_sstore() {
+    let key = U256::from(80);
+    let value = U256::from(100);
+    let sender_address = Address::from_low_u64_be(3000);
+    let operations = vec![
+        Operation::Push((1, value)),
+        Operation::Push((1, key)),
+        Operation::Sstore,
+        Operation::Revert,
+    ];
+
+    let mut vm = new_vm_with_ops(&operations);
+    vm.current_call_frame_mut().code_address = sender_address;
+    vm.cache.add_account(&sender_address, &Account::default());
+
+    let mut current_call_frame = vm.call_frames.pop().unwrap();
+
+    // Cache state before the SSTORE
+    let cache_backup = vm.cache.clone();
+
+    vm.execute(&mut current_call_frame);
+
+    assert_eq!(vm.cache, cache_backup);
 }

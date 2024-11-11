@@ -1,4 +1,4 @@
-mod db;
+pub mod db;
 mod errors;
 pub mod execution_db;
 mod execution_result;
@@ -53,10 +53,6 @@ pub enum EvmState {
 }
 
 impl EvmState {
-    pub fn from_exec_db(db: ExecutionDB) -> Self {
-        EvmState::Execution(revm::db::CacheDB::new(db))
-    }
-
     /// Get a reference to inner `Store` database
     pub fn database(&self) -> Option<&Store> {
         if let EvmState::Store(db) = self {
@@ -75,34 +71,176 @@ impl EvmState {
     }
 }
 
-/// Executes all transactions in a block and returns their receipts.
-pub fn execute_block(block: &Block, state: &mut EvmState) -> Result<Vec<Receipt>, EvmError> {
-    let block_header = &block.header;
-    let spec_id = spec_id(&state.chain_config()?, block_header.timestamp);
-    //eip 4788: execute beacon_root_contract_call before block transactions
-    if block_header.parent_beacon_block_root.is_some() && spec_id == SpecId::CANCUN {
-        beacon_root_contract_call(state, block_header, spec_id)?;
+impl From<ExecutionDB> for EvmState {
+    fn from(value: ExecutionDB) -> Self {
+        EvmState::Execution(revm::db::CacheDB::new(value))
     }
-    let mut receipts = Vec::new();
-    let mut cumulative_gas_used = 0;
+}
 
-    for transaction in block.body.transactions.iter() {
-        let result = execute_tx(transaction, block_header, state, spec_id)?;
-        cumulative_gas_used += result.gas_used();
-        let receipt = Receipt::new(
-            transaction.tx_type(),
-            result.is_success(),
-            cumulative_gas_used,
-            result.logs(),
-        );
-        receipts.push(receipt);
+cfg_if::cfg_if! {
+    if #[cfg(feature = "levm")] {
+        use ethereum_rust_levm::{
+            db::{Cache, Database as LevmDatabase},
+            errors::{TransactionReport, TxResult, VMError},
+            vm::VM,
+            Environment,
+        };
+        use std::{collections::HashMap, sync::Arc};
+        use ethereum_rust_core::types::{code_hash, TxType};
+
+        /// Executes all transactions in a block and returns their receipts.
+        pub fn execute_block(
+            block: &Block,
+            state: &mut EvmState,
+        ) -> Result<(Vec<Receipt>, Vec<AccountUpdate>), EvmError> {
+            let block_header = &block.header;
+            let spec_id = spec_id(&state.chain_config()?, block_header.timestamp);
+            //eip 4788: execute beacon_root_contract_call before block transactions
+            if block_header.parent_beacon_block_root.is_some() && spec_id == SpecId::CANCUN {
+                beacon_root_contract_call(state, block_header, spec_id)?;
+            }
+            let mut receipts = Vec::new();
+            let mut cumulative_gas_used = 0;
+
+            let store_wrapper = Arc::new(StoreWrapper {
+                store: state.database().unwrap().clone(),
+                block_hash: block.header.parent_hash,
+            });
+
+            let mut account_updates: Vec<AccountUpdate> = vec![];
+
+            for transaction in block.body.transactions.iter() {
+                let result = execute_tx_levm(transaction, block_header, store_wrapper.clone()).unwrap();
+                cumulative_gas_used += result.gas_used;
+                let receipt = Receipt::new(
+                    transaction.tx_type(),
+                    matches!(result.result, TxResult::Success),
+                    cumulative_gas_used,
+                    // TODO: https://github.com/lambdaclass/lambda_ethereum_rust/issues/1089
+                    vec![],
+                );
+                receipts.push(receipt);
+
+                for (address, account) in result.new_state {
+                    let mut added_storage = HashMap::new();
+
+                    for (key, value) in account.storage {
+                        added_storage.insert(key, value.current_value);
+                    }
+
+                    let code = if account.info.bytecode.is_empty() {
+                        None
+                    } else {
+                        Some(account.info.bytecode.clone())
+                    };
+
+                    let account_update = AccountUpdate {
+                        address,
+                        removed: false,
+                        info: Some(AccountInfo {
+                            code_hash: code_hash(&account.info.bytecode),
+                            balance: account.info.balance,
+                            nonce: account.info.nonce,
+                        }),
+                        code,
+                        added_storage,
+                    };
+
+                    account_updates.push(account_update);
+                }
+            }
+
+            if let Some(withdrawals) = &block.body.withdrawals {
+                process_withdrawals(state, withdrawals)?;
+            }
+
+            Ok((receipts, account_updates))
+        }
+
+        pub fn execute_tx_levm(
+            tx: &Transaction,
+            block_header: &BlockHeader,
+            db: Arc<dyn LevmDatabase>,
+        ) -> Result<TransactionReport, VMError> {
+            let gas_price: U256 = match tx.tx_type() {
+                TxType::Legacy => tx.gas_price().into(),
+                TxType::EIP2930 => tx.gas_price().into(),
+                TxType::EIP1559 => {
+                    let priority_fee_per_gas = min(
+                        tx.max_priority_fee().unwrap(),
+                        tx.max_fee_per_gas().unwrap() - block_header.base_fee_per_gas.unwrap(),
+                    );
+                    (priority_fee_per_gas + block_header.base_fee_per_gas.unwrap()).into()
+                }
+                TxType::EIP4844 => {
+                    let priority_fee_per_gas = min(
+                        tx.max_priority_fee().unwrap(),
+                        tx.max_fee_per_gas().unwrap() - block_header.base_fee_per_gas.unwrap(),
+                    );
+                    (priority_fee_per_gas + block_header.base_fee_per_gas.unwrap()).into()
+                }
+                TxType::Privileged => tx.gas_price().into(),
+            };
+
+            let env = Environment {
+                origin: tx.sender(),
+                consumed_gas: U256::from(21000), // Base gas cost for a transaction
+                refunded_gas: U256::zero(),
+                gas_limit: tx.gas_limit().into(),
+                block_number: block_header.number.into(),
+                coinbase: block_header.coinbase,
+                timestamp: block_header.timestamp.into(),
+                prev_randao: Some(block_header.prev_randao),
+                chain_id: tx.chain_id().unwrap().into(),
+                base_fee_per_gas: block_header.base_fee_per_gas.unwrap_or_default().into(),
+                gas_price,
+                block_excess_blob_gas: block_header.excess_blob_gas.map(U256::from),
+                block_blob_gas_used: block_header.blob_gas_used.map(U256::from),
+                tx_blob_hashes: None,
+            };
+
+            let mut vm = VM::new(
+                tx.to(),
+                env,
+                tx.value(),
+                tx.data().clone(),
+                db,
+                Cache::default(),
+            );
+
+            vm.transact()
+        }
+    } else if #[cfg(not(feature = "levm"))] {
+        /// Executes all transactions in a block and returns their receipts.
+        pub fn execute_block(block: &Block, state: &mut EvmState) -> Result<Vec<Receipt>, EvmError> {
+            let block_header = &block.header;
+            let spec_id = spec_id(&state.chain_config()?, block_header.timestamp);
+            //eip 4788: execute beacon_root_contract_call before block transactions
+            if block_header.parent_beacon_block_root.is_some() && spec_id == SpecId::CANCUN {
+                beacon_root_contract_call(state, block_header, spec_id)?;
+            }
+            let mut receipts = Vec::new();
+            let mut cumulative_gas_used = 0;
+
+            for transaction in block.body.transactions.iter() {
+                let result = execute_tx(transaction, block_header, state, spec_id)?;
+                cumulative_gas_used += result.gas_used();
+                let receipt = Receipt::new(
+                    transaction.tx_type(),
+                    result.is_success(),
+                    cumulative_gas_used,
+                    result.logs(),
+                );
+                receipts.push(receipt);
+            }
+
+            if let Some(withdrawals) = &block.body.withdrawals {
+                process_withdrawals(state, withdrawals)?;
+            }
+
+            Ok(receipts)
+        }
     }
-
-    if let Some(withdrawals) = &block.body.withdrawals {
-        process_withdrawals(state, withdrawals)?;
-    }
-
-    Ok(receipts)
 }
 
 // Executes a single tx, doesn't perform state transitions
@@ -599,7 +737,7 @@ fn tx_env_from_generic(tx: &GenericTransaction, basefee: u64) -> TxEnv {
         },
         value: RevmU256::from_limbs(tx.value.0),
         data: tx.input.clone().into(),
-        nonce: Some(tx.nonce),
+        nonce: tx.nonce,
         chain_id: tx.chain_id,
         access_list: tx
             .access_list
@@ -624,7 +762,7 @@ fn tx_env_from_generic(tx: &GenericTransaction, basefee: u64) -> TxEnv {
             .iter()
             .map(|hash| B256::from(hash.0))
             .collect(),
-        max_fee_per_blob_gas: tx.max_fee_per_blob_gas.map(RevmU256::from),
+        max_fee_per_blob_gas: tx.max_fee_per_blob_gas.map(|x| RevmU256::from_limbs(x.0)),
         // TODO revise
         // https://eips.ethereum.org/EIPS/eip-7702
         authorization_list: None,

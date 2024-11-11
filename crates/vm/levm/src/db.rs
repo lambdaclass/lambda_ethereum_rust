@@ -71,7 +71,7 @@ impl Database for Db {
     }
 }
 
-#[derive(Debug, Default, Clone)]
+#[derive(Debug, Default, Clone, Eq, PartialEq)]
 pub struct Cache {
     pub accounts: HashMap<Address, Account>,
 }
@@ -86,11 +86,7 @@ impl Cache {
     }
 
     pub fn get_storage_slot(&self, address: Address, key: H256) -> Option<StorageSlot> {
-        self.get_account(address)
-            .expect("Account should have been cached")
-            .storage
-            .get(&key)
-            .cloned()
+        self.get_account(address)?.storage.get(&key).cloned()
     }
 
     pub fn add_account(&mut self, address: &Address, account: &Account) {
