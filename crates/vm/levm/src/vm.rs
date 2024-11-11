@@ -555,7 +555,7 @@ impl VM {
         );
 
         // TODO: Increase this to 1024
-        if new_call_frame.depth > 257 {
+        if new_call_frame.depth > 100 {
             current_call_frame.stack.push(U256::from(REVERT_FOR_CALL))?;
             return Ok(OpcodeSuccess::Result(ResultReason::Revert));
         }
@@ -640,6 +640,8 @@ impl VM {
         salt: Option<U256>,
         current_call_frame: &mut CallFrame,
     ) -> Result<OpcodeSuccess, VMError> {
+        
+
         let code_size_in_memory = code_size_in_memory
             .try_into()
             .map_err(|_err| VMError::VeryLargeNumber)?;

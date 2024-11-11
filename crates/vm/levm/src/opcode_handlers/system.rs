@@ -1,8 +1,5 @@
 use crate::{
-    call_frame::CallFrame,
-    constants::{call_opcode, gas_cost, SUCCESS_FOR_RETURN},
-    errors::{OpcodeSuccess, ResultReason, VMError},
-    vm::{word_to_address, VM},
+    call_frame::CallFrame, constants::{call_opcode, gas_cost, SUCCESS_FOR_RETURN}, errors::{OpcodeSuccess, ResultReason, VMError}, memory, vm::{word_to_address, VM}
 };
 use ethereum_rust_core::{types::TxKind, U256};
 
@@ -102,7 +99,7 @@ impl VM {
         let gas = current_call_frame.stack.pop()?;
         let code_address = word_to_address(current_call_frame.stack.pop()?);
         let value = current_call_frame.stack.pop()?;
-        let args_offset = current_call_frame
+        let args_offset: usize = current_call_frame
             .stack
             .pop()?
             .try_into()
@@ -112,7 +109,7 @@ impl VM {
             .pop()?
             .try_into()
             .map_err(|_err| VMError::VeryLargeNumber)?;
-        let ret_offset = current_call_frame
+        let ret_offset: usize = current_call_frame
             .stack
             .pop()?
             .try_into()
@@ -122,6 +119,18 @@ impl VM {
             .pop()?
             .try_into()
             .map_err(|_err| VMError::VeryLargeNumber)?;
+
+        let memory_byte_size = args_offset
+        .checked_add(args_size)
+        .and_then(|src_sum| {
+            ret_offset
+                .checked_add(ret_size)
+                .map(|dest_sum| src_sum.max(dest_sum))
+        }).ok_or(VMError::OverflowInArithmeticOp)?;
+        let memory_expansion_cost = current_call_frame.memory.expansion_cost(memory_byte_size)?;
+
+        let gas_cost = memory_expansion_cost;
+        self.increase_consumed_gas(current_call_frame, memory_expansion_cost)?;
 
         // Sender and recipient are the same in this case. But the code executed is from another account.
         let msg_sender = current_call_frame.to;
@@ -181,7 +190,7 @@ impl VM {
     ) -> Result<OpcodeSuccess, VMError> {
         let gas = current_call_frame.stack.pop()?;
         let code_address = word_to_address(current_call_frame.stack.pop()?);
-        let args_offset = current_call_frame
+        let args_offset: usize = current_call_frame
             .stack
             .pop()?
             .try_into()
@@ -191,7 +200,7 @@ impl VM {
             .pop()?
             .try_into()
             .map_err(|_err| VMError::VeryLargeNumber)?;
-        let ret_offset = current_call_frame
+        let ret_offset: usize = current_call_frame
             .stack
             .pop()?
             .try_into()
@@ -206,6 +215,18 @@ impl VM {
         let value = current_call_frame.msg_value;
         let to = current_call_frame.to;
         let is_static = current_call_frame.is_static;
+
+        let memory_byte_size = args_offset
+        .checked_add(args_size)
+        .and_then(|src_sum| {
+            ret_offset
+                .checked_add(ret_size)
+                .map(|dest_sum| src_sum.max(dest_sum))
+        }).ok_or(VMError::OverflowInArithmeticOp)?;
+        let memory_expansion_cost = current_call_frame.memory.expansion_cost(memory_byte_size)?;
+
+        let gas_cost = memory_expansion_cost;
+        self.increase_consumed_gas(current_call_frame, memory_expansion_cost)?;
 
         self.generic_call(
             current_call_frame,
@@ -231,7 +252,7 @@ impl VM {
     ) -> Result<OpcodeSuccess, VMError> {
         let gas = current_call_frame.stack.pop()?;
         let code_address = word_to_address(current_call_frame.stack.pop()?);
-        let args_offset = current_call_frame
+        let args_offset: usize = current_call_frame
             .stack
             .pop()?
             .try_into()
@@ -241,7 +262,7 @@ impl VM {
             .pop()?
             .try_into()
             .map_err(|_err| VMError::VeryLargeNumber)?;
-        let ret_offset = current_call_frame
+        let ret_offset: usize = current_call_frame
             .stack
             .pop()?
             .try_into()
@@ -255,6 +276,18 @@ impl VM {
         let value = U256::zero();
         let msg_sender = current_call_frame.to; // The new sender will be the current contract.
         let to = code_address; // In this case code_address and the sub-context account are the same. Unlike CALLCODE or DELEGATECODE.
+
+        let memory_byte_size = args_offset
+        .checked_add(args_size)
+        .and_then(|src_sum| {
+            ret_offset
+                .checked_add(ret_size)
+                .map(|dest_sum| src_sum.max(dest_sum))
+        }).ok_or(VMError::OverflowInArithmeticOp)?;
+        let memory_expansion_cost = current_call_frame.memory.expansion_cost(memory_byte_size)?;
+
+        let gas_cost = memory_expansion_cost;
+        self.increase_consumed_gas(current_call_frame, memory_expansion_cost)?;
 
         self.generic_call(
             current_call_frame,
