@@ -209,17 +209,17 @@ impl VM {
         let mut gas_refunds = U256::zero();
         if value != storage_slot.current_value {
             if storage_slot.current_value == storage_slot.original_value {
-                if storage_slot.original_value != U256::zero() && value == U256::zero() {
+                if storage_slot.original_value.is_zero() && value.is_zero() {
                     gas_refunds += U256::from(4800);
                 }
-            } else if storage_slot.original_value != U256::zero() {
-                if storage_slot.current_value == U256::zero() {
+            } else if !storage_slot.original_value.is_zero() {
+                if storage_slot.current_value.is_zero() {
                     gas_refunds -= U256::from(4800);
-                } else if value == U256::zero() {
+                } else if value.is_zero() {
                     gas_refunds += U256::from(4800);
                 }
             } else if value == storage_slot.original_value {
-                if storage_slot.original_value == U256::zero() {
+                if storage_slot.original_value.is_zero() {
                     gas_refunds += U256::from(20000) - U256::from(100);
                 } else {
                     gas_refunds += U256::from(5000) - U256::from(2100) - U256::from(100);
