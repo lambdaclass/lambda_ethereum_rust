@@ -32,6 +32,11 @@ pub enum VMError {
     NonceOverflow,
     MemoryLoadOutOfBounds,
     GasLimitPriceProductOverflow,
+    DataSizeOverflow,
+    Internal,
+    GasCostOverflow,
+    OffsetOverflow,
+    CreationCostIsTooHigh
 }
 
 #[derive(Debug, Clone)]
