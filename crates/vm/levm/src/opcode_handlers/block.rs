@@ -1,7 +1,7 @@
 use crate::{
     call_frame::CallFrame,
     constants::{gas_cost, LAST_AVAILABLE_BLOCK_LIMIT},
-    errors::{OpcodeSuccess, VMError},
+    errors::{InternalError, OpcodeSuccess, VMError},
     vm::{address_to_word, VM},
 };
 use ethereum_rust_core::{
@@ -190,7 +190,7 @@ impl VM {
         Ok(fake_exponential(
             MIN_BASE_FEE_PER_BLOB_GAS.into(),
             // Use unwrap because env should have a Some value in excess_blob_gas attribute
-            self.env.block_excess_blob_gas.ok_or(VMError::FatalUnwrap)?,
+            self.env.block_excess_blob_gas.ok_or(VMError::Internal(InternalError::ExcessBlobGasShouldNotBeNone))?,
             BLOB_BASE_FEE_UPDATE_FRACTION.into(),
         ))
     }

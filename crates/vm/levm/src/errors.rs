@@ -78,6 +78,8 @@ pub enum InternalError {
     CouldNotAccessLastCallframe,
     #[error("Account not found")]
     AccountNotFound,
+    #[error("ExcessBlobGas should not be None")]
+    ExcessBlobGasShouldNotBeNone,
 }
 
 pub enum OpcodeSuccess {
