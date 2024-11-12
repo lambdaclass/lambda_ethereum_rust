@@ -64,9 +64,9 @@ fn setup() -> (Address, SecretKey, EthClient) {
         "false" | "0" => {
             let mut salt = SALT.lock().unwrap();
             *salt = H256::random();
-            println!("SALT: {salt}");
+            println!("SALT: {salt:?}");
         }
-        _ => panic!("{}", format!("Invalid boolean string: {input}")),
+        _ => panic!("Invalid boolean string: {input}"),
     };
 
     (deployer, deployer_private_key, eth_client)
