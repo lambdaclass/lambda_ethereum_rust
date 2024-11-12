@@ -216,12 +216,7 @@ impl<S: AsyncWrite + AsyncRead + std::marker::Unpin> RLPxConnection<S> {
                                 }
                                 // TODO(#1129) Add the transaction to the mempool once received.
                                 txs_msg @ Message::Transactions(_) => {
-                                    let txs = Arc::new(txs_msg);
-                                    let task_id = tokio::task::id();
-                                    let Ok(_) = self.connection_broadcast_send.send((task_id, txs)) else {
-                                        error!("Could not broadcast message in task!");
-                                        return Err(RLPxError::Broadcast("Could not broadcast received transactions".to_owned()));
-                                    };
+                                    self.broadcast_message(txs_msg).await?;
                                 }
                                 Message::GetBlockHeaders(msg_data) => {
                                     let response = BlockHeaders {
@@ -477,6 +472,27 @@ impl<S: AsyncWrite + AsyncRead + std::marker::Unpin> RLPxConnection<S> {
                         "Failed to receive status message".to_owned(),
                     ))
                 }
+            }
+        }
+    }
+    pub async fn broadcast_message(&self, msg: Message) -> Result<(), RLPxError> {
+        match msg {
+            txs_msg @ Message::Transactions(_) => {
+                let txs = Arc::new(txs_msg);
+                let task_id = tokio::task::id();
+                let Ok(_) = self.connection_broadcast_send.send((task_id, txs)) else {
+                    error!("Could not broadcast message in task!");
+                    return Err(RLPxError::Broadcast(
+                        "Could not broadcast received transactions".to_owned(),
+                    ));
+                };
+                return Ok(());
+            }
+            msg => {
+                error!("Non supported message: {msg} was tried to be broadcasted");
+                return Err(RLPxError::Broadcast(format!(
+                    "Broadcasting for msg: {msg} is not supported"
+                )));
             }
         }
     }
