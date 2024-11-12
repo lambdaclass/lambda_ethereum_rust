@@ -96,6 +96,11 @@ pub const NON_ZERO_VALUE_COST: U256 = U256([9000, 0, 0, 0]);
 pub const BASIC_FALLBACK_FUNCTION_STIPEND: U256 = U256([2300, 0, 0, 0]);
 pub const VALUE_TO_EMPTY_ACCOUNT_COST: U256 = U256([25000, 0, 0, 0]);
 
+// Costs in gas for create opcodes (in wei)
+pub const INIT_CODE_WORD_COST: U256 = U256([2, 0, 0, 0]);
+pub const CODE_DEPOSIT_COST: U256 = U256([200, 0, 0, 0]);
+pub const CREATE_BASE_COST: U256 = U256([32000, 0, 0, 0]);
+
 pub fn exp_gas_cost(exponent: U256) -> Result<U256, OutOfGasError> {
     let exponent_byte_size = (exponent
         .bits()
@@ -620,4 +625,25 @@ pub fn create_2_gas_cost(
         .ok_or(OutOfGasError::CreationCostIsTooHigh)?
         .checked_add(hash_cost)
         .ok_or(OutOfGasError::CreationCostIsTooHigh)
+}
+
+pub fn selfdestruct_gas_cost(
+    is_cached: bool,
+    account_is_empty: bool,
+) -> Result<U256, OutOfGasError> {
+    let mut gas_cost = SELFDESTRUCT_STATIC;
+
+    if !is_cached {
+        gas_cost = gas_cost
+            .checked_add(COLD_ADDRESS_ACCESS_COST)
+            .ok_or(OutOfGasError::GasCostOverflow)?;
+    }
+
+    if account_is_empty {
+        gas_cost = gas_cost
+            .checked_add(SELFDESTRUCT_DYNAMIC)
+            .ok_or(OutOfGasError::GasCostOverflow)?;
+    }
+
+    Ok(gas_cost)
 }

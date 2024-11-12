@@ -4,7 +4,7 @@ use crate::{
     errors::{InternalError, OpcodeSuccess, ResultReason, VMError},
     gas_cost::{
         call_gas_cost, callcode_gas_cost, create_2_gas_cost, create_gas_cost,
-        delegatecall_gas_cost, staticcall_gas_cost,
+        delegatecall_gas_cost, selfdestruct_gas_cost, staticcall_gas_cost,
     },
     vm::{word_to_address, VM},
 };
@@ -448,12 +448,6 @@ impl VM {
             return Err(VMError::OpcodeNotAllowedInStaticContext);
         }
 
-        // Gas costs variables
-        let static_gas_cost = gas_cost::SELFDESTRUCT_STATIC;
-        let dynamic_gas_cost = gas_cost::SELFDESTRUCT_DYNAMIC;
-        let cold_gas_cost = gas_cost::COLD_ADDRESS_ACCESS_COST;
-        let mut gas_cost = static_gas_cost;
-
         // 1. Pop the target address from the stack
         let target_address = word_to_address(current_call_frame.stack.pop()?);
 
@@ -463,20 +457,15 @@ impl VM {
 
         current_account.info.balance = U256::zero();
 
-        // 3 & 4. Get target account and add the balance of the current account to it
-        // TODO: If address is cold, there is an additional cost of 2600.
-        if !self.cache.is_account_cached(&target_address) {
-            gas_cost = gas_cost
-                .checked_add(cold_gas_cost)
-                .ok_or(VMError::GasCostOverflow)?;
-        }
+        let is_cached = self.cache.is_account_cached(&target_address);
 
+        // 3 & 4. Get target account and add the balance of the current account to it
         let mut target_account = self.get_account(&target_address);
-        if target_account.is_empty() {
-            gas_cost = gas_cost
-                .checked_add(dynamic_gas_cost)
-                .ok_or(VMError::GasCostOverflow)?;
-        }
+        let account_is_empty = target_account.is_empty();
+
+        let gas_cost = selfdestruct_gas_cost(is_cached, account_is_empty)
+            .map_err(|e| VMError::OutOfGasErr(e))?;
+
         target_account.info.balance = target_account
             .info
             .balance
