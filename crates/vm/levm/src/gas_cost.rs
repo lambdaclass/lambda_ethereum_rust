@@ -1,10 +1,10 @@
 /// Contains the gas costs of the EVM instructions (in wei)
-use ethereum_rust_core::U256;
+use ethereum_rust_core::{Address, H256, U256};
 
 use crate::{
     call_frame::CallFrame,
-    constants::{call_opcode::WARM_ADDRESS_ACCESS_COST, WORD_SIZE},
-    errors::OutOfGasError,
+    constants::{call_opcode::WARM_ADDRESS_ACCESS_COST, COLD_STORAGE_ACCESS_COST, WORD_SIZE},
+    errors::OutOfGasError, vm::VM, StorageSlot,
 };
 
 pub const ADD: U256 = U256([3, 0, 0, 0]);
@@ -189,20 +189,21 @@ pub fn extcodecopy_gas_cost(
         .ok_or(OutOfGasError::GasCostOverflow)
 }
 
-pub fn returndatacopy_gas_cost(current_call_frame: &mut CallFrame, size: usize, dest_offset: usize) -> Result<U256, OutOfGasError> {
+pub fn returndatacopy_gas_cost(
+    current_call_frame: &mut CallFrame,
+    size: usize,
+    dest_offset: usize,
+) -> Result<U256, OutOfGasError> {
     let minimum_word_size = (size
         .checked_add(WORD_SIZE)
-        .ok_or(
-            OutOfGasError::ArithmeticOperationOverflow,
-        )?
+        .ok_or(OutOfGasError::ArithmeticOperationOverflow)?
         .saturating_sub(1))
         / WORD_SIZE;
-    let memory_expansion_cost =
-        current_call_frame
-            .memory
-            .expansion_cost(dest_offset.checked_add(size).ok_or(
-                OutOfGasError::ArithmeticOperationOverflow,
-            )?)?;
+    let memory_expansion_cost = current_call_frame.memory.expansion_cost(
+        dest_offset
+            .checked_add(size)
+            .ok_or(OutOfGasError::ArithmeticOperationOverflow)?,
+    )?;
     let minumum_word_size_cost = RETURNDATACOPY_DYNAMIC_BASE
         .checked_mul(minimum_word_size.into())
         .ok_or(OutOfGasError::GasCostOverflow)?;
@@ -262,6 +263,117 @@ pub fn log_gas_cost(
         .checked_add(LOGN_STATIC)
         .ok_or(OutOfGasError::GasCostOverflow)?
         .checked_add(bytes_cost)
+        .ok_or(OutOfGasError::GasCostOverflow)?
+        .checked_add(memory_expansion_cost)
+        .ok_or(OutOfGasError::GasCostOverflow)
+}
+
+pub fn mload_gas_cost(
+    current_call_frame: &mut CallFrame,
+    offset: usize,
+) -> Result<U256, OutOfGasError> {
+    let memory_expansion_cost = current_call_frame.memory.expansion_cost(
+        offset
+            .checked_add(WORD_SIZE)
+            .ok_or(OutOfGasError::ArithmeticOperationOverflow)?,
+    )?;
+    MLOAD_STATIC
+        .checked_add(memory_expansion_cost)
+        .ok_or(OutOfGasError::GasCostOverflow)
+}
+
+pub fn mstore_gas_cost(
+    current_call_frame: &mut CallFrame,
+    offset: usize,
+) -> Result<U256, OutOfGasError> {
+    let memory_expansion_cost = current_call_frame.memory.expansion_cost(
+        offset
+            .checked_add(WORD_SIZE)
+            .ok_or(OutOfGasError::ArithmeticOperationOverflow)?,
+    )?;
+    MSTORE_STATIC
+        .checked_add(memory_expansion_cost)
+        .ok_or(OutOfGasError::GasCostOverflow)
+}
+
+pub fn mstore8_gas_cost(
+    current_call_frame: &mut CallFrame,
+    offset: usize,
+) -> Result<U256, OutOfGasError> {
+    let memory_expansion_cost =
+    current_call_frame
+        .memory
+        .expansion_cost(offset.checked_add(1).ok_or(OutOfGasError::ArithmeticOperationOverflow)?)?;
+    MSTORE8_STATIC
+        .checked_add(memory_expansion_cost)
+        .ok_or(OutOfGasError::GasCostOverflow)
+}
+
+pub fn sload_gas_cost(is_cached: bool) -> U256 {
+    if is_cached {
+        // If slot is warm (cached) add 100 to base_dynamic_gas
+        WARM_ADDRESS_ACCESS_COST
+    } else {
+        // If slot is cold (not cached) add 2100 to base_dynamic_gas
+        COLD_STORAGE_ACCESS_COST
+    }
+}
+
+pub fn sstore_gas_cost(vm: &mut VM, address: Address, key: H256, value: U256) -> Result<(U256, StorageSlot), OutOfGasError> {
+    let mut base_dynamic_gas: U256 = U256::zero();
+
+    let storage_slot = if vm.cache.is_slot_cached(&address, key) {
+        vm.cache.get_storage_slot(address, key).unwrap()
+    } else {
+        // If slot is cold 2100 is added to base_dynamic_gas
+        base_dynamic_gas = base_dynamic_gas
+            .checked_add(U256::from(2100))
+            .ok_or(OutOfGasError::GasCostOverflow)?;
+
+        vm.get_storage_slot(&address, key) // it is not in cache because of previous if
+    };
+
+    let sstore_gas_cost = if value == storage_slot.current_value {
+        U256::from(100)
+    } else if storage_slot.current_value == storage_slot.original_value {
+        if storage_slot.original_value == U256::zero() {
+            U256::from(20000)
+        } else {
+            U256::from(2900)
+        }
+    } else {
+        U256::from(100)
+    };
+
+    base_dynamic_gas = base_dynamic_gas
+        .checked_add(sstore_gas_cost)
+        .ok_or(OutOfGasError::GasCostOverflow)?;
+
+    Ok((base_dynamic_gas, storage_slot))
+}
+
+pub fn mcopy_gas_cost(current_call_frame: &mut CallFrame, size: usize, src_offset: usize, dest_offset: usize) -> Result<U256, OutOfGasError> {
+    let words_copied = (size
+        .checked_add(WORD_SIZE)
+        .ok_or(OutOfGasError::ArithmeticOperationOverflow)?
+        .saturating_sub(1))
+        / WORD_SIZE;
+
+    let memory_byte_size = src_offset
+        .checked_add(size)
+        .and_then(|src_sum| {
+            dest_offset
+                .checked_add(size)
+                .map(|dest_sum| src_sum.max(dest_sum))
+        })
+        .ok_or(OutOfGasError::ArithmeticOperationOverflow)?;
+
+    let memory_expansion_cost = current_call_frame.memory.expansion_cost(memory_byte_size)?;
+    let copied_words_cost = MCOPY_DYNAMIC_BASE
+        .checked_mul(words_copied.into())
+        .ok_or(OutOfGasError::GasCostOverflow)?;
+    MCOPY_STATIC
+        .checked_add(copied_words_cost)
         .ok_or(OutOfGasError::GasCostOverflow)?
         .checked_add(memory_expansion_cost)
         .ok_or(OutOfGasError::GasCostOverflow)
