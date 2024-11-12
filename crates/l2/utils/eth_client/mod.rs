@@ -7,8 +7,8 @@ use errors::{
 };
 use eth_sender::Overrides;
 use ethereum_rust_core::types::{
-    BlockBody, EIP1559Transaction, GenericTransaction, PrivilegedL2Transaction, PrivilegedTxType,
-    Signable, TxKind, TxType,
+    BlobsBundle, BlockBody, EIP1559Transaction, EIP4844Transaction, GenericTransaction,
+    PrivilegedL2Transaction, PrivilegedTxType, Signable, TxKind, TxType,
 };
 use ethereum_rust_rlp::encode::RLPEncode;
 use ethereum_rust_rpc::{
@@ -23,6 +23,7 @@ use reqwest::Client;
 use secp256k1::SecretKey;
 use serde::{Deserialize, Serialize};
 use serde_json::json;
+use sha2::{Digest, Sha256};
 
 pub mod errors;
 pub mod eth_sender;
@@ -409,11 +410,65 @@ impl EthClient {
         };
 
         tx.gas_limit = overrides.gas_limit.unwrap_or({
-            let generic_tx = GenericTransaction::from(tx.clone());
+            let mut generic_tx = GenericTransaction::from(tx.clone());
+            if let Some(from) = overrides.from {
+                generic_tx.from = from;
+            }
             self.estimate_gas(generic_tx).await?
         });
 
         Ok(tx)
+    }
+
+    pub async fn build_eip4844_transaction(
+        &self,
+        to: Address,
+        calldata: Bytes,
+        overrides: Overrides,
+        blobs_bundle: BlobsBundle,
+    ) -> Result<WrappedEIP4844Transaction, EthClientError> {
+        let blob_versioned_hashes = blobs_bundle
+            .commitments
+            .iter()
+            .map(|commitment| {
+                let mut hasher = Sha256::new();
+                hasher.update(commitment);
+                let mut blob_versioned_hash = hasher.finalize();
+                blob_versioned_hash[0] = 0x01; // EIP-4844 versioning
+                H256::from_slice(blob_versioned_hash.as_slice())
+            })
+            .collect::<Vec<H256>>();
+
+        let mut tx = EIP4844Transaction {
+            to,
+            chain_id: overrides
+                .chain_id
+                .unwrap_or(self.get_chain_id().await?.as_u64()),
+            nonce: overrides.nonce.unwrap_or({
+                let address = overrides.from.ok_or(EthClientError::UnrecheableNonce)?;
+                self.get_nonce(address).await?
+            }),
+            max_priority_fee_per_gas: overrides.priority_gas_price.unwrap_or_default(),
+            max_fee_per_gas: overrides
+                .gas_price
+                .unwrap_or(self.get_gas_price().await?.as_u64()),
+            value: overrides.value.unwrap_or_default(),
+            data: calldata,
+            access_list: overrides.access_list,
+            max_fee_per_blob_gas: overrides.gas_price_per_blob.unwrap_or_default(),
+            blob_versioned_hashes,
+            ..Default::default()
+        };
+
+        tx.gas = overrides.gas_limit.unwrap_or({
+            let mut generic_tx = GenericTransaction::from(tx.clone());
+            if let Some(from) = overrides.from {
+                generic_tx.from = from;
+            }
+            self.estimate_gas(generic_tx).await?
+        });
+
+        Ok(WrappedEIP4844Transaction { tx, blobs_bundle })
     }
 
     pub async fn build_privileged_transaction(
@@ -444,7 +499,10 @@ impl EthClient {
         };
 
         tx.gas_limit = overrides.gas_limit.unwrap_or({
-            let generic_tx = GenericTransaction::from(tx.clone());
+            let mut generic_tx = GenericTransaction::from(tx.clone());
+            if let Some(from) = overrides.from {
+                generic_tx.from = from;
+            }
             self.estimate_gas(generic_tx).await?
         });
 

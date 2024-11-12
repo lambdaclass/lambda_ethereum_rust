@@ -21,6 +21,7 @@ pub struct Overrides {
     pub gas_price: Option<u64>,
     pub priority_gas_price: Option<u64>,
     pub access_list: Vec<(Address, Vec<H256>)>,
+    pub gas_price_per_blob: Option<U256>,
 }
 
 impl EthClient {
