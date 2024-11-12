@@ -10,6 +10,7 @@ pub mod opcodes;
 pub mod operations;
 pub mod utils;
 pub mod vm;
+pub mod gas_cost;
 
 pub use account::*;
 pub use environment::*;
