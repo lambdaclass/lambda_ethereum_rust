@@ -66,7 +66,7 @@ fn setup() -> (Address, SecretKey, EthClient) {
             *salt = H256::random();
             println!("SALT: {salt}");
         }
-        _ => panic!("{}", format!("Invalid boolean string: {}", input)),
+        _ => panic!("{}", format!("Invalid boolean string: {input}")),
     };
 
     (deployer, deployer_private_key, eth_client)
