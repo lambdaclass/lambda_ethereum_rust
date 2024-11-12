@@ -339,7 +339,7 @@ impl VM {
             dest_offset,
             bytecode
                 .get(offset..offset + size)
-                .ok_or(VMError::Internal(InternalError::SlicingError))?,
+                .ok_or(VMError::Internal(InternalError::SlicingError))?, // bytecode can be "refactored" in order to avoid handling the error.
         )?;
 
         Ok(OpcodeSuccess::Continue)
