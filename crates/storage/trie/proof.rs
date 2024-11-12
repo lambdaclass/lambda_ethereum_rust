@@ -1,4 +1,7 @@
-use std::collections::HashMap;
+use std::{
+    cmp::{self, Ordering},
+    collections::HashMap,
+};
 
 use ethereum_types::H256;
 use sha3::{Digest, Keccak256};
@@ -213,25 +216,27 @@ fn fill_node(
 
 /// Removes references to internal nodes not contained in the state
 /// These should be reconstructed when verifying the proof
+/// Returns true if the trie is left empty (rootless) as a result of this process
 fn remove_internal_references(
     root_hash: H256,
     left_key: H256,
     right_key: H256,
     trie_state: &mut TrieState,
-) {
+) -> bool {
     // First find the node at which the left and right path differ
     let left_path = Nibbles::from_bytes(&left_key.0);
     let right_path = Nibbles::from_bytes(&right_key.0);
 
-    remove_internal_references_inner(NodeHash::from(root_hash), left_path, right_path, trie_state);
+    remove_internal_references_inner(NodeHash::from(root_hash), left_path, right_path, trie_state)
 }
 
+// Return = true -> child should be removed
 fn remove_internal_references_inner(
     node_hash: NodeHash,
     mut left_path: Nibbles,
     mut right_path: Nibbles,
     trie_state: &mut TrieState,
-) {
+) -> bool {
     // We already looked up the nodes when filling the state so this shouldn't fail
     let node = trie_state.get_node(node_hash.clone()).unwrap().unwrap();
     match node {
@@ -240,49 +245,98 @@ fn remove_internal_references_inner(
             let right_choice = right_path.next_choice().unwrap();
             if left_choice == right_choice && n.choices[left_choice].is_valid() {
                 // Keep going
-                return remove_internal_references_inner(
+                // Check if the child extension node should be removed as a result of this process
+                let should_remove = remove_internal_references_inner(
                     n.choices[left_choice].clone(),
                     left_path,
                     right_path,
                     trie_state,
                 );
+                if should_remove {
+                    n.choices[left_choice] = NodeHash::default();
+                    trie_state.insert_node(n.into(), node_hash);
+                }
+            } else {
+                // We found our fork node, now we can remove the internal references
+                for choice in &mut n.choices[left_choice + 1..right_choice] {
+                    *choice = NodeHash::default()
+                }
+                // Remove nodes on the left and right choice's subtries
+                let should_remove_left =
+                    remove_nodes(n.choices[left_choice].clone(), left_path, false, trie_state);
+                let should_remove_right = remove_nodes(
+                    n.choices[right_choice].clone(),
+                    right_path,
+                    true,
+                    trie_state,
+                );
+                if should_remove_left {
+                    n.choices[left_choice] = NodeHash::default();
+                }
+                if should_remove_right {
+                    n.choices[right_choice] = NodeHash::default();
+                }
+                // Update node in the state
+                trie_state.insert_node(n.into(), node_hash);
+            }
+        }
+        Node::Extension(n) => {
+            // Compare left and right paths against prefix
+            let compare_path = |path: &Nibbles, prefix: &Nibbles| -> Ordering {
+                if path.len() > prefix.len() {
+                    path.as_ref()[..prefix.len()].cmp(prefix.as_ref())
+                } else {
+                    path.as_ref().cmp(prefix.as_ref())
+                }
+            };
+
+            let left_fork = compare_path(&left_path, &n.prefix);
+            let right_fork = compare_path(&right_path, &n.prefix);
+
+            if left_fork.is_eq() && right_fork.is_eq() {
+                // Keep going
+                return remove_internal_references_inner(
+                    n.child,
+                    left_path.offset(n.prefix.len()),
+                    right_path.offset(n.prefix.len()),
+                    trie_state,
+                );
             }
             // We found our fork node, now we can remove the internal references
-            for choice in &mut n.choices[left_choice + 1..right_choice] {
-                *choice = NodeHash::default()
+            match (left_fork, right_fork) {
+                // If both paths are greater or lesser than the node's prefix then the range is empty
+                // TODO: return the error instead of panicking here
+                (Ordering::Greater, Ordering::Greater) | (Ordering::Less, Ordering::Less) => {
+                    panic!("empty range")
+                }
+                // Node of the paths fit the prefix, remove the entire subtrie
+                (left, right) if left.is_ne() && right.is_ne() => {
+                    // Return true so that the parent node knows they need to remove this node
+                    return true;
+                }
+                // One path fits teh prefix, the other one doesn't
+                (left, right) => {
+                    // If the child is a leaf node, tell parent to remove the node -> we will let the child handle this
+                    let path = if left.is_eq() { left_path } else { right_path };
+                    // If the child node is removed then this node will be removed too so we will leave that to the parent
+                    return remove_nodes(node_hash, path, right.is_eq(), trie_state);
+                }
             }
-            // Remove nodes on the left and right choice's subtries
-            remove_nodes(
-                &node_hash,
-                n.choices[left_choice].clone(),
-                left_path,
-                false,
-                trie_state,
-            );
-            remove_nodes(
-                &node_hash,
-                n.choices[right_choice].clone(),
-                right_path,
-                true,
-                trie_state,
-            );
-            // Update node in the state
-            trie_state.insert_node(n.into(), node_hash);
         }
-        Node::Extension(n) => todo!(),
         Node::Leaf(_) => todo!(),
     }
+    false
 }
 
+// Return = true -> child should be removed
 fn remove_nodes(
-    parent_hash: &NodeHash,
     node_hash: NodeHash,
     mut path: Nibbles,
     remove_left: bool,
     trie_state: &mut TrieState,
-) {
+) -> bool {
     if !node_hash.is_valid() {
-        return;
+        return false;
     }
     let node = trie_state.get_node(node_hash.clone()).unwrap().unwrap();
     match node {
@@ -297,21 +351,30 @@ fn remove_nodes(
                 for child in &mut n.choices[choice + 1..] {
                     *child = NodeHash::default()
                 }
-                // Remove nodes to the left/right of the choice's subtrie
-                remove_nodes(
-                    &node_hash,
-                    n.choices[choice].clone(),
-                    path,
-                    remove_left,
-                    trie_state,
-                );
+            }
+            // Remove nodes to the left/right of the choice's subtrie
+            let should_remove =
+                remove_nodes(n.choices[choice].clone(), path, remove_left, trie_state);
+            if should_remove {
+                n.choices[choice] = NodeHash::default();
             }
             // Update node in the state
             trie_state.insert_node(n.into(), node_hash);
         }
-        Node::Extension(extension_node) => todo!(),
-        Node::Leaf(_) => return,
+        Node::Extension(n) => {
+            if !path.skip_prefix(&n.prefix) {
+                if (remove_left && n.prefix.as_ref() < path.as_ref())
+                    || (!remove_left && n.prefix.as_ref() > path.as_ref())
+                {
+                    return true;
+                }
+            } else {
+                return remove_nodes(n.child, path, remove_left, trie_state);
+            }
+        }
+        Node::Leaf(_) => return true,
     }
+    false
 }
 
 struct ProofNodeStorage<'a> {
@@ -345,10 +408,12 @@ impl<'a> ProofNodeStorage<'a> {
 
 #[cfg(test)]
 mod tests {
+    use ethereum_types::{BigEndianHash, U256};
+
     use super::*;
 
     #[test]
-    fn verify_range_proof_regular_case() {
+    fn verify_range_proof_regular_case_only_branch_nodes() {
         // The trie will have keys and values ranging from 25-100
         // We will prove the range from 50-75
         // Note values are written as hashes in the form i -> [i;32]
@@ -361,6 +426,32 @@ mod tests {
         let root = trie.hash().unwrap();
         let keys = (50_u8..=75).map(|i| H256([i; 32])).collect::<Vec<_>>();
         let values = (50_u8..=75).map(|i| [i; 32].to_vec()).collect::<Vec<_>>();
+        verify_range_proof(root, keys[0], keys, values, proof).unwrap();
+    }
+
+    #[test]
+    fn verify_range_proof_regular_case() {
+        // The trie will have keys and values with the same bytes values ranging from 1 to 200
+        // We will prove the range from 75 to 150
+        let mut trie = Trie::new_temp();
+        for i in 0..200 {
+            let val = H256::from_uint(&U256::from(i)).0.to_vec();
+            trie.insert(val.clone(), val).unwrap()
+        }
+        let mut proof = trie
+            .get_proof(&H256::from_uint(&U256::from(75)).0.to_vec())
+            .unwrap();
+        proof.extend(
+            trie.get_proof(&H256::from_uint(&U256::from(150)).0.to_vec())
+                .unwrap(),
+        );
+        let root = trie.hash().unwrap();
+        let keys = (75..=150)
+            .map(|i| H256::from_uint(&U256::from(i)))
+            .collect::<Vec<_>>();
+        let values = (75..=150)
+            .map(|i| H256::from_uint(&U256::from(i)).0.to_vec())
+            .collect::<Vec<_>>();
         verify_range_proof(root, keys[0], keys, values, proof).unwrap();
     }
 }
