@@ -12,8 +12,8 @@ use create_opcode::{CODE_DEPOSIT_COST, CREATE_BASE_COST, INIT_CODE_WORD_COST};
 use ethereum_rust_core::{types::TxKind, Address, H256, U256};
 use ethereum_rust_rlp;
 use ethereum_rust_rlp::encode::RLPEncode;
-use keccak_hash::keccak;
 use gas_cost::KECCAK25_DYNAMIC_BASE;
+use keccak_hash::keccak;
 use sha3::{Digest, Keccak256};
 use std::{
     collections::{HashMap, HashSet},
@@ -451,7 +451,12 @@ impl VM {
             // Charge 22100 gas for each storage variable set
 
             // GInitCodeword * number_of_words rounded up. GinitCodeWord = 2
-            let number_of_words: u64 = initial_call_frame.calldata.chunks(WORD_SIZE).len().try_into().map_err(|_| VMError::Internal(InternalError::ConversionError))?;
+            let number_of_words: u64 = initial_call_frame
+                .calldata
+                .chunks(WORD_SIZE)
+                .len()
+                .try_into()
+                .map_err(|_| VMError::Internal(InternalError::ConversionError))?;
             report.add_gas_with_max(number_of_words * 2, max_gas);
 
             let contract_address = initial_call_frame.to;
@@ -784,9 +789,7 @@ impl VM {
         );
 
         let new_address = match salt {
-            Some(salt) => {
-                Self::calculate_create2_address(current_call_frame.to, &code, salt)
-            }
+            Some(salt) => Self::calculate_create2_address(current_call_frame.to, &code, salt),
             None => Self::calculate_create_address(
                 current_call_frame.msg_sender,
                 sender_account.info.nonce,

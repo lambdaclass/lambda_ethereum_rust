@@ -133,8 +133,12 @@ impl Operation {
             Operation::Gasprice => Bytes::copy_from_slice(&[u8::from(Opcode::GASPRICE)]),
             Operation::ExtcodeSize => Bytes::copy_from_slice(&[u8::from(Opcode::EXTCODESIZE)]),
             Operation::ExtcodeCopy => Bytes::copy_from_slice(&[u8::from(Opcode::EXTCODECOPY)]),
-            Operation::ReturnDataSize => Bytes::copy_from_slice(&[u8::from(Opcode::RETURNDATASIZE)]),
-            Operation::ReturnDataCopy => Bytes::copy_from_slice(&[u8::from(Opcode::RETURNDATACOPY)]),
+            Operation::ReturnDataSize => {
+                Bytes::copy_from_slice(&[u8::from(Opcode::RETURNDATASIZE)])
+            }
+            Operation::ReturnDataCopy => {
+                Bytes::copy_from_slice(&[u8::from(Opcode::RETURNDATACOPY)])
+            }
             Operation::ExtcodeHash => Bytes::copy_from_slice(&[u8::from(Opcode::EXTCODEHASH)]),
             Operation::BlockHash => Bytes::copy_from_slice(&[u8::from(Opcode::BLOCKHASH)]),
             Operation::Coinbase => Bytes::copy_from_slice(&[u8::from(Opcode::COINBASE)]),
@@ -177,7 +181,7 @@ impl Operation {
                 let opcode = Opcode::try_from(u8::from(Opcode::PUSH0) + *n)?;
                 let mut bytes = vec![u8::from(opcode)];
                 bytes.extend_from_slice(value_to_push);
-    
+
                 Bytes::copy_from_slice(&bytes)
             }
             Operation::Dup(n) => {

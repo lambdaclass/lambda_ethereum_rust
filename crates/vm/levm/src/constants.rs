@@ -1,5 +1,5 @@
-use ethereum_rust_core::U256;
 use crate::errors::{InternalError, VMError};
+use ethereum_rust_core::U256;
 
 pub const SUCCESS_FOR_CALL: i32 = 1;
 pub const REVERT_FOR_CALL: i32 = 0;
@@ -124,7 +124,8 @@ pub const INVALID_CONTRACT_PREFIX: u8 = 0xef;
 pub const INIT_WORD_COST: u64 = 2;
 
 pub fn init_code_cost(init_code_length: usize) -> Result<u64, VMError> {
-    let length_u64 = u64::try_from(init_code_length).map_err(|_| VMError::Internal(InternalError::ConversionError))?;
+    let length_u64 = u64::try_from(init_code_length)
+        .map_err(|_| VMError::Internal(InternalError::ConversionError))?;
     Ok(INIT_WORD_COST * (length_u64 + 31) / 32)
 }
 
