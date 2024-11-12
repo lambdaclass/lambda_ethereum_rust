@@ -31,10 +31,19 @@ impl Memory {
     }
 
     pub fn load(&mut self, offset: usize) -> Result<U256, VMError> {
-        self.resize(offset.checked_add(32).ok_or(VMError::MemoryLoadOutOfBounds)?);
+        self.resize(
+            offset
+                .checked_add(32)
+                .ok_or(VMError::MemoryLoadOutOfBounds)?,
+        );
         let value_bytes = self
             .data
-            .get(offset..offset.checked_add(32).ok_or(VMError::MemoryLoadOutOfBounds)?)
+            .get(
+                offset
+                    ..offset
+                        .checked_add(32)
+                        .ok_or(VMError::MemoryLoadOutOfBounds)?,
+            )
             .ok_or(VMError::MemoryLoadOutOfBounds)?;
 
         Ok(U256::from_big_endian(value_bytes))

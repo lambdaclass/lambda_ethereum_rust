@@ -114,7 +114,11 @@ impl VM {
         &mut self,
         current_call_frame: &mut CallFrame,
     ) -> Result<OpcodeSuccess, VMError> {
-        let offset: usize = current_call_frame.stack.pop()?.try_into().map_err(|_| VMError::VeryLargeNumber)?;
+        let offset: usize = current_call_frame
+            .stack
+            .pop()?
+            .try_into()
+            .map_err(|_| VMError::VeryLargeNumber)?;
         let memory_expansion_cost = current_call_frame.memory.expansion_cost(
             offset
                 .checked_add(1)

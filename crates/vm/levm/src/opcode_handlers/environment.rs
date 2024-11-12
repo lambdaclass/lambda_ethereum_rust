@@ -298,10 +298,7 @@ impl VM {
             self.cache_from_db(&address);
         };
 
-        let bytecode = self
-            .get_account(&address)
-            .info
-            .bytecode;
+        let bytecode = self.get_account(&address).info.bytecode;
 
         current_call_frame.stack.push(bytecode.len().into())?;
         Ok(OpcodeSuccess::Continue)
@@ -345,10 +342,7 @@ impl VM {
             self.cache_from_db(&address);
         };
 
-        let mut bytecode = self
-            .get_account(&address)
-            .info
-            .bytecode;
+        let mut bytecode = self.get_account(&address).info.bytecode;
 
         if bytecode.len()
             < offset
@@ -458,10 +452,7 @@ impl VM {
             self.cache_from_db(&address);
         };
 
-        let bytecode = self
-            .get_account(&address)
-            .info
-            .bytecode;
+        let bytecode = self.get_account(&address).info.bytecode;
 
         let mut hasher = Keccak256::new();
         hasher.update(bytecode);

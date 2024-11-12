@@ -13,7 +13,10 @@ use std::{collections::HashMap, sync::Arc};
 pub fn ops_to_bytecode(operations: &[Operation]) -> Result<Bytes, VMError> {
     let mut bytecode = Vec::new();
     for op in operations {
-        bytecode.extend_from_slice(&op.to_bytecode().map_err(|_| VMError::Internal(InternalError::UtilsError))?); // for now it is just a utils error...
+        bytecode.extend_from_slice(
+            &op.to_bytecode()
+                .map_err(|_| VMError::Internal(InternalError::UtilsError))?,
+        ); // for now it is just a utils error...
     }
     Ok(bytecode.into())
 }
