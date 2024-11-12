@@ -1,4 +1,4 @@
-use std::{sync::Arc, time::Duration};
+use std::{mem::MaybeUninit, sync::Arc, time::Duration};
 
 use crate::{
     rlpx::{
@@ -38,7 +38,8 @@ use k256::{
 use sha3::{Digest, Keccak256};
 use tokio::{
     io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt},
-    sync::broadcast,
+    sync::broadcast::{self, error::RecvError},
+    task::Id,
     time::timeout,
 };
 use tracing::{error, info};
@@ -196,18 +197,29 @@ impl<S: AsyncWrite + AsyncRead + std::marker::Unpin> RLPxConnection<S> {
             RLPxConnectionState::Established(_) => {
                 info!("Started peer main loop");
                 // Wait for eth status message or timeout.
-                let _ = timeout(Duration::from_secs(15), self.wait_status_msg())
-                    .await
-                    .map_err(|_err| {
-                        RLPxError::HandshakeError("Timeout waiting for status msg".to_string())
-                    })?;
-                let mut broadcaster_receive = self.connection_broadcast_send.subscribe();
+                let mut broadcaster_receive = {
+                    if self.capabilities.contains(&CAP_ETH) {
+                        Some(self.connection_broadcast_send.subscribe())
+                    } else {
+                        None
+                    }
+                };
                 // Status message received, start listening for connections,
                 // and subscribe this connection to the broadcasting.
                 loop {
+                    let peer_supports_eth = self.capabilities.contains(&CAP_ETH);
                     tokio::select! {
                         received_msg = self.receive() => {
                             match received_msg? {
+                                Message::Disconnect(_) => info!("Received Disconnect"),
+                                Message::Ping(_) => info!("Received Ping"),
+                                Message::Pong(_) => info!("Received Pong"),
+                                Message::Status(_) if !peer_supports_eth => {
+                                    info!("Received Status");
+                                    // TODO: Check peer's status message.
+                                    broadcaster_receive = Some(self.connection_broadcast_send.subscribe());
+                                    self.capabilities.push(CAP_ETH);
+                                }
                                 // TODO: implement handlers for each message type
                                 Message::GetAccountRange(req) => {
                                     let response =
@@ -215,17 +227,17 @@ impl<S: AsyncWrite + AsyncRead + std::marker::Unpin> RLPxConnection<S> {
                                     self.send(Message::AccountRange(response)).await?
                                 }
                                 // TODO(#1129) Add the transaction to the mempool once received.
-                                txs_msg @ Message::Transactions(_) => {
+                                txs_msg @ Message::Transactions(_) if peer_supports_eth => {
                                     self.broadcast_message(txs_msg).await?;
                                 }
-                                Message::GetBlockHeaders(msg_data) => {
+                                Message::GetBlockHeaders(msg_data) if peer_supports_eth => {
                                     let response = BlockHeaders {
                                         id: msg_data.id,
                                         block_headers: msg_data.fetch_headers(&self.storage),
                                     };
                                     self.send(Message::BlockHeaders(response)).await?;
                                 }
-                                Message::GetBlockBodies(msg_data) => {
+                                Message::GetBlockBodies(msg_data) if peer_supports_eth => {
                                     let response = BlockBodies {
                                         id: msg_data.id,
                                         block_bodies: msg_data.fetch_blocks(&self.storage),
@@ -249,7 +261,15 @@ impl<S: AsyncWrite + AsyncRead + std::marker::Unpin> RLPxConnection<S> {
                                 message => return Err(RLPxError::MessageNotHandled(format!("{message}"))),
                             }
                         }
-                        Ok((id, broadcasted_msg)) = broadcaster_receive.recv() => {
+                        // This is not ideal, but using the receiver without
+                        // this function call, causes the loop to take ownwership
+                        // of the variable and the compiler will complain about it,
+                        // with this function, we avoid that.
+                        // If the broadcaster is Some (i.e. we're connected to a peer that supports an eth protocol),
+                        // we'll receive broadcasted messages from another connections through a channel, otherwise
+                        // the function below will yield immediately but the select will not match and
+                        // ignore the returned value.
+                        Some(Ok((id, broadcasted_msg))) = Self::maybe_wait_for_broadcaster(&mut broadcaster_receive) => {
                             if id != tokio::task::id() {
                                 match broadcasted_msg.as_ref() {
                                     Message::Transactions(ref txs) => {
@@ -260,7 +280,7 @@ impl<S: AsyncWrite + AsyncRead + std::marker::Unpin> RLPxConnection<S> {
                                     }
                                     msg => {
                                         error!("Unsupported message was broadcasted: {msg}");
-                                        return Err(RLPxError::Broadcast(format!("Non-supported message broadcasted {}", msg)))
+                                        return Err(RLPxError::BroadcastError(format!("Non-supported message broadcasted {}", msg)))
                                     }
                                 }
 
@@ -273,6 +293,15 @@ impl<S: AsyncWrite + AsyncRead + std::marker::Unpin> RLPxConnection<S> {
         }
     }
 
+    async fn maybe_wait_for_broadcaster(
+        receiver: &mut Option<tokio::sync::broadcast::Receiver<(Id, Arc<Message>)>>,
+    ) -> Option<Result<(Id, Arc<Message>), RecvError>> {
+        match receiver {
+            None => None,
+            Some(rec) => Some(rec.recv().await),
+        }
+    }
+
     pub fn get_remote_node_id(&self) -> Result<H512, RLPxError> {
         match &self.state {
             RLPxConnectionState::Established(state) => Ok(state.remote_node_id),
@@ -282,9 +311,26 @@ impl<S: AsyncWrite + AsyncRead + std::marker::Unpin> RLPxConnection<S> {
 
     async fn start_capabilities(&mut self) -> Result<(), RLPxError> {
         // Sending eth Status if peer supports it
-        if self.capabilities.contains(&CAP_ETH) {
+        if let Some(cap_index) = self.capabilities.iter().position(|cap| cap == &CAP_ETH) {
             let status = backend::get_status(&self.storage)?;
             self.send(Message::Status(status)).await?;
+            // The next immediate message in the ETH protocol is the
+            // status, reference here:
+            // https://github.com/ethereum/devp2p/blob/master/caps/eth.md#status-0x00
+            // let Ok(Message::Status(_)) = self.receive().await else {
+            //     self.capabilities.iter_mut().position(|cap| cap == &CAP_ETH).map(|indx| self.capabilities.remove(indx));
+            // }
+            match self.receive().await? {
+                Message::Status(_) => {
+                    // TODO: Check message status is correct.
+                }
+                msg => {
+                    error!(
+                        "Peer established eth capability but sent message: {msg} instead of status"
+                    );
+                    self.capabilities.remove(cap_index);
+                }
+            }
         }
         // TODO: add new capabilities startup when required (eg. snap)
         Ok(())
@@ -482,7 +528,7 @@ impl<S: AsyncWrite + AsyncRead + std::marker::Unpin> RLPxConnection<S> {
                 let task_id = tokio::task::id();
                 let Ok(_) = self.connection_broadcast_send.send((task_id, txs)) else {
                     error!("Could not broadcast message in task!");
-                    return Err(RLPxError::Broadcast(
+                    return Err(RLPxError::BroadcastError(
                         "Could not broadcast received transactions".to_owned(),
                     ));
                 };
@@ -490,7 +536,7 @@ impl<S: AsyncWrite + AsyncRead + std::marker::Unpin> RLPxConnection<S> {
             }
             msg => {
                 error!("Non supported message: {msg} was tried to be broadcasted");
-                Err(RLPxError::Broadcast(format!(
+                Err(RLPxError::BroadcastError(format!(
                     "Broadcasting for msg: {msg} is not supported"
                 )))
             }
