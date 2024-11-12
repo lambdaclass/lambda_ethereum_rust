@@ -114,7 +114,7 @@ impl VM {
             .stack
             .pop()?
             .try_into()
-            .map_err(|_| VMError::FatalUnwrap)?;
+            .map_err(|_| VMError::VeryLargeNumber)?;
         let memory_expansion_cost = current_call_frame.memory.expansion_cost(offset + 1)?;
         let gas_cost = gas_cost::MSTORE8_STATIC + memory_expansion_cost;
 

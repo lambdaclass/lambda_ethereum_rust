@@ -291,12 +291,9 @@ impl VM {
         };
 
         let bytecode = self
-            .cache
-            .get_account(address)
-            .ok_or(VMError::FatalUnwrap)?
+            .get_account(&address)
             .info
-            .bytecode
-            .clone();
+            .bytecode;
 
         current_call_frame.stack.push(bytecode.len().into())?;
         Ok(OpcodeSuccess::Continue)
@@ -339,12 +336,9 @@ impl VM {
         };
 
         let mut bytecode = self
-            .cache
-            .get_account(address)
-            .ok_or(VMError::FatalUnwrap)?
+            .get_account(&address)
             .info
-            .bytecode
-            .clone();
+            .bytecode;
 
         if bytecode.len() < offset + size {
             let mut extended_code = bytecode.to_vec();
@@ -436,12 +430,9 @@ impl VM {
         };
 
         let bytecode = self
-            .cache
-            .get_account(address)
-            .ok_or(VMError::FatalUnwrap)?
+            .get_account(&address)
             .info
-            .bytecode
-            .clone();
+            .bytecode;
 
         let mut hasher = Keccak256::new();
         hasher.update(bytecode);
