@@ -108,7 +108,13 @@ impl VM {
 
         // All bytes after the end of the calldata are set to 0.
         let mut data = [0u8; 32];
-        for (i, byte) in current_call_frame.calldata.iter().skip(offset).take(32).enumerate() {
+        for (i, byte) in current_call_frame
+            .calldata
+            .iter()
+            .skip(offset)
+            .take(32)
+            .enumerate()
+        {
             if let Some(data_byte) = data.get_mut(i) {
                 *data_byte = *byte;
             }
@@ -172,15 +178,19 @@ impl VM {
         }
 
         let mut data = [0u8; 32];
-        for (i, byte) in current_call_frame.calldata.iter().skip(calldata_offset).take(32).enumerate() {
+        for (i, byte) in current_call_frame
+            .calldata
+            .iter()
+            .skip(calldata_offset)
+            .take(32)
+            .enumerate()
+        {
             if let Some(data_byte) = data.get_mut(i) {
                 *data_byte = *byte;
             }
         }
 
-        current_call_frame
-            .memory
-            .store_bytes(dest_offset, &data)?;
+        current_call_frame.memory.store_bytes(dest_offset, &data)?;
 
         Ok(OpcodeSuccess::Continue)
     }
@@ -357,7 +367,12 @@ impl VM {
         current_call_frame.memory.store_bytes(
             dest_offset,
             bytecode
-                .get(offset..offset.checked_add(size).ok_or(VMError::MemoryLoadOutOfBounds)?)
+                .get(
+                    offset
+                        ..offset
+                            .checked_add(size)
+                            .ok_or(VMError::MemoryLoadOutOfBounds)?,
+                )
                 .ok_or(VMError::Internal(InternalError::SlicingError))?, // bytecode can be "refactored" in order to avoid handling the error.
         )?;
 

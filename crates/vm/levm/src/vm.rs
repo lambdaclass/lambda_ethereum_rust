@@ -12,8 +12,8 @@ use create_opcode::{CODE_DEPOSIT_COST, CREATE_BASE_COST, INIT_CODE_WORD_COST};
 use ethereum_rust_core::{types::TxKind, Address, H256, U256};
 use ethereum_rust_rlp;
 use ethereum_rust_rlp::encode::RLPEncode;
-use keccak_hash::keccak;
 use gas_cost::KECCAK25_DYNAMIC_BASE;
+use keccak_hash::keccak;
 use sha3::{Digest, Keccak256};
 use std::{
     collections::{HashMap, HashSet},
@@ -333,7 +333,13 @@ impl VM {
             }
         }
 
-        let initial_call_frame = self.call_frames.last().ok_or(VMError::Internal(InternalError::CouldNotAccessLastCallframe))?.clone();
+        let initial_call_frame = self
+            .call_frames
+            .last()
+            .ok_or(VMError::Internal(
+                InternalError::CouldNotAccessLastCallframe,
+            ))?
+            .clone();
 
         let origin = self.env.origin;
         let to = initial_call_frame.to;
@@ -353,10 +359,7 @@ impl VM {
             return Err(VMError::SenderAccountShouldNotHaveBytecode);
         }
         // (6)
-        if sender_account.info.balance
-            < initial_call_frame
-                .msg_value
-        {
+        if sender_account.info.balance < initial_call_frame.msg_value {
             return Err(VMError::SenderBalanceShouldContainTransferValue);
         }
         // TODO: This belongs elsewhere.
@@ -378,7 +381,13 @@ impl VM {
     }
 
     fn revert_create(&mut self) -> Result<(), VMError> {
-        let initial_call_frame = self.call_frames.last().ok_or(VMError::Internal(InternalError::CouldNotAccessLastCallframe))?.clone();
+        let initial_call_frame = self
+            .call_frames
+            .last()
+            .ok_or(VMError::Internal(
+                InternalError::CouldNotAccessLastCallframe,
+            ))?
+            .clone();
 
         // Note: currently working with copies
         let sender = initial_call_frame.msg_sender;
@@ -410,13 +419,18 @@ impl VM {
 
         let mut report = self.execute(&mut initial_call_frame);
 
-        let initial_call_frame = self.call_frames.last().ok_or(VMError::Internal(InternalError::CouldNotAccessLastCallframe))?.clone();
+        let initial_call_frame = self
+            .call_frames
+            .last()
+            .ok_or(VMError::Internal(
+                InternalError::CouldNotAccessLastCallframe,
+            ))?
+            .clone();
 
         // This cost applies both for call and create
         // 4 gas for each zero byte in the transaction data 16 gas for each non-zero byte in the transaction.
         let mut calldata_cost = 0;
-        for byte in &initial_call_frame.calldata
-        {
+        for byte in &initial_call_frame.calldata {
             if *byte != 0 {
                 calldata_cost += 16;
             } else {
@@ -445,7 +459,11 @@ impl VM {
                 return Err(VMError::ContractOutputTooBig);
             }
             // Supposing contract code has contents
-            if *contract_code.first().ok_or(VMError::Internal(InternalError::TriedToIndexEmptyCode))? == INVALID_CONTRACT_PREFIX {
+            if *contract_code
+                .first()
+                .ok_or(VMError::Internal(InternalError::TriedToIndexEmptyCode))?
+                == INVALID_CONTRACT_PREFIX
+            {
                 return Err(VMError::InvalidInitialByte);
             }
 
@@ -639,9 +657,9 @@ impl VM {
         (sender_address, sender_nonce).encode(&mut encoded);
         let mut hasher = Keccak256::new();
         hasher.update(encoded);
-        Ok(Address::from_slice(
-            hasher.finalize().get(12..).ok_or(VMError::Internal(InternalError::CouldNotComputeCreateAddress))?,
-        ))
+        Ok(Address::from_slice(hasher.finalize().get(12..).ok_or(
+            VMError::Internal(InternalError::CouldNotComputeCreateAddress),
+        )?))
     }
 
     /// Calculates the address of a new contract using the CREATE2 opcode as follow
@@ -670,7 +688,9 @@ impl VM {
             )
             .as_bytes()
             .get(12..)
-            .ok_or(VMError::Internal(InternalError::CouldNotComputeCreate2Address))?,
+            .ok_or(VMError::Internal(
+                InternalError::CouldNotComputeCreate2Address,
+            ))?,
         ))
     }
 
@@ -795,9 +815,7 @@ impl VM {
         );
 
         let new_address = match salt {
-            Some(salt) => {
-                Self::calculate_create2_address(current_call_frame.to, &code, salt)?
-            }
+            Some(salt) => Self::calculate_create2_address(current_call_frame.to, &code, salt)?,
             None => Self::calculate_create_address(
                 current_call_frame.msg_sender,
                 sender_account.info.nonce,

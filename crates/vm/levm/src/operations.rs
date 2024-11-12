@@ -1,4 +1,7 @@
-use crate::{errors::{InternalError, VMError}, opcodes::Opcode};
+use crate::{
+    errors::{InternalError, VMError},
+    opcodes::Opcode,
+};
 use bytes::Bytes;
 use ethereum_rust_core::U256;
 

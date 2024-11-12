@@ -109,10 +109,20 @@ impl Memory {
         U256::from(self.data.len())
     }
 
-    pub fn copy(&mut self, src_offset: usize, dest_offset: usize, size: usize) -> Result<(), VMError> {
-        let max_size = std::cmp::max(src_offset.checked_add(size)
-        .ok_or(VMError::MemoryLoadOutOfBounds)?, dest_offset.checked_add(size)
-        .ok_or(VMError::MemoryLoadOutOfBounds)?);
+    pub fn copy(
+        &mut self,
+        src_offset: usize,
+        dest_offset: usize,
+        size: usize,
+    ) -> Result<(), VMError> {
+        let max_size = std::cmp::max(
+            src_offset
+                .checked_add(size)
+                .ok_or(VMError::MemoryLoadOutOfBounds)?,
+            dest_offset
+                .checked_add(size)
+                .ok_or(VMError::MemoryLoadOutOfBounds)?,
+        );
 
         if max_size > self.data.len() {
             self.resize(max_size);
@@ -122,14 +132,23 @@ impl Memory {
 
         for i in 0..size {
             if let Some(temp_byte) = temp.get_mut(i) {
-                *temp_byte = *self.data.get(src_offset.checked_add(i)
-                .ok_or(VMError::MemoryLoadOutOfBounds)?).unwrap_or(&0u8);
+                *temp_byte = *self
+                    .data
+                    .get(
+                        src_offset
+                            .checked_add(i)
+                            .ok_or(VMError::MemoryLoadOutOfBounds)?,
+                    )
+                    .unwrap_or(&0u8);
             }
         }
 
         for i in 0..size {
-            if let Some(memory_byte) = self.data.get_mut(dest_offset.checked_add(i)
-            .ok_or(VMError::MemoryLoadOutOfBounds)?) {
+            if let Some(memory_byte) = self.data.get_mut(
+                dest_offset
+                    .checked_add(i)
+                    .ok_or(VMError::MemoryLoadOutOfBounds)?,
+            ) {
                 *memory_byte = *temp.get(i).unwrap_or(&0u8);
             }
         }
