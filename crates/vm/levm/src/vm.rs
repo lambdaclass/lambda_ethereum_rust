@@ -4,12 +4,14 @@ use crate::{
     constants::*,
     db::{Cache, Database},
     environment::Environment,
-    errors::{InternalError, OpcodeSuccess, ResultReason, TransactionReport, TxResult, VMError},
-    gas_cost::KECCAK25_DYNAMIC_BASE,
+    errors::{
+        InternalError, OpcodeSuccess, OutOfGasError, ResultReason, TransactionReport, TxResult,
+        VMError,
+    },
+    gas_cost::{tx_calldata_gas_cost, tx_creation_cost},
     opcodes::Opcode,
 };
 use bytes::Bytes;
-use create_opcode::{CODE_DEPOSIT_COST, CREATE_BASE_COST, INIT_CODE_WORD_COST};
 use ethereum_rust_core::{types::TxKind, Address, H256, U256};
 use ethereum_rust_rlp;
 use ethereum_rust_rlp::encode::RLPEncode;
@@ -429,24 +431,18 @@ impl VM {
         let mut report = self.execute(&mut current_call_frame);
         let sender = self.call_frames.first().unwrap().msg_sender;
 
-        // This cost applies both for call and create
-        // 4 gas for each zero byte in the transaction data 16 gas for each non-zero byte in the transaction.
-        let mut calldata_cost: u64 = 0;
-        for byte in &self.call_frames[0].calldata {
-            if *byte != 0 {
-                calldata_cost = calldata_cost
-                    .checked_add(16)
-                    .ok_or(VMError::GasUsedOverflow)?;
-            } else {
-                calldata_cost = calldata_cost
-                    .checked_add(4)
-                    .ok_or(VMError::GasUsedOverflow)?;
-            }
-        }
+        let first_callframe_calldata = &self
+            .call_frames
+            .first()
+            .ok_or(VMError::StackUnderflow)?
+            .calldata;
+        let calldata_cost =
+            tx_calldata_gas_cost(first_callframe_calldata).map_err(|e| VMError::OutOfGasErr(e))?;
+
         report.gas_used = report
             .gas_used
             .checked_add(calldata_cost)
-            .ok_or(VMError::GasUsedOverflow)?;
+            .ok_or(VMError::OutOfGasErr(OutOfGasError::GasUsedOverflow))?;
 
         if self.is_create() {
             // If create should check if transaction failed. If failed should revert (delete created contract, )
@@ -472,27 +468,15 @@ impl VM {
 
             // If the initialization code completes successfully, a final contract-creation cost is paid,
             // the code-deposit cost, c, proportional to the size of the created contract’s code
-            let mut creation_cost = contract_code
-                .len()
-                .checked_mul(200)
-                .ok_or(VMError::CreationCostIsTooHigh)? as u64;
-            creation_cost = creation_cost
-                .checked_add(32000)
-                .ok_or(VMError::CreationCostIsTooHigh)?;
+            let number_of_words = self.call_frames[0].calldata.chunks(WORD_SIZE).len() as u64;
+
+            let creation_cost = tx_creation_cost(&contract_code, number_of_words)
+                .map_err(|e| VMError::OutOfGasErr(e))?;
             report.gas_used = report
                 .gas_used
                 .checked_add(creation_cost)
-                .ok_or(VMError::GasUsedOverflow)?;
+                .ok_or(VMError::OutOfGasErr(OutOfGasError::GasUsedOverflow))?;
             // Charge 22100 gas for each storage variable set
-
-            // GInitCodeword * number_of_words rounded up. GinitCodeWord = 2
-            let number_of_words = self.call_frames[0].calldata.chunks(WORD_SIZE).len() as u64;
-            report.gas_used = report
-                .gas_used
-                .checked_add(number_of_words.checked_mul(2).ok_or(VMError::Internal(
-                    InternalError::ArithmeticOperationOverflow,
-                ))?)
-                .ok_or(VMError::GasUsedOverflow)?;
 
             let contract_address = self.call_frames.first().unwrap().to;
             let mut created_contract = self.get_account(&contract_address);
@@ -528,7 +512,7 @@ impl VM {
             .ok_or(VMError::GasPriceIsLowerThanBaseFee)?;
         let coinbase_fee = (U256::from(report.gas_used))
             .checked_mul(priority_fee_per_gas)
-            .ok_or(VMError::GasUsedOverflow)?;
+            .ok_or(VMError::BalanceOverflow)?;
 
         let mut coinbase_account = self.get_account(&coinbase_address);
         coinbase_account.info.balance = coinbase_account
@@ -654,7 +638,7 @@ impl VM {
         current_call_frame.gas_used = current_call_frame
             .gas_used
             .checked_add(tx_report.gas_used.into())
-            .ok_or(VMError::ConsumedGasOverflow)?;
+            .ok_or(VMError::OutOfGasErr(OutOfGasError::ConsumedGasOverflow))?;
         current_call_frame.logs.extend(tx_report.logs);
         current_call_frame
             .memory
@@ -711,61 +695,6 @@ impl VM {
         Address::from_slice(&hasher.finalize()[12..])
     }
 
-    fn compute_gas_create(
-        &mut self,
-        current_call_frame: &mut CallFrame,
-        code_offset_in_memory: U256,
-        code_size_in_memory: U256,
-        is_create_2: bool,
-    ) -> Result<U256, VMError> {
-        let minimum_word_size =
-            (code_size_in_memory
-                .checked_add(U256::from(31))
-                .ok_or(VMError::Internal(
-                    InternalError::ArithmeticOperationOverflow,
-                ))?)
-            .checked_div(U256::from(32))
-            .ok_or(VMError::Internal(
-                InternalError::ArithmeticOperationDividedByZero,
-            ))?; // '32' will never be zero
-
-        let init_code_cost = minimum_word_size
-            .checked_mul(INIT_CODE_WORD_COST)
-            .ok_or(VMError::GasCostOverflow)?;
-
-        let code_deposit_cost = code_size_in_memory
-            .checked_mul(CODE_DEPOSIT_COST)
-            .ok_or(VMError::GasCostOverflow)?;
-
-        let memory_expansion_cost = current_call_frame.memory.expansion_cost(
-            code_size_in_memory
-                .checked_add(code_offset_in_memory)
-                .ok_or(VMError::Internal(
-                    InternalError::ArithmeticOperationOverflow,
-                ))?
-                .try_into()
-                .map_err(|_err| VMError::Internal(InternalError::ArithmeticOperationOverflow))?,
-        )?;
-
-        let hash_cost = if is_create_2 {
-            minimum_word_size
-                .checked_mul(KECCAK25_DYNAMIC_BASE)
-                .ok_or(VMError::GasCostOverflow)?
-        } else {
-            U256::zero()
-        };
-
-        init_code_cost
-            .checked_add(memory_expansion_cost)
-            .ok_or(VMError::CreationCostIsTooHigh)?
-            .checked_add(code_deposit_cost)
-            .ok_or(VMError::CreationCostIsTooHigh)?
-            .checked_add(CREATE_BASE_COST)
-            .ok_or(VMError::CreationCostIsTooHigh)?
-            .checked_add(hash_cost)
-            .ok_or(VMError::CreationCostIsTooHigh)
-    }
-
     /// Common behavior for CREATE and CREATE2 opcodes
     ///
     /// Could be used for CREATE type transactions
@@ -778,15 +707,6 @@ impl VM {
         salt: Option<U256>,
         current_call_frame: &mut CallFrame,
     ) -> Result<OpcodeSuccess, VMError> {
-        let gas_cost = self.compute_gas_create(
-            current_call_frame,
-            code_offset_in_memory,
-            code_size_in_memory,
-            false,
-        )?;
-
-        self.increase_consumed_gas(current_call_frame, gas_cost)?;
-
         let code_size_in_memory = code_size_in_memory
             .try_into()
             .map_err(|_err| VMError::VeryLargeNumber)?;
@@ -892,7 +812,7 @@ impl VM {
         let potential_consumed_gas = current_call_frame
             .gas_used
             .checked_add(gas)
-            .ok_or(VMError::ConsumedGasOverflow)?;
+            .ok_or(VMError::OutOfGasErr(OutOfGasError::ConsumedGasOverflow))?;
         if potential_consumed_gas > current_call_frame.gas_limit {
             return Err(VMError::OutOfGas);
         }
@@ -902,7 +822,7 @@ impl VM {
             .env
             .consumed_gas
             .checked_add(gas)
-            .ok_or(VMError::ConsumedGasOverflow)?;
+            .ok_or(VMError::OutOfGasErr(OutOfGasError::ConsumedGasOverflow))?;
 
         Ok(())
     }

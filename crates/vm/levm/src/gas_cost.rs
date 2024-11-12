@@ -1,3 +1,4 @@
+use bytes::Bytes;
 /// Contains the gas costs of the EVM instructions (in wei)
 use ethereum_rust_core::{Address, H256, U256};
 
@@ -404,6 +405,7 @@ pub fn mcopy_gas_cost(
         .ok_or(OutOfGasError::GasCostOverflow)
 }
 
+#[allow(clippy::too_many_arguments)]
 pub fn call_gas_cost(
     current_call_frame: &mut CallFrame,
     args_size: usize,
@@ -646,4 +648,41 @@ pub fn selfdestruct_gas_cost(
     }
 
     Ok(gas_cost)
+}
+
+pub fn tx_calldata_gas_cost(calldata: &Bytes) -> Result<u64, OutOfGasError> {
+    // This cost applies both for call and create
+    // 4 gas for each zero byte in the transaction data 16 gas for each non-zero byte in the transaction.
+    let mut calldata_cost: u64 = 0;
+    for byte in calldata {
+        if *byte != 0 {
+            calldata_cost = calldata_cost
+                .checked_add(16)
+                .ok_or(OutOfGasError::GasUsedOverflow)?;
+        } else {
+            calldata_cost = calldata_cost
+                .checked_add(4)
+                .ok_or(OutOfGasError::GasUsedOverflow)?;
+        }
+    }
+    Ok(calldata_cost)
+}
+
+pub fn tx_creation_cost(contract_code: &Bytes, number_of_words: u64) -> Result<u64, OutOfGasError> {
+    let mut creation_cost = contract_code
+        .len()
+        .checked_mul(200)
+        .ok_or(OutOfGasError::CreationCostIsTooHigh)? as u64;
+    creation_cost = creation_cost
+        .checked_add(32000)
+        .ok_or(OutOfGasError::CreationCostIsTooHigh)?;
+
+    // GInitCodeword * number_of_words rounded up. GinitCodeWord = 2
+    creation_cost
+        .checked_add(
+            number_of_words
+                .checked_mul(2)
+                .ok_or(OutOfGasError::ArithmeticOperationOverflow)?,
+        )
+        .ok_or(OutOfGasError::GasUsedOverflow)
 }
