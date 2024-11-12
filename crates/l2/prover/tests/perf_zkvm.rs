@@ -1,5 +1,6 @@
+use ethereum_rust_core::types::Transaction;
 use risc0_zkvm::serde::from_slice;
-use std::path::PathBuf;
+use std::path::Path;
 use tracing::info;
 
 use ethereum_rust_blockchain::add_block;
@@ -8,16 +9,12 @@ use ethereum_rust_storage::{EngineType, Store};
 use ethereum_rust_vm::execution_db::ExecutionDB;
 use zkvm_interface::io::ProgramInput;
 
+#[ignore]
 #[tokio::test]
 async fn test_performance_zkvm() {
     tracing_subscriber::fmt::init();
 
-    let mut path = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
-    // Go back 3 levels (Go to the root of the project)
-    for _ in 0..3 {
-        path.pop();
-    }
-    path.push("test_data");
+    let mut path = Path::new(concat!(env!("CARGO_MANIFEST_DIR"), "/../../../test_data"));
 
     // Another use is genesis-execution-api.json in conjunction with chain.rlp(20 blocks not too loaded).
     let genesis_file_path = path.join("genesis-l2.json");
@@ -77,4 +74,40 @@ async fn test_performance_zkvm() {
     let gas_per_second = cumulative_gas_used as f64 / duration.as_secs_f64();
 
     info!("Gas per Second: {}", gas_per_second);
+}
+
+#[tokio::test]
+async fn test_tx_serialization_serde_json() {
+    let mut path = Path::new(concat!(env!("CARGO_MANIFEST_DIR"), "/../../../test_data"));
+
+    // l2-loadtest.rlp has blocks with many txs.
+    let chain_file_path = path.join("l2-loadtest.rlp");
+
+    let blocks =
+        ethereum_rust_l2::utils::test_data_io::read_chain_file(chain_file_path.to_str().unwrap());
+
+    for block in &blocks {
+        let serialized_tx =
+            serde_json::to_vec(&block.body.transactions).expect("failed to serialize");
+        let deserialized_txs: Vec<Transaction> =
+            serde_json::from_slice(&serialized_tx).expect("failed to deserialize");
+    }
+}
+
+#[tokio::test]
+async fn test_tx_serialization_bincode() {
+    let mut path = Path::new(concat!(env!("CARGO_MANIFEST_DIR"), "/../../../test_data"));
+
+    // l2-loadtest.rlp has blocks with many txs.
+    let chain_file_path = path.join("l2-loadtest.rlp");
+
+    let blocks =
+        ethereum_rust_l2::utils::test_data_io::read_chain_file(chain_file_path.to_str().unwrap());
+
+    for block in &blocks {
+        let serialized_txs =
+            bincode::serialize(&block.body.transactions).expect("failed to serialize");
+        let deserialized_txs: Vec<Transaction> =
+            bincode::deserialize(&serialized_txs).expect("failed to deserialize");
+    }
 }
