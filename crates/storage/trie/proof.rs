@@ -408,8 +408,10 @@ impl<'a> ProofNodeStorage<'a> {
 
 #[cfg(test)]
 mod tests {
-    use std::str::FromStr;
     use super::*;
+    use proptest::prelude::any;
+    use proptest::proptest;
+    use std::{collections::btree_set, str::FromStr};
 
     #[test]
     fn verify_range_proof_regular_case_only_branch_nodes() {
@@ -482,5 +484,27 @@ mod tests {
         proof.extend(trie.get_proof(&trie_values[17]).unwrap());
         let root = trie.hash().unwrap();
         verify_range_proof(root, key_range[0], key_range, value_range, proof).unwrap();
+    }
+
+    use proptest::collection::{btree_set, vec};
+
+    proptest! {
+
+        #[test]
+        fn proptest_verify_range_regular_case(data in btree_set(vec(any::<u8>(), 32), 200), start in 1_usize..=100_usize, end in 101..200_usize) {
+            // Build trie
+            let mut trie = Trie::new_temp();
+            for val in data.iter() {
+                trie.insert(val.clone(), val.clone()).unwrap()
+            }
+            let root = trie.hash().unwrap();
+            // Select range to prove
+            let values = data.into_iter().collect::<Vec<_>>()[start..=end].to_vec();
+            let keys = values.iter().map(|a| H256::from_slice(a)).collect::<Vec<_>>();
+            // Generate proofs
+            let mut proof = trie.get_proof(&values[0]).unwrap();
+            proof.extend(trie.get_proof(&values.last().unwrap()).unwrap());
+            verify_range_proof(root, keys[0], keys, values, proof).unwrap();
+        }
     }
 }
