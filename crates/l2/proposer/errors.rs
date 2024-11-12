@@ -28,23 +28,27 @@ pub enum ProverServerError {
 
 #[derive(Debug, thiserror::Error)]
 pub enum ProposerError {
-    #[error("Proposer failed because of an EthClient error: {0}")]
-    EthClientError(#[from] EthClientError),
     #[error("Proposer failed because of an EngineClient error: {0}")]
     EngineClientError(#[from] EngineClientError),
     #[error("Proposer failed to produce block: {0}")]
     FailedToProduceBlock(String),
     #[error("Proposer failed to prepare PayloadAttributes timestamp: {0}")]
     FailedToGetSystemTime(#[from] std::time::SystemTimeError),
-    #[error("Proposer failed to serialize block: {0}")]
+}
+
+#[derive(Debug, thiserror::Error)]
+pub enum CommitterError {
+    #[error("Committer failed because of an EthClient error: {0}")]
+    EthClientError(#[from] EthClientError),
+    #[error("Committer failed to serialize block: {0}")]
     FailedToRetrieveBlockFromStorage(String),
-    #[error("Proposer failed to encode state diff: {0}")]
+    #[error("Committer failed to encode state diff: {0}")]
     FailedToEncodeStateDiff(#[from] StateDiffError),
-    #[error("Proposer failed to open Points file: {0}")]
+    #[error("Committer failed to open Points file: {0}")]
     FailedToOpenPointsFile(#[from] std::io::Error),
-    #[error("Proposer failed to re-execute block: {0}")]
+    #[error("Committer failed to re-execute block: {0}")]
     FailedToReExecuteBlock(#[from] EvmError),
-    #[error("Proposer failed to make KZG operations: {0}")]
+    #[error("Committer failed to make KZG operations: {0}")]
     KZGError(#[from] c_kzg::Error),
 }
 

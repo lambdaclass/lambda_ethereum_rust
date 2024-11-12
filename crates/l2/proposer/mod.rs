@@ -8,7 +8,7 @@ use std::time::{Duration, SystemTime, UNIX_EPOCH};
 use tokio::time::sleep;
 use tracing::{error, info, warn};
 
-pub mod l1_commiter;
+pub mod l1_committer;
 pub mod l1_watcher;
 pub mod prover_server;
 pub mod state_diff;
@@ -28,7 +28,7 @@ pub async fn start_proposer(store: Store) {
     }
 
     let l1_watcher = tokio::spawn(l1_watcher::start_l1_watcher(store.clone()));
-    let l1_commiter = tokio::spawn(l1_commiter::start_l1_commiter(store.clone()));
+    let l1_commiter = tokio::spawn(l1_committer::start_l1_commiter(store.clone()));
     let prover_server = tokio::spawn(prover_server::start_prover_server(store.clone()));
     let proposer = tokio::spawn(async move {
         let proposer_config = ProposerConfig::from_env().expect("ProposerConfig::from_env");

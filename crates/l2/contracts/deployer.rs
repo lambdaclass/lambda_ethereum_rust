@@ -46,7 +46,7 @@ async fn main() {
         if let Some(eq) = line.find('=') {
             let (envar, _) = line.split_at(eq);
             line = match envar {
-                "PROPOSER_ON_CHAIN_PROPOSER_ADDRESS" => {
+                "COMMITTER_ON_CHAIN_PROPOSER_ADDRESS" => {
                     format!("{}={:?}", envar, on_chain_proposer)
                 }
                 "L1_WATCHER_BRIDGE_ADDRESS" => {

@@ -3,7 +3,7 @@ use std::{collections::HashMap, time::Duration};
 use crate::{
     proposer::state_diff::{AccountStateDiff, DepositLog, WithdrawalLog},
     utils::{
-        config::{eth::EthConfig, proposer::ProposerConfig},
+        config::{committer::CommitterConfig, eth::EthConfig},
         eth_client::{transaction::blob_from_bytes, EthClient},
         merkle_tree::merkelize,
     },
@@ -27,44 +27,46 @@ use sha2::{Digest, Sha256};
 use tokio::time::sleep;
 use tracing::{error, info};
 
-use super::{errors::ProposerError, state_diff::StateDiff};
+use super::{errors::CommitterError, state_diff::StateDiff};
 use crate::utils::eth_client::{errors::EthClientError, eth_sender::Overrides};
 
 const COMMIT_FUNCTION_SELECTOR: [u8; 4] = [132, 97, 12, 179];
 
-pub struct Commiter {
+pub struct Committer {
     eth_client: EthClient,
     on_chain_proposer_address: Address,
     store: Store,
     l1_address: Address,
     l1_private_key: SecretKey,
+    interval_ms: u64,
     kzg_settings: &'static KzgSettings,
 }
 
 pub async fn start_l1_commiter(store: Store) {
     let eth_config = EthConfig::from_env().expect("EthConfig::from_env()");
-    let proposer_config = ProposerConfig::from_env().expect("ProposerConfig::from_env");
-    let commiter = Commiter::new_from_config(&proposer_config, eth_config, store).unwrap();
+    let committer_config = CommitterConfig::from_env().expect("CommitterConfig::from_env");
+    let commiter = Committer::new_from_config(&committer_config, eth_config, store).unwrap();
     let _ = commiter.start().await;
 }
 
-impl Commiter {
+impl Committer {
     pub fn new_from_config(
-        proposer_config: &ProposerConfig,
+        committer_config: &CommitterConfig,
         eth_config: EthConfig,
         store: Store,
-    ) -> Result<Self, ProposerError> {
+    ) -> Result<Self, CommitterError> {
         Ok(Self {
             eth_client: EthClient::new(&eth_config.rpc_url),
-            on_chain_proposer_address: proposer_config.on_chain_proposer_address,
+            on_chain_proposer_address: committer_config.on_chain_proposer_address,
             store,
-            l1_address: proposer_config.l1_address,
-            l1_private_key: proposer_config.l1_private_key,
+            l1_address: committer_config.l1_address,
+            l1_private_key: committer_config.l1_private_key,
+            interval_ms: committer_config.interval_ms,
             kzg_settings: c_kzg::ethereum_kzg_settings(),
         })
     }
 
-    pub async fn start(&self) -> Result<(), ProposerError> {
+    pub async fn start(&self) -> Result<(), CommitterError> {
         loop {
             let last_commited_block = get_last_commited_block(
                 &self.eth_client,
@@ -76,6 +78,11 @@ impl Commiter {
             let last_commited_block = last_commited_block
                 .strip_prefix("0x")
                 .expect("Couldn't strip prefix from last_commited_block.");
+
+            if last_commited_block.is_empty() {
+                error!("Failed to fetch last_committed_block");
+                panic!("Failed to fetch last_committed_block. Manual intervention required");
+            }
 
             let last_commited_block = U256::from_str_radix(last_commited_block, 16)
                 .unwrap()
@@ -145,14 +152,14 @@ impl Commiter {
                 }
             }
 
-            sleep(Duration::from_secs(1)).await;
+            sleep(Duration::from_millis(self.interval_ms)).await;
         }
     }
 
     pub fn get_block_withdrawals(
         &self,
         block: &Block,
-    ) -> Result<Vec<(H256, PrivilegedL2Transaction)>, ProposerError> {
+    ) -> Result<Vec<(H256, PrivilegedL2Transaction)>, CommitterError> {
         let withdrawals = block
             .body
             .transactions
@@ -181,7 +188,7 @@ impl Commiter {
     pub fn get_block_deposits(
         &self,
         block: &Block,
-    ) -> Result<Vec<PrivilegedL2Transaction>, ProposerError> {
+    ) -> Result<Vec<PrivilegedL2Transaction>, CommitterError> {
         let deposits = block
             .body
             .transactions
@@ -227,11 +234,11 @@ impl Commiter {
         store: Store,
         withdrawals: Vec<(H256, PrivilegedL2Transaction)>,
         deposits: Vec<PrivilegedL2Transaction>,
-    ) -> Result<StateDiff, ProposerError> {
+    ) -> Result<StateDiff, CommitterError> {
         info!("Preparing state diff for block {}", block.header.number);
 
         let mut state = evm_state(store.clone(), block.header.parent_hash);
-        execute_block(block, &mut state).map_err(ProposerError::from)?;
+        execute_block(block, &mut state).map_err(CommitterError::from)?;
         let account_updates = get_state_transitions(&mut state);
 
         let mut modified_accounts = HashMap::new();
@@ -282,18 +289,18 @@ impl Commiter {
     pub fn prepare_blob_commitment(
         &self,
         state_diff: StateDiff,
-    ) -> Result<([u8; 48], [u8; 48]), ProposerError> {
-        let blob_data = state_diff.encode().map_err(ProposerError::from)?;
+    ) -> Result<([u8; 48], [u8; 48]), CommitterError> {
+        let blob_data = state_diff.encode().map_err(CommitterError::from)?;
 
-        let blob = blob_from_bytes(blob_data).map_err(ProposerError::from)?;
+        let blob = blob_from_bytes(blob_data).map_err(CommitterError::from)?;
 
         let commitment = c_kzg::KzgCommitment::blob_to_kzg_commitment(&blob, self.kzg_settings)
-            .map_err(ProposerError::from)?;
+            .map_err(CommitterError::from)?;
         let commitment_bytes =
-            Bytes48::from_bytes(commitment.as_slice()).map_err(ProposerError::from)?;
+            Bytes48::from_bytes(commitment.as_slice()).map_err(CommitterError::from)?;
         let proof =
             c_kzg::KzgProof::compute_blob_kzg_proof(&blob, &commitment_bytes, self.kzg_settings)
-                .map_err(ProposerError::from)?;
+                .map_err(CommitterError::from)?;
 
         let mut commitment_bytes = [0u8; 48];
         commitment_bytes.copy_from_slice(commitment.as_slice());
@@ -311,7 +318,7 @@ impl Commiter {
         commitment: [u8; 48],
         proof: [u8; 48],
         blob_data: Bytes,
-    ) -> Result<H256, ProposerError> {
+    ) -> Result<H256, CommitterError> {
         info!("Sending commitment for block {block_number}");
 
         let mut hasher = Sha256::new();
@@ -354,7 +361,7 @@ impl Commiter {
         let mut buf = [0u8; BYTES_PER_BLOB];
         buf.copy_from_slice(
             blob_from_bytes(blob_data)
-                .map_err(ProposerError::from)?
+                .map_err(CommitterError::from)?
                 .iter()
                 .as_slice(),
         );
@@ -372,7 +379,7 @@ impl Commiter {
             .eth_client
             .send_eip4844_transaction(&mut wrapped_tx, self.l1_private_key)
             .await
-            .map_err(ProposerError::from)?;
+            .map_err(CommitterError::from)?;
 
         info!("Commitment sent: {commit_tx_hash:#x}");
 

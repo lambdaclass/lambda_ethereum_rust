@@ -29,9 +29,9 @@ pub struct ProverInputData {
 }
 
 use crate::{
-    proposer::l1_commiter::send_transaction_with_calldata,
+    proposer::l1_committer::send_transaction_with_calldata,
     utils::{
-        config::{eth::EthConfig, proposer::ProposerConfig, prover_server::ProverServerConfig},
+        config::{committer::CommitterConfig, eth::EthConfig, prover_server::ProverServerConfig},
         eth_client::EthClient,
     },
 };
@@ -41,7 +41,7 @@ use super::errors::ProverServerError;
 pub async fn start_prover_server(store: Store) {
     let server_config = ProverServerConfig::from_env().expect("ProverServerConfig::from_env()");
     let eth_config = EthConfig::from_env().expect("EthConfig::from_env()");
-    let proposer_config = ProposerConfig::from_env().expect("ProposerConfig::from_env()");
+    let proposer_config = CommitterConfig::from_env().expect("CommitterConfig::from_env()");
     let mut prover_server =
         ProverServer::new_from_config(server_config.clone(), &proposer_config, eth_config, store);
 
@@ -103,7 +103,7 @@ struct ProverServer {
 impl ProverServer {
     pub fn new_from_config(
         config: ProverServerConfig,
-        proposer_config: &ProposerConfig,
+        committer_config: &CommitterConfig,
         eth_config: EthConfig,
         store: Store,
     ) -> Self {
@@ -112,7 +112,7 @@ impl ProverServer {
             port: config.listen_port,
             store,
             eth_client: EthClient::new(&eth_config.rpc_url),
-            on_chain_proposer_address: proposer_config.on_chain_proposer_address,
+            on_chain_proposer_address: committer_config.on_chain_proposer_address,
             verifier_address: config.verifier_address,
             verifier_private_key: config.verifier_private_key,
             latest_proven_block: 0,
