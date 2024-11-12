@@ -707,6 +707,54 @@ impl VM {
             .ok_or(VMError::CreationCostIsTooHigh)
     }
 
+    fn compute_gas_create(
+        &mut self,
+        current_call_frame: &mut CallFrame,
+        code_offset_in_memory: U256,
+        code_size_in_memory: U256,
+        is_create_2: bool,
+    ) -> Result<U256, VMError> {
+        let minimum_word_size = (code_size_in_memory
+            .checked_add(U256::from(31))
+            .ok_or(VMError::DataSizeOverflow)?)
+        .checked_div(U256::from(32))
+        .ok_or(VMError::Internal)?; // '32' will never be zero
+
+        let init_code_cost = minimum_word_size
+            .checked_mul(INIT_CODE_WORD_COST)
+            .ok_or(VMError::GasCostOverflow)?;
+
+        let code_deposit_cost = code_size_in_memory
+            .checked_mul(CODE_DEPOSIT_COST)
+            .ok_or(VMError::GasCostOverflow)?;
+
+        let memory_expansion_cost = current_call_frame.memory.expansion_cost(
+            code_size_in_memory
+                .checked_add(code_offset_in_memory)
+                .ok_or(VMError::OffsetOverflow)?
+                .try_into()
+                .map_err(|_err| VMError::OffsetOverflow)?,
+        )?;
+
+        let hash_cost = if is_create_2 {
+            minimum_word_size
+                .checked_mul(KECCAK25_DYNAMIC_BASE)
+                .ok_or(VMError::GasCostOverflow)?
+        } else {
+            U256::zero()
+        };
+
+        init_code_cost
+            .checked_add(memory_expansion_cost)
+            .ok_or(VMError::CreationCostIsTooHigh)?
+            .checked_add(code_deposit_cost)
+            .ok_or(VMError::CreationCostIsTooHigh)?
+            .checked_add(CREATE_BASE_COST)
+            .ok_or(VMError::CreationCostIsTooHigh)?
+            .checked_add(hash_cost)
+            .ok_or(VMError::CreationCostIsTooHigh)
+    }
+
     /// Common behavior for CREATE and CREATE2 opcodes
     ///
     /// Could be used for CREATE type transactions
