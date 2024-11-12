@@ -74,6 +74,8 @@ pub enum VMError {
 pub enum InternalError {
     #[error("exampleerror")]
     Example,
+    #[error("Could not access last callframe")]
+    CouldNotAccessLastCallframe,
 }
 
 pub enum OpcodeSuccess {

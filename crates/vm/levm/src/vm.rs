@@ -1,10 +1,10 @@
 use crate::{
     account::{Account, StorageSlot},
-    call_frame::CallFrame,
+    call_frame::{self, CallFrame},
     constants::*,
     db::{Cache, Database},
     environment::Environment,
-    errors::{OpcodeSuccess, ResultReason, TransactionReport, TxResult, VMError},
+    errors::{InternalError, OpcodeSuccess, ResultReason, TransactionReport, TxResult, VMError},
     opcodes::Opcode,
 };
 use bytes::Bytes;
@@ -326,18 +326,20 @@ impl VM {
     fn validate_transaction(&mut self) -> Result<(), VMError> {
         // Validations (1), (2), (3), (5), and (8) are assumed done in upper layers.
 
+        let call_frame = self.call_frames.last().ok_or(VMError::Internal(InternalError::CouldNotAccessLastCallframe))?.clone();
+        
         if self.is_create() {
             // If address is already in db, there's an error
             let new_address_acc = self
                 .db
-                .get_account_info(self.call_frames.first().ok_or(VMError::FatalUnwrap)?.to);
+                .get_account_info(call_frame.to);
             if !new_address_acc.is_empty() {
                 return Err(VMError::AddressAlreadyOccupied);
             }
         }
 
         let origin = self.env.origin;
-        let to = self.call_frames[0].to;
+        let to = call_frame.to;
 
         let mut receiver_account = self.get_account(&to);
         let mut sender_account = self.get_account(&origin);
@@ -354,12 +356,12 @@ impl VM {
             return Err(VMError::SenderAccountShouldNotHaveBytecode);
         }
         // (6)
-        if sender_account.info.balance < self.call_frames[0].msg_value {
+        if sender_account.info.balance < call_frame.msg_value {
             return Err(VMError::SenderBalanceShouldContainTransferValue);
         }
         // TODO: This belongs elsewhere.
-        sender_account.info.balance -= self.call_frames[0].msg_value;
-        receiver_account.info.balance += self.call_frames[0].msg_value;
+        sender_account.info.balance -= call_frame.msg_value;
+        receiver_account.info.balance += call_frame.msg_value;
 
         self.cache.add_account(&origin, &sender_account);
         self.cache.add_account(&to, &receiver_account);
@@ -377,16 +379,14 @@ impl VM {
 
     fn revert_create(&mut self) -> Result<(), VMError> {
         // Note: currently working with copies
-        let sender = self
-            .call_frames
-            .first()
-            .ok_or(VMError::FatalUnwrap)?
-            .msg_sender;
+        let call_frame = self.call_frames.last().ok_or(VMError::Internal(InternalError::CouldNotAccessLastCallframe))?.clone();
+        
+        let sender = call_frame.msg_sender;
         let mut sender_account = self.get_account(&sender);
 
         sender_account.info.nonce -= 1;
 
-        let new_contract_address = self.call_frames.first().ok_or(VMError::FatalUnwrap)?.to;
+        let new_contract_address = call_frame.to;
 
         if self.cache.accounts.remove(&new_contract_address).is_none() {
             return Err(VMError::AddressDoesNotMatchAnAccount); // Should not be this error
@@ -408,16 +408,15 @@ impl VM {
         let mut current_call_frame = self.call_frames.pop().ok_or(VMError::FatalUnwrap)?;
 
         let mut report = self.execute(&mut current_call_frame);
-        let sender = self
-            .call_frames
-            .first()
-            .ok_or(VMError::FatalUnwrap)?
-            .msg_sender;
+
+        let initial_call_frame = self.call_frames.last().ok_or(VMError::Internal(InternalError::CouldNotAccessLastCallframe))?.clone();
+
+        let sender = initial_call_frame.msg_sender;
 
         // This cost applies both for call and create
         // 4 gas for each zero byte in the transaction data 16 gas for each non-zero byte in the transaction.
         let mut calldata_cost = 0;
-        for byte in &self.call_frames[0].calldata {
+        for byte in &initial_call_frame.calldata {
             if *byte != 0 {
                 calldata_cost += 16;
             } else {
@@ -456,10 +455,10 @@ impl VM {
             // Charge 22100 gas for each storage variable set
 
             // GInitCodeword * number_of_words rounded up. GinitCodeWord = 2
-            let number_of_words = self.call_frames[0].calldata.chunks(32).len() as u64;
+            let number_of_words = initial_call_frame.calldata.chunks(32).len() as u64;
             report.gas_used += number_of_words * 2;
 
-            let contract_address = self.call_frames.first().ok_or(VMError::FatalUnwrap)?.to;
+            let contract_address = initial_call_frame.to;
             let mut created_contract = self.get_account(&contract_address);
 
             created_contract.info.bytecode = contract_code;
