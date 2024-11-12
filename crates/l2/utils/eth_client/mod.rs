@@ -1,11 +1,14 @@
 use crate::utils::config::eth::EthConfig;
+use bytes::Bytes;
 use errors::{
     EstimateGasPriceError, EthClientError, GetBalanceError, GetBlockByHashError,
     GetBlockNumberError, GetGasPriceError, GetLogsError, GetNonceError, GetTransactionByHashError,
     GetTransactionReceiptError, SendRawTransactionError,
 };
+use eth_sender::Overrides;
 use ethereum_rust_core::types::{
-    BlockBody, EIP1559Transaction, GenericTransaction, PrivilegedL2Transaction, TxKind, TxType,
+    BlobsBundle, BlockBody, EIP1559Transaction, EIP4844Transaction, GenericTransaction,
+    PrivilegedL2Transaction, PrivilegedTxType, Signable, TxKind, TxType,
 };
 use ethereum_rust_rlp::encode::RLPEncode;
 use ethereum_rust_rpc::{
@@ -16,13 +19,11 @@ use ethereum_rust_rpc::{
     utils::{RpcErrorResponse, RpcRequest, RpcRequestId, RpcSuccessResponse},
 };
 use ethereum_types::{Address, H256, U256};
-use keccak_hash::keccak;
-use libsecp256k1::{sign, Message, SecretKey};
 use reqwest::Client;
+use secp256k1::SecretKey;
 use serde::{Deserialize, Serialize};
 use serde_json::json;
-use tracing::info;
-use transaction::PayloadRLPEncode;
+use sha2::{Digest, Sha256};
 
 pub mod errors;
 pub mod eth_sender;
@@ -93,43 +94,23 @@ impl EthClient {
 
     pub async fn send_eip1559_transaction(
         &self,
-        tx: &mut EIP1559Transaction,
-        private_key: SecretKey,
+        tx: EIP1559Transaction,
+        private_key: &SecretKey,
     ) -> Result<H256, EthClientError> {
-        info!("CALLDATA: {:?}", tx.data);
-        let mut payload = vec![TxType::EIP1559 as u8];
-        payload.append(tx.encode_payload_to_vec().as_mut());
+        let signed_tx = tx.sign(private_key);
 
-        let data = Message::parse(&keccak(payload).0);
-        let signature = sign(&data, &private_key);
+        let mut encoded_tx = signed_tx.encode_to_vec();
+        encoded_tx.insert(0, TxType::EIP1559 as u8);
 
-        tx.signature_r = U256::from(signature.0.r.b32());
-        tx.signature_s = U256::from(signature.0.s.b32());
-        tx.signature_y_parity = signature.1.serialize() != 0;
-
-        let mut encoded_tx = Vec::new();
-        tx.encode(&mut encoded_tx);
-
-        let mut data = vec![TxType::EIP1559 as u8];
-        data.append(&mut encoded_tx);
-
-        self.send_raw_transaction(data.as_slice()).await
+        self.send_raw_transaction(encoded_tx.as_slice()).await
     }
 
     pub async fn send_eip4844_transaction(
         &self,
-        wrapped_tx: &mut WrappedEIP4844Transaction,
-        private_key: SecretKey,
+        mut wrapped_tx: WrappedEIP4844Transaction,
+        private_key: &SecretKey,
     ) -> Result<H256, EthClientError> {
-        let mut payload = vec![TxType::EIP4844 as u8];
-        payload.append(wrapped_tx.tx.encode_payload_to_vec().as_mut());
-
-        let data = Message::parse(&keccak(payload).0);
-        let signature = sign(&data, &private_key);
-
-        wrapped_tx.tx.signature_r = U256::from(signature.0.r.b32());
-        wrapped_tx.tx.signature_s = U256::from(signature.0.s.b32());
-        wrapped_tx.tx.signature_y_parity = signature.1.serialize() != 0;
+        wrapped_tx.tx.sign_inplace(private_key);
 
         let mut encoded_tx = wrapped_tx.encode_to_vec();
         encoded_tx.insert(0, TxType::EIP4844 as u8);
@@ -139,26 +120,15 @@ impl EthClient {
 
     pub async fn send_privileged_l2_transaction(
         &self,
-        mut tx: PrivilegedL2Transaction,
-        private_key: SecretKey,
+        tx: PrivilegedL2Transaction,
+        private_key: &SecretKey,
     ) -> Result<H256, EthClientError> {
-        let mut payload = vec![TxType::Privileged as u8];
-        payload.append(tx.encode_payload_to_vec().as_mut());
+        let signed_tx = tx.sign(private_key);
 
-        let data = Message::parse(&keccak(payload).0);
-        let signature = sign(&data, &private_key);
+        let mut encoded_tx = signed_tx.encode_to_vec();
+        encoded_tx.insert(0, TxType::Privileged as u8);
 
-        tx.signature_r = U256::from(signature.0.r.b32());
-        tx.signature_s = U256::from(signature.0.s.b32());
-        tx.signature_y_parity = signature.1.serialize() != 0;
-
-        let mut encoded_tx = Vec::new();
-        tx.encode(&mut encoded_tx);
-
-        let mut data = vec![TxType::Privileged as u8];
-        data.append(&mut encoded_tx);
-
-        self.send_raw_transaction(data.as_slice()).await
+        self.send_raw_transaction(encoded_tx.as_slice()).await
     }
 
     pub async fn estimate_gas(
@@ -412,6 +382,135 @@ impl EthClient {
             }
             Err(error) => Err(error),
         }
+    }
+
+    pub async fn build_eip1559_transaction(
+        &self,
+        to: Address,
+        calldata: Bytes,
+        overrides: Overrides,
+    ) -> Result<EIP1559Transaction, EthClientError> {
+        let mut tx = EIP1559Transaction {
+            to: TxKind::Call(to),
+            chain_id: overrides
+                .chain_id
+                .unwrap_or(self.get_chain_id().await?.as_u64()),
+            nonce: overrides.nonce.unwrap_or({
+                let address = overrides.from.ok_or(EthClientError::UnrecheableNonce)?;
+                self.get_nonce(address).await?
+            }),
+            max_priority_fee_per_gas: overrides
+                .priority_gas_price
+                .unwrap_or(self.get_gas_price().await?.as_u64()),
+            max_fee_per_gas: overrides
+                .gas_price
+                .unwrap_or(self.get_gas_price().await?.as_u64()),
+            value: overrides.value.unwrap_or_default(),
+            data: calldata,
+            access_list: overrides.access_list,
+            ..Default::default()
+        };
+
+        tx.gas_limit = overrides.gas_limit.unwrap_or({
+            let mut generic_tx = GenericTransaction::from(tx.clone());
+            if let Some(from) = overrides.from {
+                generic_tx.from = from;
+            }
+            self.estimate_gas(generic_tx).await?
+        });
+
+        Ok(tx)
+    }
+
+    pub async fn build_eip4844_transaction(
+        &self,
+        to: Address,
+        calldata: Bytes,
+        overrides: Overrides,
+        blobs_bundle: BlobsBundle,
+    ) -> Result<WrappedEIP4844Transaction, EthClientError> {
+        let blob_versioned_hashes = blobs_bundle
+            .commitments
+            .iter()
+            .map(|commitment| {
+                let mut hasher = Sha256::new();
+                hasher.update(commitment);
+                let mut blob_versioned_hash = hasher.finalize();
+                blob_versioned_hash[0] = 0x01; // EIP-4844 versioning
+                H256::from_slice(blob_versioned_hash.as_slice())
+            })
+            .collect::<Vec<H256>>();
+
+        let mut tx = EIP4844Transaction {
+            to,
+            chain_id: overrides
+                .chain_id
+                .unwrap_or(self.get_chain_id().await?.as_u64()),
+            nonce: overrides.nonce.unwrap_or({
+                let address = overrides.from.ok_or(EthClientError::UnrecheableNonce)?;
+                self.get_nonce(address).await?
+            }),
+            max_priority_fee_per_gas: overrides
+                .priority_gas_price
+                .unwrap_or(self.get_gas_price().await?.as_u64()),
+            max_fee_per_gas: overrides
+                .gas_price
+                .unwrap_or(self.get_gas_price().await?.as_u64()),
+            value: overrides.value.unwrap_or_default(),
+            data: calldata,
+            access_list: overrides.access_list,
+            max_fee_per_blob_gas: overrides.gas_price_per_blob.unwrap_or_default(),
+            blob_versioned_hashes,
+            ..Default::default()
+        };
+
+        tx.gas = overrides.gas_limit.unwrap_or({
+            let mut generic_tx = GenericTransaction::from(tx.clone());
+            if let Some(from) = overrides.from {
+                generic_tx.from = from;
+            }
+            self.estimate_gas(generic_tx).await?
+        });
+
+        Ok(WrappedEIP4844Transaction { tx, blobs_bundle })
+    }
+
+    pub async fn build_privileged_transaction(
+        &self,
+        tx_type: PrivilegedTxType,
+        to: Address,
+        calldata: Bytes,
+        overrides: Overrides,
+    ) -> Result<PrivilegedL2Transaction, EthClientError> {
+        let mut tx = PrivilegedL2Transaction {
+            tx_type,
+            to: TxKind::Call(to),
+            chain_id: overrides
+                .chain_id
+                .unwrap_or(self.get_chain_id().await?.as_u64()),
+            nonce: overrides.nonce.unwrap_or({
+                let address = overrides.from.ok_or(EthClientError::UnrecheableNonce)?;
+                self.get_nonce(address).await?
+            }),
+            max_priority_fee_per_gas: overrides.priority_gas_price.unwrap_or_default(),
+            max_fee_per_gas: overrides
+                .gas_price
+                .unwrap_or(self.get_gas_price().await?.as_u64()),
+            value: overrides.value.unwrap_or_default(),
+            data: calldata,
+            access_list: overrides.access_list,
+            ..Default::default()
+        };
+
+        tx.gas_limit = overrides.gas_limit.unwrap_or({
+            let mut generic_tx = GenericTransaction::from(tx.clone());
+            if let Some(from) = overrides.from {
+                generic_tx.from = from;
+            }
+            self.estimate_gas(generic_tx).await?
+        });
+
+        Ok(tx)
     }
 }
 

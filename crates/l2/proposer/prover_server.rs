@@ -1,12 +1,13 @@
 use ethereum_rust_storage::Store;
 use ethereum_rust_vm::execution_db::ExecutionDB;
 use keccak_hash::keccak;
-use libsecp256k1::SecretKey;
+use secp256k1::SecretKey;
 use serde::{Deserialize, Serialize};
 use std::{
     io::{BufReader, BufWriter},
     net::{IpAddr, Shutdown, TcpListener, TcpStream},
     sync::mpsc::{self, Receiver},
+    time::Duration,
 };
 use tokio::{
     signal::unix::{signal, SignalKind},
@@ -28,12 +29,9 @@ pub struct ProverInputData {
     pub parent_header: BlockHeader,
 }
 
-use crate::{
-    proposer::l1_committer::send_transaction_with_calldata,
-    utils::{
-        config::{committer::CommitterConfig, eth::EthConfig, prover_server::ProverServerConfig},
-        eth_client::EthClient,
-    },
+use crate::utils::{
+    config::{committer::CommitterConfig, eth::EthConfig, prover_server::ProverServerConfig},
+    eth_client::{eth_sender::Overrides, EthClient},
 };
 
 use super::errors::ProverServerError;
@@ -390,27 +388,32 @@ impl ProverServer {
 
         info!("Sending Verify Tx with nonce: {nonce}");
 
-        let verify_tx_hash = send_transaction_with_calldata(
-            &self.eth_client,
-            self.verifier_address,
-            self.verifier_private_key,
-            self.on_chain_proposer_address,
-            Some(nonce),
-            calldata.into(),
-        )
-        .await?;
+        let verify_tx = self
+            .eth_client
+            .build_eip1559_transaction(
+                self.on_chain_proposer_address,
+                calldata.into(),
+                Overrides {
+                    from: Some(self.verifier_address),
+                    ..Default::default()
+                },
+            )
+            .await?;
+        let verify_tx_hash = self
+            .eth_client
+            .send_eip1559_transaction(verify_tx, &self.verifier_private_key)
+            .await?;
 
         info!("Proof sent: {verify_tx_hash:#x}");
+
         while self
             .eth_client
             .get_transaction_receipt(verify_tx_hash)
             .await?
             .is_none()
         {
-            warn!("WAITING for Tx Receipt");
-            sleep(std::time::Duration::from_secs(1)).await;
+            sleep(Duration::from_secs(1)).await;
         }
-
         Ok(verify_tx_hash)
     }
 }

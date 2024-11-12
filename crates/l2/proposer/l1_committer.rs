@@ -13,16 +13,15 @@ use c_kzg::{Bytes48, KzgSettings};
 use ethereum_rust_blockchain::constants::TX_GAS_COST;
 use ethereum_rust_core::{
     types::{
-        BlobsBundle, Block, EIP1559Transaction, EIP4844Transaction, GenericTransaction,
-        PrivilegedL2Transaction, PrivilegedTxType, Transaction, TxKind, BYTES_PER_BLOB,
+        BlobsBundle, Block, EIP1559Transaction, GenericTransaction, PrivilegedL2Transaction,
+        PrivilegedTxType, Transaction, TxKind, BYTES_PER_BLOB,
     },
     Address, H256, U256,
 };
-use ethereum_rust_rpc::types::transaction::WrappedEIP4844Transaction;
 use ethereum_rust_storage::Store;
 use ethereum_rust_vm::{evm_state, execute_block, get_state_transitions};
 use keccak_hash::keccak;
-use libsecp256k1::SecretKey;
+use secp256k1::SecretKey;
 use sha2::{Digest, Sha256};
 use tokio::time::sleep;
 use tracing::{error, info};
@@ -339,31 +338,6 @@ impl Committer {
         calldata.extend(withdrawal_logs_merkle_root.0);
         calldata.extend(deposit_logs_hash.0);
 
-        let max_fee_per_gas = self.eth_client.get_gas_price().await?.as_u64();
-
-        let mut tx = EIP4844Transaction {
-            to: self.on_chain_proposer_address,
-            data: Bytes::from(calldata),
-            max_fee_per_gas,
-            nonce: self.eth_client.get_nonce(self.l1_address).await?,
-            chain_id: self.eth_client.get_chain_id().await?.as_u64(),
-            blob_versioned_hashes: vec![H256::from_slice(&blob_versioned_hash)],
-            // TODO: blob_gas is too high, it should be set dynamically
-            max_fee_per_blob_gas: U256::from_dec_str("1000000").unwrap(),
-            // Should the max_priority_fee_per_gas be dynamic?
-            max_priority_fee_per_gas: max_fee_per_gas,
-            ..Default::default()
-        };
-
-        let mut generic_tx = GenericTransaction::from(tx.clone());
-        generic_tx.from = self.l1_address;
-
-        tx.gas = self
-            .eth_client
-            .estimate_gas(generic_tx)
-            .await?
-            .saturating_add(TX_GAS_COST);
-
         let mut buf = [0u8; BYTES_PER_BLOB];
         buf.copy_from_slice(
             blob_from_bytes(blob_data)
@@ -372,18 +346,29 @@ impl Committer {
                 .as_slice(),
         );
 
-        let mut wrapped_tx = WrappedEIP4844Transaction {
-            tx,
-            blobs_bundle: BlobsBundle {
-                blobs: vec![buf],
-                commitments: vec![commitment],
-                proofs: vec![proof],
-            },
+        let blobs_bundle = BlobsBundle {
+            blobs: vec![buf],
+            commitments: vec![commitment],
+            proofs: vec![proof],
         };
+        let wrapped_tx = self
+            .eth_client
+            .build_eip4844_transaction(
+                self.on_chain_proposer_address,
+                Bytes::from(calldata),
+                Overrides {
+                    from: Some(self.l1_address),
+                    gas_price_per_blob: Some(U256::from_dec_str("100000000000000").unwrap()),
+                    ..Default::default()
+                },
+                blobs_bundle,
+            )
+            .await
+            .map_err(CommitterError::from)?;
 
         let commit_tx_hash = self
             .eth_client
-            .send_eip4844_transaction(&mut wrapped_tx, self.l1_private_key)
+            .send_eip4844_transaction(wrapped_tx, &self.l1_private_key)
             .await
             .map_err(CommitterError::from)?;
 
@@ -430,7 +415,7 @@ pub async fn send_transaction_with_calldata(
         .saturating_add(TX_GAS_COST);
 
     eth_client
-        .send_eip1559_transaction(&mut tx, l1_private_key)
+        .send_eip1559_transaction(tx, &l1_private_key)
         .await
 }
 

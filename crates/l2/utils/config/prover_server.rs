@@ -1,7 +1,7 @@
 use super::errors::ConfigError;
 use crate::utils::secret_key_deserializer;
 use ethereum_types::Address;
-use libsecp256k1::SecretKey;
+use secp256k1::SecretKey;
 use serde::Deserialize;
 use std::net::IpAddr;
 
