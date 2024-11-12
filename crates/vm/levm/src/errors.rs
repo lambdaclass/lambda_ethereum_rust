@@ -68,8 +68,6 @@ pub enum VMError {
     FatalUnwrap, // I will use this generic error for things that shouldn't fail
     #[error("Account should have been cached")]
     AccountShouldHaveBeenCached,
-    #[error("Conversion error")]
-    ConversionError,
     #[error("Data size overflow")]
     DataSizeOverflow,
     #[error("Gas cost overflow")]
@@ -96,6 +94,8 @@ pub enum InternalError {
     CouldNotComputeCreate2Address,
     #[error("Tried to slice non-existing data")]
     SlicingError,
+    #[error("Tried to convert one type to another")]
+    ConversionError,
 }
 
 #[derive(Debug, Clone)]
