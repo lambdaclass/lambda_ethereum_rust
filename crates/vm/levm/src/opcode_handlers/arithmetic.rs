@@ -227,7 +227,7 @@ impl VM {
         let base = current_call_frame.stack.pop()?;
         let exponent = current_call_frame.stack.pop()?;
 
-        let gas_cost = gas_cost::exp_gas_cost(exponent).map_err(|e| VMError::OutOfGasErr(e))?;
+        let gas_cost = gas_cost::exp_gas_cost(exponent).map_err(VMError::OutOfGasErr)?;
 
         self.increase_consumed_gas(current_call_frame, gas_cost)?;
 

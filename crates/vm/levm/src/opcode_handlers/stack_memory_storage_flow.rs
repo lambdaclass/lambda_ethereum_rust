@@ -66,8 +66,7 @@ impl VM {
             .try_into()
             .unwrap_or(usize::MAX);
 
-        let gas_cost =
-            mload_gas_cost(current_call_frame, offset).map_err(|e| VMError::OutOfGasErr(e))?;
+        let gas_cost = mload_gas_cost(current_call_frame, offset).map_err(VMError::OutOfGasErr)?;
 
         self.increase_consumed_gas(current_call_frame, gas_cost)?;
 
@@ -88,8 +87,7 @@ impl VM {
             .try_into()
             .map_err(|_err| VMError::VeryLargeNumber)?;
 
-        let gas_cost =
-            mstore_gas_cost(current_call_frame, offset).map_err(|e| VMError::OutOfGasErr(e))?;
+        let gas_cost = mstore_gas_cost(current_call_frame, offset).map_err(VMError::OutOfGasErr)?;
 
         self.increase_consumed_gas(current_call_frame, gas_cost)?;
 
@@ -113,7 +111,7 @@ impl VM {
         let offset: usize = current_call_frame.stack.pop()?.try_into().unwrap();
 
         let gas_cost =
-            mstore8_gas_cost(current_call_frame, offset).map_err(|e| VMError::OutOfGasErr(e))?;
+            mstore8_gas_cost(current_call_frame, offset).map_err(VMError::OutOfGasErr)?;
 
         self.increase_consumed_gas(current_call_frame, gas_cost)?;
 
@@ -186,7 +184,7 @@ impl VM {
         let address = current_call_frame.to;
 
         let (gas_cost, storage_slot) =
-            sstore_gas_cost(self, address, key, value).map_err(|e| VMError::OutOfGasErr(e))?;
+            sstore_gas_cost(self, address, key, value).map_err(VMError::OutOfGasErr)?;
 
         self.increase_consumed_gas(current_call_frame, gas_cost)?;
 
@@ -253,7 +251,7 @@ impl VM {
             .unwrap_or(usize::MAX);
 
         let gas_cost = mcopy_gas_cost(current_call_frame, size, src_offset, dest_offset)
-            .map_err(|e| VMError::OutOfGasErr(e))?;
+            .map_err(VMError::OutOfGasErr)?;
 
         self.increase_consumed_gas(current_call_frame, gas_cost)?;
 

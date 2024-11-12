@@ -45,7 +45,7 @@ impl VM {
         }
 
         let gas_cost = log_gas_cost(current_call_frame, size, offset, number_of_topics)
-            .map_err(|e| VMError::OutOfGasErr(e))?;
+            .map_err(VMError::OutOfGasErr)?;
 
         self.increase_consumed_gas(current_call_frame, gas_cost)?;
 
