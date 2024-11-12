@@ -1,12 +1,12 @@
 use bytes::Bytes;
-use ethereum_rust_core::types::{TxKind, GAS_LIMIT_ADJUSTMENT_FACTOR, GAS_LIMIT_MINIMUM};
+use ethereum_rust_core::types::{GAS_LIMIT_ADJUSTMENT_FACTOR, GAS_LIMIT_MINIMUM};
 use ethereum_rust_l2::utils::{
     config::read_env_file,
     eth_client::{eth_sender::Overrides, EthClient},
 };
 use ethereum_types::{Address, H160, H256};
 use keccak_hash::keccak;
-use libsecp256k1::SecretKey;
+use secp256k1::SecretKey;
 use std::{process::Command, str::FromStr};
 
 // 0x4e59b44847b379578588920cA78FbF26c0B4956C
@@ -40,7 +40,7 @@ fn setup() -> (Address, SecretKey, EthClient) {
         .expect("DEPLOYER_ADDRESS not set")
         .parse()
         .expect("Malformed DEPLOYER_ADDRESS");
-    let deployer_private_key = SecretKey::parse(
+    let deployer_private_key = SecretKey::from_slice(
         H256::from_str(
             std::env::var("DEPLOYER_PRIVATE_KEY")
                 .expect("DEPLOYER_PRIVATE_KEY not set")
@@ -48,7 +48,7 @@ fn setup() -> (Address, SecretKey, EthClient) {
                 .expect("Malformed DEPLOYER_ADDRESS (strip_prefix(\"0x\"))"),
         )
         .expect("Malformed DEPLOYER_ADDRESS (H256::from_str)")
-        .as_fixed_bytes(),
+        .as_bytes(),
     )
     .expect("Malformed DEPLOYER_PRIVATE_KEY (SecretKey::parse)");
 
@@ -204,13 +204,15 @@ async fn create2_deploy(
         .build_eip1559_transaction(
             DETERMINISTIC_CREATE2_ADDRESS,
             calldata.into(),
-            deployer_private_key,
-            overrides,
+            Overrides {
+                from: Some(deployer),
+                ..overrides
+            },
         )
         .await
         .expect("Failed to build create2 deploy tx");
     let deploy_tx_hash = eth_client
-        .send_eip1559_transaction(tx)
+        .send_eip1559_transaction(deploy_tx, deployer_private_key)
         .await
         .expect("Failed to send create2 deploy tx");
 
@@ -291,13 +293,15 @@ async fn initialize_on_chain_proposer(
         .build_eip1559_transaction(
             on_chain_proposer,
             on_chain_proposer_initialization_calldata.into(),
-            deployer_private_key,
-            Overrides::default(),
+            Overrides {
+                from: Some(deployer),
+                ..Default::default()
+            },
         )
         .await
         .expect("Failed to build initialize transaction");
     let initialize_tx_hash = eth_client
-        .send_eip1559_transaction(tx)
+        .send_eip1559_transaction(initialize_tx, deployer_private_key)
         .await
         .expect("Failed to send initialize transaction");
 
@@ -333,13 +337,15 @@ async fn initialize_bridge(
         .build_eip1559_transaction(
             bridge,
             bridge_initialization_calldata.into(),
-            deployer_private_key,
-            Overrides::default(),
+            Overrides {
+                from: Some(deployer),
+                ..Default::default()
+            },
         )
         .await
         .expect("Failed to build initialize transaction");
     let initialize_tx_hash = eth_client
-        .send_eip1559_transaction(tx)
+        .send_eip1559_transaction(initialize_tx, deployer_private_key)
         .await
         .expect("Failed to send initialize transaction");
 
