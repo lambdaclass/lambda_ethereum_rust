@@ -339,17 +339,19 @@ impl Committer {
         calldata.extend(withdrawal_logs_merkle_root.0);
         calldata.extend(deposit_logs_hash.0);
 
+        let max_fee_per_gas = self.eth_client.get_gas_price().await?.as_u64();
+
         let mut tx = EIP4844Transaction {
             to: self.on_chain_proposer_address,
             data: Bytes::from(calldata),
-            max_fee_per_gas: self.eth_client.get_gas_price().await?.as_u64(),
+            max_fee_per_gas,
             nonce: self.eth_client.get_nonce(self.l1_address).await?,
             chain_id: self.eth_client.get_chain_id().await?.as_u64(),
             blob_versioned_hashes: vec![H256::from_slice(&blob_versioned_hash)],
             // TODO: blob_gas is too high, it should be set dynamically
             max_fee_per_blob_gas: U256::from_dec_str("1000000").unwrap(),
             // Should the max_priority_fee_per_gas be dynamic?
-            max_priority_fee_per_gas: 100u64,
+            max_priority_fee_per_gas: max_fee_per_gas,
             ..Default::default()
         };
 
