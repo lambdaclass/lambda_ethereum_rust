@@ -849,8 +849,11 @@ impl VM {
             code_size_in_memory,
         )?;
 
-        // Erases the success value in the stack result of calling generic call
-        current_call_frame.stack.pop().unwrap();
+        // Erases the success value in the stack result of calling generic call, probably this should be refactored soon...
+        current_call_frame
+            .stack
+            .pop()
+            .map_err(|_| VMError::StackUnderflow)?;
 
         Ok(OpcodeSuccess::Continue)
     }
