@@ -12,8 +12,8 @@ use create_opcode::{CODE_DEPOSIT_COST, CREATE_BASE_COST, INIT_CODE_WORD_COST};
 use ethereum_rust_core::{types::TxKind, Address, H256, U256};
 use ethereum_rust_rlp;
 use ethereum_rust_rlp::encode::RLPEncode;
-use keccak_hash::keccak;
 use gas_cost::KECCAK25_DYNAMIC_BASE;
+use keccak_hash::keccak;
 use sha3::{Digest, Keccak256};
 use std::{
     collections::{HashMap, HashSet},
@@ -780,9 +780,7 @@ impl VM {
         );
 
         let new_address = match salt {
-            Some(salt) => {
-                Self::calculate_create2_address(current_call_frame.to, &code, salt)
-            }
+            Some(salt) => Self::calculate_create2_address(current_call_frame.to, &code, salt),
             None => Self::calculate_create_address(
                 current_call_frame.msg_sender,
                 sender_account.info.nonce,
