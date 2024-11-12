@@ -1,8 +1,8 @@
 use crate::{
     call_frame::CallFrame,
-    gas_cost,
     constants::{call_opcode, SUCCESS_FOR_RETURN},
     errors::{InternalError, OpcodeSuccess, ResultReason, VMError},
+    gas_cost,
     vm::{word_to_address, VM},
 };
 use ethereum_rust_core::{types::TxKind, U256};
@@ -145,7 +145,9 @@ impl VM {
                     .checked_add(ret_size)
                     .map(|dest_sum| src_sum.max(dest_sum))
             })
-            .ok_or(VMError::Internal(InternalError::ArithmeticOperationOverflow))?;
+            .ok_or(VMError::Internal(
+                InternalError::ArithmeticOperationOverflow,
+            ))?;
         let memory_expansion_cost = current_call_frame.memory.expansion_cost(memory_byte_size)?;
 
         let gas_cost = memory_expansion_cost;
@@ -247,7 +249,9 @@ impl VM {
                     .checked_add(ret_size)
                     .map(|dest_sum| src_sum.max(dest_sum))
             })
-            .ok_or(VMError::Internal(InternalError::ArithmeticOperationOverflow))?;
+            .ok_or(VMError::Internal(
+                InternalError::ArithmeticOperationOverflow,
+            ))?;
         let memory_expansion_cost = current_call_frame.memory.expansion_cost(memory_byte_size)?;
 
         let gas_cost = memory_expansion_cost;
@@ -309,7 +313,9 @@ impl VM {
                     .checked_add(ret_size)
                     .map(|dest_sum| src_sum.max(dest_sum))
             })
-            .ok_or(VMError::Internal(InternalError::ArithmeticOperationOverflow))?;
+            .ok_or(VMError::Internal(
+                InternalError::ArithmeticOperationOverflow,
+            ))?;
         let memory_expansion_cost = current_call_frame.memory.expansion_cost(memory_byte_size)?;
 
         let gas_cost = memory_expansion_cost;

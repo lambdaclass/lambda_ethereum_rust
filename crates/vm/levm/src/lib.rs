@@ -4,13 +4,13 @@ pub mod constants;
 pub mod db;
 pub mod environment;
 pub mod errors;
+pub mod gas_cost;
 pub mod memory;
 pub mod opcode_handlers;
 pub mod opcodes;
 pub mod operations;
 pub mod utils;
 pub mod vm;
-pub mod gas_cost;
 
 pub use account::*;
 pub use environment::*;

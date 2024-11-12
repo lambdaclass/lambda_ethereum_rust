@@ -1,7 +1,7 @@
 use crate::{
     call_frame::CallFrame,
-    gas_cost,
     errors::{OpcodeSuccess, VMError},
+    gas_cost,
     opcodes::Opcode,
     vm::VM,
 };

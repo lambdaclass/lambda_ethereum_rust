@@ -1,11 +1,9 @@
 use crate::{
     account::StorageSlot,
     call_frame::CallFrame,
-    gas_cost,
-    constants::{
-        call_opcode::WARM_ADDRESS_ACCESS_COST, COLD_STORAGE_ACCESS_COST, WORD_SIZE,
-    },
+    constants::{call_opcode::WARM_ADDRESS_ACCESS_COST, COLD_STORAGE_ACCESS_COST, WORD_SIZE},
     errors::{InternalError, OpcodeSuccess, VMError},
+    gas_cost,
     vm::VM,
 };
 use ethereum_rust_core::{H256, U256};

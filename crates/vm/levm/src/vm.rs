@@ -1,11 +1,11 @@
 use crate::{
     account::{Account, StorageSlot},
     call_frame::CallFrame,
-    gas_cost::KECCAK25_DYNAMIC_BASE,
     constants::*,
     db::{Cache, Database},
     environment::Environment,
     errors::{InternalError, OpcodeSuccess, ResultReason, TransactionReport, TxResult, VMError},
+    gas_cost::KECCAK25_DYNAMIC_BASE,
     opcodes::Opcode,
 };
 use bytes::Bytes;
@@ -718,11 +718,16 @@ impl VM {
         code_size_in_memory: U256,
         is_create_2: bool,
     ) -> Result<U256, VMError> {
-        let minimum_word_size = (code_size_in_memory
-            .checked_add(U256::from(31))
-            .ok_or(VMError::Internal(InternalError::ArithmeticOperationOverflow))?)
-        .checked_div(U256::from(32))
-        .ok_or(VMError::Internal(InternalError::ArithmeticOperationDividedByZero))?; // '32' will never be zero
+        let minimum_word_size =
+            (code_size_in_memory
+                .checked_add(U256::from(31))
+                .ok_or(VMError::Internal(
+                    InternalError::ArithmeticOperationOverflow,
+                ))?)
+            .checked_div(U256::from(32))
+            .ok_or(VMError::Internal(
+                InternalError::ArithmeticOperationDividedByZero,
+            ))?; // '32' will never be zero
 
         let init_code_cost = minimum_word_size
             .checked_mul(INIT_CODE_WORD_COST)
@@ -735,7 +740,9 @@ impl VM {
         let memory_expansion_cost = current_call_frame.memory.expansion_cost(
             code_size_in_memory
                 .checked_add(code_offset_in_memory)
-                .ok_or(VMError::Internal(InternalError::ArithmeticOperationOverflow))?
+                .ok_or(VMError::Internal(
+                    InternalError::ArithmeticOperationOverflow,
+                ))?
                 .try_into()
                 .map_err(|_err| VMError::Internal(InternalError::ArithmeticOperationOverflow))?,
         )?;

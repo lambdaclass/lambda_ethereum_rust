@@ -3,8 +3,8 @@
 
 use crate::{
     call_frame::CallFrame,
-    gas_cost,
     errors::{InternalError, OpcodeSuccess, VMError},
+    gas_cost,
     opcodes::Opcode,
     vm::VM,
 };
