@@ -638,12 +638,12 @@ impl VM {
         sender_address: Address,
         initialization_code: &Bytes,
         salt: U256,
-    ) -> Address {
+    ) -> Result<Address, VMError> {
         let init_code_hash = keccak(initialization_code);
         let mut salt_bytes = [0; 32];
         salt.to_big_endian(&mut salt_bytes);
 
-        Address::from_slice(
+        Ok(Address::from_slice(
             keccak(
                 [
                     &[0xff],
@@ -655,8 +655,8 @@ impl VM {
             )
             .as_bytes()
             .get(12..)
-            .expect("Failed to get create2 address"),
-        )
+            .ok_or(VMError::Internal(InternalError::Uncategorized))?, // In this pr is uncategorized
+        ))
     }
 
     fn compute_gas_create(
@@ -780,7 +780,7 @@ impl VM {
         );
 
         let new_address = match salt {
-            Some(salt) => Self::calculate_create2_address(current_call_frame.to, &code, salt),
+            Some(salt) => Self::calculate_create2_address(current_call_frame.to, &code, salt)?,
             None => Self::calculate_create_address(
                 current_call_frame.msg_sender,
                 sender_account.info.nonce,
