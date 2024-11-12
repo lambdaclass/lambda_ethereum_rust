@@ -281,6 +281,9 @@ fn remove_nodes(
     remove_left: bool,
     trie_state: &mut TrieState,
 ) {
+    if !node_hash.is_valid() {
+        return;
+    }
     let node = trie_state.get_node(node_hash.clone()).unwrap().unwrap();
     match node {
         Node::Branch(mut n) => {
