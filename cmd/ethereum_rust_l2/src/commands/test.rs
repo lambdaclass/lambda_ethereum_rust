@@ -104,7 +104,7 @@ async fn transfer_from(
             .unwrap();
 
         while let Err(e) = client
-            .send_eip1559_transaction(tx.clone(), private_key.clone())
+            .send_eip1559_transaction(tx.clone(), &private_key)
             .await
         {
             println!("Transaction failed (PK: {pk} - Nonce: {}): {e}", tx.nonce);

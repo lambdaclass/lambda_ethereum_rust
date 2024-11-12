@@ -631,7 +631,7 @@ impl Signable for LegacyTransaction {
         let data = Message::from_digest_slice(&keccak(self.encode_payload_to_vec()).0).unwrap();
 
         let (recovery_id, signature) = Secp256k1::new()
-            .sign_ecdsa_recoverable(&data, &private_key)
+            .sign_ecdsa_recoverable(&data, private_key)
             .serialize_compact();
 
         let mut r = [0u8; 32];
@@ -652,7 +652,7 @@ impl Signable for EIP1559Transaction {
         let data = Message::from_digest_slice(&keccak(payload).0).unwrap();
 
         let (recovery_id, signature) = Secp256k1::new()
-            .sign_ecdsa_recoverable(&data, &private_key)
+            .sign_ecdsa_recoverable(&data, private_key)
             .serialize_compact();
 
         let mut r = [0u8; 32];
@@ -674,7 +674,7 @@ impl Signable for EIP2930Transaction {
         let data = Message::from_digest_slice(&keccak(payload).0).unwrap();
 
         let (recovery_id, signature) = Secp256k1::new()
-            .sign_ecdsa_recoverable(&data, &private_key)
+            .sign_ecdsa_recoverable(&data, private_key)
             .serialize_compact();
 
         let mut r = [0u8; 32];
@@ -696,7 +696,7 @@ impl Signable for EIP4844Transaction {
         let data = Message::from_digest_slice(&keccak(payload).0).unwrap();
 
         let (recovery_id, signature) = Secp256k1::new()
-            .sign_ecdsa_recoverable(&data, &private_key)
+            .sign_ecdsa_recoverable(&data, private_key)
             .serialize_compact();
 
         let mut r = [0u8; 32];
@@ -718,7 +718,7 @@ impl Signable for PrivilegedL2Transaction {
         let data = Message::from_digest_slice(&keccak(payload).0).unwrap();
 
         let (recovery_id, signature) = Secp256k1::new()
-            .sign_ecdsa_recoverable(&data, &private_key)
+            .sign_ecdsa_recoverable(&data, private_key)
             .serialize_compact();
 
         let mut r = [0u8; 32];

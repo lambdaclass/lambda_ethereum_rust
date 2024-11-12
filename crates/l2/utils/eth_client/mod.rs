@@ -95,9 +95,9 @@ impl EthClient {
     pub async fn send_eip1559_transaction(
         &self,
         tx: EIP1559Transaction,
-        private_key: SecretKey,
+        private_key: &SecretKey,
     ) -> Result<H256, EthClientError> {
-        let signed_tx = tx.sign(&private_key);
+        let signed_tx = tx.sign(private_key);
 
         let mut encoded_tx = signed_tx.encode_to_vec();
         encoded_tx.insert(0, TxType::EIP1559 as u8);
@@ -108,9 +108,9 @@ impl EthClient {
     pub async fn send_eip4844_transaction(
         &self,
         mut wrapped_tx: WrappedEIP4844Transaction,
-        private_key: SecretKey,
+        private_key: &SecretKey,
     ) -> Result<H256, EthClientError> {
-        wrapped_tx.tx.sign_inplace(&private_key);
+        wrapped_tx.tx.sign_inplace(private_key);
 
         let mut encoded_tx = wrapped_tx.encode_to_vec();
         encoded_tx.insert(0, TxType::EIP4844 as u8);
@@ -121,9 +121,9 @@ impl EthClient {
     pub async fn send_privileged_l2_transaction(
         &self,
         tx: PrivilegedL2Transaction,
-        private_key: SecretKey,
+        private_key: &SecretKey,
     ) -> Result<H256, EthClientError> {
-        let signed_tx = tx.sign(&private_key);
+        let signed_tx = tx.sign(private_key);
 
         let mut encoded_tx = signed_tx.encode_to_vec();
         encoded_tx.insert(0, TxType::Privileged as u8);

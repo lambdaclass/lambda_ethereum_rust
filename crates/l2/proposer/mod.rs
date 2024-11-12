@@ -454,7 +454,7 @@ impl Proposer {
 
         let commit_tx_hash = self
             .eth_client
-            .send_eip4844_transaction(wrapped_tx, self.l1_private_key)
+            .send_eip4844_transaction(wrapped_tx, &self.l1_private_key)
             .await
             .map_err(ProposerError::from)?;
 
@@ -502,7 +502,7 @@ impl Proposer {
             .await?;
         let verify_tx_hash = self
             .eth_client
-            .send_eip1559_transaction(verify_tx, self.l1_private_key)
+            .send_eip1559_transaction(verify_tx, &self.l1_private_key)
             .await?;
 
         info!("Proof sent: {verify_tx_hash:#x}");
