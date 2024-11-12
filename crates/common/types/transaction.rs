@@ -851,6 +851,9 @@ impl PrivilegedTxType {
 }
 
 impl PrivilegedL2Transaction {
+    /// Returns the formated hash of the withdrawal transaction,
+    /// or None if the transaction is not a withdrawal.
+    /// The hash is computed as keccak256(to || value || tx_hash)
     pub fn get_withdrawal_hash(&self) -> Option<H256> {
         match self.tx_type {
             PrivilegedTxType::Withdrawal => {
@@ -868,6 +871,26 @@ impl PrivilegedL2Transaction {
                 Some(keccak_hash::keccak(
                     [to.as_bytes(), value, tx_hash.as_bytes()].concat(),
                 ))
+            }
+            _ => None,
+        }
+    }
+
+    /// Returns the formated hash of the deposit transaction,
+    /// or None if the transaction is not a deposit.
+    /// The hash is computed as keccak256(to || value)
+    pub fn get_deposit_hash(&self) -> Option<H256> {
+        match self.tx_type {
+            PrivilegedTxType::Deposit => {
+                let to = match self.to {
+                    TxKind::Call(to) => to,
+                    _ => return None,
+                };
+
+                let value = &mut [0u8; 32];
+                self.value.to_big_endian(value);
+
+                Some(keccak_hash::keccak([to.as_bytes(), value].concat()))
             }
             _ => None,
         }
@@ -1585,8 +1608,8 @@ mod serde_impl {
     pub struct GenericTransaction {
         #[serde(default)]
         pub r#type: TxType,
-        #[serde(default, with = "crate::serde_utils::u64::hex_str")]
-        pub nonce: u64,
+        #[serde(default, with = "crate::serde_utils::u64::hex_str_opt")]
+        pub nonce: Option<u64>,
         pub to: TxKind,
         #[serde(default)]
         pub from: Address,
@@ -1602,8 +1625,7 @@ mod serde_impl {
         pub max_priority_fee_per_gas: Option<u64>,
         #[serde(default, with = "crate::serde_utils::u64::hex_str_opt")]
         pub max_fee_per_gas: Option<u64>,
-        #[serde(default, with = "crate::serde_utils::u64::hex_str_opt")]
-        pub max_fee_per_blob_gas: Option<u64>,
+        pub max_fee_per_blob_gas: Option<U256>,
         #[serde(default)]
         pub access_list: Vec<AccessListEntry>,
         #[serde(default)]
@@ -1618,7 +1640,7 @@ mod serde_impl {
         fn from(value: EIP1559Transaction) -> Self {
             Self {
                 r#type: TxType::EIP1559,
-                nonce: value.nonce,
+                nonce: Some(value.nonce),
                 to: value.to,
                 gas: Some(value.gas_limit),
                 value: value.value,
@@ -1635,6 +1657,32 @@ mod serde_impl {
                 blob_versioned_hashes: vec![],
                 blobs: vec![],
                 chain_id: Some(value.chain_id),
+                ..Default::default()
+            }
+        }
+    }
+
+    impl From<EIP4844Transaction> for GenericTransaction {
+        fn from(value: EIP4844Transaction) -> Self {
+            Self {
+                r#type: TxType::EIP4844,
+                nonce: Some(value.nonce),
+                to: TxKind::Call(value.to),
+                gas: Some(value.gas),
+                value: value.value,
+                input: value.data,
+                gas_price: value.max_fee_per_gas,
+                max_priority_fee_per_gas: Some(value.max_priority_fee_per_gas),
+                max_fee_per_gas: Some(value.max_fee_per_gas),
+                max_fee_per_blob_gas: Some(value.max_fee_per_blob_gas),
+                access_list: value
+                    .access_list
+                    .iter()
+                    .map(AccessListEntry::from)
+                    .collect(),
+                blob_versioned_hashes: value.blob_versioned_hashes,
+                blobs: vec![],
+                chain_id: None,
                 ..Default::default()
             }
         }
@@ -1924,7 +1972,7 @@ mod tests {
         }"#;
         let deserialized_generic_transaction = GenericTransaction {
             r#type: TxType::EIP2930,
-            nonce: 2,
+            nonce: Some(2),
             to: TxKind::Create,
             from: Address::from_slice(
                 &hex::decode("6177843db3138ae69679A54b95cf345ED759450d").unwrap(),
