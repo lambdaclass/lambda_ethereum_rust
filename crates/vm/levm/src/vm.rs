@@ -677,7 +677,7 @@ impl VM {
         let sender_account = self
             .cache
             .get_mut_account(current_call_frame.msg_sender)
-            .ok_or(VMError::FatalUnwrap)?;
+            .ok_or(VMError::Internal(InternalError::AccountNotFound))?;
 
         if sender_account.info.balance < value_in_wei_to_send {
             current_call_frame

@@ -76,6 +76,8 @@ pub enum InternalError {
     Example,
     #[error("Could not access last callframe")]
     CouldNotAccessLastCallframe,
+    #[error("Account not found")]
+    AccountNotFound,
 }
 
 pub enum OpcodeSuccess {
