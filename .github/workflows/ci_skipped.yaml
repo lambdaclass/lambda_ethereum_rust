@@ -7,19 +7,19 @@ on:
       - 'LICENSE'
       - "**/README.md"
       - "**/docs/**"
-      - "crates/vm/levm/**"
-jobs:
-#  lint:
-#    name: Lint
-#    runs-on: ubuntu-latest
-#    if: false
-#    steps: [run: true]
 
-#  test:
-#    name: Test
-#    runs-on: ubuntu-latest
-#    if: false
-#    steps: [run: true]
+jobs:
+  lint:
+    name: Lint
+    runs-on: ubuntu-latest
+    if: false
+    steps: [run: true]
+
+  test:
+    name: Test
+    runs-on: ubuntu-latest
+    if: false
+    steps: [run: true]
 
   docker-build:
     name: Build Docker image
