@@ -1,4 +1,4 @@
-use std::{mem::MaybeUninit, sync::Arc, time::Duration};
+use std::sync::Arc;
 
 use crate::{
     rlpx::{
@@ -40,7 +40,6 @@ use tokio::{
     io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt},
     sync::broadcast::{self, error::RecvError},
     task::Id,
-    time::timeout,
 };
 use tracing::{error, info};
 const CAP_P2P: (Capability, u8) = (Capability::P2p, 5);
