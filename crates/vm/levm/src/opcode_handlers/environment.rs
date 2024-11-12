@@ -169,32 +169,16 @@ impl VM {
             return Ok(OpcodeSuccess::Continue);
         }
 
-        // This check is because if offset is larger than the calldata then we should push 0 to the stack.
-        let result = if calldata_offset < current_call_frame.calldata.len() {
-            // Read calldata from offset to the end
-            let calldata = current_call_frame.calldata.slice(calldata_offset..);
-
-            // Get the 32 bytes from the data slice, padding with 0 if fewer than 32 bytes are available
-            let mut padded_calldata = vec![0u8; size];
-            let data_len_to_copy = calldata.len().min(size);
-
-            padded_calldata
-                .get_mut(..data_len_to_copy)
-                .ok_or(VMError::SlicingError)?
-                .copy_from_slice(
-                    calldata
-                        .get(..data_len_to_copy)
-                        .ok_or(VMError::SlicingError)?,
-                );
-
-            padded_calldata
-        } else {
-            vec![0u8; size]
-        };
+        let mut data = [0u8; 32];
+        for (i, byte) in current_call_frame.calldata.iter().skip(calldata_offset).take(32).enumerate() {
+            if let Some(data_byte) = data.get_mut(i) {
+                *data_byte = *byte;
+            }
+        }
 
         current_call_frame
             .memory
-            .store_bytes(dest_offset, &result)?;
+            .store_bytes(dest_offset, &data)?;
 
         Ok(OpcodeSuccess::Continue)
     }
