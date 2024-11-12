@@ -335,12 +335,14 @@ impl TryFrom<u8> for Opcode {
 }
 
 impl From<Opcode> for u8 {
+    #[allow(clippy::as_conversions)]
     fn from(opcode: Opcode) -> Self {
         opcode as u8
     }
 }
 
 impl From<Opcode> for usize {
+    #[allow(clippy::as_conversions)]
     fn from(opcode: Opcode) -> Self {
         opcode as usize
     }

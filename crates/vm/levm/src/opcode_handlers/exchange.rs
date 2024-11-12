@@ -29,7 +29,7 @@ impl VM {
             return Err(VMError::StackUnderflow);
         }
         let to_swap_index = stack_top_index
-            .checked_sub(depth.into())
+            .checked_sub(depth)
             .ok_or(VMError::StackUnderflow)?;
 
         current_call_frame
