@@ -32,13 +32,12 @@ impl Memory {
 
     pub fn load(&mut self, offset: usize) -> Result<U256, VMError> {
         self.resize(offset + 32);
-        let value_bytes: [u8; 32] = self
+        let value_bytes = self
             .data
             .get(offset..offset + 32)
-            .ok_or(VMError::MemoryLoadOutOfBounds)?
-            .try_into()
-            .map_err(|_| VMError::FatalUnwrap)?;
-        Ok(U256::from(value_bytes))
+            .ok_or(VMError::MemoryLoadOutOfBounds)?;
+
+        Ok(U256::from_big_endian(value_bytes))
     }
 
     pub fn load_range(&mut self, offset: usize, size: usize) -> Result<Vec<u8>, VMError> {
