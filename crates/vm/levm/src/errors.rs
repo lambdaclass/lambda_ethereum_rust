@@ -84,16 +84,6 @@ pub enum VMError {
 
 #[derive(Debug, Clone, PartialEq, Eq, thiserror::Error)]
 pub enum InternalError {
-    #[error("Tried to access first call frame but found none")]
-    CouldNotAccessFirstCallframe,
-    #[error("Tried to read from empty code")]
-    TriedToIndexEmptyCode,
-    #[error("Failed computing CREATE address")]
-    CouldNotComputeCreateAddress,
-    #[error("Failed computing CREATE2 address")]
-    CouldNotComputeCreate2Address,
-    #[error("Tried to slice non-existing data")]
-    SlicingError,
     #[error("Tried to convert one type to another")]
     ConversionError,
 }
