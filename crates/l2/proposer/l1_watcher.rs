@@ -14,7 +14,7 @@ use ethereum_rust_rpc::types::receipt::RpcLog;
 use ethereum_rust_storage::Store;
 use ethereum_types::{Address, BigEndianHash, H256, U256};
 use keccak_hash::keccak;
-use libsecp256k1::{sign, Message, SecretKey};
+use secp256k1::SecretKey;
 use std::{cmp::min, ops::Mul, time::Duration};
 use tokio::time::sleep;
 use tracing::{debug, info, warn};

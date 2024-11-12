@@ -8,7 +8,7 @@ use ethereum_rust_rlp::encode::RLPEncode;
 use ethereum_rust_rpc::utils::{RpcRequest, RpcRequestId};
 use ethereum_types::{Address, U256};
 use keccak_hash::{keccak, H256};
-use libsecp256k1::SecretKey;
+use secp256k1::SecretKey;
 use serde_json::json;
 
 #[derive(Default, Clone)]

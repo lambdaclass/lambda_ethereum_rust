@@ -20,7 +20,7 @@ use ethereum_rust_storage::Store;
 use ethereum_rust_vm::{evm_state, execute_block, get_state_transitions};
 use ethereum_types::{Address, H256, U256};
 use keccak_hash::keccak;
-use libsecp256k1::SecretKey;
+use secp256k1::SecretKey;
 use sha2::{Digest, Sha256};
 use state_diff::{AccountStateDiff, DepositLog, StateDiff, WithdrawalLog};
 use std::{

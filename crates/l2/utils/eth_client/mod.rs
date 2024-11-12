@@ -17,11 +17,10 @@ use ethereum_rust_rpc::{
 };
 use ethereum_types::{Address, H256, U256};
 use keccak_hash::keccak;
-use libsecp256k1::{sign, Message, SecretKey};
 use reqwest::Client;
+use secp256k1::SecretKey;
 use serde::{Deserialize, Serialize};
 use serde_json::json;
-use transaction::PayloadRLPEncode;
 
 pub mod errors;
 pub mod eth_sender;
