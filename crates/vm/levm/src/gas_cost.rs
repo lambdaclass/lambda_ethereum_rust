@@ -213,3 +213,30 @@ pub fn returndatacopy_gas_cost(current_call_frame: &mut CallFrame, size: usize, 
         .checked_add(memory_expansion_cost)
         .ok_or(OutOfGasError::GasCostOverflow)
 }
+
+pub fn keccak256_gas_cost(
+    current_call_frame: &mut CallFrame,
+    size: usize,
+    offset: usize,
+) -> Result<U256, OutOfGasError> {
+    let minimum_word_size = (size
+        .checked_add(WORD_SIZE)
+        .ok_or(OutOfGasError::ArithmeticOperationOverflow)?
+        .saturating_sub(1))
+        / WORD_SIZE;
+    let memory_expansion_cost = current_call_frame.memory.expansion_cost(
+        offset
+            .checked_add(size)
+            .ok_or(OutOfGasError::ArithmeticOperationOverflow)?,
+    )?;
+    let minimum_word_size_cost = KECCAK25_DYNAMIC_BASE
+        .checked_mul(minimum_word_size.into())
+        .ok_or(OutOfGasError::GasCostOverflow)?;
+
+    KECCAK25_STATIC
+        .checked_add(minimum_word_size_cost)
+        .ok_or(OutOfGasError::GasCostOverflow)?
+        .checked_add(memory_expansion_cost)
+        .ok_or(OutOfGasError::GasCostOverflow)
+}
+

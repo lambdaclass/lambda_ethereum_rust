@@ -1,8 +1,7 @@
 use crate::{
     call_frame::CallFrame,
-    constants::WORD_SIZE,
-    errors::{InternalError, OpcodeSuccess, VMError},
-    gas_cost,
+    errors::{OpcodeSuccess, VMError},
+    gas_cost::keccak256_gas_cost,
     vm::VM,
 };
 use ethereum_rust_core::U256;
@@ -27,28 +26,8 @@ impl VM {
             .try_into()
             .unwrap_or(usize::MAX);
 
-        let minimum_word_size = (size
-            .checked_add(WORD_SIZE)
-            .ok_or(VMError::Internal(
-                InternalError::ArithmeticOperationOverflow,
-            ))?
-            .saturating_sub(1))
-            / WORD_SIZE;
-        let memory_expansion_cost =
-            current_call_frame
-                .memory
-                .expansion_cost(offset.checked_add(size).ok_or(VMError::Internal(
-                    InternalError::ArithmeticOperationOverflow,
-                ))?)?;
-        let minimum_word_size_cost = gas_cost::KECCAK25_DYNAMIC_BASE
-            .checked_mul(minimum_word_size.into())
-            .ok_or(VMError::GasCostOverflow)?;
-
-        let gas_cost = gas_cost::KECCAK25_STATIC
-            .checked_add(minimum_word_size_cost)
-            .ok_or(VMError::GasCostOverflow)?
-            .checked_add(memory_expansion_cost)
-            .ok_or(VMError::GasCostOverflow)?;
+        let gas_cost = keccak256_gas_cost(current_call_frame, size, offset)
+            .map_err(|e| VMError::OutOfGasErr(e))?;
 
         self.increase_consumed_gas(current_call_frame, gas_cost)?;
 
