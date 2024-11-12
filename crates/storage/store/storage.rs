@@ -675,7 +675,7 @@ impl Store {
     }
 
     // Obtain the storage trie for the given account on the given block
-    fn storage_trie(
+    pub fn storage_trie(
         &self,
         block_hash: BlockHash,
         address: Address,
@@ -705,6 +705,21 @@ impl Store {
         let Some(block_hash) = self.engine.get_canonical_block_hash(block_number)? else {
             return Ok(None);
         };
+        let Some(state_trie) = self.state_trie(block_hash)? else {
+            return Ok(None);
+        };
+        let hashed_address = hash_address(&address);
+        let Some(encoded_state) = state_trie.get(&hashed_address)? else {
+            return Ok(None);
+        };
+        Ok(Some(AccountState::decode(&encoded_state)?))
+    }
+
+    pub fn get_account_state_by_hash(
+        &self,
+        block_hash: BlockHash,
+        address: Address,
+    ) -> Result<Option<AccountState>, StoreError> {
         let Some(state_trie) = self.state_trie(block_hash)? else {
             return Ok(None);
         };
@@ -811,6 +826,57 @@ impl Store {
         Ok(Some(proof))
     }
 
+    /// Receives the root of the state trie and a list of paths where the first path will correspond to a path in the state trie
+    /// (aka a hashed account address) and the following paths will be paths in the account's storage trie (aka hashed storage keys)
+    /// If only one hash (account) is received, then the state trie node containing the account will be returned.
+    /// If more than one hash is received, then the storage trie nodes where each storage key is stored will be returned
+    /// For more information check out snap capability message [`GetTrieNodes`](https://github.com/ethereum/devp2p/blob/master/caps/snap.md#gettrienodes-0x06)
+    /// The paths can be either full paths (hash) or partial paths (compact-encoded nibbles), if a partial path is given for the account this method will not return storage nodes for it
+    pub fn get_trie_nodes(
+        &self,
+        state_root: H256,
+        paths: Vec<Vec<u8>>,
+        byte_limit: u64,
+    ) -> Result<Vec<Vec<u8>>, StoreError> {
+        let Some(account_path) = paths.first() else {
+            return Ok(vec![]);
+        };
+        let state_trie = self.engine.open_state_trie(state_root);
+        // State Trie Nodes Request
+        if paths.len() == 1 {
+            // Fetch state trie node
+            let node = state_trie.get_node(account_path)?;
+            return Ok(vec![node]);
+        }
+        // Storage Trie Nodes Request
+        let Some(account_state) = state_trie
+            .get(account_path)?
+            .map(|ref rlp| AccountState::decode(rlp))
+            .transpose()?
+        else {
+            return Ok(vec![]);
+        };
+        // We can't access the storage trie without the account's address hash
+        let Ok(hashed_address) = account_path.clone().try_into().map(H256) else {
+            return Ok(vec![]);
+        };
+        let storage_trie = self
+            .engine
+            .open_storage_trie(hashed_address, account_state.storage_root);
+        // Fetch storage trie nodes
+        let mut nodes = vec![];
+        let mut bytes_used = 0;
+        for path in paths.iter().skip(1) {
+            if bytes_used >= byte_limit {
+                break;
+            }
+            let node = storage_trie.get_node(path)?;
+            bytes_used += node.len() as u64;
+            nodes.push(node);
+        }
+        Ok(nodes)
+    }
+
     pub fn add_payload(&self, payload_id: u64, block: Block) -> Result<(), StoreError> {
         self.engine.add_payload(payload_id, block)
     }
@@ -825,7 +891,7 @@ impl Store {
     }
 }
 
-fn hash_address(address: &Address) -> Vec<u8> {
+pub fn hash_address(address: &Address) -> Vec<u8> {
     Keccak256::new_with_prefix(address.to_fixed_bytes())
         .finalize()
         .to_vec()
@@ -838,7 +904,7 @@ fn hash_address_fixed(address: &Address) -> H256 {
     )
 }
 
-fn hash_key(key: &H256) -> Vec<u8> {
+pub fn hash_key(key: &H256) -> Vec<u8> {
     Keccak256::new_with_prefix(key.to_fixed_bytes())
         .finalize()
         .to_vec()
