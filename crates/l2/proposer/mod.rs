@@ -28,7 +28,7 @@ pub async fn start_proposer(store: Store) {
     }
 
     let l1_watcher = tokio::spawn(l1_watcher::start_l1_watcher(store.clone()));
-    let l1_commiter = tokio::spawn(l1_committer::start_l1_commiter(store.clone()));
+    let l1_committer = tokio::spawn(l1_committer::start_l1_commiter(store.clone()));
     let prover_server = tokio::spawn(prover_server::start_prover_server(store.clone()));
     let proposer = tokio::spawn(async move {
         let proposer_config = ProposerConfig::from_env().expect("ProposerConfig::from_env");
@@ -50,7 +50,7 @@ pub async fn start_proposer(store: Store) {
             .await
             .expect("Proposer::start");
     });
-    tokio::try_join!(l1_watcher, l1_commiter, prover_server, proposer).expect("tokio::try_join");
+    tokio::try_join!(l1_watcher, l1_committer, prover_server, proposer).expect("tokio::try_join");
 }
 
 impl Proposer {

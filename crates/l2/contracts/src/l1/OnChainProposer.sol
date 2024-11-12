@@ -29,7 +29,7 @@ contract OnChainProposer is IOnChainProposer, ReentrancyGuard {
     /// @dev This is crucial for ensuring that only valid and confirmed blocks are processed in the contract.
     uint256 public lastVerifiedBlock;
 
-    uint256 public lastCommitedBlock;
+    uint256 public lastCommittedBlock;
 
     address public BRIDGE;
     address public R0VERIFIER;
@@ -67,7 +67,7 @@ contract OnChainProposer is IOnChainProposer, ReentrancyGuard {
         );
         R0VERIFIER = r0verifier;
 
-        lastCommitedBlock = 0xFFFFFFFFFFFFFFFF;
+        lastCommittedBlock = 0xFFFFFFFFFFFFFFFF;
     }
 
     /// @inheritdoc IOnChainProposer
@@ -78,9 +78,9 @@ contract OnChainProposer is IOnChainProposer, ReentrancyGuard {
         bytes32 depositLogs
     ) external override {
         require(
-            blockNumber == lastCommitedBlock + 1 ||
-                (blockNumber == 0 && lastCommitedBlock == 0xFFFFFFFFFFFFFFFF),
-            "OnChainProposer: blockNumber is not the immediate succesor of lastCommitedBlock"
+            blockNumber == lastCommittedBlock + 1 ||
+                (blockNumber == 0 && lastCommittedBlock == 0xFFFFFFFFFFFFFFFF),
+            "OnChainProposer: blockNumber is not the immediate succesor of lastCommittedBlock"
         );
         require(
             blockCommitments[blockNumber].commitmentHash == bytes32(0),
@@ -106,7 +106,7 @@ contract OnChainProposer is IOnChainProposer, ReentrancyGuard {
             commitment,
             depositLogs
         );
-        lastCommitedBlock = blockNumber;
+        lastCommittedBlock = blockNumber;
         emit BlockCommitted(commitment);
     }
 
