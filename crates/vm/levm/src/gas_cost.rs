@@ -240,3 +240,29 @@ pub fn keccak256_gas_cost(
         .ok_or(OutOfGasError::GasCostOverflow)
 }
 
+pub fn log_gas_cost(
+    current_call_frame: &mut CallFrame,
+    size: usize,
+    offset: usize,
+    number_of_topics: u8,
+) -> Result<U256, OutOfGasError> {
+    let memory_expansion_cost = current_call_frame.memory.expansion_cost(
+        offset
+            .checked_add(size)
+            .ok_or(OutOfGasError::ArithmeticOperationOverflow)?,
+    )?;
+
+    let topics_cost = LOGN_DYNAMIC_BASE
+        .checked_mul(number_of_topics.into())
+        .ok_or(OutOfGasError::GasCostOverflow)?;
+    let bytes_cost = LOGN_DYNAMIC_BYTE_BASE
+        .checked_mul(size.into())
+        .ok_or(OutOfGasError::GasCostOverflow)?;
+    topics_cost
+        .checked_add(LOGN_STATIC)
+        .ok_or(OutOfGasError::GasCostOverflow)?
+        .checked_add(bytes_cost)
+        .ok_or(OutOfGasError::GasCostOverflow)?
+        .checked_add(memory_expansion_cost)
+        .ok_or(OutOfGasError::GasCostOverflow)
+}
