@@ -1,4 +1,4 @@
-use crate::{errors::VMError, opcodes::Opcode};
+use crate::{errors::{InternalError, VMError}, opcodes::Opcode};
 use bytes::Bytes;
 use ethereum_rust_core::U256;
 
@@ -176,7 +176,7 @@ impl Operation {
                 // extract the last n bytes to push
                 let value_to_push = &word_buffer
                     .get(((32 - *n) as usize)..)
-                    .ok_or(VMError::SlicingError)?;
+                    .ok_or(VMError::Internal(InternalError::SlicingError))?;
                 assert_eq!(value_to_push.len(), *n as usize);
                 let opcode = Opcode::try_from(Opcode::PUSH0 as u8 + *n)?;
                 let mut bytes = vec![opcode as u8];

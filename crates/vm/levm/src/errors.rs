@@ -60,18 +60,18 @@ pub enum VMError {
     MemoryStoreOutOfBounds,
     #[error("Gas limit price product overflow")]
     GasLimitPriceProductOverflow,
-    #[error("Slicing error")]
-    SlicingError,
-    #[error("Indexing error")]
-    IndexingError,
+    // #[error("Slicing error")]
+    // SlicingError,
+    // #[error("Indexing error")]
+    // IndexingError,
     #[error("Internal error: {0}")]
     Internal(InternalError),
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, thiserror::Error)]
 pub enum InternalError {
-    #[error("Tried to access first call frame but found none")]
-    CouldNotAccessFirstCallframe,
+    #[error("Tried to access last call frame but found none")]
+    CouldNotAccessLastCallframe, // Last callframe before execution is the same as the first, but after execution the last callframe is actually the initial CF
     #[error("Tried to read from empty code")]
     TriedToIndexEmptyCode,
     #[error("Failed computing CREATE address")]

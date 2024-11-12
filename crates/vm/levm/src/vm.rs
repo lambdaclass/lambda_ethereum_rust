@@ -330,8 +330,10 @@ impl VM {
             }
         }
 
+        let initial_call_frame = self.call_frames.last().ok_or(VMError::Internal(InternalError::CouldNotAccessLastCallframe))?.clone();
+
         let origin = self.env.origin;
-        let to = self.call_frames.first().ok_or(VMError::IndexingError)?.to;
+        let to = initial_call_frame.to;
 
         let mut receiver_account = self.get_account(&to);
         let mut sender_account = self.get_account(&origin);
@@ -349,25 +351,14 @@ impl VM {
         }
         // (6)
         if sender_account.info.balance
-            < self
-                .call_frames
-                .first()
-                .ok_or(VMError::IndexingError)?
+            < initial_call_frame
                 .msg_value
         {
             return Err(VMError::SenderBalanceShouldContainTransferValue);
         }
         // TODO: This belongs elsewhere.
-        sender_account.info.balance -= self
-            .call_frames
-            .first()
-            .ok_or(VMError::IndexingError)?
-            .msg_value;
-        receiver_account.info.balance += self
-            .call_frames
-            .first()
-            .ok_or(VMError::IndexingError)?
-            .msg_value;
+        sender_account.info.balance -= initial_call_frame.msg_value;
+        receiver_account.info.balance += initial_call_frame.msg_value;
 
         self.cache.add_account(&origin, &sender_account);
         self.cache.add_account(&to, &receiver_account);
@@ -384,13 +375,15 @@ impl VM {
     }
 
     fn revert_create(&mut self) -> Result<(), VMError> {
+        let initial_call_frame = self.call_frames.last().ok_or(VMError::Internal(InternalError::CouldNotAccessLastCallframe))?.clone();
+
         // Note: currently working with copies
-        let sender = self.call_frames.first().unwrap().msg_sender;
+        let sender = initial_call_frame.msg_sender;
         let mut sender_account = self.get_account(&sender);
 
         sender_account.info.nonce -= 1;
 
-        let new_contract_address = self.call_frames.first().unwrap().to;
+        let new_contract_address = initial_call_frame.to;
 
         if self.cache.accounts.remove(&new_contract_address).is_none() {
             return Err(VMError::AddressDoesNotMatchAnAccount); // Should not be this error
@@ -414,14 +407,12 @@ impl VM {
         let mut report = self.execute(&mut current_call_frame);
         let sender = self.call_frames.first().unwrap().msg_sender;
 
+        let initial_call_frame = self.call_frames.last().ok_or(VMError::Internal(InternalError::CouldNotAccessLastCallframe))?;
+
         // This cost applies both for call and create
         // 4 gas for each zero byte in the transaction data 16 gas for each non-zero byte in the transaction.
         let mut calldata_cost = 0;
-        for byte in &self
-            .call_frames
-            .first()
-            .ok_or(VMError::IndexingError)?
-            .calldata
+        for byte in &initial_call_frame.calldata
         {
             if *byte != 0 {
                 calldata_cost += 16;
@@ -461,16 +452,13 @@ impl VM {
             // Charge 22100 gas for each storage variable set
 
             // GInitCodeword * number_of_words rounded up. GinitCodeWord = 2
-            let number_of_words = self
-                .call_frames
-                .first()
-                .ok_or(VMError::IndexingError)?
+            let number_of_words = initial_call_frame
                 .calldata
                 .chunks(32)
                 .len() as u64;
             report.gas_used += number_of_words * 2;
 
-            let contract_address = self.call_frames.first().unwrap().to;
+            let contract_address = initial_call_frame.to;
             let mut created_contract = self.get_account(&contract_address);
 
             created_contract.info.bytecode = contract_code;

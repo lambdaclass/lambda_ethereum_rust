@@ -4,7 +4,7 @@ use crate::{
         call_opcode::{COLD_ADDRESS_ACCESS_COST, WARM_ADDRESS_ACCESS_COST},
         gas_cost, WORD_SIZE,
     },
-    errors::{OpcodeSuccess, VMError},
+    errors::{InternalError, OpcodeSuccess, VMError},
     vm::{word_to_address, VM},
 };
 use bytes::Bytes;
@@ -339,7 +339,7 @@ impl VM {
             dest_offset,
             bytecode
                 .get(offset..offset + size)
-                .ok_or(VMError::SlicingError)?,
+                .ok_or(VMError::Internal(InternalError::SlicingError))?,
         )?;
 
         Ok(OpcodeSuccess::Continue)
