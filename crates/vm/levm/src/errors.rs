@@ -67,7 +67,15 @@ pub enum VMError {
     #[error("Remaining Gas Underflow")]
     RemainingGasUnderflow, // When gas used is higher than gas limit, is there already an error for that?
 
-    // OutOfGas
+    #[error("Out Of Gas")]
+    OutOfGasErr(#[from] OutOfGasError),
+    // Internal
+    #[error("Internal error: {0}")]
+    Internal(#[from] InternalError),
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash, thiserror::Error)]
+pub enum OutOfGasError {
     #[error("Gas Cost Overflow")]
     GasCostOverflow,
     #[error("Gas Used Overflow")]
@@ -78,9 +86,8 @@ pub enum VMError {
     ConsumedGasOverflow,
     #[error("Max Gas Limit Exceeded")]
     MaxGasLimitExceeded,
-    // Internal
-    #[error("Internal error: {0}")]
-    Internal(#[from] InternalError),
+    #[error("Arithmetic operation overflowed in gas calculation")]
+    ArithmeticOperationOverflow,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash, thiserror::Error)]
