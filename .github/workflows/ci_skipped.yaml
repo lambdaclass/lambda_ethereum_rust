@@ -9,17 +9,17 @@ on:
       - "**/docs/**"
       - "crates/vm/levm/**"
 jobs:
-  lint:
-    name: Lint
-    runs-on: ubuntu-latest
-    if: true
-    steps: [run: true]
+#  lint:
+#    name: Lint
+#    runs-on: ubuntu-latest
+#    if: false
+#    steps: [run: true]
 
-  test:
-    name: Test
-    runs-on: ubuntu-latest
-    if: false
-    steps: [run: true]
+#  test:
+#    name: Test
+#    runs-on: ubuntu-latest
+#    if: false
+#    steps: [run: true]
 
   docker-build:
     name: Build Docker image
