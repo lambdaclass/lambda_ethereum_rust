@@ -674,7 +674,7 @@ impl VM {
             .checked_add(U256::from(31))
             .ok_or(VMError::DataSizeOverflow)?)
         .checked_div(U256::from(32))
-        .ok_or(VMError::Internal)?; // '32' will never be zero
+        .ok_or(VMError::OverflowInArithmeticOp)?; // '32' will never be zero. The error is wrong but will see later...
 
         let init_code_cost = minimum_word_size
             .checked_mul(INIT_CODE_WORD_COST)
