@@ -1,4 +1,4 @@
-use crate::{account::{Account, AccountInfo, StorageSlot}, errors::VMError};
+use crate::{account::{Account, AccountInfo, StorageSlot}, errors::{InternalError, VMError}};
 use ethereum_rust_core::{Address, H256, U256};
 use std::collections::HashMap;
 
@@ -96,7 +96,7 @@ impl Cache {
     pub fn write_account_storage(&mut self, address: &Address, key: H256, slot: StorageSlot) -> Result<(), VMError>{
         self.accounts
             .get_mut(address)
-            .ok_or(VMError::AccountShouldHaveBeenCached)?
+            .ok_or(VMError::Internal(InternalError::AccountShouldHaveBeenCached))?
             .storage
             .insert(key, slot);
         Ok(())
