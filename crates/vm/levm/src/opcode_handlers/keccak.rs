@@ -15,7 +15,7 @@ impl VM {
         &mut self,
         current_call_frame: &mut CallFrame,
     ) -> Result<OpcodeSuccess, VMError> {
-        let offset = current_call_frame
+        let offset: usize = current_call_frame
             .stack
             .pop()?
             .try_into()
@@ -27,7 +27,11 @@ impl VM {
             .map_err(|_| VMError::VeryLargeNumber)?;
 
         let minimum_word_size = (size + WORD_SIZE - 1) / WORD_SIZE;
-        let memory_expansion_cost = current_call_frame.memory.expansion_cost(offset + size)?;
+        let memory_expansion_cost = current_call_frame.memory.expansion_cost(
+            offset
+                .checked_add(size)
+                .ok_or(VMError::MemoryLoadOutOfBounds)?,
+        )?;
         let gas_cost = gas_cost::KECCAK25_STATIC
             + gas_cost::KECCAK25_DYNAMIC_BASE * minimum_word_size
             + memory_expansion_cost;

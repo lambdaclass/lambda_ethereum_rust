@@ -23,7 +23,7 @@ impl VM {
         }
 
         let number_of_topics = u8::from(op) - u8::from(Opcode::LOG0);
-        let offset = current_call_frame
+        let offset: usize = current_call_frame
             .stack
             .pop()?
             .try_into()
@@ -41,7 +41,11 @@ impl VM {
             topics.push(H256::from_slice(&topic_bytes));
         }
 
-        let memory_expansion_cost = current_call_frame.memory.expansion_cost(offset + size)?;
+        let memory_expansion_cost = current_call_frame.memory.expansion_cost(
+            offset
+                .checked_add(size)
+                .ok_or(VMError::MemoryLoadOutOfBounds)?,
+        )?;
         let gas_cost = gas_cost::LOGN_STATIC
             + gas_cost::LOGN_DYNAMIC_BASE * number_of_topics
             + gas_cost::LOGN_DYNAMIC_BYTE_BASE * size

@@ -100,4 +100,5 @@ pub fn new_vm_with_ops_addr_bal_db(
         Arc::new(db),
         cache,
     )
+    .unwrap()
 }
