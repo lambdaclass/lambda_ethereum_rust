@@ -381,6 +381,7 @@ impl Command {
                                 Some(cfg.network.l2_chain_id)
                             },
                             nonce,
+                            from: Some(cfg.wallet.address),
                             gas_limit: Some(21000 * 100),
                             ..Default::default()
                         },
