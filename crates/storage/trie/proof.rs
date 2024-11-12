@@ -248,7 +248,7 @@ fn remove_internal_references_inner(
                 );
             }
             // We found our fork node, now we can remove the internal references
-            for choice in &mut n.choices[left_choice..right_choice] {
+            for choice in &mut n.choices[left_choice + 1..right_choice] {
                 *choice = NodeHash::default()
             }
             // Remove nodes on the left and right choice's subtries
@@ -294,7 +294,7 @@ fn remove_nodes(
                     *child = NodeHash::default()
                 }
             } else {
-                for child in &mut n.choices[choice..] {
+                for child in &mut n.choices[choice + 1..] {
                     *child = NodeHash::default()
                 }
                 // Remove nodes to the left/right of the choice's subtrie
@@ -310,7 +310,7 @@ fn remove_nodes(
             trie_state.insert_node(n.into(), node_hash);
         }
         Node::Extension(extension_node) => todo!(),
-        Node::Leaf(leaf_node) => todo!(),
+        Node::Leaf(_) => return,
     }
 }
 
