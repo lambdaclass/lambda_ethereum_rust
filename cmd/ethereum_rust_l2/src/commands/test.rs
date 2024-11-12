@@ -5,7 +5,7 @@ use ethereum_rust_core::types::{EIP1559Transaction, TxKind};
 use ethereum_rust_l2::utils::eth_client::EthClient;
 use ethereum_types::{Address, H160, H256, U256};
 use keccak_hash::keccak;
-use libsecp256k1::SecretKey;
+use secp256k1::{PublicKey, Secp256k1, SecretKey};
 use std::{
     fs::File,
     io::{self, BufRead},
@@ -70,10 +70,10 @@ async fn transfer_from(
     cfg: EthereumRustL2Config,
 ) -> u64 {
     let client = EthClient::new(&cfg.network.l2_rpc_url);
-    let private_key = SecretKey::parse(pk.parse::<H256>().unwrap().as_fixed_bytes()).unwrap();
+    let private_key = SecretKey::from_slice(pk.parse::<H256>().unwrap().as_bytes()).unwrap();
 
     let mut buffer = [0u8; 64];
-    let public_key = libsecp256k1::PublicKey::from_secret_key(&private_key).serialize();
+    let public_key = private_key.public_key(&Secp256k1::new()).serialize();
     buffer.copy_from_slice(&public_key[1..]);
 
     let address = H160::from(keccak(buffer));
