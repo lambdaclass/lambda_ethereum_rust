@@ -32,7 +32,7 @@ pub(crate) enum RLPxError {
     #[error("Error in cryptographic library: {0}")]
     CryptographyError(String),
     #[error("Failed to broadcast msg: {0}")]
-    Broadcast(String),
+    BroadcastError(String),
 }
 
 // Grouping all cryptographic related errors in a single CryptographicError variant
