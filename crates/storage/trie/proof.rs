@@ -409,9 +409,10 @@ impl<'a> ProofNodeStorage<'a> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use proptest::collection::{btree_set, vec};
     use proptest::prelude::any;
     use proptest::proptest;
-    use std::{collections::btree_set, str::FromStr};
+    use std::str::FromStr;
 
     #[test]
     fn verify_range_proof_regular_case_only_branch_nodes() {
@@ -486,11 +487,10 @@ mod tests {
         verify_range_proof(root, key_range[0], key_range, value_range, proof).unwrap();
     }
 
-    use proptest::collection::{btree_set, vec};
-
     proptest! {
 
         #[test]
+        // Regular Case: Two Edge Proofs, both keys exist
         fn proptest_verify_range_regular_case(data in btree_set(vec(any::<u8>(), 32), 200), start in 1_usize..=100_usize, end in 101..200_usize) {
             // Build trie
             let mut trie = Trie::new_temp();
@@ -504,7 +504,44 @@ mod tests {
             // Generate proofs
             let mut proof = trie.get_proof(&values[0]).unwrap();
             proof.extend(trie.get_proof(&values.last().unwrap()).unwrap());
+            // Verify the range proof
             verify_range_proof(root, keys[0], keys, values, proof).unwrap();
+        }
+
+        #[test]
+        // Two Edge Proofs, first and last keys dont exist
+        fn proptest_verify_range_nonexistant_edge_keys(data in btree_set(vec(1..u8::MAX-1, 32), 200), start in 1_usize..=100_usize, end in 101..199_usize) {
+            let data = data.into_iter().collect::<Vec<_>>();
+            // Build trie
+            let mut trie = Trie::new_temp();
+            for val in data.iter() {
+                trie.insert(val.clone(), val.clone()).unwrap()
+            }
+            let root = trie.hash().unwrap();
+            // Select range to prove
+            let values = data[start..=end].to_vec();
+            let keys = values.iter().map(|a| H256::from_slice(a)).collect::<Vec<_>>();
+            // Select the first and last keys
+            // As we will be using non-existant keys we will choose values that are `just` higer/lower than
+            // the first and last values in our key range
+            // Skip the test entirely in the unlucky case that the values just next to the edge keys are also part of the trie
+            let mut first_key = data[start].clone();
+            first_key[31] -=1;
+            if first_key == data[start -1] {
+                // Skip test
+                return Ok(());
+            }
+            let mut last_key = data[end].clone();
+            last_key[31] +=1;
+            if last_key == data[end +1] {
+                // Skip test
+                return Ok(());
+            }
+            // Generate proofs
+            let mut proof = trie.get_proof(&first_key).unwrap();
+            proof.extend(trie.get_proof(&last_key).unwrap());
+            // Verify the range proof
+            verify_range_proof(root, H256::from_slice(&first_key), keys, values, proof).unwrap();
         }
     }
 }
