@@ -3,12 +3,13 @@ use ethereum_rust_core::{Address, H256, U256};
 
 use crate::{
     call_frame::CallFrame,
-    constants::{call_opcode::WARM_ADDRESS_ACCESS_COST, COLD_STORAGE_ACCESS_COST, WORD_SIZE},
+    constants::{COLD_STORAGE_ACCESS_COST, WORD_SIZE},
     errors::OutOfGasError,
     vm::VM,
     StorageSlot,
 };
 
+// Opcodes cost
 pub const ADD: U256 = U256([3, 0, 0, 0]);
 pub const MUL: U256 = U256([5, 0, 0, 0]);
 pub const SUB: U256 = U256([3, 0, 0, 0]);
@@ -87,7 +88,13 @@ pub const GASPRICE: U256 = U256([2, 0, 0, 0]);
 pub const EXTCODECOPY_DYNAMIC_BASE: U256 = U256([3, 0, 0, 0]);
 pub const SELFDESTRUCT_STATIC: U256 = U256([5000, 0, 0, 0]);
 pub const SELFDESTRUCT_DYNAMIC: U256 = U256([25000, 0, 0, 0]);
+
+// Costs in gas for call opcodes (in wei)
+pub const WARM_ADDRESS_ACCESS_COST: U256 = U256([100, 0, 0, 0]);
 pub const COLD_ADDRESS_ACCESS_COST: U256 = U256([2600, 0, 0, 0]);
+pub const NON_ZERO_VALUE_COST: U256 = U256([9000, 0, 0, 0]);
+pub const BASIC_FALLBACK_FUNCTION_STIPEND: U256 = U256([2300, 0, 0, 0]);
+pub const VALUE_TO_EMPTY_ACCOUNT_COST: U256 = U256([25000, 0, 0, 0]);
 
 pub fn exp_gas_cost(exponent: U256) -> Result<U256, OutOfGasError> {
     let exponent_byte_size = (exponent
@@ -389,5 +396,150 @@ pub fn mcopy_gas_cost(
         .checked_add(copied_words_cost)
         .ok_or(OutOfGasError::GasCostOverflow)?
         .checked_add(memory_expansion_cost)
+        .ok_or(OutOfGasError::GasCostOverflow)
+}
+
+pub fn call_gas_cost(
+    current_call_frame: &mut CallFrame,
+    args_size: usize,
+    args_offset: usize,
+    ret_size: usize,
+    ret_offset: usize,
+    value: U256,
+    is_cached: bool,
+    account_is_empty: bool,
+) -> Result<U256, OutOfGasError> {
+    let memory_byte_size = args_size
+        .checked_add(args_offset)
+        .ok_or(OutOfGasError::ArithmeticOperationOverflow)?
+        .max(
+            ret_size
+                .checked_add(ret_offset)
+                .ok_or(OutOfGasError::ArithmeticOperationOverflow)?,
+        );
+    let memory_expansion_cost = current_call_frame.memory.expansion_cost(memory_byte_size)?;
+
+    let positive_value_cost = if !value.is_zero() {
+        NON_ZERO_VALUE_COST
+            .checked_add(BASIC_FALLBACK_FUNCTION_STIPEND)
+            .ok_or(OutOfGasError::ArithmeticOperationOverflow)?
+    } else {
+        U256::zero()
+    };
+
+    let address_access_cost = if !is_cached {
+        COLD_ADDRESS_ACCESS_COST
+    } else {
+        WARM_ADDRESS_ACCESS_COST
+    };
+
+    let value_to_empty_account_cost = if !value.is_zero() && account_is_empty {
+        VALUE_TO_EMPTY_ACCOUNT_COST
+    } else {
+        U256::zero()
+    };
+
+    memory_expansion_cost
+        .checked_add(address_access_cost)
+        .ok_or(OutOfGasError::GasCostOverflow)?
+        .checked_add(positive_value_cost)
+        .ok_or(OutOfGasError::GasCostOverflow)?
+        .checked_add(value_to_empty_account_cost)
+        .ok_or(OutOfGasError::GasCostOverflow)
+}
+
+pub fn callcode_gas_cost(
+    current_call_frame: &mut CallFrame,
+    args_size: usize,
+    args_offset: usize,
+    ret_size: usize,
+    ret_offset: usize,
+    value: U256,
+    is_cached: bool,
+) -> Result<U256, OutOfGasError> {
+    let memory_byte_size = args_offset
+        .checked_add(args_size)
+        .and_then(|src_sum| {
+            ret_offset
+                .checked_add(ret_size)
+                .map(|dest_sum| src_sum.max(dest_sum))
+        })
+        .ok_or(OutOfGasError::ArithmeticOperationOverflow)?;
+    let memory_expansion_cost = current_call_frame.memory.expansion_cost(memory_byte_size)?;
+
+    let access_cost = if is_cached {
+        WARM_ADDRESS_ACCESS_COST
+    } else {
+        COLD_ADDRESS_ACCESS_COST
+    };
+
+    let transfer_cost = if value == U256::zero() {
+        U256::zero()
+    } else {
+        NON_ZERO_VALUE_COST
+    };
+
+    memory_expansion_cost
+        .checked_add(access_cost)
+        .ok_or(OutOfGasError::GasCostOverflow)?
+        .checked_add(transfer_cost)
+        .ok_or(OutOfGasError::GasCostOverflow)
+}
+
+pub fn delegatecall_gas_cost(
+    current_call_frame: &mut CallFrame,
+    args_size: usize,
+    args_offset: usize,
+    ret_size: usize,
+    ret_offset: usize,
+    is_cached: bool,
+) -> Result<U256, OutOfGasError> {
+    let memory_byte_size = args_offset
+        .checked_add(args_size)
+        .and_then(|src_sum| {
+            ret_offset
+                .checked_add(ret_size)
+                .map(|dest_sum| src_sum.max(dest_sum))
+        })
+        .ok_or(OutOfGasError::ArithmeticOperationOverflow)?;
+    let memory_expansion_cost = current_call_frame.memory.expansion_cost(memory_byte_size)?;
+
+    let access_cost = if is_cached {
+        WARM_ADDRESS_ACCESS_COST
+    } else {
+        COLD_ADDRESS_ACCESS_COST
+    };
+
+    memory_expansion_cost
+        .checked_add(access_cost)
+        .ok_or(OutOfGasError::GasCostOverflow)
+}
+
+pub fn staticcall_gas_cost(
+    current_call_frame: &mut CallFrame,
+    args_size: usize,
+    args_offset: usize,
+    ret_size: usize,
+    ret_offset: usize,
+    is_cached: bool,
+) -> Result<U256, OutOfGasError> {
+    let memory_byte_size = args_offset
+        .checked_add(args_size)
+        .and_then(|src_sum| {
+            ret_offset
+                .checked_add(ret_size)
+                .map(|dest_sum| src_sum.max(dest_sum))
+        })
+        .ok_or(OutOfGasError::ArithmeticOperationOverflow)?;
+    let memory_expansion_cost = current_call_frame.memory.expansion_cost(memory_byte_size)?;
+
+    let access_cost = if is_cached {
+        WARM_ADDRESS_ACCESS_COST
+    } else {
+        COLD_ADDRESS_ACCESS_COST
+    };
+
+    memory_expansion_cost
+        .checked_add(access_cost)
         .ok_or(OutOfGasError::GasCostOverflow)
 }

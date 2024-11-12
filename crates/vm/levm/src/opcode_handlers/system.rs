@@ -1,8 +1,10 @@
 use crate::{
     call_frame::CallFrame,
-    constants::{call_opcode, SUCCESS_FOR_RETURN},
+    constants::SUCCESS_FOR_RETURN,
     errors::{InternalError, OpcodeSuccess, ResultReason, VMError},
-    gas_cost,
+    gas_cost::{
+        self, call_gas_cost, callcode_gas_cost, delegatecall_gas_cost, staticcall_gas_cost,
+    },
     vm::{word_to_address, VM},
 };
 use ethereum_rust_core::{types::TxKind, U256};
@@ -44,47 +46,30 @@ impl VM {
             return Err(VMError::OpcodeNotAllowedInStaticContext);
         }
 
-        let memory_byte_size = args_size
-            .checked_add(args_offset)
-            .ok_or(VMError::Internal(
-                InternalError::ArithmeticOperationOverflow,
-            ))?
-            .max(ret_size.checked_add(ret_offset).ok_or(VMError::Internal(
-                InternalError::ArithmeticOperationOverflow,
-            ))?);
-        let memory_expansion_cost = current_call_frame.memory.expansion_cost(memory_byte_size)?;
+        let is_cached = self.cache.is_account_cached(&code_address);
 
-        let positive_value_cost = if !value.is_zero() {
-            call_opcode::NON_ZERO_VALUE_COST
-                .checked_add(call_opcode::BASIC_FALLBACK_FUNCTION_STIPEND)
-                .ok_or(VMError::Internal(
-                    InternalError::ArithmeticOperationOverflow,
-                ))?
-        } else {
-            U256::zero()
-        };
-
-        let address_access_cost = if !self.cache.is_account_cached(&code_address) {
+        if !is_cached {
             self.cache_from_db(&code_address);
-            call_opcode::COLD_ADDRESS_ACCESS_COST
-        } else {
-            call_opcode::WARM_ADDRESS_ACCESS_COST
-        };
-        let account = self.cache.get_account(code_address).unwrap().clone();
+        }
 
-        let value_to_empty_account_cost = if !value.is_zero() && account.is_empty() {
-            call_opcode::VALUE_TO_EMPTY_ACCOUNT_COST
-        } else {
-            U256::zero()
-        };
+        let account_is_empty = self
+            .cache
+            .get_account(code_address)
+            .unwrap()
+            .clone()
+            .is_empty();
 
-        let gas_cost = memory_expansion_cost
-            .checked_add(address_access_cost)
-            .ok_or(VMError::GasCostOverflow)?
-            .checked_add(positive_value_cost)
-            .ok_or(VMError::GasCostOverflow)?
-            .checked_add(value_to_empty_account_cost)
-            .ok_or(VMError::GasCostOverflow)?;
+        let gas_cost = call_gas_cost(
+            current_call_frame,
+            args_size,
+            args_offset,
+            ret_size,
+            ret_offset,
+            value,
+            is_cached,
+            account_is_empty,
+        )
+        .map_err(|e| VMError::OutOfGasErr(e))?;
 
         self.increase_consumed_gas(current_call_frame, gas_cost)?;
 
@@ -138,19 +123,24 @@ impl VM {
             .try_into()
             .map_err(|_err| VMError::VeryLargeNumber)?;
 
-        let memory_byte_size = args_offset
-            .checked_add(args_size)
-            .and_then(|src_sum| {
-                ret_offset
-                    .checked_add(ret_size)
-                    .map(|dest_sum| src_sum.max(dest_sum))
-            })
-            .ok_or(VMError::Internal(
-                InternalError::ArithmeticOperationOverflow,
-            ))?;
-        let memory_expansion_cost = current_call_frame.memory.expansion_cost(memory_byte_size)?;
+        // Gas consumed
+        let is_cached = self.cache.is_account_cached(&code_address);
 
-        let gas_cost = memory_expansion_cost;
+        if !is_cached {
+            self.cache_from_db(&code_address);
+        };
+
+        let gas_cost = callcode_gas_cost(
+            current_call_frame,
+            args_size,
+            args_offset,
+            ret_size,
+            ret_offset,
+            value,
+            is_cached,
+        )
+        .map_err(|e| VMError::OutOfGasErr(e))?;
+
         self.increase_consumed_gas(current_call_frame, gas_cost)?;
 
         // Sender and recipient are the same in this case. But the code executed is from another account.
@@ -242,19 +232,22 @@ impl VM {
         let to = current_call_frame.to;
         let is_static = current_call_frame.is_static;
 
-        let memory_byte_size = args_offset
-            .checked_add(args_size)
-            .and_then(|src_sum| {
-                ret_offset
-                    .checked_add(ret_size)
-                    .map(|dest_sum| src_sum.max(dest_sum))
-            })
-            .ok_or(VMError::Internal(
-                InternalError::ArithmeticOperationOverflow,
-            ))?;
-        let memory_expansion_cost = current_call_frame.memory.expansion_cost(memory_byte_size)?;
+        // Gas consumed
+        let is_cached = self.cache.is_account_cached(&code_address);
+        if !is_cached {
+            self.cache_from_db(&code_address);
+        };
 
-        let gas_cost = memory_expansion_cost;
+        let gas_cost = delegatecall_gas_cost(
+            current_call_frame,
+            args_size,
+            args_offset,
+            ret_size,
+            ret_offset,
+            is_cached,
+        )
+        .map_err(|e| VMError::OutOfGasErr(e))?;
+
         self.increase_consumed_gas(current_call_frame, gas_cost)?;
 
         self.generic_call(
@@ -319,6 +312,24 @@ impl VM {
         let memory_expansion_cost = current_call_frame.memory.expansion_cost(memory_byte_size)?;
 
         let gas_cost = memory_expansion_cost;
+
+        // Gas consumed
+        let is_cached = self.cache.is_account_cached(&code_address);
+
+        if !is_cached {
+            self.cache_from_db(&code_address);
+        };
+
+        let gas_cost = staticcall_gas_cost(
+            current_call_frame,
+            args_size,
+            args_offset,
+            ret_size,
+            ret_offset,
+            is_cached,
+        )
+        .map_err(|e| VMError::OutOfGasErr(e))?;
+
         self.increase_consumed_gas(current_call_frame, gas_cost)?;
 
         self.generic_call(

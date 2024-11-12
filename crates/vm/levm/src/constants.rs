@@ -8,16 +8,6 @@ pub const SUCCESS_FOR_RETURN: i32 = 1;
 pub const REVERT_FOR_CREATE: i32 = 0;
 pub const WORD_SIZE: usize = 32;
 
-// Costs in gas for call opcodes (in wei)
-pub mod call_opcode {
-    use ethereum_rust_core::U256;
-
-    pub const WARM_ADDRESS_ACCESS_COST: U256 = U256([100, 0, 0, 0]);
-    pub const COLD_ADDRESS_ACCESS_COST: U256 = U256([2600, 0, 0, 0]);
-    pub const NON_ZERO_VALUE_COST: U256 = U256([9000, 0, 0, 0]);
-    pub const BASIC_FALLBACK_FUNCTION_STIPEND: U256 = U256([2300, 0, 0, 0]);
-    pub const VALUE_TO_EMPTY_ACCOUNT_COST: U256 = U256([25000, 0, 0, 0]);
-}
 pub const STACK_LIMIT: usize = 1024;
 
 pub const GAS_REFUND_DENOMINATOR: u64 = 5;
@@ -38,7 +28,7 @@ pub const INVALID_CONTRACT_PREFIX: u8 = 0xef;
 // Costs in gas for init word and init code (in wei)
 pub const INIT_WORD_COST: usize = 2;
 
-/* 
+/*
 // TODO: See if this function should exist, since has no usages
 pub fn init_code_cost(init_code_length: usize) -> Result<u64, VMError> {
     let increased_length = init_code_length
