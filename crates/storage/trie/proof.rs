@@ -328,17 +328,23 @@ fn remove_internal_references_inner(
     false
 }
 
-// Return = true -> child should be removed
+// Removes all nodes in the node's subtrie to the left or right of the path (given by the `remove_left` flag)
+// If the whole subtrie is removed in the process this function will return true, in which case
+// the caller must remove the reference to this node from it's parent node
 fn remove_node(
     node_hash: NodeHash,
     mut path: Nibbles,
     remove_left: bool,
     trie_state: &mut TrieState,
 ) -> bool {
+    // Node doesn't exist already, no need to remove it
     if !node_hash.is_valid() {
         return false;
     }
-    let node = trie_state.get_node(node_hash.clone()).unwrap().unwrap();
+    // We already checked the canonical proof path when filling the state so this case should be unreachable
+    let Ok(Some(node)) = trie_state.get_node(node_hash.clone()) else {
+        return false;
+    };
     match node {
         Node::Branch(mut n) => {
             // Remove child nodes
@@ -362,6 +368,8 @@ fn remove_node(
             trie_state.insert_node(n.into(), node_hash);
         }
         Node::Extension(n) => {
+            // If no child subtrie would result from this process remove the node entirely
+            // (Such as removing the left side of a trie with no right side)
             if !path.skip_prefix(&n.prefix) {
                 if (remove_left && n.prefix.as_ref() < path.as_ref())
                     || (!remove_left && n.prefix.as_ref() > path.as_ref())
@@ -369,6 +377,7 @@ fn remove_node(
                     return true;
                 }
             } else {
+                // Remove left/right side of the child subtrie
                 return remove_node(n.child, path, remove_left, trie_state);
             }
         }
