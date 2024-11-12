@@ -430,6 +430,8 @@ mod tests {
 
     #[test]
     fn verify_range_proof_regular_case() {
+        // The account ranges were taken form a hive test state, but artificially modified
+        // so that the resulting trie has a wide variety of different nodes (and not only branches)
         let account_addresses: [&str; 26] = [
             "0xaa56789abcde80cde11add7d3447cd4ca93a5f2205d9874261484ae180718bd6",
             "0xaa56789abcdeda9ae19dd26a33bd10bbf825e28b3de84fc8fe1d15a21645067f",
