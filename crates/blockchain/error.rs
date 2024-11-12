@@ -66,6 +66,8 @@ pub enum MempoolError {
     NotEnoughBalance,
     #[error("Transaction gas fields are invalid")]
     InvalidTxGasvalues,
+    #[error("Blob versioned hashes do not match the blob commitments")]
+    BlobVersionedHashesIncorrectError,
 }
 
 #[derive(Debug)]
