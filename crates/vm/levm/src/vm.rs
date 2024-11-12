@@ -1,6 +1,6 @@
 use crate::{
     account::{Account, StorageSlot},
-    call_frame::{self, CallFrame},
+    call_frame::CallFrame,
     constants::*,
     db::{Cache, Database},
     environment::Environment,
@@ -14,7 +14,6 @@ use ethereum_rust_rlp::encode::RLPEncode;
 use sha3::{Digest, Keccak256};
 use std::{
     collections::{HashMap, HashSet},
-    str::FromStr,
     sync::Arc,
 };
 
@@ -405,7 +404,7 @@ impl VM {
 
         self.env.consumed_gas = initial_gas;
 
-        let mut current_call_frame = self.call_frames.pop().ok_or(VMError::FatalUnwrap)?;
+        let mut current_call_frame = self.call_frames.pop().ok_or(VMError::Internal(InternalError::CouldNotPopCallframe))?;
 
         let mut report = self.execute(&mut current_call_frame);
 
@@ -499,7 +498,7 @@ impl VM {
     }
 
     pub fn current_call_frame_mut(&mut self) -> Result<&mut CallFrame, VMError> {
-        self.call_frames.last_mut().ok_or(VMError::FatalUnwrap)
+        self.call_frames.last_mut().ok_or(VMError::Internal(InternalError::CouldNotAccessLastCallframe))
     }
 
     // TODO: Improve and test REVERT behavior for XCALL opcodes. Issue: https://github.com/lambdaclass/lambda_ethereum_rust/issues/1061

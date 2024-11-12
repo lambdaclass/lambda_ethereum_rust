@@ -64,22 +64,22 @@ pub enum VMError {
     SlicingError,
     #[error("Indexing error")]
     IndexingError,
-    #[error("Fatal unwrap")]
-    FatalUnwrap, // I will use this generic error for things that shouldn't fail
     #[error("Internal error: {0}")]
     Internal(#[from] InternalError),
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, thiserror::Error)]
 pub enum InternalError {
-    #[error("exampleerror")]
-    Example,
     #[error("Could not access last callframe")]
     CouldNotAccessLastCallframe,
+    #[error("Could not pop callframe")]
+    CouldNotPopCallframe,
     #[error("Account not found")]
     AccountNotFound,
     #[error("ExcessBlobGas should not be None")]
     ExcessBlobGasShouldNotBeNone,
+    #[error("Error in utils file")]
+    UtilsError,
 }
 
 pub enum OpcodeSuccess {
