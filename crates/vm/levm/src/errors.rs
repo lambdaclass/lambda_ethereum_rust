@@ -64,9 +64,11 @@ pub enum VMError {
     SlicingError,
     #[error("Indexing error")]
     IndexingError,
+    #[error("Internal error: {0}")]
+    Internal(InternalError),
 }
 
-#[derive(Debug, thiserror::Error)]
+#[derive(Debug, Clone, PartialEq, Eq, thiserror::Error)]
 pub enum InternalError {
     #[error("Tried to access first call frame but found none")]
     CouldNotAccessFirstCallframe,

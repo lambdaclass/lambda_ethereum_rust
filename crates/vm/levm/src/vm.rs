@@ -4,7 +4,7 @@ use crate::{
     constants::*,
     db::{Cache, Database},
     environment::Environment,
-    errors::{OpcodeSuccess, ResultReason, TransactionReport, TxResult, VMError},
+    errors::{InternalError, OpcodeSuccess, ResultReason, TransactionReport, TxResult, VMError},
     opcodes::Opcode,
 };
 use bytes::Bytes;
@@ -449,7 +449,7 @@ impl VM {
                 return Err(VMError::ContractOutputTooBig);
             }
             // Supposing contract code has contents
-            if *contract_code.first().ok_or(VMError::IndexingError)? == INVALID_CONTRACT_PREFIX {
+            if *contract_code.first().ok_or(VMError::Internal(InternalError::TriedToIndexEmptyCode))? == INVALID_CONTRACT_PREFIX {
                 return Err(VMError::InvalidInitialByte);
             }
 
@@ -631,7 +631,7 @@ impl VM {
         let mut hasher = Keccak256::new();
         hasher.update(encoded);
         Ok(Address::from_slice(
-            hasher.finalize().get(12..).ok_or(VMError::SlicingError)?,
+            hasher.finalize().get(12..).ok_or(VMError::Internal(InternalError::CouldNotComputeCreateAddress))?,
         ))
     }
 
@@ -656,7 +656,7 @@ impl VM {
         hasher.update(salt_bytes);
         hasher.update(initialization_code_hash);
         Ok(Address::from_slice(
-            hasher.finalize().get(12..).ok_or(VMError::SlicingError)?,
+            hasher.finalize().get(12..).ok_or(VMError::Internal(InternalError::CouldNotComputeCreate2Address))?,
         ))
     }
 
