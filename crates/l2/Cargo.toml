@@ -23,10 +23,7 @@ ethereum_rust-dev = { path = "../../crates/blockchain/dev" }
 hex.workspace = true
 bytes.workspace = true
 jsonwebtoken.workspace = true
-secp256k1 = { version = "0.29", default-features = false, features = [
-    "global-context",
-    "recovery",
-] }
+secp256k1.workspace = true
 keccak-hash = "0.10.0"
 envy = "0.4.2"
 thiserror.workspace = true

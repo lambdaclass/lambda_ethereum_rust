@@ -23,10 +23,7 @@ colored = "2.1.0"
 spinoff = "0.8.0"
 itertools = "0.13.0"
 strum = "0.26.3"
-secp256k1 = { version = "0.29", default-features = false, features = [
-    "global-context",
-    "recovery",
-] }
+secp256k1.workspace = true
 keccak-hash = "0.10.0"
 
 ethereum_rust-l2.workspace = true
