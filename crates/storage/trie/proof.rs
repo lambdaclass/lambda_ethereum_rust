@@ -263,8 +263,8 @@ fn remove_internal_references_inner(
                 }
                 // Remove nodes on the left and right choice's subtries
                 let should_remove_left =
-                    remove_nodes(n.choices[left_choice].clone(), left_path, false, trie_state);
-                let should_remove_right = remove_nodes(
+                    remove_node(n.choices[left_choice].clone(), left_path, false, trie_state);
+                let should_remove_right = remove_node(
                     n.choices[right_choice].clone(),
                     right_path,
                     true,
@@ -309,17 +309,17 @@ fn remove_internal_references_inner(
                 (Ordering::Greater, Ordering::Greater) | (Ordering::Less, Ordering::Less) => {
                     panic!("empty range")
                 }
-                // Node of the paths fit the prefix, remove the entire subtrie
+                // None of the paths fit the prefix, remove the entire subtrie
                 (left, right) if left.is_ne() && right.is_ne() => {
                     // Return true so that the parent node knows they need to remove this node
                     return true;
                 }
-                // One path fits teh prefix, the other one doesn't
+                // One path fits the prefix, the other one doesn't
                 (left, right) => {
                     // If the child is a leaf node, tell parent to remove the node -> we will let the child handle this
                     let path = if left.is_eq() { left_path } else { right_path };
                     // If the child node is removed then this node will be removed too so we will leave that to the parent
-                    return remove_nodes(node_hash, path, right.is_eq(), trie_state);
+                    return remove_node(node_hash, path, right.is_eq(), trie_state);
                 }
             }
         }
@@ -329,7 +329,7 @@ fn remove_internal_references_inner(
 }
 
 // Return = true -> child should be removed
-fn remove_nodes(
+fn remove_node(
     node_hash: NodeHash,
     mut path: Nibbles,
     remove_left: bool,
@@ -354,7 +354,7 @@ fn remove_nodes(
             }
             // Remove nodes to the left/right of the choice's subtrie
             let should_remove =
-                remove_nodes(n.choices[choice].clone(), path, remove_left, trie_state);
+                remove_node(n.choices[choice].clone(), path, remove_left, trie_state);
             if should_remove {
                 n.choices[choice] = NodeHash::default();
             }
@@ -369,7 +369,7 @@ fn remove_nodes(
                     return true;
                 }
             } else {
-                return remove_nodes(n.child, path, remove_left, trie_state);
+                return remove_node(n.child, path, remove_left, trie_state);
             }
         }
         Node::Leaf(_) => return true,
@@ -544,7 +544,7 @@ mod tests {
             verify_range_proof(root, H256::from_slice(&first_key), keys, values, proof).unwrap();
         }
 
-    #[test]
+        #[test]
         // Two Edge Proofs, one key doesn't exist
         fn proptest_verify_range_one_key_doesnt_exist(data in btree_set(vec(1..u8::MAX-1, 32), 200), start in 1_usize..=100_usize, end in 101..199_usize, first_key_exists in bool::ANY) {
             let data = data.into_iter().collect::<Vec<_>>();
