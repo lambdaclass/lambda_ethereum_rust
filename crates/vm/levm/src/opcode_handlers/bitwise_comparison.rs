@@ -226,7 +226,7 @@ impl VM {
 }
 
 pub fn arithmetic_shift_right(value: U256, shift: U256) -> Result<U256, VMError> {
-    let shift_usize: usize = shift.try_into().map_err(|_| VMError::FatalUnwrap)?; // we know its not bigger than 256
+    let shift_usize: usize = shift.try_into().map_err(|_| VMError::VeryLargeNumber)?; // we know its not bigger than 256
 
     if value.bit(255) {
         // if negative fill with 1s

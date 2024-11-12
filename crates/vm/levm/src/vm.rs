@@ -42,9 +42,15 @@ pub struct VM {
     pub tx_kind: TxKind,
 }
 
-fn address_to_word(address: Address) -> Result<U256, VMError> {
+pub fn address_to_word(address: Address) -> U256 {
     // This unwrap can't panic, as Address are 20 bytes long and U256 use 32 bytes
-    U256::from_str(&format!("{address:?}")).map_err(|_| VMError::FatalUnwrap)
+    let mut word = [0u8; 32];
+
+    for (word_byte, address_byte) in word.iter_mut().skip(12).zip(address.as_bytes().iter()) {
+        *word_byte = *address_byte;
+    }
+
+    U256::from_big_endian(&word)
 }
 
 pub fn word_to_address(word: U256) -> Address {
@@ -721,7 +727,7 @@ impl VM {
 
         current_call_frame
             .stack
-            .push(address_to_word(new_address)?)?;
+            .push(address_to_word(new_address))?;
 
         self.generic_call(
             current_call_frame,

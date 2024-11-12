@@ -2,7 +2,7 @@ use crate::{
     call_frame::CallFrame,
     constants::{gas_cost, LAST_AVAILABLE_BLOCK_LIMIT},
     errors::{OpcodeSuccess, VMError},
-    vm::VM,
+    vm::{address_to_word, VM},
 };
 use ethereum_rust_core::{
     types::{BLOB_BASE_FEE_UPDATE_FRACTION, MIN_BASE_FEE_PER_BLOB_GAS},
@@ -57,7 +57,7 @@ impl VM {
 
         current_call_frame
             .stack
-            .push(address_to_word(self.env.coinbase)?)?;
+            .push(address_to_word(self.env.coinbase))?;
 
         Ok(OpcodeSuccess::Continue)
     }
@@ -208,11 +208,6 @@ impl VM {
 
         Ok(OpcodeSuccess::Continue)
     }
-}
-
-fn address_to_word(address: Address) -> Result<U256, VMError> {
-    // This unwrap can't panic, as Address are 20 bytes long and U256 use 32 bytes
-    U256::from_str(&format!("{address:?}")).map_err(|_| VMError::FatalUnwrap)
 }
 
 // Fuction inspired in EIP 4844 helpers. Link: https://eips.ethereum.org/EIPS/eip-4844#helpers
