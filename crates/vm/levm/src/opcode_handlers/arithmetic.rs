@@ -1,6 +1,6 @@
 use crate::{
     call_frame::CallFrame,
-    constants::gas_cost,
+    gas_cost,
     errors::{InternalError, OpcodeSuccess, VMError},
     opcode_handlers::bitwise_comparison::checked_shift_left,
     vm::VM,

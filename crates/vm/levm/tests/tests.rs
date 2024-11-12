@@ -1,14 +1,7 @@
 use bytes::Bytes;
 use ethereum_rust_core::{types::TxKind, Address, H256, U256};
 use ethereum_rust_levm::{
-    account::Account,
-    constants::*,
-    db::{Cache, Db},
-    errors::{TxResult, VMError},
-    operations::Operation,
-    utils::{new_vm_with_ops, new_vm_with_ops_addr_bal_db, new_vm_with_ops_db, ops_to_bytecode},
-    vm::{word_to_address, Storage, VM},
-    Environment,
+    account::Account, constants::*, db::{Cache, Db}, errors::{TxResult, VMError}, gas_cost, operations::Operation, utils::{new_vm_with_ops, new_vm_with_ops_addr_bal_db, new_vm_with_ops_db, ops_to_bytecode}, vm::{word_to_address, Storage, VM}, Environment
 };
 use std::{collections::HashMap, sync::Arc};
 

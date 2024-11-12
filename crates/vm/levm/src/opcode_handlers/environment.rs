@@ -1,8 +1,9 @@
 use crate::{
     call_frame::CallFrame,
+    gas_cost,
     constants::{
         call_opcode::{COLD_ADDRESS_ACCESS_COST, WARM_ADDRESS_ACCESS_COST},
-        gas_cost, WORD_SIZE,
+        WORD_SIZE,
     },
     errors::{InternalError, OpcodeSuccess, VMError},
     vm::{word_to_address, VM},

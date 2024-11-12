@@ -1,6 +1,7 @@
 use crate::{
     account::{Account, StorageSlot},
     call_frame::CallFrame,
+    gas_cost::KECCAK25_DYNAMIC_BASE,
     constants::*,
     db::{Cache, Database},
     environment::Environment,
@@ -12,7 +13,6 @@ use create_opcode::{CODE_DEPOSIT_COST, CREATE_BASE_COST, INIT_CODE_WORD_COST};
 use ethereum_rust_core::{types::TxKind, Address, H256, U256};
 use ethereum_rust_rlp;
 use ethereum_rust_rlp::encode::RLPEncode;
-use gas_cost::KECCAK25_DYNAMIC_BASE;
 use sha3::{Digest, Keccak256};
 use std::{
     collections::{HashMap, HashSet},
