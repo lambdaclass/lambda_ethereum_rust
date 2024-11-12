@@ -4,7 +4,9 @@ use ethereum_rust_core::{Address, H256, U256};
 use crate::{
     call_frame::CallFrame,
     constants::{call_opcode::WARM_ADDRESS_ACCESS_COST, COLD_STORAGE_ACCESS_COST, WORD_SIZE},
-    errors::OutOfGasError, vm::VM, StorageSlot,
+    errors::OutOfGasError,
+    vm::VM,
+    StorageSlot,
 };
 
 pub const ADD: U256 = U256([3, 0, 0, 0]);
@@ -300,10 +302,11 @@ pub fn mstore8_gas_cost(
     current_call_frame: &mut CallFrame,
     offset: usize,
 ) -> Result<U256, OutOfGasError> {
-    let memory_expansion_cost =
-    current_call_frame
-        .memory
-        .expansion_cost(offset.checked_add(1).ok_or(OutOfGasError::ArithmeticOperationOverflow)?)?;
+    let memory_expansion_cost = current_call_frame.memory.expansion_cost(
+        offset
+            .checked_add(1)
+            .ok_or(OutOfGasError::ArithmeticOperationOverflow)?,
+    )?;
     MSTORE8_STATIC
         .checked_add(memory_expansion_cost)
         .ok_or(OutOfGasError::GasCostOverflow)
@@ -319,7 +322,12 @@ pub fn sload_gas_cost(is_cached: bool) -> U256 {
     }
 }
 
-pub fn sstore_gas_cost(vm: &mut VM, address: Address, key: H256, value: U256) -> Result<(U256, StorageSlot), OutOfGasError> {
+pub fn sstore_gas_cost(
+    vm: &mut VM,
+    address: Address,
+    key: H256,
+    value: U256,
+) -> Result<(U256, StorageSlot), OutOfGasError> {
     let mut base_dynamic_gas: U256 = U256::zero();
 
     let storage_slot = if vm.cache.is_slot_cached(&address, key) {
@@ -352,7 +360,12 @@ pub fn sstore_gas_cost(vm: &mut VM, address: Address, key: H256, value: U256) ->
     Ok((base_dynamic_gas, storage_slot))
 }
 
-pub fn mcopy_gas_cost(current_call_frame: &mut CallFrame, size: usize, src_offset: usize, dest_offset: usize) -> Result<U256, OutOfGasError> {
+pub fn mcopy_gas_cost(
+    current_call_frame: &mut CallFrame,
+    size: usize,
+    src_offset: usize,
+    dest_offset: usize,
+) -> Result<U256, OutOfGasError> {
     let words_copied = (size
         .checked_add(WORD_SIZE)
         .ok_or(OutOfGasError::ArithmeticOperationOverflow)?

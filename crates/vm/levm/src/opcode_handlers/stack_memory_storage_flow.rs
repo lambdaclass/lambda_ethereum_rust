@@ -3,7 +3,9 @@ use crate::{
     call_frame::CallFrame,
     constants::{call_opcode::WARM_ADDRESS_ACCESS_COST, COLD_STORAGE_ACCESS_COST, WORD_SIZE},
     errors::{InternalError, OpcodeSuccess, OutOfGasError, VMError},
-    gas_cost::{self, mcopy_gas_cost, mload_gas_cost, mstore8_gas_cost, mstore_gas_cost, sstore_gas_cost},
+    gas_cost::{
+        self, mcopy_gas_cost, mload_gas_cost, mstore8_gas_cost, mstore_gas_cost, sstore_gas_cost,
+    },
     vm::VM,
 };
 use ethereum_rust_core::{H256, U256};
@@ -110,7 +112,8 @@ impl VM {
         // TODO: modify expansion cost to accept U256
         let offset: usize = current_call_frame.stack.pop()?.try_into().unwrap();
 
-        let gas_cost = mstore8_gas_cost(current_call_frame, offset).map_err(|e| VMError::OutOfGasErr(e))?;
+        let gas_cost =
+            mstore8_gas_cost(current_call_frame, offset).map_err(|e| VMError::OutOfGasErr(e))?;
 
         self.increase_consumed_gas(current_call_frame, gas_cost)?;
 
@@ -138,7 +141,7 @@ impl VM {
         key.to_big_endian(&mut bytes);
         let key = H256::from(bytes);
 
-        let is_cached = self.cache.is_slot_cached(&address, key);        
+        let is_cached = self.cache.is_slot_cached(&address, key);
 
         let gas_cost = if is_cached {
             // If slot is warm (cached) add 100 to gas_cost
@@ -182,7 +185,8 @@ impl VM {
 
         let address = current_call_frame.to;
 
-        let (gas_cost, storage_slot) = sstore_gas_cost(self, address, key, value).map_err(|e| VMError::OutOfGasErr(e))?;
+        let (gas_cost, storage_slot) =
+            sstore_gas_cost(self, address, key, value).map_err(|e| VMError::OutOfGasErr(e))?;
 
         self.increase_consumed_gas(current_call_frame, gas_cost)?;
 
@@ -248,7 +252,8 @@ impl VM {
             .try_into()
             .unwrap_or(usize::MAX);
 
-        let gas_cost = mcopy_gas_cost(current_call_frame, size, src_offset, dest_offset).map_err(|e| VMError::OutOfGasErr(e))?;
+        let gas_cost = mcopy_gas_cost(current_call_frame, size, src_offset, dest_offset)
+            .map_err(|e| VMError::OutOfGasErr(e))?;
 
         self.increase_consumed_gas(current_call_frame, gas_cost)?;
 
