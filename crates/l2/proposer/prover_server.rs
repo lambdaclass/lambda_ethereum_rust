@@ -29,7 +29,7 @@ pub struct ProverInputData {
 }
 
 use crate::{
-    proposer::send_transaction_with_calldata,
+    proposer::l1_commiter::send_transaction_with_calldata,
     utils::{
         config::{eth::EthConfig, proposer::ProposerConfig, prover_server::ProverServerConfig},
         eth_client::EthClient,
@@ -314,6 +314,8 @@ impl ProverServer {
             .ok_or("block body not found")?;
 
         let block = Block::new(header, body);
+
+        info!("prover_server {block:?}");
 
         let db = ExecutionDB::from_exec(&block, &self.store).map_err(|err| err.to_string())?;
 

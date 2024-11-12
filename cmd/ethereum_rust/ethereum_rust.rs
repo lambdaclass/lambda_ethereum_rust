@@ -206,7 +206,7 @@ async fn main() {
     // We do not want to start the networking module if the l2 feature is enabled.
     cfg_if::cfg_if! {
         if #[cfg(feature = "l2")] {
-            let l2_proposer = ethereum_rust_l2::start_proposer(store.clone()).into_future();
+            let l2_proposer = ethereum_rust_l2::start_proposer(store).into_future();
             tracker.spawn(l2_proposer);
         } else if #[cfg(feature = "dev")] {
             use ethereum_rust_dev;
