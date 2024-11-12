@@ -486,13 +486,13 @@ impl<S: AsyncWrite + AsyncRead + std::marker::Unpin> RLPxConnection<S> {
                         "Could not broadcast received transactions".to_owned(),
                     ));
                 };
-                return Ok(());
+                Ok(())
             }
             msg => {
                 error!("Non supported message: {msg} was tried to be broadcasted");
-                return Err(RLPxError::Broadcast(format!(
+                Err(RLPxError::Broadcast(format!(
                     "Broadcasting for msg: {msg} is not supported"
-                )));
+                )))
             }
         }
     }
