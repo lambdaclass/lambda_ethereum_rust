@@ -311,7 +311,7 @@ async fn initialize_contracts(
     .await;
     let msg = format!(
         "CommonBridge:\n\tInitialized with tx hash {}",
-        format!("{:#x}", initialize_tx_hash).bright_cyan()
+        format!("{initialize_tx_hash:#x}").bright_cyan()
     );
     spinner.success(&msg);
 }
