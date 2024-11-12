@@ -1,7 +1,7 @@
 use crate::{
     account::StorageSlot,
     call_frame::CallFrame,
-    constants::{call_opcode::WARM_ADDRESS_ACCESS_COST, COLD_STORAGE_ACCESS_COST, WORD_SIZE},
+    constants::{COLD_STORAGE_ACCESS_COST, WARM_ADDRESS_ACCESS_COST, WORD_SIZE},
     errors::{InternalError, OpcodeSuccess, OutOfGasError, VMError},
     gas_cost::{
         self, mcopy_gas_cost, mload_gas_cost, mstore8_gas_cost, mstore_gas_cost, sstore_gas_cost,

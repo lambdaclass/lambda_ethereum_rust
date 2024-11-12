@@ -59,6 +59,8 @@ pub const BLOB_BASE_FEE_UPDATE_FRACTION: U256 = U256([3338477, 0, 0, 0]);
 
 // Storage constants
 pub const COLD_STORAGE_ACCESS_COST: U256 = U256([2100, 0, 0, 0]);
+pub const WARM_ADDRESS_ACCESS_COST: U256 = U256([100, 0, 0, 0]);
+pub const BALANCE_COLD_ADDRESS_ACCESS_COST: U256 = U256([2600, 0, 0, 0]);
 
 // Block constants
 pub const LAST_AVAILABLE_BLOCK_LIMIT: U256 = U256([256, 0, 0, 0]);

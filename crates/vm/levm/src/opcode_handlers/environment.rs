@@ -1,9 +1,6 @@
 use crate::{
     call_frame::CallFrame,
-    constants::{
-        call_opcode::{COLD_ADDRESS_ACCESS_COST, WARM_ADDRESS_ACCESS_COST},
-        WORD_SIZE,
-    },
+    constants::{BALANCE_COLD_ADDRESS_ACCESS_COST, WARM_ADDRESS_ACCESS_COST, WORD_SIZE},
     errors::{InternalError, OpcodeSuccess, VMError},
     gas_cost::{self, codecopy_gas_cost, extcodecopy_gas_cost, returndatacopy_gas_cost},
     vm::{word_to_address, VM},
@@ -40,7 +37,7 @@ impl VM {
         if self.cache.is_account_cached(address) {
             self.increase_consumed_gas(current_call_frame, WARM_ADDRESS_ACCESS_COST)?;
         } else {
-            self.increase_consumed_gas(current_call_frame, COLD_ADDRESS_ACCESS_COST)?;
+            self.increase_consumed_gas(current_call_frame, BALANCE_COLD_ADDRESS_ACCESS_COST)?;
             self.cache_from_db(address);
         };
 
@@ -285,7 +282,7 @@ impl VM {
         if self.cache.is_account_cached(&address) {
             self.increase_consumed_gas(current_call_frame, WARM_ADDRESS_ACCESS_COST)?;
         } else {
-            self.increase_consumed_gas(current_call_frame, COLD_ADDRESS_ACCESS_COST)?;
+            self.increase_consumed_gas(current_call_frame, BALANCE_COLD_ADDRESS_ACCESS_COST)?;
             self.cache_from_db(&address);
         };
 
@@ -432,7 +429,7 @@ impl VM {
         if self.cache.is_account_cached(&address) {
             self.increase_consumed_gas(current_call_frame, WARM_ADDRESS_ACCESS_COST)?;
         } else {
-            self.increase_consumed_gas(current_call_frame, COLD_ADDRESS_ACCESS_COST)?;
+            self.increase_consumed_gas(current_call_frame, BALANCE_COLD_ADDRESS_ACCESS_COST)?;
             self.cache_from_db(&address);
         };
 
