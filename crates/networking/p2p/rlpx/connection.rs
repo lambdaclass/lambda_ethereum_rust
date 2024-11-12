@@ -501,25 +501,6 @@ impl<S: AsyncWrite + AsyncRead + std::marker::Unpin> RLPxConnection<S> {
         }
     }
 
-    pub async fn wait_status_msg(&mut self) -> Result<(), RLPxError> {
-        loop {
-            match self.receive().await? {
-                Message::Disconnect(_) => info!("Received Disconnect"),
-                Message::Ping(_) => info!("Received Ping"),
-                Message::Pong(_) => info!("Received Pong"),
-                Message::Status(_) => {
-                    info!("Received Status");
-                    // TODO: Check peer's status message.
-                    return Ok(());
-                }
-                _ => {
-                    return Err(RLPxError::HandshakeError(
-                        "Failed to receive status message".to_owned(),
-                    ))
-                }
-            }
-        }
-    }
     pub async fn broadcast_message(&self, msg: Message) -> Result<(), RLPxError> {
         match msg {
             txs_msg @ Message::Transactions(_) => {
