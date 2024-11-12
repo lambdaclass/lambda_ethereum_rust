@@ -60,12 +60,18 @@ pub enum VMError {
     MemoryStoreOutOfBounds,
     #[error("Gas limit price product overflow")]
     GasLimitPriceProductOverflow,
-    // #[error("Slicing error")]
-    // SlicingError,
-    // #[error("Indexing error")]
-    // IndexingError,
     #[error("Internal error: {0}")]
     Internal(InternalError),
+    #[error("Data size overflow")]
+    DataSizeOverflow,
+    #[error("Gas cost overflow")]
+    GasCostOverflow,
+    #[error("Offset overflow")]
+    OffsetOverflow,
+    #[error("Creation cost is too high")]
+    CreationCostIsTooHigh,
+    #[error("Max gas limit exceeded")]
+    MaxGasLimitExceeded,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, thiserror::Error)]
@@ -80,8 +86,11 @@ pub enum InternalError {
     CouldNotComputeCreate2Address,
     #[error("Tried to slice non-existing data")]
     SlicingError,
+    #[error("Uncategorized internal error")]
+    Uncategorized,
 }
 
+#[derive(Debug, Clone)]
 pub enum OpcodeSuccess {
     Continue,
     Result(ResultReason),
@@ -112,4 +121,15 @@ pub struct TransactionReport {
     // This only applies to create transactions. It's fundamentally ambiguous since
     // a transaction could create multiple new contracts, but whatever.
     pub created_address: Option<Address>,
+}
+
+impl TransactionReport {
+    /// Function to add gas to report without exceeding the maximum gas limit
+    pub fn add_gas_with_max(&mut self, gas: u64, max: u64) {
+        self.gas_used = self.gas_used.saturating_add(gas).min(max);
+    }
+
+    pub fn is_success(&self) -> bool {
+        matches!(self.result, TxResult::Success)
+    }
 }
