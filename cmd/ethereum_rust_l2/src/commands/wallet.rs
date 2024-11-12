@@ -1,7 +1,7 @@
 use crate::{commands::utils::encode_calldata, config::EthereumRustL2Config};
 use bytes::Bytes;
 use clap::Subcommand;
-use ethereum_rust_core::types::{PrivilegedL2Transaction, PrivilegedTxType, Transaction, TxKind};
+use ethereum_rust_core::types::{PrivilegedTxType, Transaction};
 use ethereum_rust_l2::utils::{
     eth_client::{eth_sender::Overrides, EthClient},
     merkle_tree::merkle_proof,
@@ -408,16 +408,21 @@ impl Command {
                 wait_for_receipt,
                 explorer_url: _,
             } => {
-                let withdraw_transaction = PrivilegedL2Transaction {
-                    to: TxKind::Call(to.unwrap_or(cfg.wallet.address)),
-                    value: amount,
-                    chain_id: cfg.network.l2_chain_id,
-                    nonce: nonce.unwrap_or(rollup_client.get_nonce(from).await?),
-                    max_fee_per_gas: 800000000,
-                    tx_type: PrivilegedTxType::Withdrawal,
-                    gas_limit: 21000 * 2,
-                    ..Default::default()
-                };
+                let withdraw_transaction = rollup_client
+                    .build_privileged_transaction(
+                        PrivilegedTxType::Withdrawal,
+                        to.unwrap_or(cfg.wallet.address),
+                        Bytes::new(),
+                        Overrides {
+                            nonce,
+                            from: Some(cfg.wallet.address),
+                            value: Some(amount),
+                            gas_limit: Some(21000 * 2),
+                            gas_price: Some(800000000),
+                            ..Default::default()
+                        },
+                    )
+                    .await?;
 
                 let tx_hash = rollup_client
                     .send_privileged_l2_transaction(withdraw_transaction, cfg.wallet.private_key)
