@@ -200,16 +200,19 @@ async fn create2_deploy(
     eth_client: &EthClient,
 ) -> (H256, Address) {
     let calldata = [SALT.as_bytes(), init_code].concat();
-    let deploy_tx_hash = eth_client
-        .send(
+    let deploy_tx = eth_client
+        .build_eip1559_transaction(
+            DETERMINISTIC_CREATE2_ADDRESS,
             calldata.into(),
-            deployer,
-            TxKind::Call(DETERMINISTIC_CREATE2_ADDRESS),
             deployer_private_key,
             overrides,
         )
         .await
-        .unwrap();
+        .expect("Failed to build create2 deploy tx");
+    let deploy_tx_hash = eth_client
+        .send_eip1559_transaction(tx)
+        .await
+        .expect("Failed to send create2 deploy tx");
 
     wait_for_transaction_receipt(deploy_tx_hash, eth_client).await;
 
@@ -284,14 +287,17 @@ async fn initialize_on_chain_proposer(
         .extend_from_slice(&on_chain_proposer_initialize_selector);
     on_chain_proposer_initialization_calldata.extend_from_slice(&encoded_bridge);
 
-    let initialize_tx_hash = eth_client
-        .send(
+    let initialize_tx = eth_client
+        .build_eip1559_transaction(
+            on_chain_proposer,
             on_chain_proposer_initialization_calldata.into(),
-            deployer,
-            TxKind::Call(on_chain_proposer),
             deployer_private_key,
             Overrides::default(),
         )
+        .await
+        .expect("Failed to build initialize transaction");
+    let initialize_tx_hash = eth_client
+        .send_eip1559_transaction(tx)
         .await
         .expect("Failed to send initialize transaction");
 
@@ -323,14 +329,17 @@ async fn initialize_bridge(
     bridge_initialization_calldata.extend_from_slice(&bridge_initialize_selector);
     bridge_initialization_calldata.extend_from_slice(&encoded_on_chain_proposer);
 
-    let initialize_tx_hash = eth_client
-        .send(
+    let initialize_tx = eth_client
+        .build_eip1559_transaction(
+            bridge,
             bridge_initialization_calldata.into(),
-            deployer,
-            TxKind::Call(bridge),
             deployer_private_key,
             Overrides::default(),
         )
+        .await
+        .expect("Failed to build initialize transaction");
+    let initialize_tx_hash = eth_client
+        .send_eip1559_transaction(tx)
         .await
         .expect("Failed to send initialize transaction");
 
