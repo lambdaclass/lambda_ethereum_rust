@@ -543,3 +543,81 @@ pub fn staticcall_gas_cost(
         .checked_add(access_cost)
         .ok_or(OutOfGasError::GasCostOverflow)
 }
+
+pub fn create_gas_cost(
+    current_call_frame: &mut CallFrame,
+    code_offset_in_memory: U256,
+    code_size_in_memory: U256,
+) -> Result<U256, OutOfGasError> {
+    let minimum_word_size = (code_size_in_memory
+        .checked_add(U256::from(31))
+        .ok_or(OutOfGasError::ArithmeticOperationOverflow)?)
+    .checked_div(U256::from(32))
+    .ok_or(OutOfGasError::ArithmeticOperationDividedByZero)?; // '32' will never be zero
+
+    let init_code_cost = minimum_word_size
+        .checked_mul(INIT_CODE_WORD_COST)
+        .ok_or(OutOfGasError::GasCostOverflow)?;
+
+    let code_deposit_cost = code_size_in_memory
+        .checked_mul(CODE_DEPOSIT_COST)
+        .ok_or(OutOfGasError::GasCostOverflow)?;
+
+    let memory_expansion_cost = current_call_frame.memory.expansion_cost(
+        code_size_in_memory
+            .checked_add(code_offset_in_memory)
+            .ok_or(OutOfGasError::ArithmeticOperationOverflow)?
+            .try_into()
+            .map_err(|_err| OutOfGasError::ArithmeticOperationOverflow)?,
+    )?;
+
+    init_code_cost
+        .checked_add(memory_expansion_cost)
+        .ok_or(OutOfGasError::CreationCostIsTooHigh)?
+        .checked_add(code_deposit_cost)
+        .ok_or(OutOfGasError::CreationCostIsTooHigh)?
+        .checked_add(CREATE_BASE_COST)
+        .ok_or(OutOfGasError::CreationCostIsTooHigh)
+}
+
+pub fn create_2_gas_cost(
+    current_call_frame: &mut CallFrame,
+    code_offset_in_memory: U256,
+    code_size_in_memory: U256,
+) -> Result<U256, OutOfGasError> {
+    let minimum_word_size = (code_size_in_memory
+        .checked_add(U256::from(31))
+        .ok_or(OutOfGasError::ArithmeticOperationOverflow)?)
+    .checked_div(U256::from(32))
+    .ok_or(OutOfGasError::ArithmeticOperationDividedByZero)?; // '32' will never be zero
+
+    let init_code_cost = minimum_word_size
+        .checked_mul(INIT_CODE_WORD_COST)
+        .ok_or(OutOfGasError::GasCostOverflow)?;
+
+    let code_deposit_cost = code_size_in_memory
+        .checked_mul(CODE_DEPOSIT_COST)
+        .ok_or(OutOfGasError::GasCostOverflow)?;
+
+    let memory_expansion_cost = current_call_frame.memory.expansion_cost(
+        code_size_in_memory
+            .checked_add(code_offset_in_memory)
+            .ok_or(OutOfGasError::ArithmeticOperationOverflow)?
+            .try_into()
+            .map_err(|_err| OutOfGasError::ArithmeticOperationOverflow)?,
+    )?;
+
+    let hash_cost = minimum_word_size
+        .checked_mul(KECCAK25_DYNAMIC_BASE)
+        .ok_or(OutOfGasError::GasCostOverflow)?;
+
+    init_code_cost
+        .checked_add(memory_expansion_cost)
+        .ok_or(OutOfGasError::CreationCostIsTooHigh)?
+        .checked_add(code_deposit_cost)
+        .ok_or(OutOfGasError::CreationCostIsTooHigh)?
+        .checked_add(CREATE_BASE_COST)
+        .ok_or(OutOfGasError::CreationCostIsTooHigh)?
+        .checked_add(hash_cost)
+        .ok_or(OutOfGasError::CreationCostIsTooHigh)
+}

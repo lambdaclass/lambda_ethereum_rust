@@ -88,6 +88,8 @@ pub enum OutOfGasError {
     MaxGasLimitExceeded,
     #[error("Arithmetic operation overflowed in gas calculation")]
     ArithmeticOperationOverflow,
+    #[error("Arithmetic operation divided by zero in gas calculation")]
+    ArithmeticOperationDividedByZero,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash, thiserror::Error)]

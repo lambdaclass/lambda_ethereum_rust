@@ -3,7 +3,8 @@ use crate::{
     constants::SUCCESS_FOR_RETURN,
     errors::{InternalError, OpcodeSuccess, ResultReason, VMError},
     gas_cost::{
-        self, call_gas_cost, callcode_gas_cost, delegatecall_gas_cost, staticcall_gas_cost,
+        call_gas_cost, callcode_gas_cost, create_2_gas_cost, create_gas_cost,
+        delegatecall_gas_cost, staticcall_gas_cost,
     },
     vm::{word_to_address, VM},
 };
@@ -299,20 +300,6 @@ impl VM {
         let msg_sender = current_call_frame.to; // The new sender will be the current contract.
         let to = code_address; // In this case code_address and the sub-context account are the same. Unlike CALLCODE or DELEGATECODE.
 
-        let memory_byte_size = args_offset
-            .checked_add(args_size)
-            .and_then(|src_sum| {
-                ret_offset
-                    .checked_add(ret_size)
-                    .map(|dest_sum| src_sum.max(dest_sum))
-            })
-            .ok_or(VMError::Internal(
-                InternalError::ArithmeticOperationOverflow,
-            ))?;
-        let memory_expansion_cost = current_call_frame.memory.expansion_cost(memory_byte_size)?;
-
-        let gas_cost = memory_expansion_cost;
-
         // Gas consumed
         let is_cached = self.cache.is_account_cached(&code_address);
 
@@ -358,6 +345,16 @@ impl VM {
         let code_offset_in_memory = current_call_frame.stack.pop()?;
         let code_size_in_memory = current_call_frame.stack.pop()?;
 
+        // Gas Cost
+        let gas_cost = create_gas_cost(
+            current_call_frame,
+            code_offset_in_memory,
+            code_size_in_memory,
+        )
+        .map_err(|e| VMError::OutOfGasErr(e))?;
+
+        self.increase_consumed_gas(current_call_frame, gas_cost)?;
+
         self.create(
             value_in_wei_to_send,
             code_offset_in_memory,
@@ -377,6 +374,16 @@ impl VM {
         let code_offset_in_memory = current_call_frame.stack.pop()?;
         let code_size_in_memory = current_call_frame.stack.pop()?;
         let salt = current_call_frame.stack.pop()?;
+
+        // Gas Cost
+        let gas_cost = create_2_gas_cost(
+            current_call_frame,
+            code_offset_in_memory,
+            code_size_in_memory,
+        )
+        .map_err(|e| VMError::OutOfGasErr(e))?;
+
+        self.increase_consumed_gas(current_call_frame, gas_cost)?;
 
         self.create(
             value_in_wei_to_send,
