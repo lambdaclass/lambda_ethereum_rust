@@ -158,8 +158,8 @@ async fn deploy_contracts(
 
     let msg = format!(
         "CommonBridge:\n\tDeployed at address {} with tx hash {}",
-        format!("{:#x}", bridge_address).bright_green(),
-        format!("{:#x}", bridge_deployment_tx_hash).bright_cyan(),
+        format!("{bridge_address:#x}").bright_green(),
+        format!("{bridge_deployment_tx_hash:#x}").bright_cyan(),
     );
     spinner.success(&msg);
 
