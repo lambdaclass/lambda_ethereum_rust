@@ -140,7 +140,6 @@ impl VM {
             .ok_or(VMError::OverflowInArithmeticOp)?;
         let memory_expansion_cost = current_call_frame.memory.expansion_cost(memory_byte_size)?;
 
-        let gas_cost = memory_expansion_cost;
         self.increase_consumed_gas(current_call_frame, memory_expansion_cost)?;
 
         // Sender and recipient are the same in this case. But the code executed is from another account.
@@ -241,7 +240,6 @@ impl VM {
             .ok_or(VMError::OverflowInArithmeticOp)?;
         let memory_expansion_cost = current_call_frame.memory.expansion_cost(memory_byte_size)?;
 
-        let gas_cost = memory_expansion_cost;
         self.increase_consumed_gas(current_call_frame, memory_expansion_cost)?;
 
         self.generic_call(
@@ -303,7 +301,6 @@ impl VM {
             .ok_or(VMError::OverflowInArithmeticOp)?;
         let memory_expansion_cost = current_call_frame.memory.expansion_cost(memory_byte_size)?;
 
-        let gas_cost = memory_expansion_cost;
         self.increase_consumed_gas(current_call_frame, memory_expansion_cost)?;
 
         self.generic_call(
