@@ -408,8 +408,7 @@ impl<'a> ProofNodeStorage<'a> {
 
 #[cfg(test)]
 mod tests {
-    use ethereum_types::{BigEndianHash, U256};
-
+    use std::str::FromStr;
     use super::*;
 
     #[test]
@@ -431,27 +430,55 @@ mod tests {
 
     #[test]
     fn verify_range_proof_regular_case() {
-        // The trie will have keys and values with the same bytes values ranging from 1 to 200
-        // We will prove the range from 75 to 150
+        let account_addresses: [&str; 26] = [
+            "0xaa56789abcde80cde11add7d3447cd4ca93a5f2205d9874261484ae180718bd6",
+            "0xaa56789abcdeda9ae19dd26a33bd10bbf825e28b3de84fc8fe1d15a21645067f",
+            "0xaa56789abc39a8284ef43790e3a511b2caa50803613c5096bc782e8de08fa4c5",
+            "0xaa5678931f4754834b0502de5b0342ceff21cde5bef386a83d2292f4445782c2",
+            "0xaa567896492bfe767f3d18be2aab96441c449cd945770ef7ef8555acc505b2e4",
+            "0xaa5f478d53bf78add6fa3708d9e061d59bfe14b21329b2a4cf1156d4f81b3d2d",
+            "0xaa67c643f67b47cac9efacf6fcf0e4f4e1b273a727ded155db60eb9907939eb6",
+            "0xaa04d8eaccf0b942c468074250cbcb625ec5c4688b6b5d17d2a9bdd8dd565d5a",
+            "0xaa63e52cda557221b0b66bd7285b043071df4c2ab146260f4e010970f3a0cccf",
+            "0xaad9aa4f67f8b24d70a0ffd757e82456d9184113106b7d9e8eb6c3e8a8df27ee",
+            "0xaa3df2c3b574026812b154a99b13b626220af85cd01bb1693b1d42591054bce6",
+            "0xaa79e46a5ed8a88504ac7d579b12eb346fbe4fd7e281bdd226b891f8abed4789",
+            "0xbbf68e241fff876598e8e01cd529bd76416b248caf11e0552047c5f1d516aab6",
+            "0xbbf68e241fff876598e8e01cd529c908cdf0d646049b5b83629a70b0117e2957",
+            "0xbbf68e241fff876598e8e0180b89744abb96f7af1171ed5f47026bdf01df1874",
+            "0xbbf68e241fff876598e8a4cd8e43f08be4715d903a0b1d96b3d9c4e811cbfb33",
+            "0xbbf68e241fff8765182a510994e2b54d14b731fac96b9c9ef434bc1924315371",
+            "0xbbf68e241fff87655379a3b66c2d8983ba0b2ca87abaf0ca44836b2a06a2b102",
+            "0xbbf68e241fffcbcec8301709a7449e2e7371910778df64c89f48507390f2d129",
+            "0xbbf68e241ffff228ed3aa7a29644b1915fde9ec22e0433808bf5467d914e7c7a",
+            "0xbbf68e24190b881949ec9991e48dec768ccd1980896aefd0d51fd56fd5689790",
+            "0xbbf68e2419de0a0cb0ff268c677aba17d39a3190fe15aec0ff7f54184955cba4",
+            "0xbbf68e24cc6cbd96c1400150417dd9b30d958c58f63c36230a90a02b076f78b5",
+            "0xbbf68e2490f33f1d1ba6d1521a00935630d2c81ab12fa03d4a0f4915033134f3",
+            "0xc017b10a7cc3732d729fe1f71ced25e5b7bc73dc62ca61309a8c7e5ac0af2f72",
+            "0xc098f06082dc467088ecedb143f9464ebb02f19dc10bd7491b03ba68d751ce45",
+        ];
+        let mut account_addresses = account_addresses
+            .iter()
+            .map(|addr| H256::from_str(addr).unwrap())
+            .collect::<Vec<_>>();
+        account_addresses.sort();
+        let trie_values = account_addresses
+            .iter()
+            .map(|addr| addr.0.to_vec())
+            .collect::<Vec<_>>();
+        let key_range = account_addresses[7..=17].to_vec();
+        let value_range = account_addresses[7..=17]
+            .iter()
+            .map(|v| v.0.to_vec())
+            .collect::<Vec<_>>();
         let mut trie = Trie::new_temp();
-        for i in 0..200 {
-            let val = H256::from_uint(&U256::from(i)).0.to_vec();
-            trie.insert(val.clone(), val).unwrap()
+        for val in trie_values.iter() {
+            trie.insert(val.clone(), val.clone()).unwrap()
         }
-        let mut proof = trie
-            .get_proof(&H256::from_uint(&U256::from(75)).0.to_vec())
-            .unwrap();
-        proof.extend(
-            trie.get_proof(&H256::from_uint(&U256::from(150)).0.to_vec())
-                .unwrap(),
-        );
+        let mut proof = trie.get_proof(&trie_values[7]).unwrap();
+        proof.extend(trie.get_proof(&trie_values[17]).unwrap());
         let root = trie.hash().unwrap();
-        let keys = (75..=150)
-            .map(|i| H256::from_uint(&U256::from(i)))
-            .collect::<Vec<_>>();
-        let values = (75..=150)
-            .map(|i| H256::from_uint(&U256::from(i)).0.to_vec())
-            .collect::<Vec<_>>();
-        verify_range_proof(root, keys[0], keys, values, proof).unwrap();
+        verify_range_proof(root, key_range[0], key_range, value_range, proof).unwrap();
     }
 }
