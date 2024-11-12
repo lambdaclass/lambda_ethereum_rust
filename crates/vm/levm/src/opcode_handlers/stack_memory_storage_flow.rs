@@ -283,7 +283,7 @@ impl VM {
         if size > 0 {
             current_call_frame
                 .memory
-                .copy(src_offset, dest_offset, size)?;
+                .copy(src_offset, dest_offset, size);
         }
 
         Ok(OpcodeSuccess::Continue)
