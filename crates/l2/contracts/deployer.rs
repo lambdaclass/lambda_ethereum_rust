@@ -147,8 +147,8 @@ async fn deploy_contracts(
 
     let msg = format!(
         "OnChainProposer:\n\tDeployed at address {} with tx hash {}",
-        format!("{:#x}", on_chain_proposer_address).bright_green(),
-        format!("{:#x}", on_chain_proposer_deployment_tx_hash).bright_cyan()
+        format!("{on_chain_proposer_address:#x}").bright_green(),
+        format!("{on_chain_proposer_deployment_tx_hash:#x}").bright_cyan()
     );
     spinner.success(&msg);
 
