@@ -451,7 +451,7 @@ impl VM {
             // Charge 22100 gas for each storage variable set
 
             // GInitCodeword * number_of_words rounded up. GinitCodeWord = 2
-            let number_of_words: u64 = initial_call_frame.calldata.chunks(32).len().try_into().map_err(|_| VMError::Internal(InternalError::ConversionError))?;
+            let number_of_words: u64 = initial_call_frame.calldata.chunks(WORD_SIZE).len().try_into().map_err(|_| VMError::Internal(InternalError::ConversionError))?;
             report.add_gas_with_max(number_of_words * 2, max_gas);
 
             let contract_address = initial_call_frame.to;
