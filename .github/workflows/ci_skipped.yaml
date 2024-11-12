@@ -12,7 +12,7 @@ jobs:
   lint:
     name: Lint
     runs-on: ubuntu-latest
-    if: false
+    if: true
     steps: [run: true]
 
   test:
