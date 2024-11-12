@@ -60,10 +60,6 @@ pub enum VMError {
     MemoryStoreOutOfBounds,
     #[error("Gas limit price product overflow")]
     GasLimitPriceProductOverflow,
-    #[error("Slicing error")]
-    SlicingError,
-    #[error("Indexing error")]
-    IndexingError,
     #[error("Internal error: {0}")]
     Internal(#[from] InternalError),
 }
