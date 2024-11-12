@@ -17,6 +17,7 @@ use nibbles::Nibbles;
 use node::Node;
 use node_hash::NodeHash;
 use sha3::{Digest, Keccak256};
+use trie_iter::print_trie;
 
 #[cfg(feature = "libmdbx")]
 pub use self::db::{libmdbx::LibmdbxTrieDB, libmdbx_dupsort::LibmdbxDupsortTrieDB};
@@ -84,6 +85,7 @@ impl Trie {
 
     /// Insert an RLP-encoded value into the trie.
     pub fn insert(&mut self, path: PathRLP, value: ValueRLP) -> Result<(), TrieError> {
+        println!("INSERT: [{}]", path[0]);
         let root = self.root.take();
         if let Some(root_node) = root
             .map(|root| self.state.get_node(root))
@@ -99,6 +101,7 @@ impl Trie {
             let new_leaf = Node::from(LeafNode::new(Nibbles::from_bytes(&path), value));
             self.root = Some(new_leaf.insert_self(&mut self.state)?)
         }
+        print_trie(&self);
         Ok(())
     }
 
