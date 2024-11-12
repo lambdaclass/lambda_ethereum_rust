@@ -2,7 +2,7 @@ use crate::{
     proposer::errors::L1WatcherError,
     utils::{
         config::{eth::EthConfig, l1_watcher::L1WatcherConfig},
-        eth_client::{transaction::PayloadRLPEncode, EthClient},
+        eth_client::{eth_sender::Overrides, EthClient},
     },
 };
 use ethereum_rust_blockchain::{constants::TX_GAS_COST, mempool};

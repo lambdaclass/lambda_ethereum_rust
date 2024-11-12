@@ -11,7 +11,7 @@ use sha3::{Digest, Keccak256};
 use ethereum_rust_rlp::{
     constants::RLP_NULL,
     decode::{get_rlp_bytes_item_payload, is_encoded_as_bytes, RLPDecode},
-    encode::RLPEncode,
+    encode::{PayloadRLPEncode, RLPEncode},
     error::RLPDecodeError,
     structs::{Decoder, Encoder},
 };
@@ -335,6 +335,84 @@ impl RLPEncode for PrivilegedL2Transaction {
             .encode_field(&self.signature_r)
             .encode_field(&self.signature_s)
             .finish()
+    }
+}
+
+impl PayloadRLPEncode for Transaction {
+    fn encode_payload(&self, buf: &mut dyn bytes::BufMut) {
+        match self {
+            Transaction::LegacyTransaction(_) => todo!(),
+            Transaction::EIP1559Transaction(tx) => tx.encode_payload(buf),
+            Transaction::EIP2930Transaction(_) => todo!(),
+            Transaction::EIP4844Transaction(tx) => tx.encode_payload(buf),
+            Transaction::PrivilegedL2Transaction(tx) => tx.encode_payload(buf),
+        }
+    }
+}
+
+impl PayloadRLPEncode for EIP1559Transaction {
+    fn encode_payload(&self, buf: &mut dyn bytes::BufMut) {
+        Encoder::new(buf)
+            .encode_field(&self.chain_id)
+            .encode_field(&self.nonce)
+            .encode_field(&self.max_priority_fee_per_gas)
+            .encode_field(&self.max_fee_per_gas)
+            .encode_field(&self.gas_limit)
+            .encode_field(&self.to)
+            .encode_field(&self.value)
+            .encode_field(&self.data)
+            .encode_field(&self.access_list)
+            .finish();
+    }
+}
+
+impl PayloadRLPEncode for EIP2930Transaction {
+    fn encode_payload(&self, buf: &mut dyn bytes::BufMut) {
+        Encoder::new(buf)
+            .encode_field(&self.chain_id)
+            .encode_field(&self.nonce)
+            .encode_field(&self.gas_price)
+            .encode_field(&self.gas_limit)
+            .encode_field(&self.to)
+            .encode_field(&self.value)
+            .encode_field(&self.data)
+            .encode_field(&self.access_list)
+            .finish();
+    }
+}
+
+impl PayloadRLPEncode for EIP4844Transaction {
+    fn encode_payload(&self, buf: &mut dyn bytes::BufMut) {
+        Encoder::new(buf)
+            .encode_field(&self.chain_id)
+            .encode_field(&self.nonce)
+            .encode_field(&self.max_priority_fee_per_gas)
+            .encode_field(&self.max_fee_per_gas)
+            .encode_field(&self.gas)
+            .encode_field(&self.to)
+            .encode_field(&self.value)
+            .encode_field(&self.data)
+            .encode_field(&self.access_list)
+            .encode_field(&self.max_fee_per_blob_gas)
+            .encode_field(&self.blob_versioned_hashes)
+            .finish();
+    }
+}
+
+impl PayloadRLPEncode for PrivilegedL2Transaction {
+    fn encode_payload(&self, buf: &mut dyn bytes::BufMut) {
+        Encoder::new(buf)
+            .encode_field(&self.chain_id)
+            .encode_field(&self.nonce)
+            .encode_field(&self.max_priority_fee_per_gas)
+            .encode_field(&self.max_fee_per_gas)
+            .encode_field(&self.gas_limit)
+            .encode_field(&self.to)
+            .encode_field(&self.value)
+            .encode_field(&self.data)
+            .encode_field(&self.access_list)
+            .encode_field(&self.tx_type)
+            .finish();
     }
 }
 
