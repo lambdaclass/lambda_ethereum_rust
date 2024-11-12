@@ -1,6 +1,8 @@
 use crate::utils::{config::errors::ConfigError, eth_client::errors::EthClientError};
 use ethereum_rust_dev::utils::engine_client::errors::EngineClientError;
+use ethereum_rust_storage::error::StoreError;
 use ethereum_rust_vm::EvmError;
+use ethereum_types::FromStrRadixErr;
 
 #[derive(Debug, thiserror::Error)]
 pub enum L1WatcherError {
@@ -40,8 +42,12 @@ pub enum ProposerError {
 pub enum CommitterError {
     #[error("Committer failed because of an EthClient error: {0}")]
     EthClientError(#[from] EthClientError),
-    #[error("Committer failed to serialize block: {0}")]
-    FailedToRetrieveBlockFromStorage(String),
+    #[error("Committer failed to  {0}")]
+    FailedToParseLastCommittedBlock(#[from] FromStrRadixErr),
+    #[error("Committer failed retrieve block from storage: {0}")]
+    FailedToRetrieveBlockFromStorage(#[from] StoreError),
+    #[error("Committer failed to get information from storage")]
+    FailedToGetInformationFromStorage(String),
     #[error("Committer failed to encode state diff: {0}")]
     FailedToEncodeStateDiff(#[from] StateDiffError),
     #[error("Committer failed to open Points file: {0}")]

@@ -45,8 +45,8 @@ pub struct Committer {
 pub async fn start_l1_commiter(store: Store) {
     let eth_config = EthConfig::from_env().expect("EthConfig::from_env()");
     let committer_config = CommitterConfig::from_env().expect("CommitterConfig::from_env");
-    let commiter = Committer::new_from_config(&committer_config, eth_config, store).unwrap();
-    let _ = commiter.start().await;
+    let committer = Committer::new_from_config(&committer_config, eth_config, store);
+    committer.start().await.expect("committer.start()");
 }
 
 impl Committer {
@@ -54,8 +54,8 @@ impl Committer {
         committer_config: &CommitterConfig,
         eth_config: EthConfig,
         store: Store,
-    ) -> Result<Self, CommitterError> {
-        Ok(Self {
+    ) -> Self {
+        Self {
             eth_client: EthClient::new(&eth_config.rpc_url),
             on_chain_proposer_address: committer_config.on_chain_proposer_address,
             store,
@@ -63,7 +63,7 @@ impl Committer {
             l1_private_key: committer_config.l1_private_key,
             interval_ms: committer_config.interval_ms,
             kzg_settings: c_kzg::ethereum_kzg_settings(),
-        })
+        }
     }
 
     pub async fn start(&self) -> Result<(), CommitterError> {
@@ -85,7 +85,7 @@ impl Committer {
             }
 
             let last_committed_block = U256::from_str_radix(last_committed_block, 16)
-                .unwrap()
+                .map_err(CommitterError::from)?
                 .as_u64();
 
             let block_number_to_fetch = if last_committed_block == u64::MAX {
@@ -94,14 +94,18 @@ impl Committer {
                 last_committed_block + 1
             };
 
-            if let Some(block_to_commit_body) =
-                self.store.get_block_body(block_number_to_fetch).unwrap()
+            if let Some(block_to_commit_body) = self
+                .store
+                .get_block_body(block_number_to_fetch)
+                .map_err(CommitterError::from)?
             {
                 let block_to_commit_header = self
                     .store
                     .get_block_header(block_number_to_fetch)
-                    .unwrap()
-                    .unwrap();
+                    .map_err(CommitterError::from)?
+                    .ok_or(CommitterError::FailedToGetInformationFromStorage(
+                        "Failed to get_block_header() after get_block_body()".to_owned(),
+                    ))?;
 
                 let block_to_commit = Block::new(block_to_commit_header, block_to_commit_body);
 
