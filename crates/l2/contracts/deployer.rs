@@ -53,10 +53,10 @@ async fn main() {
             let (envar, _) = line.split_at(eq);
             line = match envar {
                 "COMMITTER_ON_CHAIN_PROPOSER_ADDRESS" => {
-                    format!("{}={:?}", envar, on_chain_proposer)
+                    format!("{envar}={on_chain_proposer:?}")
                 }
                 "L1_WATCHER_BRIDGE_ADDRESS" => {
-                    format!("{}={:?}", envar, bridge_address)
+                    format!("{envar}={bridge_address:?}")
                 }
                 _ => line,
             };
@@ -101,9 +101,8 @@ fn setup() -> (Address, SecretKey, Address, EthClient, PathBuf) {
         "false" | "0" => {
             let mut salt = SALT.lock().unwrap();
             *salt = H256::random();
-            println!("SALT: {salt}");
         }
-        _ => panic!("{}", format!("Invalid boolean string: {}", input)),
+        _ => panic!("Invalid boolean string: {input}"),
     };
     let contract_verifier_address = std::env::var("DEPLOYER_CONTRACT_VERIFIER")
         .expect("DEPLOYER_CONTRACT_VERIFIER not set")
@@ -220,8 +219,8 @@ async fn deploy_contracts(
 
     let msg = format!(
         "OnChainProposer:\n\tDeployed at address {} with tx hash {}",
-        format!("{:#x}", on_chain_proposer_address).bright_green(),
-        format!("{:#x}", on_chain_proposer_deployment_tx_hash).bright_cyan()
+        format!("{on_chain_proposer_address:#x}").bright_green(),
+        format!("{on_chain_proposer_deployment_tx_hash:#x}").bright_cyan()
     );
     spinner.success(&msg);
 
@@ -237,8 +236,8 @@ async fn deploy_contracts(
 
     let msg = format!(
         "CommonBridge:\n\tDeployed at address {} with tx hash {}",
-        format!("{:#x}", bridge_address).bright_green(),
-        format!("{:#x}", bridge_deployment_tx_hash).bright_cyan(),
+        format!("{bridge_address:#x}").bright_green(),
+        format!("{bridge_deployment_tx_hash:#x}").bright_cyan(),
     );
     spinner.success(&msg);
 
@@ -381,7 +380,7 @@ async fn initialize_contracts(
     .await;
     let msg = format!(
         "OnChainProposer:\n\tInitialized with tx hash {}",
-        format!("{:#x}", initialize_tx_hash).bright_cyan()
+        format!("{initialize_tx_hash:#x}").bright_cyan()
     );
     spinner.success(&msg);
 
@@ -400,7 +399,7 @@ async fn initialize_contracts(
     .await;
     let msg = format!(
         "CommonBridge:\n\tInitialized with tx hash {}",
-        format!("{:#x}", initialize_tx_hash).bright_cyan()
+        format!("{initialize_tx_hash:#x}").bright_cyan()
     );
     spinner.success(&msg);
 }
