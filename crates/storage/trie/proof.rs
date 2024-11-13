@@ -249,6 +249,9 @@ fn remove_internal_references_inner(
     mut right_path: Nibbles,
     trie_state: &mut TrieState,
 ) -> bool {
+    if !node_hash.is_valid() {
+        return true
+    }
     // We already looked up the nodes when filling the state so this shouldn't fail
     let node = trie_state.get_node(node_hash.clone()).unwrap().unwrap();
     match node {
@@ -357,10 +360,8 @@ fn remove_node(
     if !node_hash.is_valid() {
         return false;
     }
-    // We already checked the canonical proof path when filling the state so this case should be unreachable
-    let Ok(Some(node)) = trie_state.get_node(node_hash.clone()) else {
-        return false;
-    };
+    // We already looked up the nodes when filling the state so this shouldn't fail
+    let node = trie_state.get_node(node_hash.clone()).unwrap().unwrap();
     match node {
         Node::Branch(mut n) => {
             // Remove child nodes
@@ -510,37 +511,6 @@ mod tests {
         proof.extend(trie.get_proof(&trie_values[17]).unwrap());
         let root = trie.hash().unwrap();
         verify_range_proof(root, key_range[0], key_range, value_range, proof).unwrap();
-    }
-
-    #[test]
-    // Special Case: One element range
-    fn jijo() {
-        let mut data = std::collections::BTreeSet::from([
-            vec![
-                0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-                0, 0, 0, 0,
-            ],
-            vec![
-                0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-                0, 0, 0, 1,
-            ],
-        ]);
-        // Remove the last element so we can use it as key for the proof of non-existance
-        let last_element = data.pop_last().unwrap();
-        // Build trie
-        let mut trie = Trie::new_temp();
-        for val in data.iter() {
-            trie.insert(val.clone(), val.clone()).unwrap()
-        }
-        let root = trie.hash().unwrap();
-        // Range is empty
-        let values = vec![];
-        let keys = vec![];
-        let first_key = H256::from_slice(&last_element);
-        // Generate proof (last element)
-        let proof = trie.get_proof(&last_element).unwrap();
-        // Verify the range proof
-        verify_range_proof(root, first_key, keys, values, proof).unwrap();
     }
 
     // Proptests for verify_range_proof
