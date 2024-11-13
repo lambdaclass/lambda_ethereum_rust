@@ -41,10 +41,10 @@ pub fn verify_range_proof(
     }
 
     // Verify ranges depending on the given proof
+    let mut trie = Trie::stateless();
 
     // Special Case: No proofs given, the range is expected to be the full set of leaves
     if proof.is_empty() {
-        let mut trie = Trie::stateless();
         for (index, key) in keys.iter().enumerate() {
             // Ignore the error as we don't rely on a DB
             let _ = trie.insert(key.0.to_vec(), values[index].clone());
@@ -61,14 +61,15 @@ pub fn verify_range_proof(
 
     // Special Case: One edge proof, no range given, there are no more values in the trie
     if keys.is_empty() {
-        let (has_right_element, value) =
-            has_right_element(root, first_key.as_bytes(), &proof_nodes)?;
+        let value = fill_state(&mut trie.state, root, first_key, &proof_nodes)?;
+        trie.root = Some(root.into());
+        let has_right_element = has_right_element(root, first_key.as_bytes(), &trie.state)?;
         if has_right_element || !value.is_empty() {
             return Err(TrieError::Verify(format!(
                 "no keys returned but more are available on the trie"
             )));
         } else {
-            return Ok(false)
+            return Ok(false);
         }
     }
 
@@ -76,8 +77,8 @@ pub fn verify_range_proof(
 
     // Special Case: There is only one element and the two edge keys are the same
     if keys.len() == 1 && first_key == last_key {
-        let (has_right_element, value) =
-            has_right_element(root, first_key.as_bytes(), &proof_nodes)?;
+        let value = fill_state(&mut trie.state, root, first_key, &proof_nodes)?;
+        let has_right_element = has_right_element(root, first_key.as_bytes(), &trie.state)?;
         if first_key != keys[0] {
             return Err(TrieError::Verify(format!("correct proof but invalid key")));
         }
@@ -92,7 +93,6 @@ pub fn verify_range_proof(
     if first_key >= last_key {
         return Err(TrieError::Verify(format!("invalid edge keys")));
     }
-    let mut trie = Trie::stateless();
     let _ = fill_state(&mut trie.state, root, first_key, &proof_nodes)?;
     let _ = fill_state(&mut trie.state, root, last_key, &proof_nodes)?;
     println!("FILL STATE");
@@ -120,56 +120,51 @@ pub fn verify_range_proof(
 }
 
 // Indicates where there exist more elements to the right side of the given path
-// Also returns the value (or an empty value if it is not present on the trie)
 fn has_right_element(
     root_hash: H256,
     key: &[u8],
-    proof_nodes: &ProofNodeStorage,
-) -> Result<(bool, Vec<u8>), TrieError> {
+    trie_state: &TrieState,
+) -> Result<bool, TrieError> {
     let path = Nibbles::from_bytes(key);
-    let node = proof_nodes.get_node(&root_hash.into())?;
-    has_right_element_inner(&node, path, proof_nodes)
+    has_right_element_inner(root_hash.into(), path, trie_state)
 }
 
 fn has_right_element_inner(
-    node: &Node,
+    node_hash: NodeHash,
     mut path: Nibbles,
-    proof_nodes: &ProofNodeStorage,
-) -> Result<(bool, Vec<u8>), TrieError> {
+    trie_state: &TrieState,
+) -> Result<bool, TrieError> {
+    let Some(node) = trie_state.get_node(node_hash.clone())? else {
+        return Ok(false);
+    };
     match node {
         Node::Branch(ref n) => {
             // Check if there are children to the right side
             if let Some(choice) = path.next_choice() {
-                if n.choices[choice+1..].iter().any(|child| child.is_valid()) {
-                    Ok((true, vec![]))
+                if n.choices[choice + 1..].iter().any(|child| child.is_valid()) {
+                    return Ok(true);
                 } else {
                     if n.choices[choice].is_valid() {
-                        let node = proof_nodes.get_node(&n.choices[choice])?;
-                        has_right_element_inner(&node, path, proof_nodes)
-                    } else {
-                        Ok((false, vec![]))
+                        return has_right_element_inner(
+                            n.choices[choice].clone(),
+                            path,
+                            trie_state,
+                        );
                     }
                 }
-            } else {
-                Ok((false, n.value.clone()))
             }
         }
         Node::Extension(n) => {
             if path.skip_prefix(&n.prefix) {
-                let node = proof_nodes.get_node(&n.child)?;
-                has_right_element_inner(&node, path, proof_nodes)
+                return has_right_element_inner(n.child, path, trie_state);
             } else {
-                Ok((n.prefix.as_ref() > path.as_ref(), vec![]))
+                return Ok(n.prefix.as_ref() > path.as_ref());
             }
         }
         // We reached the end of the path
-        Node::Leaf(ref n) => {
-            let value = (path == n.partial)
-                .then_some(n.value.clone())
-                .unwrap_or_default();
-            Ok((false, value))
-        }
+        Node::Leaf(_) => {}
     }
+    Ok(false)
 }
 
 fn get_child<'a>(path: &'a mut Nibbles, node: &'a Node) -> Option<NodeHash> {
@@ -212,7 +207,9 @@ fn fill_node(
         let value = match &node {
             Node::Branch(n) => n.value.clone(),
             Node::Extension(_) => vec![],
-            Node::Leaf(n) => n.value.clone(),
+            Node::Leaf(n) => (*path == n.partial)
+                .then_some(n.value.clone())
+                .unwrap_or_default(),
         };
         trie_state.insert_node(node, node_hash.clone());
         Ok(value)
@@ -508,6 +505,37 @@ mod tests {
         verify_range_proof(root, key_range[0], key_range, value_range, proof).unwrap();
     }
 
+    #[test]
+    // Special Case: One element range
+    fn jijo() {
+        let mut data = std::collections::BTreeSet::from([
+            vec![
+                0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+                0, 0, 0, 0,
+            ],
+            vec![
+                0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+                0, 0, 0, 1,
+            ],
+        ]);
+        // Remove the last element so we can use it as key for the proof of non-existance
+        let last_element = data.pop_last().unwrap();
+        // Build trie
+        let mut trie = Trie::new_temp();
+        for val in data.iter() {
+            trie.insert(val.clone(), val.clone()).unwrap()
+        }
+        let root = trie.hash().unwrap();
+        // Range is empty
+        let values = vec![];
+        let keys = vec![];
+        let first_key = H256::from_slice(&last_element);
+        // Generate proof (last element)
+        let proof = trie.get_proof(&last_element).unwrap();
+        // Verify the range proof
+        verify_range_proof(root, first_key, keys, values, proof).unwrap();
+    }
+
     // Proptests for verify_range_proof
     proptest! {
 
@@ -644,6 +672,24 @@ mod tests {
             let proof = trie.get_proof(&last_element).unwrap();
             // Verify the range proof
             verify_range_proof(root, first_key, keys, values, proof).unwrap();
+        }
+
+        #[test]
+        // Special Case: One element range
+        fn proptest_verify_range_one_element(data in btree_set(vec(any::<u8>(), 32), 200), start in 0_usize..200_usize) {
+            // Build trie
+            let mut trie = Trie::new_temp();
+            for val in data.iter() {
+                trie.insert(val.clone(), val.clone()).unwrap()
+            }
+            let root = trie.hash().unwrap();
+            // Select range to prove
+            let values = vec![data.iter().collect::<Vec<_>>()[start].clone()];
+            let keys = values.iter().map(|a| H256::from_slice(a)).collect::<Vec<_>>();
+            // Generate proofs
+            let proof = trie.get_proof(&values[0]).unwrap();
+            // Verify the range proof
+            verify_range_proof(root, keys[0], keys, values, proof).unwrap();
         }
     }
 }
