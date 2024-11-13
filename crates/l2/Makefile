@@ -57,7 +57,7 @@ deploy-l1: ## 📜 Deploys the L1 contracts
 # L2
 
 init-l2: ## 🚀 Initializes an L2 Lambda Ethereum Rust Client
-	cargo run --release --manifest-path ../../Cargo.toml --bin ethereum_rust --features l2 -- --network ${L2_GENESIS_FILE_PATH} --http.port 1729 --authrpc.port 8552
+	cargo run --release --manifest-path ../../Cargo.toml --bin ethereum_rust --features l2 -- --network ${L2_GENESIS_FILE_PATH} --http.port 1729 --http.addr 0.0.0.0 --authrpc.port 8552
 
 down-l2: ## 🛑 Shuts down the L2 Lambda Ethereum Rust Client
 	pkill -f ethereum_rust || exit 0

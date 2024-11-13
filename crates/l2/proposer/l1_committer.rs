@@ -24,6 +24,7 @@ use ethereum_rust_vm::{evm_state, execute_block, get_state_transitions};
 use keccak_hash::keccak;
 use secp256k1::SecretKey;
 use sha2::{Digest, Sha256};
+use std::ops::Div;
 use tokio::time::sleep;
 use tracing::{error, info, warn};
 
@@ -359,7 +360,7 @@ impl Committer {
                 Bytes::from(calldata),
                 Overrides {
                     from: Some(self.l1_address),
-                    gas_price_per_blob: Some(U256::from_dec_str("50000000000").unwrap()),
+                    gas_price_per_blob: Some(U256::from_dec_str("100000000000").unwrap()),
                     ..Default::default()
                 },
                 blobs_bundle,
@@ -450,7 +451,7 @@ async fn wrapped_eip4844_transaction_handler(
     max_retries: u32,
 ) -> Result<H256, CommitterError> {
     let mut retries = 0;
-    let max_receipt_retries = 20_u32;
+    let max_receipt_retries: u32 = 60 * 2; // 2 minutes
     let mut commit_tx_hash = commit_tx_hash;
     let mut wrapped_tx = wrapped_eip4844.clone();
 
@@ -462,7 +463,7 @@ async fn wrapped_eip4844_transaction_handler(
             // Else, wait for receipt and send again if necessary.
             let mut receipt_retries = 0;
 
-            // Try for 20 seconds with an interval of 1 second to get the tx_receipt.
+            // Try for 2 minutes with an interval of 1 second to get the tx_receipt.
             while receipt_retries < max_receipt_retries {
                 match eth_client.get_transaction_receipt(commit_tx_hash).await? {
                     Some(_) => return Ok(commit_tx_hash),
@@ -475,14 +476,17 @@ async fn wrapped_eip4844_transaction_handler(
 
             // If receipt was not found, send the same tx(same nonce) but with more gas.
             // Sometimes the penalty is a 100%
-            warn!("Transaction not confirmed, resending with 50% more gas...");
-
+            warn!("Transaction not confirmed, resending with 110% more gas...");
             // Increase max fee per gas by 110% (set it to 210% of the original)
             wrapped_tx.tx.max_fee_per_gas =
                 (wrapped_tx.tx.max_fee_per_gas as f64 * 2.1).round() as u64;
             wrapped_tx.tx.max_priority_fee_per_gas =
                 (wrapped_tx.tx.max_priority_fee_per_gas as f64 * 2.1).round() as u64;
-            wrapped_tx.tx.max_fee_per_blob_gas += wrapped_eip4844.tx.max_fee_per_blob_gas / 2;
+            wrapped_tx.tx.max_fee_per_blob_gas = wrapped_tx
+                .tx
+                .max_fee_per_blob_gas
+                .saturating_mul(U256::from(20))
+                .div(10);
 
             commit_tx_hash = eth_client
                 .send_eip4844_transaction(wrapped_tx.clone(), l1_private_key)

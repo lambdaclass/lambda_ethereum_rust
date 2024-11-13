@@ -229,7 +229,6 @@ impl ProverServer {
         block_number: u64,
         receipt: Box<(risc0_zkvm::Receipt, Vec<u32>)>,
     ) -> Result<(), ProverServerError> {
-        // InProgress: send proof to validate on chain.
         // Send Tx
         // If we run the prover_client with RISC0_DEV_MODE=0 we will have a groth16 proof
         // Else, we will have a fake proof.
@@ -240,10 +239,8 @@ impl ProverServer {
                 // The SELECTOR is used to perform an extra check inside the groth16 verifier contract.
                 let mut selector =
                     hex::encode(inner.verifier_parameters.as_bytes().get(..4).unwrap());
-                info!("SELECTOR(): {selector}");
                 let seal = hex::encode(inner.clone().seal);
                 selector.push_str(&seal);
-                info!("SEAL: 0x{selector}");
                 hex::decode(selector).unwrap()
             }
             Err(_) => vec![32; 0],
@@ -255,10 +252,8 @@ impl ProverServer {
         }
 
         let image_id: risc0_zkvm::sha::Digest = image_id.into();
-        info!("IMAGE_ID: {image_id}");
 
         let journal_digest = Digestible::digest(&receipt.0.journal);
-        info!("JOURNAL_DIGEST: {journal_digest}");
 
         // Retry proof verification, the transaction may fail if the blobs commited were not included.
         // The error message is `address already reserved`. Retrying 100 times, if there is another error it panics.
@@ -279,7 +274,8 @@ impl ProverServer {
 
                 Err(e) => {
                     warn!("Failed to send proof to block {block_number:#x}. Error: {e}");
-                    if format!("{e}").contains("address already reserved") {
+                    let eth_client_error = format!("{e}");
+                    if eth_client_error.contains("block not committed") {
                         attempts += 1;
                         if attempts < max_retries {
                             warn!("Retrying... Attempt {}/{}", attempts, max_retries);
@@ -384,10 +380,6 @@ impl ProverServer {
         let leading_zeros = 32 - ((calldata.len() - 4) % 32);
         calldata.extend(vec![0; leading_zeros]);
 
-        let nonce = self.eth_client.get_nonce(self.verifier_address).await?;
-
-        info!("Sending Verify Tx with nonce: {nonce}");
-
         let verify_tx = self
             .eth_client
             .build_eip1559_transaction(
@@ -413,8 +405,6 @@ impl ProverServer {
         )
         .await?;
 
-        info!("Proof sent: {verify_tx_hash:#x}");
-
         Ok(verify_tx_hash)
     }
 }
@@ -427,7 +417,7 @@ async fn eip1559_transaction_handler(
     max_retries: u32,
 ) -> Result<H256, ProverServerError> {
     let mut retries = 0;
-    let max_receipt_retries = 20_u32;
+    let max_receipt_retries: u32 = 60 * 2; // 2 minutes
     let mut verify_tx_hash = verify_tx_hash;
     let mut tx = eip1559.clone();
 
@@ -439,7 +429,7 @@ async fn eip1559_transaction_handler(
             // Else, wait for receipt and send again if necessary.
             let mut receipt_retries = 0;
 
-            // Try for 20 seconds with an interval of 1 second to get the tx_receipt.
+            // Try for 2 minutes with an interval of 1 second to get the tx_receipt.
             while receipt_retries < max_receipt_retries {
                 match eth_client.get_transaction_receipt(verify_tx_hash).await? {
                     Some(_) => return Ok(verify_tx_hash),

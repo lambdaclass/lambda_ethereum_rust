@@ -29,6 +29,11 @@ contract OnChainProposer is IOnChainProposer, ReentrancyGuard {
     /// @dev This is crucial for ensuring that only valid and confirmed blocks are processed in the contract.
     uint256 public lastVerifiedBlock;
 
+    /// @notice The latest committed block number.
+    /// @dev This variable holds the block number of the most recently committed block.
+    /// @dev All blocks with a block number less than or equal to `lastCommittedBlock` are considered committed.
+    /// @dev Blocks with a block number greater than `lastCommittedBlock` have not been committed yet.
+    /// @dev This is crucial for ensuring that only subsequents blocks are committed in the contract.
     uint256 public lastCommittedBlock;
 
     address public BRIDGE;
