@@ -1,6 +1,3 @@
-// Logging Operations (5)
-// Opcodes: LOG0 ... LOG4
-
 use crate::{
     call_frame::CallFrame,
     constants::gas_cost,
@@ -10,6 +7,9 @@ use crate::{
 };
 use bytes::Bytes;
 use ethereum_rust_core::{types::Log, H256};
+
+// Logging Operations (5)
+// Opcodes: LOG0 ... LOG4
 
 impl VM {
     // LOG operation
@@ -22,17 +22,17 @@ impl VM {
             return Err(VMError::OpcodeNotAllowedInStaticContext);
         }
 
-        let number_of_topics = (op as u8) - (Opcode::LOG0 as u8);
-        let offset = current_call_frame
+        let number_of_topics = u8::from(op) - u8::from(Opcode::LOG0);
+        let offset: usize = current_call_frame
             .stack
             .pop()?
             .try_into()
-            .unwrap_or(usize::MAX);
+            .map_err(|_| VMError::VeryLargeNumber)?;
         let size = current_call_frame
             .stack
             .pop()?
             .try_into()
-            .unwrap_or(usize::MAX);
+            .map_err(|_| VMError::VeryLargeNumber)?;
         let mut topics = Vec::new();
         for _ in 0..number_of_topics {
             let topic = current_call_frame.stack.pop()?;
@@ -41,7 +41,11 @@ impl VM {
             topics.push(H256::from_slice(&topic_bytes));
         }
 
-        let memory_expansion_cost = current_call_frame.memory.expansion_cost(offset + size)?;
+        let memory_expansion_cost = current_call_frame.memory.expansion_cost(
+            offset
+                .checked_add(size)
+                .ok_or(VMError::MemoryLoadOutOfBounds)?,
+        )?;
         let gas_cost = gas_cost::LOGN_STATIC
             + gas_cost::LOGN_DYNAMIC_BASE * number_of_topics
             + gas_cost::LOGN_DYNAMIC_BYTE_BASE * size
@@ -49,7 +53,7 @@ impl VM {
 
         self.increase_consumed_gas(current_call_frame, gas_cost)?;
 
-        let data = current_call_frame.memory.load_range(offset, size);
+        let data = current_call_frame.memory.load_range(offset, size)?;
         let log = Log {
             address: current_call_frame.msg_sender, // Should change the addr if we are on a Call/Create transaction (Call should be the contract we are calling, Create should be the original caller)
             topics,

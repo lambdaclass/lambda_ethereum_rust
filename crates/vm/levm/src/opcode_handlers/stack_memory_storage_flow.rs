@@ -59,19 +59,21 @@ impl VM {
         &mut self,
         current_call_frame: &mut CallFrame,
     ) -> Result<OpcodeSuccess, VMError> {
-        let offset = current_call_frame
+        let offset: usize = current_call_frame
             .stack
             .pop()?
             .try_into()
-            .unwrap_or(usize::MAX);
-        let memory_expansion_cost = current_call_frame
-            .memory
-            .expansion_cost(offset + WORD_SIZE)?;
+            .map_err(|_| VMError::VeryLargeNumber)?;
+        let memory_expansion_cost = current_call_frame.memory.expansion_cost(
+            offset
+                .checked_add(WORD_SIZE)
+                .ok_or(VMError::OverflowInArithmeticOp)?,
+        )?;
         let gas_cost = gas_cost::MLOAD_STATIC + memory_expansion_cost;
 
         self.increase_consumed_gas(current_call_frame, gas_cost)?;
 
-        let value = current_call_frame.memory.load(offset);
+        let value = current_call_frame.memory.load(offset)?;
         current_call_frame.stack.push(value)?;
 
         Ok(OpcodeSuccess::Continue)
@@ -82,10 +84,16 @@ impl VM {
         &mut self,
         current_call_frame: &mut CallFrame,
     ) -> Result<OpcodeSuccess, VMError> {
-        let offset = current_call_frame.stack.pop()?.try_into().unwrap();
-        let memory_expansion_cost = current_call_frame
-            .memory
-            .expansion_cost(offset + WORD_SIZE)?;
+        let offset: usize = current_call_frame
+            .stack
+            .pop()?
+            .try_into()
+            .map_err(|_err| VMError::VeryLargeNumber)?;
+        let memory_expansion_cost = current_call_frame.memory.expansion_cost(
+            offset
+                .checked_add(WORD_SIZE)
+                .ok_or(VMError::OverflowInArithmeticOp)?,
+        )?;
         let gas_cost = gas_cost::MSTORE_STATIC + memory_expansion_cost;
 
         self.increase_consumed_gas(current_call_frame, gas_cost)?;
@@ -94,7 +102,9 @@ impl VM {
         let mut value_bytes = [0u8; WORD_SIZE];
         value.to_big_endian(&mut value_bytes);
 
-        current_call_frame.memory.store_bytes(offset, &value_bytes);
+        current_call_frame
+            .memory
+            .store_bytes(offset, &value_bytes)?;
 
         Ok(OpcodeSuccess::Continue)
     }
@@ -104,8 +114,16 @@ impl VM {
         &mut self,
         current_call_frame: &mut CallFrame,
     ) -> Result<OpcodeSuccess, VMError> {
-        let offset = current_call_frame.stack.pop()?.try_into().unwrap();
-        let memory_expansion_cost = current_call_frame.memory.expansion_cost(offset + 1)?;
+        let offset: usize = current_call_frame
+            .stack
+            .pop()?
+            .try_into()
+            .map_err(|_| VMError::VeryLargeNumber)?;
+        let memory_expansion_cost = current_call_frame.memory.expansion_cost(
+            offset
+                .checked_add(1)
+                .ok_or(VMError::OverflowInArithmeticOp)?,
+        )?;
         let gas_cost = gas_cost::MSTORE8_STATIC + memory_expansion_cost;
 
         self.increase_consumed_gas(current_call_frame, gas_cost)?;
@@ -116,7 +134,7 @@ impl VM {
 
         current_call_frame
             .memory
-            .store_bytes(offset, value_bytes[WORD_SIZE - 1..WORD_SIZE].as_ref());
+            .store_bytes(offset, value_bytes[WORD_SIZE - 1..WORD_SIZE].as_ref())?;
 
         Ok(OpcodeSuccess::Continue)
     }
@@ -140,10 +158,7 @@ impl VM {
             // If slot is warm (cached) add 100 to base_dynamic_gas
             base_dynamic_gas += WARM_ADDRESS_ACCESS_COST;
 
-            self.cache
-                .get_storage_slot(address, key)
-                .expect("Should be already cached") // Because entered the if is_slot_cached
-                .current_value
+            self.get_storage_slot(&address, key).current_value
         } else {
             // If slot is cold (not cached) add 2100 to base_dynamic_gas
             base_dynamic_gas += COLD_STORAGE_ACCESS_COST;
@@ -178,14 +193,12 @@ impl VM {
 
         let mut base_dynamic_gas: U256 = U256::zero();
 
-        let storage_slot = if self.cache.is_slot_cached(&address, key) {
-            self.cache.get_storage_slot(address, key).unwrap()
-        } else {
+        if !self.cache.is_slot_cached(&address, key) {
             // If slot is cold 2100 is added to base_dynamic_gas
             base_dynamic_gas += U256::from(2100);
-
-            self.get_storage_slot(&address, key) // it is not in cache because of previous if
         };
+
+        let storage_slot = self.get_storage_slot(&address, key);
 
         base_dynamic_gas += if value == storage_slot.current_value {
             U256::from(100)
@@ -208,7 +221,7 @@ impl VM {
                 original_value: storage_slot.original_value,
                 current_value: value,
             },
-        );
+        )?;
 
         Ok(OpcodeSuccess::Continue)
     }
@@ -240,21 +253,21 @@ impl VM {
         &mut self,
         current_call_frame: &mut CallFrame,
     ) -> Result<OpcodeSuccess, VMError> {
-        let dest_offset = current_call_frame
+        let dest_offset: usize = current_call_frame
             .stack
             .pop()?
             .try_into()
-            .unwrap_or(usize::MAX);
+            .map_err(|_| VMError::VeryLargeNumber)?;
         let src_offset: usize = current_call_frame
             .stack
             .pop()?
             .try_into()
-            .unwrap_or(usize::MAX);
+            .map_err(|_| VMError::VeryLargeNumber)?;
         let size: usize = current_call_frame
             .stack
             .pop()?
             .try_into()
-            .unwrap_or(usize::MAX);
+            .map_err(|_| VMError::VeryLargeNumber)?;
 
         let words_copied = (size + WORD_SIZE - 1) / WORD_SIZE;
 
@@ -277,7 +290,7 @@ impl VM {
         if size > 0 {
             current_call_frame
                 .memory
-                .copy(src_offset, dest_offset, size);
+                .copy(src_offset, dest_offset, size)?;
         }
 
         Ok(OpcodeSuccess::Continue)
