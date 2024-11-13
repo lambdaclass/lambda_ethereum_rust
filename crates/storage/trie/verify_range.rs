@@ -330,7 +330,6 @@ fn remove_internal_references_inner(
                     );
                 }
                 // If both paths are greater or lesser than the node's prefix then the range is empty
-                // TODO: return the error instead of panicking here
                 (Ordering::Greater, Ordering::Greater) | (Ordering::Less, Ordering::Less) => {
                     return Err(TrieError::Verify("empty range".to_string()))
                 }
