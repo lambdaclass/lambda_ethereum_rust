@@ -6,13 +6,36 @@ help: ## 📚 Show help for each of the Makefile recipes
 	@grep -E '^[a-zA-Z0-9_-]+:.*?## .*$$' $(MAKEFILE_LIST) | sort | awk 'BEGIN {FS = ":.*?## "}; {printf "\033[36m%-30s\033[0m %s\n", $$1, $$2}'
 
 test: ## 🧪 Runs all tests except Ethereum tests
-	cargo test -p ethereum_rust-levm
+	cargo test -p ethereum_rust_levm
 
 lint: ## 🧹 Linter check
-	cargo clippy --all-targets --all-features --workspace -- -D warnings
+	cargo clippy --all-targets --all-features -- -D warnings
 
 fmt: ## 📄 Runs rustfmt
 	cargo fmt --all
+
+###### EF Tests ######
+
+SPECTEST_VERSION := v14.1
+SPECTEST_ARTIFACT := tests_$(SPECTEST_VERSION).tar.gz
+SPECTEST_VECTORS_DIR := tests/ef/tests
+
+$(SPECTEST_ARTIFACT):
+	rm -f tests_*.tar.gz # Delete older versions
+	curl -L -o $(SPECTEST_ARTIFACT) "https://github.com/ethereum/tests/archive/refs/tags/$(SPECTEST_VERSION).tar.gz"
+
+$(SPECTEST_VECTORS_DIR): $(SPECTEST_ARTIFACT)
+	mkdir -p $(SPECTEST_VECTORS_DIR) tmp
+	tar -xzf $(SPECTEST_ARTIFACT) -C tmp
+	mv tmp/tests-14.1/GeneralStateTests $(SPECTEST_VECTORS_DIR)
+
+download-ef-tests: $(SPECTEST_VECTORS_DIR) ## 📥 Download EF Tests
+
+run-ef-tests: ## 🏃‍♂️ Run EF Tests
+	cargo test ef::testito -- --ignored
+
+clean-ef-tests: ## 🗑️  Clean test vectors
+	rm -rf $(SPECTEST_VECTORS_DIR)
 
 ###### Benchmarks ######
 

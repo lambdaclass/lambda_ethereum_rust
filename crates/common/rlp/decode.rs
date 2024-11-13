@@ -45,19 +45,25 @@ impl RLPDecode for bool {
 
 impl RLPDecode for u8 {
     fn decode_unfinished(rlp: &[u8]) -> Result<(Self, &[u8]), RLPDecodeError> {
-        if rlp.is_empty() {
-            return Err(RLPDecodeError::InvalidLength);
-        }
-
-        match rlp[0] {
+        let first_byte = rlp.first().ok_or(RLPDecodeError::InvalidLength)?;
+        match first_byte {
             // Single byte in the range [0x00, 0x7f]
-            0..=0x7f => Ok((rlp[0], &rlp[1..])),
+            0..=0x7f => {
+                let rest = rlp.get(1..).ok_or(RLPDecodeError::MalformedData)?;
+                Ok((*first_byte, rest))
+            }
 
             // RLP_NULL represents zero
-            RLP_NULL => Ok((0, &rlp[1..])),
+            &RLP_NULL => {
+                let rest = rlp.get(1..).ok_or(RLPDecodeError::MalformedData)?;
+                Ok((0, rest))
+            }
 
             // Two bytes, where the first byte is RLP_NULL + 1
-            x if rlp.len() >= 2 && x == RLP_NULL + 1 => Ok((rlp[1], &rlp[2..])),
+            x if rlp.len() >= 2 && *x == RLP_NULL + 1 => {
+                let rest = rlp.get(2..).ok_or(RLPDecodeError::MalformedData)?;
+                Ok((rlp[1], rest))
+            }
 
             // Any other case is invalid for u8
             _ => Err(RLPDecodeError::MalformedData),
@@ -330,6 +336,30 @@ impl<T1: RLPDecode, T2: RLPDecode, T3: RLPDecode> RLPDecode for (T1, T2, T3) {
     }
 }
 
+// This implementation is useful when the message is a list with elements of mixed types
+// for example, the P2P message 'GetBlockHeaders', mixes hashes and numbers.
+impl<T1: RLPDecode, T2: RLPDecode, T3: RLPDecode, T4: RLPDecode> RLPDecode for (T1, T2, T3, T4) {
+    fn decode_unfinished(rlp: &[u8]) -> Result<(Self, &[u8]), RLPDecodeError> {
+        if rlp.is_empty() {
+            return Err(RLPDecodeError::InvalidLength);
+        }
+        let (is_list, payload, input_rest) = decode_rlp_item(rlp)?;
+        if !is_list {
+            return Err(RLPDecodeError::MalformedData);
+        }
+        let (first, first_rest) = T1::decode_unfinished(payload)?;
+        let (second, second_rest) = T2::decode_unfinished(first_rest)?;
+        let (third, third_rest) = T3::decode_unfinished(second_rest)?;
+        let (fourth, fourth_rest) = T4::decode_unfinished(third_rest)?;
+        // check that there is no more data to decode after the fourth element.
+        if !fourth_rest.is_empty() {
+            return Err(RLPDecodeError::MalformedData);
+        }
+
+        Ok(((first, second, third, fourth), input_rest))
+    }
+}
+
 /// Decodes an RLP item from a slice of bytes.
 /// It returns a 3-element tuple with the following elements:
 /// - A boolean indicating if the item is a list or not.
@@ -456,9 +486,9 @@ pub fn get_item_with_prefix(data: &[u8]) -> Result<(&[u8], &[u8]), RLPDecodeErro
     }
 }
 
-pub fn is_encoded_as_bytes(rlp: &[u8]) -> bool {
-    let prefix = *rlp.first().unwrap();
-    (0xb8..=0xbf).contains(&prefix)
+pub fn is_encoded_as_bytes(rlp: &[u8]) -> Result<bool, RLPDecodeError> {
+    let prefix = rlp.first().ok_or(RLPDecodeError::MalformedData)?;
+    Ok((0xb8..=0xbf).contains(prefix))
 }
 
 /// Receives an RLP bytes item (prefix between 0xb8 and 0xbf) and returns its payload
@@ -472,7 +502,7 @@ pub fn get_rlp_bytes_item_payload(rlp: &[u8]) -> &[u8] {
 /// It returns a 2-element tuple with the following elements:
 /// - The payload of the item.
 /// - The remaining bytes after the item.
-fn decode_bytes(data: &[u8]) -> Result<(&[u8], &[u8]), RLPDecodeError> {
+pub fn decode_bytes(data: &[u8]) -> Result<(&[u8], &[u8]), RLPDecodeError> {
     let (is_list, payload, rest) = decode_rlp_item(data)?;
     if is_list {
         return Err(RLPDecodeError::UnexpectedList);

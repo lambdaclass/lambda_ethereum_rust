@@ -1,13 +1,17 @@
 use crate::{
-    block::LAST_AVAILABLE_BLOCK_LIMIT,
-    constants::{call_opcode, WORD_SIZE},
-    vm::word_to_address,
+    call_frame::CallFrame,
+    constants::{gas_cost, LAST_AVAILABLE_BLOCK_LIMIT},
+    errors::{OpcodeSuccess, VMError},
+    vm::VM,
 };
-use sha3::{Digest, Keccak256};
+use ethereum_rust_core::{
+    types::{BLOB_BASE_FEE_UPDATE_FRACTION, MIN_BASE_FEE_PER_BLOB_GAS},
+    Address, H256, U256,
+};
+use std::str::FromStr;
 
 // Block Information (11)
 // Opcodes: BLOCKHASH, COINBASE, TIMESTAMP, NUMBER, PREVRANDAO, GASLIMIT, CHAINID, SELFBALANCE, BASEFEE, BLOBHASH, BLOBBASEFEE
-use super::*;
 
 impl VM {
     // BLOCKHASH operation
@@ -15,12 +19,9 @@ impl VM {
         &mut self,
         current_call_frame: &mut CallFrame,
     ) -> Result<OpcodeSuccess, VMError> {
-        if self.env.consumed_gas + gas_cost::BLOCKHASH > self.env.gas_limit {
-            return Err(VMError::OutOfGas);
-        }
+        self.increase_consumed_gas(current_call_frame, gas_cost::BLOCKHASH)?;
 
         let block_number = current_call_frame.stack.pop()?;
-        self.env.consumed_gas += gas_cost::BLOCKHASH;
 
         // If the block number is not valid, return zero
         if block_number
@@ -34,10 +35,12 @@ impl VM {
             return Ok(OpcodeSuccess::Continue);
         }
 
-        if let Some(block_hash) = self.db.block_hashes.get(&block_number) {
+        let block_number = block_number.as_u64();
+
+        if let Some(block_hash) = self.db.get_block_hash(block_number) {
             current_call_frame
                 .stack
-                .push(U256::from_big_endian(&block_hash.0))?;
+                .push(U256::from_big_endian(block_hash.as_bytes()))?;
         } else {
             current_call_frame.stack.push(U256::zero())?;
         }
@@ -50,13 +53,11 @@ impl VM {
         &mut self,
         current_call_frame: &mut CallFrame,
     ) -> Result<OpcodeSuccess, VMError> {
-        if self.env.consumed_gas + gas_cost::COINBASE > self.env.gas_limit {
-            return Err(VMError::OutOfGas);
-        }
+        self.increase_consumed_gas(current_call_frame, gas_cost::COINBASE)?;
+
         current_call_frame
             .stack
             .push(address_to_word(self.env.coinbase))?;
-        self.env.consumed_gas += gas_cost::COINBASE;
 
         Ok(OpcodeSuccess::Continue)
     }
@@ -66,11 +67,9 @@ impl VM {
         &mut self,
         current_call_frame: &mut CallFrame,
     ) -> Result<OpcodeSuccess, VMError> {
-        if self.env.consumed_gas + gas_cost::TIMESTAMP > self.env.gas_limit {
-            return Err(VMError::OutOfGas);
-        }
+        self.increase_consumed_gas(current_call_frame, gas_cost::TIMESTAMP)?;
+
         current_call_frame.stack.push(self.env.timestamp)?;
-        self.env.consumed_gas += gas_cost::TIMESTAMP;
 
         Ok(OpcodeSuccess::Continue)
     }
@@ -80,12 +79,9 @@ impl VM {
         &mut self,
         current_call_frame: &mut CallFrame,
     ) -> Result<OpcodeSuccess, VMError> {
-        if self.env.consumed_gas + gas_cost::NUMBER > self.env.gas_limit {
-            return Err(VMError::OutOfGas);
-        }
+        self.increase_consumed_gas(current_call_frame, gas_cost::NUMBER)?;
 
         current_call_frame.stack.push(self.env.block_number)?;
-        self.env.consumed_gas += gas_cost::NUMBER;
 
         Ok(OpcodeSuccess::Continue)
     }
@@ -95,14 +91,12 @@ impl VM {
         &mut self,
         current_call_frame: &mut CallFrame,
     ) -> Result<OpcodeSuccess, VMError> {
-        if self.env.consumed_gas + gas_cost::PREVRANDAO > self.env.gas_limit {
-            return Err(VMError::OutOfGas);
-        }
+        self.increase_consumed_gas(current_call_frame, gas_cost::PREVRANDAO)?;
+
         let randao = self.env.prev_randao.unwrap_or_default(); // Assuming block_env has been integrated
         current_call_frame
             .stack
             .push(U256::from_big_endian(randao.0.as_slice()))?;
-        self.env.consumed_gas += gas_cost::PREVRANDAO;
 
         Ok(OpcodeSuccess::Continue)
     }
@@ -112,11 +106,9 @@ impl VM {
         &mut self,
         current_call_frame: &mut CallFrame,
     ) -> Result<OpcodeSuccess, VMError> {
-        if self.env.consumed_gas + gas_cost::GASLIMIT > self.env.gas_limit {
-            return Err(VMError::OutOfGas);
-        }
+        self.increase_consumed_gas(current_call_frame, gas_cost::GASLIMIT)?;
+
         current_call_frame.stack.push(self.env.gas_limit)?;
-        self.env.consumed_gas += gas_cost::GASLIMIT;
 
         Ok(OpcodeSuccess::Continue)
     }
@@ -126,11 +118,9 @@ impl VM {
         &mut self,
         current_call_frame: &mut CallFrame,
     ) -> Result<OpcodeSuccess, VMError> {
-        if self.env.consumed_gas + gas_cost::CHAINID > self.env.gas_limit {
-            return Err(VMError::OutOfGas);
-        }
+        self.increase_consumed_gas(current_call_frame, gas_cost::CHAINID)?;
+
         current_call_frame.stack.push(self.env.chain_id)?;
-        self.env.consumed_gas += gas_cost::CHAINID;
 
         Ok(OpcodeSuccess::Continue)
     }
@@ -140,15 +130,17 @@ impl VM {
         &mut self,
         current_call_frame: &mut CallFrame,
     ) -> Result<OpcodeSuccess, VMError> {
-        if self.env.consumed_gas + gas_cost::SELFBALANCE > self.env.gas_limit {
-            return Err(VMError::OutOfGas);
-        }
+        self.increase_consumed_gas(current_call_frame, gas_cost::SELFBALANCE)?;
 
-        let balance = self.db.balance(&current_call_frame.code_address);
+        // the current account should have been cached when the contract was called
+        let balance = self
+            .cache
+            .get_account(current_call_frame.code_address)
+            .expect("The current account should always be cached")
+            .info
+            .balance;
+
         current_call_frame.stack.push(balance)?;
-
-        self.env.consumed_gas += gas_cost::SELFBALANCE;
-
         Ok(OpcodeSuccess::Continue)
     }
 
@@ -157,29 +149,50 @@ impl VM {
         &mut self,
         current_call_frame: &mut CallFrame,
     ) -> Result<OpcodeSuccess, VMError> {
-        if self.env.consumed_gas + gas_cost::BASEFEE > self.env.gas_limit {
-            return Err(VMError::OutOfGas);
-        }
+        self.increase_consumed_gas(current_call_frame, gas_cost::BASEFEE)?;
+
         current_call_frame.stack.push(self.env.base_fee_per_gas)?;
-        self.env.consumed_gas += gas_cost::BASEFEE;
 
         Ok(OpcodeSuccess::Continue)
     }
 
     // BLOBHASH operation
+    /// Currently not tested
     pub fn op_blobhash(
         &mut self,
-        _current_call_frame: &mut CallFrame,
+        current_call_frame: &mut CallFrame,
     ) -> Result<OpcodeSuccess, VMError> {
-        if self.env.consumed_gas + gas_cost::BLOBHASH > self.env.gas_limit {
-            return Err(VMError::OutOfGas);
-        }
+        self.increase_consumed_gas(current_call_frame, gas_cost::BLOBHASH)?;
 
-        self.env.consumed_gas += gas_cost::BLOBHASH;
+        let index = current_call_frame.stack.pop()?.as_usize();
 
-        unimplemented!("when we have tx implemented");
+        let blob_hash: H256 = match &self.env.tx_blob_hashes {
+            Some(vec) => match vec.get(index) {
+                Some(el) => *el,
+                None => {
+                    return Err(VMError::BlobHashIndexOutOfBounds);
+                }
+            },
+            None => {
+                return Err(VMError::MissingBlobHashes);
+            }
+        };
 
-        // Ok(OpcodeSuccess::Continue)
+        // Could not find a better way to translate from H256 to U256
+        let u256_blob = U256::from(blob_hash.as_bytes());
+
+        current_call_frame.stack.push(u256_blob)?;
+
+        Ok(OpcodeSuccess::Continue)
+    }
+
+    fn get_blob_gasprice(&mut self) -> U256 {
+        fake_exponential(
+            MIN_BASE_FEE_PER_BLOB_GAS.into(),
+            // Use unwrap because env should have a Some value in excess_blob_gas attribute
+            self.env.block_excess_blob_gas.unwrap(),
+            BLOB_BASE_FEE_UPDATE_FRACTION.into(),
+        )
     }
 
     // BLOBBASEFEE operation
@@ -187,295 +200,30 @@ impl VM {
         &mut self,
         current_call_frame: &mut CallFrame,
     ) -> Result<OpcodeSuccess, VMError> {
-        if self.env.consumed_gas + gas_cost::BLOBBASEFEE > self.env.gas_limit {
-            return Err(VMError::OutOfGas);
-        }
-        // TODO: Calculate blob gas price.
-        let blob_base_fee = U256::zero();
+        self.increase_consumed_gas(current_call_frame, gas_cost::BLOBBASEFEE)?;
+
+        let blob_base_fee = self.get_blob_gasprice();
+
         current_call_frame.stack.push(blob_base_fee)?;
-        self.env.consumed_gas += gas_cost::BLOBBASEFEE;
 
-        Ok(OpcodeSuccess::Continue)
-    }
-
-    // ADDRESS operation
-    pub fn op_address(
-        &mut self,
-        current_call_frame: &mut CallFrame,
-    ) -> Result<OpcodeSuccess, VMError> {
-        if self.env.consumed_gas + gas_cost::ADDRESS > self.env.gas_limit {
-            return Err(VMError::OutOfGas);
-        }
-
-        let addr = if current_call_frame.delegate.is_some() {
-            current_call_frame.msg_sender
-        } else {
-            current_call_frame.code_address
-        };
-
-        current_call_frame.stack.push(U256::from(addr.as_bytes()))?;
-        self.env.consumed_gas += gas_cost::ADDRESS;
-
-        Ok(OpcodeSuccess::Continue)
-    }
-
-    // BALANCE operation
-    pub fn op_balance(
-        &mut self,
-        current_call_frame: &mut CallFrame,
-    ) -> Result<OpcodeSuccess, VMError> {
-        if self.env.consumed_gas + gas_cost::BALANCE > self.env.gas_limit {
-            return Err(VMError::OutOfGas);
-        }
-
-        let addr = current_call_frame.stack.pop()?;
-
-        let balance = self.db.balance(&word_to_address(addr));
-        current_call_frame.stack.push(balance)?;
-
-        self.env.consumed_gas += gas_cost::BALANCE;
-
-        Ok(OpcodeSuccess::Continue)
-    }
-
-    // ORIGIN operation
-    pub fn op_origin(
-        &mut self,
-        current_call_frame: &mut CallFrame,
-    ) -> Result<OpcodeSuccess, VMError> {
-        if self.env.consumed_gas + gas_cost::ORIGIN > self.env.gas_limit {
-            return Err(VMError::OutOfGas);
-        }
-
-        let origin = self.env.origin;
-        current_call_frame
-            .stack
-            .push(U256::from(origin.as_bytes()))?;
-
-        self.env.consumed_gas += gas_cost::ORIGIN;
-
-        Ok(OpcodeSuccess::Continue)
-    }
-
-    // CALLER operation
-    pub fn op_caller(
-        &mut self,
-        current_call_frame: &mut CallFrame,
-    ) -> Result<OpcodeSuccess, VMError> {
-        if self.env.consumed_gas + gas_cost::CALLER > self.env.gas_limit {
-            return Err(VMError::OutOfGas);
-        }
-
-        let caller = current_call_frame.msg_sender;
-        current_call_frame
-            .stack
-            .push(U256::from(caller.as_bytes()))?;
-
-        self.env.consumed_gas += gas_cost::CALLER;
-
-        Ok(OpcodeSuccess::Continue)
-    }
-
-    // CALLVALUE operation
-    pub fn op_callvalue(
-        &mut self,
-        current_call_frame: &mut CallFrame,
-    ) -> Result<OpcodeSuccess, VMError> {
-        if self.env.consumed_gas + gas_cost::CALLVALUE > self.env.gas_limit {
-            return Err(VMError::OutOfGas);
-        }
-
-        let callvalue = current_call_frame.msg_value;
-
-        current_call_frame.stack.push(callvalue)?;
-
-        self.env.consumed_gas += gas_cost::CALLVALUE;
-
-        Ok(OpcodeSuccess::Continue)
-    }
-
-    // CODESIZE operation
-    pub fn op_codesize(
-        &mut self,
-        current_call_frame: &mut CallFrame,
-    ) -> Result<OpcodeSuccess, VMError> {
-        if self.env.consumed_gas + gas_cost::CODESIZE > self.env.gas_limit {
-            return Err(VMError::OutOfGas);
-        }
-
-        current_call_frame
-            .stack
-            .push(U256::from(current_call_frame.bytecode.len()))?;
-
-        self.env.consumed_gas += gas_cost::CODESIZE;
-
-        Ok(OpcodeSuccess::Continue)
-    }
-
-    // CODECOPY operation
-    pub fn op_codecopy(
-        &mut self,
-        current_call_frame: &mut CallFrame,
-    ) -> Result<OpcodeSuccess, VMError> {
-        let dest_offset: usize = current_call_frame
-            .stack
-            .pop()?
-            .try_into()
-            .map_err(|_| VMError::VeryLargeNumber)?;
-        let offset: usize = current_call_frame
-            .stack
-            .pop()?
-            .try_into()
-            .map_err(|_| VMError::VeryLargeNumber)?;
-        let size: usize = current_call_frame
-            .stack
-            .pop()?
-            .try_into()
-            .map_err(|_| VMError::VeryLargeNumber)?;
-
-        let minimum_word_size = (size + WORD_SIZE - 1) / WORD_SIZE;
-
-        let memory_expansion_cost = current_call_frame
-            .memory
-            .expansion_cost(dest_offset + size)?;
-
-        let gas_cost = gas_cost::CODECOPY_STATIC
-            + gas_cost::CODECOPY_DYNAMIC_BASE * minimum_word_size
-            + memory_expansion_cost;
-
-        if self.env.consumed_gas + gas_cost > self.env.gas_limit {
-            return Err(VMError::OutOfGas);
-        }
-
-        let code = current_call_frame.bytecode.slice(offset..offset + size);
-
-        current_call_frame.memory.store_bytes(dest_offset, &code);
-
-        self.env.consumed_gas += gas_cost;
-
-        Ok(OpcodeSuccess::Continue)
-    }
-
-    // GASPRICE operation
-    pub fn op_gasprice(
-        &mut self,
-        current_call_frame: &mut CallFrame,
-    ) -> Result<OpcodeSuccess, VMError> {
-        if self.env.consumed_gas + gas_cost::GASPRICE > self.env.gas_limit {
-            return Err(VMError::OutOfGas);
-        }
-        // TODO: if not legacy or access list, then gas price is max_fee_per_gas
-        // TODO: Why do we unwrap here?
-        current_call_frame.stack.push(self.env.gas_price.unwrap())?;
-
-        self.env.consumed_gas += gas_cost::GASPRICE;
-
-        Ok(OpcodeSuccess::Continue)
-    }
-
-    // EXTCODESIZE operation
-    pub fn op_extcodesize(
-        &mut self,
-        current_call_frame: &mut CallFrame,
-    ) -> Result<OpcodeSuccess, VMError> {
-        let address = word_to_address(current_call_frame.stack.pop()?);
-        let gas_cost = if self.accrued_substate.warm_addresses.contains(&address) {
-            call_opcode::WARM_ADDRESS_ACCESS_COST
-        } else {
-            call_opcode::COLD_ADDRESS_ACCESS_COST
-        };
-        if self.env.consumed_gas + gas_cost > self.env.gas_limit {
-            return Err(VMError::OutOfGas);
-        }
-        let code_size = self.db.get_account_bytecode(&address).len();
-        current_call_frame.stack.push(code_size.into())?;
-
-        self.env.consumed_gas += gas_cost;
-        Ok(OpcodeSuccess::Continue)
-    }
-
-    // EXTCODECOPY operation
-    pub fn op_extcodecopy(
-        &mut self,
-        current_call_frame: &mut CallFrame,
-    ) -> Result<OpcodeSuccess, VMError> {
-        let address = word_to_address(current_call_frame.stack.pop()?);
-        let dest_offset: usize = current_call_frame
-            .stack
-            .pop()?
-            .try_into()
-            .map_err(|_| VMError::VeryLargeNumber)?;
-        let offset: usize = current_call_frame
-            .stack
-            .pop()?
-            .try_into()
-            .map_err(|_| VMError::VeryLargeNumber)?;
-        let size: usize = current_call_frame
-            .stack
-            .pop()?
-            .try_into()
-            .map_err(|_| VMError::VeryLargeNumber)?;
-
-        let minimum_word_size = (size + WORD_SIZE - 1) / WORD_SIZE;
-        let memory_expansion_cost = current_call_frame
-            .memory
-            .expansion_cost(dest_offset + size)?;
-        let address_access_cost = if self.accrued_substate.warm_addresses.contains(&address) {
-            call_opcode::WARM_ADDRESS_ACCESS_COST
-        } else {
-            call_opcode::COLD_ADDRESS_ACCESS_COST
-        };
-        let gas_cost = gas_cost::EXTCODECOPY_DYNAMIC_BASE * minimum_word_size
-            + memory_expansion_cost
-            + address_access_cost;
-        if self.env.consumed_gas + gas_cost > self.env.gas_limit {
-            return Err(VMError::OutOfGas);
-        }
-
-        let mut code = self.db.get_account_bytecode(&address);
-        if code.len() < offset + size {
-            let mut extended_code = code.to_vec();
-            extended_code.resize(offset + size, 0);
-            code = Bytes::from(extended_code);
-        }
-        current_call_frame
-            .memory
-            .store_bytes(dest_offset, &code[offset..offset + size]);
-
-        self.env.consumed_gas += gas_cost;
-        Ok(OpcodeSuccess::Continue)
-    }
-
-    // EXTCODEHASH operation
-    pub fn op_extcodehash(
-        &mut self,
-        current_call_frame: &mut CallFrame,
-    ) -> Result<OpcodeSuccess, VMError> {
-        let address = word_to_address(current_call_frame.stack.pop()?);
-        let gas_cost = if self.accrued_substate.warm_addresses.contains(&address) {
-            call_opcode::WARM_ADDRESS_ACCESS_COST
-        } else {
-            call_opcode::COLD_ADDRESS_ACCESS_COST
-        };
-        if self.env.consumed_gas + gas_cost > self.env.gas_limit {
-            return Err(VMError::OutOfGas);
-        }
-
-        let code = self.db.get_account_bytecode(&address);
-        let mut hasher = Keccak256::new();
-        hasher.update(code);
-        let result = hasher.finalize();
-        current_call_frame
-            .stack
-            .push(U256::from_big_endian(&result))?;
-
-        self.env.consumed_gas += gas_cost;
         Ok(OpcodeSuccess::Continue)
     }
 }
 
-use std::str::FromStr;
 fn address_to_word(address: Address) -> U256 {
     // This unwrap can't panic, as Address are 20 bytes long and U256 use 32 bytes
     U256::from_str(&format!("{address:?}")).unwrap()
+}
+
+// Fuction inspired in EIP 4844 helpers. Link: https://eips.ethereum.org/EIPS/eip-4844#helpers
+fn fake_exponential(factor: U256, numerator: U256, denominator: U256) -> U256 {
+    let mut i = U256::one();
+    let mut output = U256::zero();
+    let mut numerator_accum = factor * denominator;
+    while numerator_accum > U256::zero() {
+        output += numerator_accum;
+        numerator_accum = (numerator_accum * numerator) / (denominator * i);
+        i += U256::one();
+    }
+    output / denominator
 }

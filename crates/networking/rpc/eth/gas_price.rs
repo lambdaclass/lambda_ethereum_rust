@@ -1,9 +1,8 @@
 use ethereum_rust_blockchain::constants::MIN_GAS_LIMIT;
-use ethereum_rust_storage::Store;
 use tracing::error;
 
 use crate::utils::RpcErr;
-use crate::RpcHandler;
+use crate::{RpcApiContext, RpcHandler};
 use serde_json::Value;
 
 // TODO: This does not need a struct,
@@ -41,8 +40,8 @@ impl RpcHandler for GasPrice {
     // we can look into more sophisticated estimation methods, if needed.
     /// Estimate Gas Price based on already accepted transactions,
     /// as per the spec, this will be returned in wei.
-    fn handle(&self, storage: Store) -> Result<Value, RpcErr> {
-        let Some(latest_block_number) = storage.get_latest_block_number()? else {
+    fn handle(&self, context: RpcApiContext) -> Result<Value, RpcErr> {
+        let Some(latest_block_number) = context.storage.get_latest_block_number()? else {
             error!("FATAL: LATEST BLOCK NUMBER IS MISSING");
             return Err(RpcErr::Internal("Error calculating gas price".to_string()));
         };
@@ -64,7 +63,7 @@ impl RpcHandler for GasPrice {
         // caching this result, also we can have a specific DB method
         // that returns a block range to not query them one-by-one.
         for block_num in block_range {
-            let Some(block_body) = storage.get_block_body(block_num)? else {
+            let Some(block_body) = context.storage.get_block_body(block_num)? else {
                 error!("Block body for block number {block_num} is missing but is below the latest known block!");
                 return Err(RpcErr::Internal(
                     "Error calculating gas price: missing data".to_string(),
@@ -80,7 +79,19 @@ impl RpcHandler for GasPrice {
         }
         results.sort();
 
-        let sample_gas = results.get(results.len() / 2).unwrap_or(&MIN_GAS_LIMIT);
+        let sample_gas = match results.get(results.len() / 2) {
+            Some(gas) => *gas,
+            None => {
+                // If we don't have enough samples, we'll return the base fee or the min gas limit as a default.
+                context
+                    .storage
+                    .get_block_header(latest_block_number)
+                    .ok()
+                    .flatten()
+                    .and_then(|header| header.base_fee_per_gas)
+                    .unwrap_or(MIN_GAS_LIMIT)
+            }
+        };
 
         let gas_as_hex = format!("0x{:x}", sample_gas);
         Ok(serde_json::Value::String(gas_as_hex))
@@ -93,10 +104,9 @@ mod tests {
     use crate::{
         map_http_requests,
         utils::{parse_json_hex, test_utils::example_p2p_node, RpcRequest},
-        RpcHandler,
+        RpcApiContext, RpcHandler,
     };
     use bytes::Bytes;
-    use ethereum_rust_blockchain::constants::MIN_GAS_LIMIT;
     use ethereum_rust_core::{
         types::{
             Block, BlockBody, BlockHeader, EIP1559Transaction, Genesis, LegacyTransaction,
@@ -104,10 +114,11 @@ mod tests {
         },
         Address, Bloom, H256, U256,
     };
+    use ethereum_rust_net::types::Node;
     use ethereum_rust_storage::{EngineType, Store};
     use hex_literal::hex;
     use serde_json::json;
-    use std::str::FromStr;
+    use std::{net::Ipv4Addr, str::FromStr};
     // Base price for each test transaction.
     const BASE_PRICE_IN_WEI: u64 = 10_u64.pow(9);
     fn test_header(block_num: u64) -> BlockHeader {
@@ -198,7 +209,7 @@ mod tests {
     }
     #[test]
     fn test_for_legacy_txs() {
-        let store = setup_store();
+        let context = default_context();
         for block_num in 1..100 {
             let mut txs = vec![];
             for nonce in 1..=3 {
@@ -211,25 +222,26 @@ mod tests {
                 withdrawals: Default::default(),
             };
             let block_header = test_header(block_num);
-            let block = Block {
-                body: block_body,
-                header: block_header.clone(),
-            };
-            store.add_block(block).unwrap();
-            store
+            let block = Block::new(block_header.clone(), block_body);
+            context.storage.add_block(block).unwrap();
+            context
+                .storage
                 .set_canonical_block(block_num, block_header.compute_block_hash())
                 .unwrap();
-            store.update_latest_block_number(block_num).unwrap();
+            context
+                .storage
+                .update_latest_block_number(block_num)
+                .unwrap();
         }
         let gas_price = GasPrice {};
-        let response = gas_price.handle(store).unwrap();
+        let response = gas_price.handle(context).unwrap();
         let parsed_result = parse_json_hex(&response).unwrap();
         assert_eq!(parsed_result, 2000000000);
     }
 
     #[test]
     fn test_for_eip_1559_txs() {
-        let store = setup_store();
+        let context = default_context();
         for block_num in 1..100 {
             let mut txs = vec![];
             for nonce in 1..=3 {
@@ -241,24 +253,25 @@ mod tests {
                 withdrawals: Default::default(),
             };
             let block_header = test_header(block_num);
-            let block = Block {
-                body: block_body,
-                header: block_header.clone(),
-            };
-            store.add_block(block).unwrap();
-            store
+            let block = Block::new(block_header.clone(), block_body);
+            context.storage.add_block(block).unwrap();
+            context
+                .storage
                 .set_canonical_block(block_num, block_header.compute_block_hash())
                 .unwrap();
-            store.update_latest_block_number(block_num).unwrap();
+            context
+                .storage
+                .update_latest_block_number(block_num)
+                .unwrap();
         }
         let gas_price = GasPrice {};
-        let response = gas_price.handle(store).unwrap();
+        let response = gas_price.handle(context).unwrap();
         let parsed_result = parse_json_hex(&response).unwrap();
         assert_eq!(parsed_result, 2000000000);
     }
     #[test]
     fn test_with_mixed_transactions() {
-        let store = setup_store();
+        let context = default_context();
         for block_num in 1..100 {
             let txs = vec![
                 legacy_tx_for_test(1),
@@ -272,24 +285,25 @@ mod tests {
                 withdrawals: Default::default(),
             };
             let block_header = test_header(block_num);
-            let block = Block {
-                body: block_body,
-                header: block_header.clone(),
-            };
-            store.add_block(block).unwrap();
-            store
+            let block = Block::new(block_header.clone(), block_body);
+            context.storage.add_block(block).unwrap();
+            context
+                .storage
                 .set_canonical_block(block_num, block_header.compute_block_hash())
                 .unwrap();
-            store.update_latest_block_number(block_num).unwrap();
+            context
+                .storage
+                .update_latest_block_number(block_num)
+                .unwrap();
         }
         let gas_price = GasPrice {};
-        let response = gas_price.handle(store).unwrap();
+        let response = gas_price.handle(context).unwrap();
         let parsed_result = parse_json_hex(&response).unwrap();
         assert_eq!(parsed_result, 2000000000);
     }
     #[test]
     fn test_with_not_enough_blocks_or_transactions() {
-        let store = setup_store();
+        let context = default_context();
         for block_num in 1..10 {
             let txs = vec![legacy_tx_for_test(1)];
             let block_body = BlockBody {
@@ -298,27 +312,29 @@ mod tests {
                 withdrawals: Default::default(),
             };
             let block_header = test_header(block_num);
-            let block = Block {
-                body: block_body,
-                header: block_header.clone(),
-            };
-            store.add_block(block).unwrap();
-            store
+            let block = Block::new(block_header.clone(), block_body);
+            context.storage.add_block(block).unwrap();
+            context
+                .storage
                 .set_canonical_block(block_num, block_header.compute_block_hash())
                 .unwrap();
-            store.update_latest_block_number(block_num).unwrap();
+            context
+                .storage
+                .update_latest_block_number(block_num)
+                .unwrap();
         }
         let gas_price = GasPrice {};
-        let response = gas_price.handle(store).unwrap();
+        let response = gas_price.handle(context).unwrap();
         let parsed_result = parse_json_hex(&response).unwrap();
         assert_eq!(parsed_result, 1000000000);
     }
     #[test]
     fn test_with_no_blocks_but_genesis() {
-        let store = setup_store();
+        let context = default_context();
         let gas_price = GasPrice {};
-        let expected_gas_price = MIN_GAS_LIMIT;
-        let response = gas_price.handle(store).unwrap();
+        // genesis base fee is 1_000_000_000
+        let expected_gas_price = 1_000_000_000;
+        let response = gas_price.handle(context).unwrap();
         let parsed_result = parse_json_hex(&response).unwrap();
         assert_eq!(parsed_result, expected_gas_price);
     }
@@ -332,7 +348,8 @@ mod tests {
         });
         let expected_response = json!("0x3b9aca00");
         let request: RpcRequest = serde_json::from_value(raw_json).expect("Test json is not valid");
-        let storage = setup_store();
+        let mut context = default_context();
+        context.local_p2p_node = example_p2p_node();
 
         for block_num in 1..100 {
             let txs = vec![legacy_tx_for_test(1)];
@@ -342,18 +359,32 @@ mod tests {
                 withdrawals: Default::default(),
             };
             let block_header = test_header(block_num);
-            let block = Block {
-                body: block_body,
-                header: block_header.clone(),
-            };
-            storage.add_block(block).unwrap();
-            storage
+            let block = Block::new(block_header.clone(), block_body);
+            context.storage.add_block(block).unwrap();
+            context
+                .storage
                 .set_canonical_block(block_num, block_header.compute_block_hash())
                 .unwrap();
-            storage.update_latest_block_number(block_num).unwrap();
+            context
+                .storage
+                .update_latest_block_number(block_num)
+                .unwrap();
         }
-        let response =
-            map_http_requests(&request, storage, example_p2p_node(), Default::default()).unwrap();
+        let response = map_http_requests(&request, context).unwrap();
         assert_eq!(response, expected_response)
+    }
+
+    fn default_context() -> RpcApiContext {
+        RpcApiContext {
+            storage: setup_store(),
+            jwt_secret: Default::default(),
+            local_p2p_node: Node {
+                ip: std::net::IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1)),
+                udp_port: Default::default(),
+                tcp_port: Default::default(),
+                node_id: Default::default(),
+            },
+            active_filters: Default::default(),
+        }
     }
 }

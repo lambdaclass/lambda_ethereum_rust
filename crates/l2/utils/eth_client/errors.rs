@@ -12,10 +12,14 @@ pub enum EthClientError {
     EstimateGasPriceError(#[from] EstimateGasPriceError),
     #[error("eth_sendRawTransaction request error: {0}")]
     SendRawTransactionError(#[from] SendRawTransactionError),
+    #[error("eth_call request error: {0}")]
+    CallError(#[from] CallError),
     #[error("eth_getTransactionCount request error: {0}")]
     GetNonceError(#[from] GetNonceError),
     #[error("eth_blockNumber request error: {0}")]
     GetBlockNumberError(#[from] GetBlockNumberError),
+    #[error("eth_getBlockByHash request error: {0}")]
+    GetBlockByHashError(#[from] GetBlockByHashError),
     #[error("eth_getLogs request error: {0}")]
     GetLogsError(#[from] GetLogsError),
     #[error("eth_getTransactionReceipt request error: {0}")]
@@ -24,6 +28,8 @@ pub enum EthClientError {
     FailedToSerializeRequestBody(String),
     #[error("Failed to deserialize response body: {0}")]
     GetBalanceError(#[from] GetBalanceError),
+    #[error("eth_getTransactionByHash request error: {0}")]
+    GetTransactionByHashError(#[from] GetTransactionByHashError),
 }
 
 #[derive(Debug, thiserror::Error)]
@@ -63,6 +69,18 @@ pub enum SendRawTransactionError {
 }
 
 #[derive(Debug, thiserror::Error)]
+pub enum CallError {
+    #[error("{0}")]
+    ReqwestError(#[from] reqwest::Error),
+    #[error("{0}")]
+    SerdeJSONError(#[from] serde_json::Error),
+    #[error("{0}")]
+    RPCError(String),
+    #[error("{0}")]
+    ParseIntError(#[from] std::num::ParseIntError),
+}
+
+#[derive(Debug, thiserror::Error)]
 pub enum GetNonceError {
     #[error("{0}")]
     ReqwestError(#[from] reqwest::Error),
@@ -76,6 +94,18 @@ pub enum GetNonceError {
 
 #[derive(Debug, thiserror::Error)]
 pub enum GetBlockNumberError {
+    #[error("{0}")]
+    ReqwestError(#[from] reqwest::Error),
+    #[error("{0}")]
+    SerdeJSONError(#[from] serde_json::Error),
+    #[error("{0}")]
+    RPCError(String),
+    #[error("{0}")]
+    ParseIntError(#[from] std::num::ParseIntError),
+}
+
+#[derive(Debug, thiserror::Error)]
+pub enum GetBlockByHashError {
     #[error("{0}")]
     ReqwestError(#[from] reqwest::Error),
     #[error("{0}")]
@@ -112,6 +142,18 @@ pub enum GetTransactionReceiptError {
 
 #[derive(Debug, thiserror::Error)]
 pub enum GetBalanceError {
+    #[error("{0}")]
+    ReqwestError(#[from] reqwest::Error),
+    #[error("{0}")]
+    SerdeJSONError(#[from] serde_json::Error),
+    #[error("{0}")]
+    RPCError(String),
+    #[error("{0}")]
+    ParseIntError(#[from] std::num::ParseIntError),
+}
+
+#[derive(Debug, thiserror::Error)]
+pub enum GetTransactionByHashError {
     #[error("{0}")]
     ReqwestError(#[from] reqwest::Error),
     #[error("{0}")]

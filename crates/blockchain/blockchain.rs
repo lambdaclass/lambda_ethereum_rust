@@ -15,9 +15,7 @@ use ethereum_rust_core::H256;
 
 use ethereum_rust_storage::error::StoreError;
 use ethereum_rust_storage::Store;
-use ethereum_rust_vm::{
-    evm_state, execute_block, get_state_transitions, spec_id, EvmState, SpecId,
-};
+use ethereum_rust_vm::{evm_state, execute_block, spec_id, EvmState, SpecId};
 
 //TODO: Implement a struct Chain or BlockChain to encapsulate
 //functionality and canonical chain state and config
@@ -27,11 +25,18 @@ use ethereum_rust_vm::{
 /// canonical chain/head. Fork choice needs to be updated for that in a separate step.
 ///
 /// Performs pre and post execution validation, and updates the database with the post state.
+#[cfg(not(feature = "levm"))]
 pub fn add_block(block: &Block, storage: &Store) -> Result<(), ChainError> {
-    // TODO(#438): handle cases where blocks are missing between the canonical chain and the block.
+    use ethereum_rust_vm::get_state_transitions;
+
+    let block_hash = block.header.compute_block_hash();
 
     // Validate if it can be the new head and find the parent
-    let parent_header = find_parent_header(&block.header, storage)?;
+    let Ok(parent_header) = find_parent_header(&block.header, storage) else {
+        // If the parent is not present, we store it as pending.
+        storage.add_pending_block(block.clone())?;
+        return Err(ChainError::ParentNotFound);
+    };
     let mut state = evm_state(storage.clone(), block.header.parent_hash);
 
     // Validate the block pre-execution
@@ -46,13 +51,56 @@ pub fn add_block(block: &Block, storage: &Store) -> Result<(), ChainError> {
     // Apply the account updates over the last block's state and compute the new state root
     let new_state_root = state
         .database()
+        .ok_or(ChainError::StoreError(StoreError::MissingStore))?
         .apply_account_updates(block.header.parent_hash, &account_updates)?
-        .unwrap_or_default();
+        .ok_or(ChainError::ParentStateNotFound)?;
 
     // Check state root matches the one in block header after execution
     validate_state_root(&block.header, new_state_root)?;
 
+    store_block(storage, block.clone())?;
+    store_receipts(storage, receipts, block_hash)?;
+
+    Ok(())
+}
+
+/// Adds a new block to the store. It may or may not be canonical, as long as its ancestry links
+/// with the canonical chain and its parent's post-state is calculated. It doesn't modify the
+/// canonical chain/head. Fork choice needs to be updated for that in a separate step.
+///
+/// Performs pre and post execution validation, and updates the database with the post state.
+#[cfg(feature = "levm")]
+pub fn add_block(block: &Block, storage: &Store) -> Result<(), ChainError> {
     let block_hash = block.header.compute_block_hash();
+
+    // Validate if it can be the new head and find the parent
+    let Ok(parent_header) = find_parent_header(&block.header, storage) else {
+        // If the parent is not present, we store it as pending.
+        storage.add_pending_block(block.clone())?;
+        return Err(ChainError::ParentNotFound);
+    };
+    let mut state = evm_state(storage.clone(), block.header.parent_hash);
+
+    // Validate the block pre-execution
+    validate_block(block, &parent_header, &state)?;
+
+    let (receipts, account_updates) = execute_block(block, &mut state)?;
+
+    // Note: these is commented because it is still being used in development.
+    // dbg!(&account_updates);
+
+    validate_gas_used(&receipts, &block.header)?;
+
+    // Apply the account updates over the last block's state and compute the new state root
+    let new_state_root = state
+        .database()
+        .ok_or(ChainError::StoreError(StoreError::MissingStore))?
+        .apply_account_updates(block.header.parent_hash, &account_updates)?
+        .ok_or(ChainError::ParentStateNotFound)?;
+
+    // Check state root matches the one in block header after execution
+    validate_state_root(&block.header, new_state_root)?;
+
     store_block(storage, block.clone())?;
     store_receipts(storage, receipts, block_hash)?;
 
@@ -105,7 +153,7 @@ pub fn latest_canonical_block_hash(storage: &Store) -> Result<H256, ChainError> 
 }
 
 /// Validates if the provided block could be the new head of the chain, and returns the
-/// parent_header in that case
+/// parent_header in that case. If not found, the new block is saved as pending.
 pub fn find_parent_header(
     block_header: &BlockHeader,
     storage: &Store,
@@ -124,7 +172,10 @@ pub fn validate_block(
     parent_header: &BlockHeader,
     state: &EvmState,
 ) -> Result<(), ChainError> {
-    let spec = spec_id(state.database(), block.header.timestamp).unwrap();
+    let spec = spec_id(
+        &state.chain_config().map_err(ChainError::from)?,
+        block.header.timestamp,
+    );
 
     // Verify initial header validity against parent
     validate_block_header(&block.header, parent_header).map_err(InvalidBlockError::from)?;
@@ -154,8 +205,14 @@ pub fn is_canonical(
     }
 }
 
-fn validate_gas_used(receipts: &[Receipt], block_header: &BlockHeader) -> Result<(), ChainError> {
+pub fn validate_gas_used(
+    receipts: &[Receipt],
+    block_header: &BlockHeader,
+) -> Result<(), ChainError> {
     if let Some(last) = receipts.last() {
+        // Note: This is commented because it is still being used in development.
+        // dbg!(last.cumulative_gas_used);
+        // dbg!(block_header.gas_used);
         if last.cumulative_gas_used != block_header.gas_used {
             return Err(ChainError::InvalidBlock(InvalidBlockError::GasUsedMismatch));
         }

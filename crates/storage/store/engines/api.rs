@@ -1,10 +1,9 @@
 use bytes::Bytes;
 use ethereum_rust_core::types::{
-    BlobsBundle, Block, BlockBody, BlockHash, BlockHeader, BlockNumber, ChainConfig, Index,
-    MempoolTransaction, Receipt, Transaction,
+    Block, BlockBody, BlockHash, BlockHeader, BlockNumber, ChainConfig, Index, Receipt, Transaction,
 };
-use ethereum_types::{Address, H256, U256};
-use std::{collections::HashMap, fmt::Debug, panic::RefUnwindSafe};
+use ethereum_types::{H256, U256};
+use std::{fmt::Debug, panic::RefUnwindSafe};
 
 use crate::error::StoreError;
 use ethereum_rust_trie::Trie;
@@ -44,6 +43,9 @@ pub trait StoreEngine: Debug + Send + Sync + RefUnwindSafe {
         block_hash: BlockHash,
     ) -> Result<Option<BlockHeader>, StoreError>;
 
+    fn add_pending_block(&self, block: Block) -> Result<(), StoreError>;
+    fn get_pending_block(&self, block_hash: BlockHash) -> Result<Option<Block>, StoreError>;
+
     /// Add block number for a given hash
     fn add_block_number(
         &self,
@@ -81,39 +83,6 @@ pub trait StoreEngine: Debug + Send + Sync + RefUnwindSafe {
         &self,
         transaction_hash: H256,
     ) -> Result<Option<(BlockNumber, BlockHash, Index)>, StoreError>;
-
-    /// Add transaction to the pool
-    fn add_transaction_to_pool(
-        &self,
-        hash: H256,
-        transaction: MempoolTransaction,
-    ) -> Result<(), StoreError>;
-
-    /// Get a transaction from the pool
-    fn get_transaction_from_pool(
-        &self,
-        hash: H256,
-    ) -> Result<Option<MempoolTransaction>, StoreError>;
-
-    /// Store blobs bundle into the pool table by its blob transaction's hash
-    fn add_blobs_bundle_to_pool(
-        &self,
-        tx_hash: H256,
-        blobs_bundle: BlobsBundle,
-    ) -> Result<(), StoreError>;
-
-    /// Get a blobs bundle from pool table given its blob transaction's hash
-    fn get_blobs_bundle_from_pool(&self, tx_hash: H256) -> Result<Option<BlobsBundle>, StoreError>;
-
-    /// Remove a transaction from the pool
-    fn remove_transaction_from_pool(&self, hash: H256) -> Result<(), StoreError>;
-
-    /// Applies the filter and returns a set of suitable transactions from the mempool.
-    /// These transactions will be grouped by sender and sorted by nonce
-    fn filter_pool_transactions(
-        &self,
-        filter: &dyn Fn(&Transaction) -> bool,
-    ) -> Result<HashMap<Address, Vec<MempoolTransaction>>, StoreError>;
 
     /// Add receipt
     fn add_receipt(
@@ -172,7 +141,7 @@ pub trait StoreEngine: Debug + Send + Sync + RefUnwindSafe {
             Some(body) => body,
             None => return Ok(None),
         };
-        Ok(Some(Block { header, body }))
+        Ok(Some(Block::new(header, body)))
     }
 
     // Get the canonical block hash for a given block number.
@@ -232,7 +201,7 @@ pub trait StoreEngine: Debug + Send + Sync + RefUnwindSafe {
     // Obtain a storage trie from the given address and storage_root
     // Doesn't check if the account is stored
     // Used for internal store operations
-    fn open_storage_trie(&self, address: Address, storage_root: H256) -> Trie;
+    fn open_storage_trie(&self, hashed_address: H256, storage_root: H256) -> Trie;
 
     // Obtain a state trie from the given state root
     // Doesn't check if the state root is valid

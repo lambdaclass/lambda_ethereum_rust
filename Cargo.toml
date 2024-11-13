@@ -14,9 +14,18 @@ members = [
     "cmd/ethereum_rust_l2",
     "crates/vm/levm",
     "crates/vm/levm/bench/revm_comparison",
+    "crates/l2/",
+    "crates/l2/prover",
+    "crates/l2/contracts",
+    "crates/l2/sdk",
 ]
 resolver = "2"
-default-members = ["cmd/ethereum_rust", "cmd/ethereum_rust_l2"]
+
+default-members = [
+    "cmd/ethereum_rust",
+    "cmd/ethereum_rust_l2",
+    "crates/l2/prover",
+]
 
 [workspace.package]
 version = "0.1.0"
@@ -32,6 +41,7 @@ ethereum_rust-vm = { path = "./crates/vm" }
 ethereum_rust-trie = { path = "./crates/storage/trie" }
 ethereum_rust-rlp = { path = "./crates/common/rlp" }
 ethereum_rust-l2 = { path = "./crates/l2" }
+ethereum_rust-prover = { path = "./crates/l2/prover" }
 
 tracing = { version = "0.1", features = ["log"] }
 tracing-subscriber = "0.3.0"
@@ -53,3 +63,4 @@ jsonwebtoken = "9.3.0"
 rand = "0.8.5"
 cfg-if = "1.0.0"
 reqwest = { version = "0.12.7", features = ["json"] }
+snap = "1.1.1"

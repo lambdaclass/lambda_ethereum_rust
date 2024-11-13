@@ -1,9 +1,14 @@
-use crate::constants::WORD_SIZE;
+use crate::{
+    call_frame::CallFrame,
+    constants::{gas_cost, WORD_SIZE},
+    errors::{OpcodeSuccess, VMError},
+    vm::VM,
+};
+use ethereum_rust_core::U256;
+use sha3::{Digest, Keccak256};
 
 // KECCAK256 (1)
 // Opcodes: KECCAK256
-use super::*;
-use sha3::{Digest, Keccak256};
 
 impl VM {
     pub fn op_keccak256(
@@ -22,15 +27,18 @@ impl VM {
             .unwrap_or(usize::MAX);
 
         let minimum_word_size = (size + WORD_SIZE - 1) / WORD_SIZE;
-        let memory_expansion_cost = current_call_frame.memory.expansion_cost(offset + size)?;
+        let memory_expansion_cost = current_call_frame.memory.expansion_cost(
+            offset
+                .checked_add(size)
+                .ok_or(VMError::MemoryLoadOutOfBounds)?,
+        )?;
         let gas_cost = gas_cost::KECCAK25_STATIC
             + gas_cost::KECCAK25_DYNAMIC_BASE * minimum_word_size
             + memory_expansion_cost;
-        if self.env.consumed_gas + gas_cost > self.env.gas_limit {
-            return Err(VMError::OutOfGas);
-        }
 
-        let value_bytes = current_call_frame.memory.load_range(offset, size);
+        self.increase_consumed_gas(current_call_frame, gas_cost)?;
+
+        let value_bytes = current_call_frame.memory.load_range(offset, size)?;
 
         let mut hasher = Keccak256::new();
         hasher.update(value_bytes);
@@ -38,7 +46,6 @@ impl VM {
         current_call_frame
             .stack
             .push(U256::from_big_endian(&result))?;
-        self.env.consumed_gas += gas_cost;
 
         Ok(OpcodeSuccess::Continue)
     }

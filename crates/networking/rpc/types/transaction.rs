@@ -2,24 +2,29 @@ use ethereum_rust_core::{
     serde_utils,
     types::{
         BlobsBundle, BlockHash, BlockNumber, EIP1559Transaction, EIP2930Transaction,
-        EIP4844Transaction, LegacyTransaction, Transaction,
+        EIP4844Transaction, LegacyTransaction, PrivilegedL2Transaction, Transaction,
     },
     Address, H256,
 };
-use ethereum_rust_rlp::{decode::RLPDecode, error::RLPDecodeError, structs::Decoder};
-use serde::Serialize;
+use ethereum_rust_rlp::{
+    decode::RLPDecode,
+    encode::RLPEncode,
+    error::RLPDecodeError,
+    structs::{Decoder, Encoder},
+};
+use serde::{Deserialize, Serialize};
 
 #[allow(unused)]
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct RpcTransaction {
     #[serde(flatten)]
-    tx: Transaction,
+    pub tx: Transaction,
     #[serde(with = "serde_utils::u64::hex_str")]
     block_number: BlockNumber,
     block_hash: BlockHash,
     from: Address,
-    hash: H256,
+    pub hash: H256,
     #[serde(with = "serde_utils::u64::hex_str")]
     transaction_index: u64,
 }
@@ -50,6 +55,7 @@ pub enum SendRawTransactionRequest {
     EIP2930(EIP2930Transaction),
     EIP1559(EIP1559Transaction),
     EIP4844(WrappedEIP4844Transaction),
+    PriviligedL2(PrivilegedL2Transaction),
 }
 
 // NOTE: We might move this transaction definitions to `core/types/transactions.rs` later on.
@@ -58,6 +64,18 @@ pub enum SendRawTransactionRequest {
 pub struct WrappedEIP4844Transaction {
     pub tx: EIP4844Transaction,
     pub blobs_bundle: BlobsBundle,
+}
+
+impl RLPEncode for WrappedEIP4844Transaction {
+    fn encode(&self, buf: &mut dyn bytes::BufMut) {
+        let encoder = Encoder::new(buf);
+        encoder
+            .encode_field(&self.tx)
+            .encode_field(&self.blobs_bundle.blobs)
+            .encode_field(&self.blobs_bundle.commitments)
+            .encode_field(&self.blobs_bundle.proofs)
+            .finish();
+    }
 }
 
 impl RLPDecode for WrappedEIP4844Transaction {
@@ -87,6 +105,9 @@ impl SendRawTransactionRequest {
             SendRawTransactionRequest::EIP1559(t) => Transaction::EIP1559Transaction(t.clone()),
             SendRawTransactionRequest::EIP2930(t) => Transaction::EIP2930Transaction(t.clone()),
             SendRawTransactionRequest::EIP4844(t) => Transaction::EIP4844Transaction(t.tx.clone()),
+            SendRawTransactionRequest::PriviligedL2(t) => {
+                Transaction::PrivilegedL2Transaction(t.clone())
+            }
         }
     }
 
@@ -113,6 +134,8 @@ impl SendRawTransactionRequest {
                     // EIP4844
                     0x3 => WrappedEIP4844Transaction::decode(tx_bytes)
                         .map(SendRawTransactionRequest::EIP4844),
+                    0x7e => PrivilegedL2Transaction::decode(tx_bytes)
+                        .map(SendRawTransactionRequest::PriviligedL2),
                     ty => Err(RLPDecodeError::Custom(format!(
                         "Invalid transaction type: {ty}"
                     ))),

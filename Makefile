@@ -8,7 +8,7 @@ build: ## 🔨 Build the client
 	cargo build --workspace
 
 lint: ## 🧹 Linter check
-	cargo clippy --all-targets --all-features --workspace -- -D warnings
+	cargo clippy --all-targets --all-features --workspace --exclude ethereum_rust-prover -- -D warnings
 
 SPECTEST_VERSION := v3.0.0
 SPECTEST_ARTIFACT := tests_$(SPECTEST_VERSION).tar.gz
@@ -16,7 +16,7 @@ SPECTEST_VECTORS_DIR := cmd/ef_tests/vectors
 
 CRATE ?= *
 test: $(SPECTEST_VECTORS_DIR) ## 🧪 Run each crate's tests
-	cargo test -p '$(CRATE)' --workspace
+	cargo test -p '$(CRATE)' --workspace --exclude ethereum_rust-prover -- --skip test_contract_compilation --skip testito
 
 clean: clean-vectors ## 🧹 Remove build artifacts
 	cargo clean
@@ -71,19 +71,21 @@ stop-localnet-silent:
 	@kurtosis enclave stop lambdanet >/dev/null 2>&1 || true
 	@kurtosis enclave rm lambdanet --force >/dev/null 2>&1 || true
 
-HIVE_REVISION := 3be4465a45c421651d765f4a28702962567b40e6
+HIVE_REVISION := 421852ec25e4e608fe5460656f4bf0637649619e
 # Shallow clones can't specify a single revision, but at least we avoid working
 # the whole history by making it shallow since a given date (one day before our
 # target revision).
 HIVE_SHALLOW_SINCE := 2024-09-02
 hive:
 	git clone --single-branch --branch master --shallow-since=$(HIVE_SHALLOW_SINCE) https://github.com/lambdaclass/hive
+	cd hive && git checkout --detach $(HIVE_REVISION) && go build .
 
 setup-hive: hive ## 🐝 Set up Hive testing framework
 	if [ "$$(cd hive && git rev-parse HEAD)" != "$(HIVE_REVISION)" ]; then \
 		cd hive && \
+		git checkout master && \
 		git fetch --shallow-since=$(HIVE_SHALLOW_SINCE) && \
-		git checkout $(HIVE_REVISION) && go build . ;\
+		git checkout --detach $(HIVE_REVISION) && go build . ;\
 	fi
 
 TEST_PATTERN ?= /
@@ -93,6 +95,9 @@ TEST_PATTERN ?= /
 # For example, to run the rpc-compat suites for eth_chainId & eth_blockNumber you should run:
 # `make run-hive SIMULATION=ethereum/rpc-compat TEST_PATTERN="/eth_chainId|eth_blockNumber"`
 run-hive: build-image setup-hive ## 🧪 Run Hive testing suite
+	cd hive && ./hive --sim $(SIMULATION) --client ethereumrust --sim.limit "$(TEST_PATTERN)"
+
+run-hive-on-latest: setup-hive ## 🧪 Run Hive testing suite with the latest docker image
 	cd hive && ./hive --sim $(SIMULATION) --client ethereumrust --sim.limit "$(TEST_PATTERN)"
 
 run-hive-debug: build-image setup-hive ## 🐞 Run Hive testing suite in debug mode

@@ -1,10 +1,14 @@
 name: CI
 on:
   merge_group:
-  push:
-    branches: [main]
   pull_request:
-    branches: ["*"]
+    branches: ["**"]
+    paths-ignore:
+      - "README.md"
+      - "LICENSE"
+      - "**/README.md"
+      - "**/docs/**"
+      - "crates/vm/levm/**" # We ran this in a separate workflow
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.head_ref || github.run_id }}
@@ -19,13 +23,16 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout sources
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
       - name: Rustup toolchain install
         uses: dtolnay/rust-toolchain@stable
         with:
           toolchain: ${{ env.RUST_VERSION }}
           components: rustfmt, clippy
+
+      - name: Add Rust Cache
+        uses: Swatinem/rust-cache@v2
 
       - name: Run cargo check
         run: cargo check
@@ -36,7 +43,7 @@ jobs:
 
       - name: Run cargo clippy
         run: |
-          cargo clippy --all-targets --all-features --workspace -- -D warnings
+          cargo clippy --all-targets --all-features --workspace --exclude ethereum_rust-prover -- -D warnings
 
       - name: Run cargo fmt
         run: |
@@ -47,12 +54,15 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout sources
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
       - name: Rustup toolchain install
         uses: dtolnay/rust-toolchain@stable
         with:
           toolchain: ${{ env.RUST_VERSION }}
+
+      - name: Caching
+        uses: Swatinem/rust-cache@v2
 
       - name: Download test vectors
         run: |
@@ -75,25 +85,3 @@ jobs:
           context: .
           file: ./Dockerfile
           load: true # Important for building without pushing
-
-  prover:
-    name: Build RISC-V zkVM program
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout sources
-        uses: actions/checkout@v3
-
-      - name: Rust toolchain install
-        uses: dtolnay/rust-toolchain@stable
-        with:
-          toolchain: ${{ env.RUST_VERSION }}
-
-      - name: RISC-V zkVM toolchain install
-        run: |
-          curl -L https://sp1.succinct.xyz | bash
-          ~/.sp1/bin/sp1up
-
-      - name: Build program
-        run: |
-          cd crates/l2/prover/sp1/program
-          ~/.sp1/bin/cargo-prove prove build

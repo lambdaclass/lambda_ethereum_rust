@@ -5,7 +5,7 @@ use crate::{
         MAX_INITCODE_SIZE, MIN_BASE_FEE_PER_BLOB_GAS, TX_ACCESS_LIST_ADDRESS_GAS,
         TX_ACCESS_LIST_STORAGE_KEY_GAS, TX_CREATE_GAS_COST, TX_DATA_NON_ZERO_GAS,
         TX_DATA_NON_ZERO_GAS_EIP2028, TX_DATA_ZERO_GAS_COST, TX_GAS_COST,
-        TX_INIT_CODE_WORD_GAS_COST,
+        TX_INIT_CODE_WORD_GAS_COST, VERSIONED_HASH_VERSION_KZG,
     },
     error::MempoolError,
 };
@@ -54,14 +54,6 @@ pub fn add_transaction(transaction: Transaction, store: Store) -> Result<H256, M
     Ok(hash)
 }
 
-/// Fetch a transaction from the mempool
-pub fn get_transaction(
-    hash: H256,
-    store: Store,
-) -> Result<Option<MempoolTransaction>, MempoolError> {
-    Ok(store.get_transaction_from_pool(hash)?)
-}
-
 /// Fetch a blobs bundle from the mempool given its blob transaction hash
 pub fn get_blobs_bundle(tx_hash: H256, store: Store) -> Result<Option<BlobsBundle>, MempoolError> {
     Ok(store.get_blobs_bundle_from_pool(tx_hash)?)
@@ -79,6 +71,7 @@ pub fn filter_transactions(
         if filter.only_plain_txs && is_blob_tx || filter.only_blob_txs && !is_blob_tx {
             return false;
         }
+
         // Filter by tip & base_fee
         if let Some(min_tip) = filter.min_tip {
             if !tx
@@ -87,7 +80,13 @@ pub fn filter_transactions(
             {
                 return false;
             }
+        // This is a temporary fix to avoid invalid transactions to be included.
+        // This should be removed once https://github.com/lambdaclass/ethereum_rust/issues/680
+        // is addressed.
+        } else if tx.effective_gas_tip(filter.base_fee).is_none() {
+            return false;
         }
+
         // Filter by blob gas fee
         if let (true, Some(blob_fee)) = (is_blob_tx, filter.blob_fee) {
             if !tx.max_fee_per_blob_gas().is_some_and(|fee| fee >= blob_fee) {
@@ -100,8 +99,26 @@ pub fn filter_transactions(
 }
 
 /// Remove a transaction from the mempool
-pub fn remove_transaction(hash: H256, store: &Store) -> Result<(), StoreError> {
+pub fn remove_transaction(hash: &H256, store: &Store) -> Result<(), StoreError> {
     store.remove_transaction_from_pool(hash)
+}
+
+pub fn get_nonce(address: &Address, store: &Store) -> Result<Option<u64>, MempoolError> {
+    let pending_filter = PendingTxFilter {
+        min_tip: None,
+        base_fee: None,
+        blob_fee: None,
+        only_plain_txs: false,
+        only_blob_txs: false,
+    };
+
+    let pending_txs = filter_transactions(&pending_filter, store)?;
+    let nonce = match pending_txs.get(address) {
+        Some(txs) => txs.last().map(|tx| tx.nonce() + 1),
+        None => None,
+    };
+
+    Ok(nonce)
 }
 
 #[derive(Debug, Default)]
@@ -189,6 +206,31 @@ fn validate_transaction(tx: &Transaction, store: Store) -> Result<(), MempoolErr
         }
     }
 
+    let maybe_sender_acc_info = store.get_account_info(header_no, tx.sender())?;
+
+    if let Some(sender_acc_info) = maybe_sender_acc_info {
+        if tx.nonce() < sender_acc_info.nonce {
+            return Err(MempoolError::InvalidNonce);
+        }
+
+        let tx_cost = tx
+            .cost_without_base_fee()
+            .ok_or(MempoolError::InvalidTxGasvalues)?;
+
+        if tx_cost > sender_acc_info.balance {
+            return Err(MempoolError::NotEnoughBalance);
+        }
+    } else {
+        // An account that is not in the database cannot possibly have enough balance to cover the transaction cost
+        return Err(MempoolError::NotEnoughBalance);
+    }
+
+    if let Some(chain_id) = tx.chain_id() {
+        if chain_id != config.chain_id {
+            return Err(MempoolError::InvalidChainId(config.chain_id));
+        }
+    }
+
     Ok(())
 }
 
@@ -197,13 +239,33 @@ fn validate_blobs_bundle(
     blobs_bundle: &BlobsBundle,
 ) -> Result<(), MempoolError> {
     let tx_blob_count = tx.blob_versioned_hashes.len();
+
     if tx_blob_count != blobs_bundle.blobs.len()
         || tx_blob_count != blobs_bundle.commitments.len()
         || tx_blob_count != blobs_bundle.proofs.len()
     {
         return Err(MempoolError::BlobsBundleWrongLen);
     };
+
+    // return error early if any commitment doesn't match it's blob versioned hash
+    for (commitment, blob_versioned_hash) in blobs_bundle
+        .commitments
+        .iter()
+        .zip(tx.blob_versioned_hashes.iter())
+    {
+        if *blob_versioned_hash != kzg_to_versioned_hash(commitment) {
+            return Err(MempoolError::BlobVersionedHashesIncorrectError);
+        }
+    }
+
     Ok(())
+}
+
+pub fn kzg_to_versioned_hash(data: &[u8]) -> H256 {
+    use k256::sha2::Digest;
+    let mut versioned_hash: [u8; 32] = k256::sha2::Sha256::digest(data).into();
+    versioned_hash[0] = VERSIONED_HASH_VERSION_KZG;
+    versioned_hash.into()
 }
 
 fn transaction_intrinsic_gas(
@@ -266,7 +328,6 @@ fn transaction_intrinsic_gas(
 
     Ok(gas)
 }
-
 #[cfg(test)]
 mod tests {
     use crate::error::MempoolError;
@@ -276,15 +337,15 @@ mod tests {
         TX_DATA_ZERO_GAS_COST, TX_GAS_COST, TX_INIT_CODE_WORD_GAS_COST,
     };
 
-    use super::{
-        add_transaction, get_transaction, transaction_intrinsic_gas, validate_transaction,
-    };
+    use super::{transaction_intrinsic_gas, validate_blobs_bundle, validate_transaction};
     use ethereum_rust_core::types::{
-        BlockHeader, ChainConfig, EIP1559Transaction, EIP4844Transaction, Transaction, TxKind,
+        BlobsBundle, BlockHeader, ChainConfig, EIP1559Transaction, EIP4844Transaction, Transaction,
+        TxKind, BYTES_PER_BLOB,
     };
     use ethereum_rust_core::{Address, Bytes, H256, U256};
     use ethereum_rust_storage::EngineType;
     use ethereum_rust_storage::{error::StoreError, Store};
+    use hex;
 
     fn setup_storage(config: ChainConfig, header: BlockHeader) -> Result<Store, StoreError> {
         let store = Store::new("test", EngineType::InMemory)?;
@@ -296,16 +357,6 @@ mod tests {
         store.set_chain_config(&config)?;
 
         Ok(store)
-    }
-
-    fn tx_equal(t1: &Transaction, t2: &Transaction) -> bool {
-        t1.nonce() == t2.nonce()
-            && t1.max_priority_fee().unwrap_or_default()
-                == t2.max_priority_fee().unwrap_or_default()
-            && t1.max_fee_per_gas().unwrap_or_default() == t2.max_fee_per_gas().unwrap_or_default()
-            && t1.gas_limit() == t2.gas_limit()
-            && t1.value() == t2.value()
-            && *t1.data() == *t2.data()
     }
 
     fn build_basic_config_and_header(
@@ -327,43 +378,6 @@ mod tests {
         };
 
         (config, header)
-    }
-
-    #[test]
-    fn store_and_fetch_transaction_happy_path() {
-        let config = ChainConfig {
-            shanghai_time: Some(10),
-            ..Default::default()
-        };
-
-        let header = BlockHeader {
-            number: 123,
-            gas_limit: 30_000_000,
-            gas_used: 0,
-            timestamp: 20,
-            ..Default::default()
-        };
-
-        let store = setup_storage(config, header).expect("Setup failed: ");
-
-        let tx = EIP1559Transaction {
-            nonce: 3,
-            max_priority_fee_per_gas: 0,
-            max_fee_per_gas: 0,
-            gas_limit: 100_000,
-            to: TxKind::Call(Address::from_low_u64_be(1)),
-            value: U256::zero(),
-            data: Bytes::default(),
-            access_list: Default::default(),
-            ..Default::default()
-        };
-
-        let tx = Transaction::EIP1559Transaction(tx);
-        let hash = add_transaction(tx.clone(), store.clone()).expect("Add transaction");
-        let ret_tx = get_transaction(hash, store).expect("Get transaction");
-        assert!(ret_tx.is_some());
-        let ret_tx = ret_tx.unwrap();
-        assert!(tx_equal(&tx, &ret_tx))
     }
 
     #[test]
@@ -671,6 +685,118 @@ mod tests {
         assert!(matches!(
             validation,
             Err(MempoolError::TxBlobBaseFeeTooLowError)
+        ));
+    }
+
+    #[test]
+    fn transaction_with_correct_blobs_should_pass() {
+        let convert_str_to_bytes48 = |s| {
+            let bytes = hex::decode(s).expect("Invalid hex string");
+            let mut array = [0u8; 48];
+            array.copy_from_slice(&bytes[..48]);
+            array
+        };
+
+        // blob data taken from: https://etherscan.io/tx/0x02a623925c05c540a7633ffa4eb78474df826497faa81035c4168695656801a2#blobs
+
+        let blobs_bundle = BlobsBundle {
+            blobs: vec![[0; BYTES_PER_BLOB], [0; BYTES_PER_BLOB]],
+            commitments: vec!["b90289aabe0fcfb8db20a76b863ba90912d1d4d040cb7a156427d1c8cd5825b4d95eaeb221124782cc216960a3d01ec5",
+                              "91189a03ce1fe1225fc5de41d502c3911c2b19596f9011ea5fca4bf311424e5f853c9c46fe026038036c766197af96a0"]
+                              .into_iter()
+                              .map(|s| {
+                                  convert_str_to_bytes48(s)
+                              })
+                              .collect(),
+            proofs: vec!["b502263fc5e75b3587f4fb418e61c5d0f0c18980b4e00179326a65d082539a50c063507a0b028e2db10c55814acbe4e9",
+                         "a29c43f6d05b7f15ab6f3e5004bd5f6b190165dc17e3d51fd06179b1e42c7aef50c145750d7c1cd1cd28357593bc7658"]
+                         .into_iter()
+                              .map(|s| {
+                                  convert_str_to_bytes48(s)
+                              })
+                              .collect()
+        };
+
+        let tx = EIP4844Transaction {
+            nonce: 3,
+            max_priority_fee_per_gas: 0,
+            max_fee_per_gas: 0,
+            max_fee_per_blob_gas: 0.into(),
+            gas: 15_000_000,
+            to: Address::from_low_u64_be(1), // Normal tx
+            value: U256::zero(),             // Value zero
+            data: Bytes::default(),          // No data
+            access_list: Default::default(), // No access list
+            blob_versioned_hashes: vec![
+                "01ec8054d05bfec80f49231c6e90528bbb826ccd1464c255f38004099c8918d9",
+                "0180cb2dee9e6e016fabb5da4fb208555f5145c32895ccd13b26266d558cd77d",
+            ]
+            .into_iter()
+            .map(|b| {
+                let bytes = hex::decode(b).expect("Invalid hex string");
+                H256::from_slice(&bytes)
+            })
+            .collect::<Vec<H256>>(),
+            ..Default::default()
+        };
+
+        assert!(matches!(validate_blobs_bundle(&tx, &blobs_bundle), Ok(())));
+    }
+
+    #[test]
+    fn transaction_with_incorrect_blobs_should_fail() {
+        let convert_str_to_bytes48 = |s| {
+            let bytes = hex::decode(s).expect("Invalid hex string");
+            let mut array = [0u8; 48];
+            array.copy_from_slice(&bytes[..48]);
+            array
+        };
+
+        // blob data taken from: https://etherscan.io/tx/0x02a623925c05c540a7633ffa4eb78474df826497faa81035c4168695656801a2#blobs
+        let blobs_bundle = BlobsBundle {
+            blobs: vec![[0; BYTES_PER_BLOB], [0; BYTES_PER_BLOB]],
+            commitments: vec!["dead89aabe0fcfb8db20a76b863ba90912d1d4d040cb7a156427d1c8cd5825b4d95eaeb221124782cc216960a3d01ec5",
+                              "91189a03ce1fe1225fc5de41d502c3911c2b19596f9011ea5fca4bf311424e5f853c9c46fe026038036c766197af96a0"]
+                              .into_iter()
+                              .map(|s| {
+                                  convert_str_to_bytes48(s)
+                              })
+                              .collect(),
+            proofs: vec!["b502263fc5e75b3587f4fb418e61c5d0f0c18980b4e00179326a65d082539a50c063507a0b028e2db10c55814acbe4e9",
+                         "a29c43f6d05b7f15ab6f3e5004bd5f6b190165dc17e3d51fd06179b1e42c7aef50c145750d7c1cd1cd28357593bc7658"]
+                         .into_iter()
+                              .map(|s| {
+                                  convert_str_to_bytes48(s)
+                              })
+                              .collect()
+        };
+
+        let tx = EIP4844Transaction {
+            nonce: 3,
+            max_priority_fee_per_gas: 0,
+            max_fee_per_gas: 0,
+            max_fee_per_blob_gas: 0.into(),
+            gas: 15_000_000,
+            to: Address::from_low_u64_be(1), // Normal tx
+            value: U256::zero(),             // Value zero
+            data: Bytes::default(),          // No data
+            access_list: Default::default(), // No access list
+            blob_versioned_hashes: vec![
+                "01ec8054d05bfec80f49231c6e90528bbb826ccd1464c255f38004099c8918d9",
+                "0180cb2dee9e6e016fabb5da4fb208555f5145c32895ccd13b26266d558cd77d",
+            ]
+            .into_iter()
+            .map(|b| {
+                let bytes = hex::decode(b).expect("Invalid hex string");
+                H256::from_slice(&bytes)
+            })
+            .collect::<Vec<H256>>(),
+            ..Default::default()
+        };
+
+        assert!(matches!(
+            validate_blobs_bundle(&tx, &blobs_bundle),
+            Err(MempoolError::BlobVersionedHashesIncorrectError)
         ));
     }
 }

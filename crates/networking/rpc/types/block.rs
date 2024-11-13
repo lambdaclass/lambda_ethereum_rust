@@ -6,9 +6,9 @@ use ethereum_rust_core::{
 };
 use ethereum_rust_rlp::encode::RLPEncode;
 
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct RpcBlock {
     hash: H256,
@@ -19,25 +19,25 @@ pub struct RpcBlock {
     #[serde(flatten)]
     header: BlockHeader,
     #[serde(flatten)]
-    body: BlockBodyWrapper,
+    pub body: BlockBodyWrapper,
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, Deserialize)]
 #[serde(untagged)]
-enum BlockBodyWrapper {
+pub enum BlockBodyWrapper {
     Full(FullBlockBody),
     OnlyHashes(OnlyHashesBlockBody),
 }
 
-#[derive(Debug, Serialize)]
-struct FullBlockBody {
+#[derive(Debug, Serialize, Deserialize)]
+pub struct FullBlockBody {
     pub transactions: Vec<RpcTransaction>,
     pub uncles: Vec<BlockHeader>,
     pub withdrawals: Vec<Withdrawal>,
 }
 
-#[derive(Debug, Serialize)]
-struct OnlyHashesBlockBody {
+#[derive(Debug, Serialize, Deserialize)]
+pub struct OnlyHashesBlockBody {
     // Only tx hashes
     pub transactions: Vec<H256>,
     pub uncles: Vec<BlockHeader>,
@@ -52,12 +52,9 @@ impl RpcBlock {
         full_transactions: bool,
         total_difficulty: U256,
     ) -> RpcBlock {
-        let size = Block {
-            header: header.clone(),
-            body: body.clone(),
-        }
-        .encode_to_vec()
-        .len();
+        let size = Block::new(header.clone(), body.clone())
+            .encode_to_vec()
+            .len();
         let body_wrapper = if full_transactions {
             BlockBodyWrapper::Full(FullBlockBody::from_body(body, header.number, hash))
         } else {

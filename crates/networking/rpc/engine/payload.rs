@@ -1,14 +1,14 @@
+use ethereum_rust_blockchain::add_block;
 use ethereum_rust_blockchain::error::ChainError;
 use ethereum_rust_blockchain::payload::build_payload;
-use ethereum_rust_blockchain::{add_block, latest_canonical_block_hash};
 use ethereum_rust_core::types::Fork;
 use ethereum_rust_core::{H256, U256};
-use ethereum_rust_storage::Store;
 use serde_json::Value;
-use tracing::{info, warn};
+use tracing::{error, info, warn};
 
 use crate::types::payload::ExecutionPayloadResponse;
 use crate::utils::RpcRequest;
+use crate::RpcApiContext;
 use crate::{
     types::payload::{ExecutionPayloadV3, PayloadStatus},
     RpcErr, RpcHandler,
@@ -56,7 +56,8 @@ impl RpcHandler for NewPayloadV3Request {
         })
     }
 
-    fn handle(&self, storage: Store) -> Result<Value, RpcErr> {
+    fn handle(&self, context: RpcApiContext) -> Result<Value, RpcErr> {
+        let storage = &context.storage;
         let block_hash = self.payload.block_hash;
         info!("Received new payload with block hash: {block_hash:#x}");
 
@@ -75,7 +76,7 @@ impl RpcHandler for NewPayloadV3Request {
 
         // Payload Validation
 
-        // Check timestamp does not fall within the time frame of the Cancun fork
+        // Check timestamp is post Cancun fork
         let chain_config = storage.get_chain_config()?;
         let current_fork = chain_config.get_fork(block.header.timestamp);
         if current_fork < Fork::Cancun {
@@ -83,12 +84,13 @@ impl RpcHandler for NewPayloadV3Request {
         }
 
         // Check that block_hash is valid
-        let actual_block_hash = block.header.compute_block_hash();
+        let actual_block_hash = block.hash();
         if block_hash != actual_block_hash {
             let result = PayloadStatus::invalid_with_err("Invalid block hash");
             return serde_json::to_value(result)
                 .map_err(|error| RpcErr::Internal(error.to_string()));
         }
+
         info!("Block hash {block_hash} is valid");
         // Concatenate blob versioned hashes lists (tx.blob_versioned_hashes) of each blob transaction included in the payload, respecting the order of inclusion
         // and check that the resulting array matches expected_blob_versioned_hashes
@@ -103,45 +105,32 @@ impl RpcHandler for NewPayloadV3Request {
             return serde_json::to_value(result)
                 .map_err(|error| RpcErr::Internal(error.to_string()));
         }
-        // Check that the incoming block extends the current chain
-        let last_block_number = storage.get_latest_block_number()?.ok_or(RpcErr::Internal(
-            "Could not get latest block number".to_owned(),
-        ))?;
-        if block.header.number <= last_block_number {
-            // Check if we already have this block stored
-            if storage
-                .get_block_number(block_hash)
-                .map_err(|error| RpcErr::Internal(error.to_string()))?
-                .is_some_and(|num| num == block.header.number)
-            {
-                let result = PayloadStatus::valid_with_hash(block_hash);
-                return serde_json::to_value(result)
-                    .map_err(|error| RpcErr::Internal(error.to_string()));
-            }
-            warn!("Should start reorg but it is not supported yet");
-            return Err(RpcErr::Internal(
-                "Block reorg is not supported yet".to_owned(),
-            ));
-        } else if block.header.number != last_block_number + 1 {
-            let result = PayloadStatus::syncing();
+
+        // Return the valid message directly if we have it.
+        if storage.get_block_header_by_hash(block_hash)?.is_some() {
+            let result = PayloadStatus::valid_with_hash(block_hash);
             return serde_json::to_value(result)
                 .map_err(|error| RpcErr::Internal(error.to_string()));
         }
 
-        let latest_valid_hash = latest_canonical_block_hash(&storage)
-            .map_err(|error| RpcErr::Internal(error.to_string()))?;
-
         // Execute and store the block
         info!("Executing payload with block hash: {block_hash:#x}");
-        let payload_status = match add_block(&block, &storage) {
-            Err(ChainError::NonCanonicalParent) => Ok(PayloadStatus::syncing()),
-            Err(ChainError::ParentNotFound) => Ok(PayloadStatus::invalid_with_err(
-                "Could not reference parent block with parent_hash",
-            )),
+        let payload_status = match add_block(&block, storage) {
+            Err(ChainError::ParentNotFound) => Ok(PayloadStatus::syncing()),
+            // Under the current implementation this is not possible: we always calculate the state
+            // transition of any new payload as long as the parent is present. If we received the
+            // parent payload but it was stashed, then new payload would stash this one too, with a
+            // ParentNotFoundError.
+            Err(ChainError::ParentStateNotFound) => {
+                let e = "Failed to obtain parent state";
+                error!("{e} for block {block_hash}");
+                Err(RpcErr::Internal(e.to_string()))
+            }
             Err(ChainError::InvalidBlock(error)) => {
                 warn!("Error adding block: {error}");
+                // TODO(#982): this is only valid for the cases where the parent was found, but fully invalid ones may also happen.
                 Ok(PayloadStatus::invalid_with(
-                    latest_valid_hash,
+                    block.header.parent_hash,
                     error.to_string(),
                 ))
             }
@@ -197,15 +186,15 @@ impl RpcHandler for GetPayloadV3Request {
         Ok(GetPayloadV3Request { payload_id })
     }
 
-    fn handle(&self, storage: Store) -> Result<Value, RpcErr> {
+    fn handle(&self, context: RpcApiContext) -> Result<Value, RpcErr> {
         info!("Requested payload with id: {:#018x}", self.payload_id);
-        let Some(mut payload) = storage.get_payload(self.payload_id)? else {
+        let Some(mut payload) = context.storage.get_payload(self.payload_id)? else {
             return Err(RpcErr::UnknownPayload(format!(
                 "Payload with id {:#018x} not found",
                 self.payload_id
             )));
         };
-        let (blobs_bundle, block_value) = build_payload(&mut payload, &storage)
+        let (blobs_bundle, block_value) = build_payload(&mut payload, &context.storage)
             .map_err(|err| RpcErr::Internal(err.to_string()))?;
         serde_json::to_value(ExecutionPayloadResponse {
             execution_payload: ExecutionPayloadV3::from_block(payload),

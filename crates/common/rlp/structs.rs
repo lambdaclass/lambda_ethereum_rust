@@ -1,5 +1,3 @@
-use crate::encode::RLPEncodeSlim;
-
 use super::{
     decode::{decode_rlp_item, get_item_with_prefix, RLPDecode},
     encode::{encode_length, RLPEncode},
@@ -105,6 +103,11 @@ impl<'a> Decoder<'a> {
         }
     }
 
+    /// Returns true if the decoder has finished decoding the given input
+    pub fn is_done(&self) -> bool {
+        self.payload.is_empty()
+    }
+
     /// Same as [`finish`](Self::finish), but discards the item's remaining payload
     /// instead of failing.
     pub fn finish_unchecked(self) -> &'a [u8] {
@@ -185,13 +188,6 @@ impl<'a> Encoder<'a> {
         self
     }
 
-    /// Stores a field to be encoded, but in slim format
-    /// https://github.com/ethereum/devp2p/blob/master/caps/snap.md#data-format
-    pub fn encode_slim_field<T: RLPEncodeSlim>(mut self, value: &T) -> Self {
-        <T as RLPEncodeSlim>::encode(value, &mut self.temp_buf);
-        self
-    }
-
     /// If `Some`, stores a field to be encoded, else does nothing.
     pub fn encode_optional_field<T: RLPEncode>(mut self, opt_value: &Option<T>) -> Self {
         if let Some(value) = opt_value {
@@ -215,6 +211,19 @@ impl<'a> Encoder<'a> {
     pub fn finish(self) {
         encode_length(self.temp_buf.len(), self.buf);
         self.buf.put_slice(&self.temp_buf);
+    }
+
+    /// Adds a raw value to the buffer without rlp-encoding it
+    pub fn encode_raw(mut self, value: &[u8]) -> Self {
+        self.temp_buf.put_slice(value);
+        self
+    }
+
+    /// Stores a field to be encoded as bytes
+    /// This method is used to bypass the conflicting implementations between Vec<T> and Vec<u8>
+    pub fn encode_bytes(mut self, value: &[u8]) -> Self {
+        <[u8] as RLPEncode>::encode(value, &mut self.temp_buf);
+        self
     }
 }
 
