@@ -54,20 +54,14 @@ pub enum VMError {
     InvalidInitialByte,
     #[error("Nonce overflow")]
     NonceOverflow,
-    #[error("Internal error")]
-    InternalError,
     #[error("Memory load out of bounds")]
     MemoryLoadOutOfBounds,
+    #[error("Memory store out of bounds")]
+    MemoryStoreOutOfBounds,
     #[error("Gas limit price product overflow")]
     GasLimitPriceProductOverflow,
-    #[error("Slicing error")]
-    SlicingError,
-    #[error("Indexing error")]
-    IndexingError,
-    #[error("Fatal unwrap")]
-    FatalUnwrap, // I will use this generic error for things that shouldn't fail
-    #[error("Account should have been cached")]
-    AccountShouldHaveBeenCached,
+    #[error("Internal error: {0}")]
+    Internal(#[from] InternalError),
     #[error("Data size overflow")]
     DataSizeOverflow,
     #[error("Gas cost overflow")]
@@ -78,14 +72,28 @@ pub enum VMError {
     CreationCostIsTooHigh,
     #[error("Max gas limit exceeded")]
     MaxGasLimitExceeded,
-    #[error("Internal error: {0}")]
-    Internal(#[from] InternalError),
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, thiserror::Error)]
 pub enum InternalError {
+    #[error("Could not access last callframe")]
+    CouldNotAccessLastCallframe,
+    #[error("Could not pop callframe")]
+    CouldNotPopCallframe,
+    #[error("Account not found")]
+    AccountNotFound,
+    #[error("ExcessBlobGas should not be None")]
+    ExcessBlobGasShouldNotBeNone,
+    #[error("Error in utils file")]
+    UtilsError,
+    #[error("Accound should have been cached")]
+    AccountShouldHaveBeenCached,
     #[error("Tried to convert one type to another")]
     ConversionError,
+    #[error("Failed computing CREATE2 address")]
+    CouldNotComputeCreate2Address,
+    #[error("Division error")]
+    DivisionError,
 }
 
 #[derive(Debug, Clone)]
@@ -94,7 +102,7 @@ pub enum OpcodeSuccess {
     Result(ResultReason),
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum ResultReason {
     Stop,
     Revert,
