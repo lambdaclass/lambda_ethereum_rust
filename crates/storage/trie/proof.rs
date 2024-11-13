@@ -34,7 +34,7 @@ pub fn verify_range_proof(
         }
     }
     // Check for empty values
-    if values.iter().find(|value| value.is_empty()).is_some() {
+    if values.iter().any(|value| value.is_empty()) {
         return Err(TrieError::Verify(String::from(
             "value range contains empty value",
         )));
@@ -65,9 +65,7 @@ pub fn verify_range_proof(
         trie.root = Some(root.into());
         let has_right_element = has_right_element(root, first_key.as_bytes(), &trie.state)?;
         if has_right_element || !value.is_empty() {
-            return Err(TrieError::Verify(format!(
-                "no keys returned but more are available on the trie"
-            )));
+            return Err(TrieError::Verify("no keys returned but more are available on the trie".to_string()));
         } else {
             return Ok(false);
         }
@@ -80,10 +78,10 @@ pub fn verify_range_proof(
         let value = fill_state(&mut trie.state, root, first_key, &proof_nodes)?;
         let has_right_element = has_right_element(root, first_key.as_bytes(), &trie.state)?;
         if first_key != keys[0] {
-            return Err(TrieError::Verify(format!("correct proof but invalid key")));
+            return Err(TrieError::Verify("correct proof but invalid key".to_string()));
         }
         if value != values[0] {
-            return Err(TrieError::Verify(format!("correct proof but invalid data")));
+            return Err(TrieError::Verify("correct proof but invalid data".to_string()));
         }
         return Ok(has_right_element);
     }
@@ -91,7 +89,7 @@ pub fn verify_range_proof(
     // Regular Case
     // Here we will have two edge proofs
     if first_key >= last_key {
-        return Err(TrieError::Verify(format!("invalid edge keys")));
+        return Err(TrieError::Verify("invalid edge keys".to_string()));
     }
     let _ = fill_state(&mut trie.state, root, first_key, &proof_nodes)?;
     let _ = fill_state(&mut trie.state, root, last_key, &proof_nodes)?;
@@ -143,14 +141,12 @@ fn has_right_element_inner(
             if let Some(choice) = path.next_choice() {
                 if n.choices[choice + 1..].iter().any(|child| child.is_valid()) {
                     return Ok(true);
-                } else {
-                    if n.choices[choice].is_valid() {
-                        return has_right_element_inner(
-                            n.choices[choice].clone(),
-                            path,
-                            trie_state,
-                        );
-                    }
+                } else if n.choices[choice].is_valid() {
+                    return has_right_element_inner(
+                        n.choices[choice].clone(),
+                        path,
+                        trie_state,
+                    );
                 }
             }
         }
@@ -526,7 +522,7 @@ mod tests {
             let keys = values.iter().map(|a| H256::from_slice(a)).collect::<Vec<_>>();
             // Generate proofs
             let mut proof = trie.get_proof(&values[0]).unwrap();
-            proof.extend(trie.get_proof(&values.last().unwrap()).unwrap());
+            proof.extend(trie.get_proof(values.last().unwrap()).unwrap());
             // Verify the range proof
             verify_range_proof(root, keys[0], keys, values, proof).unwrap();
         }

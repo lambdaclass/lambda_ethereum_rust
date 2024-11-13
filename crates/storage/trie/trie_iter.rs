@@ -69,7 +69,7 @@ impl TrieIterator {
 pub fn print_trie(trie: &Trie) {
     let Some(root) = &trie.root else { return };
     print_node(trie, root.clone());
-    print!("\n")
+    println!()
 }
 
 pub fn print_node(trie: &Trie, node_hash: NodeHash) {

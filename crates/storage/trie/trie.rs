@@ -17,7 +17,6 @@ use nibbles::Nibbles;
 use node::Node;
 use node_hash::NodeHash;
 use sha3::{Digest, Keccak256};
-use trie_iter::print_trie;
 
 #[cfg(feature = "libmdbx")]
 pub use self::db::{libmdbx::LibmdbxTrieDB, libmdbx_dupsort::LibmdbxDupsortTrieDB};
