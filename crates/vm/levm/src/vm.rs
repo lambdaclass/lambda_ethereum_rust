@@ -333,7 +333,6 @@ impl VM {
         }
 
         let origin = self.env.origin;
-        let to = self.call_frames[0].to;
 
         let mut sender_account = self.get_account(&origin);
 
