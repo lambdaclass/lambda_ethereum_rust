@@ -65,7 +65,6 @@ pub fn verify_range(
         // We need to check that the proof confirms the non-existance of the first key
         // and that there are no more elements to the right of the first key
         let value = fill_state(&mut trie.state, root, first_key, &proof_nodes)?;
-        trie.root = Some(root.into());
         let has_right_element = has_right_element(root, first_key.as_bytes(), &trie.state)?;
         if has_right_element || !value.is_empty() {
             return Err(TrieError::Verify(
