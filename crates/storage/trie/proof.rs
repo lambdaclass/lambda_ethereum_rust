@@ -4,11 +4,11 @@ use ethereum_types::H256;
 use sha3::{Digest, Keccak256};
 
 use crate::{
-    nibbles::Nibbles, node::Node, node_hash::NodeHash, state::TrieState, trie_iter::print_trie,
-    Trie, TrieError, ValueRLP,
+    nibbles::Nibbles, node::Node, node_hash::NodeHash, state::TrieState, Trie, TrieError, ValueRLP,
 };
 
-/// The boolean indicates if there is more state to be fetched
+/// Verifies that the key value range belongs to the trie with the given root given the edge proofs for the range
+/// Also returns true if there is more state to be fetched (aka if there are more keys to the right of the given range)
 pub fn verify_range_proof(
     root: H256,
     first_key: H256,
@@ -18,6 +18,7 @@ pub fn verify_range_proof(
 ) -> Result<bool, TrieError> {
     // Store proof nodes by hash
     let proof_nodes = ProofNodeStorage::from_proof(&proof);
+    // Validate range
     if keys.len() != values.len() {
         return Err(TrieError::Verify(format!(
             "inconsistent proof data, got {} keys and {} values",
@@ -45,11 +46,11 @@ pub fn verify_range_proof(
 
     // Special Case: No proofs given, the range is expected to be the full set of leaves
     if proof.is_empty() {
+        // Check that the trie constructed from the given keys and values has the expected root
         for (index, key) in keys.iter().enumerate() {
-            // Ignore the error as we don't rely on a DB
-            let _ = trie.insert(key.0.to_vec(), values[index].clone());
+            trie.insert(key.0.to_vec(), values[index].clone())?;
         }
-        let hash = trie.hash().unwrap_or_default();
+        let hash = trie.hash()?;
         if hash != root {
             return Err(TrieError::Verify(format!(
                 "invalid proof, expected root hash {}, got  {}",
@@ -61,11 +62,15 @@ pub fn verify_range_proof(
 
     // Special Case: One edge proof, no range given, there are no more values in the trie
     if keys.is_empty() {
+        // We need to check that the proof confirms the non-existance of the first key
+        // and that there are no more elements to the right of the first key
         let value = fill_state(&mut trie.state, root, first_key, &proof_nodes)?;
         trie.root = Some(root.into());
         let has_right_element = has_right_element(root, first_key.as_bytes(), &trie.state)?;
         if has_right_element || !value.is_empty() {
-            return Err(TrieError::Verify("no keys returned but more are available on the trie".to_string()));
+            return Err(TrieError::Verify(
+                "no keys returned but more are available on the trie".to_string(),
+            ));
         } else {
             return Ok(false);
         }
@@ -75,46 +80,47 @@ pub fn verify_range_proof(
 
     // Special Case: There is only one element and the two edge keys are the same
     if keys.len() == 1 && first_key == last_key {
+        // We need to check that the proof confirms the existance of the first key
         let value = fill_state(&mut trie.state, root, first_key, &proof_nodes)?;
-        let has_right_element = has_right_element(root, first_key.as_bytes(), &trie.state)?;
         if first_key != keys[0] {
-            return Err(TrieError::Verify("correct proof but invalid key".to_string()));
+            return Err(TrieError::Verify(
+                "correct proof but invalid key".to_string(),
+            ));
         }
         if value != values[0] {
-            return Err(TrieError::Verify("correct proof but invalid data".to_string()));
+            return Err(TrieError::Verify(
+                "correct proof but invalid data".to_string(),
+            ));
         }
-        return Ok(has_right_element);
+        return has_right_element(root, first_key.as_bytes(), &trie.state);
     }
 
-    // Regular Case
-    // Here we will have two edge proofs
+    // Regular Case: Two edge proofs
     if first_key >= last_key {
         return Err(TrieError::Verify("invalid edge keys".to_string()));
     }
+    // Fill up the state with the nodes from the proof
     let _ = fill_state(&mut trie.state, root, first_key, &proof_nodes)?;
     let _ = fill_state(&mut trie.state, root, last_key, &proof_nodes)?;
-    println!("FILL STATE");
-    print_trie(&trie);
+    // Remove all references to the internal nodes that belong to the range so they can be reconstructed
     let empty = remove_internal_references(root, first_key, last_key, &mut trie.state);
     if !empty {
         trie.root = Some(NodeHash::from(root));
     }
-    println!("REMOVE INTERNAL REFERENCES");
-    print_trie(&trie);
-    println!("KEY RANGE INSERT");
+    // Reconstruct the internal nodes by inserting the elements on the range
     for (i, key) in keys.iter().enumerate() {
         trie.insert(key.0.to_vec(), values[i].clone())?;
     }
-    // TODO: has_right_element
-    assert_eq!(trie.hash().unwrap(), root);
+    // Check that the hash is the one we expected (aka the trie was properly reconstructed from the edge proofs and the range)
+    let hash = trie.hash()?;
+    if hash != root {
+        return Err(TrieError::Verify(format!(
+            "invalid proof, expected root hash {}, got  {}",
+            root, hash
+        )));
+    }
 
-    // Use first proof to build node path
-    // use first proof root + second proof to complete it
-    // Remove internal references
-    // Add keys & values from range
-    // Check root
-
-    Ok(true)
+    return has_right_element(root, first_key.as_bytes(), &trie.state);
 }
 
 // Indicates where there exist more elements to the right side of the given path
@@ -142,11 +148,7 @@ fn has_right_element_inner(
                 if n.choices[choice + 1..].iter().any(|child| child.is_valid()) {
                     return Ok(true);
                 } else if n.choices[choice].is_valid() {
-                    return has_right_element_inner(
-                        n.choices[choice].clone(),
-                        path,
-                        trie_state,
-                    );
+                    return has_right_element_inner(n.choices[choice].clone(), path, trie_state);
                 }
             }
         }
