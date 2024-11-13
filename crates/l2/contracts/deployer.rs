@@ -44,7 +44,7 @@ async fn main() {
                     format!("{envar}={on_chain_proposer:#x}")
                 }
                 "L1_WATCHER_BRIDGE_ADDRESS" => {
-                    format!("{}={:?}", envar, bridge_address)
+                    format!("{envar}={bridge_address:#x}")
                 }
                 _ => line,
             };
