@@ -621,11 +621,10 @@ pub fn tx_creation(contract_code: &Bytes, number_of_words: u64) -> Result<u64, O
         .ok_or(OutOfGasError::CreationCostIsTooHigh)?;
 
     // GInitCodeword * number_of_words rounded up. GinitCodeWord = 2
+    let words_cost = number_of_words
+        .checked_mul(2)
+        .ok_or(OutOfGasError::ArithmeticOperationOverflow)?;
     creation_cost
-        .checked_add(
-            number_of_words
-                .checked_mul(2)
-                .ok_or(OutOfGasError::ArithmeticOperationOverflow)?,
-        )
+        .checked_add(words_cost)
         .ok_or(OutOfGasError::GasUsedOverflow)
 }
