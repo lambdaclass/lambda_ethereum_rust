@@ -1,14 +1,14 @@
 mod db;
 mod error;
+mod nibbles;
 mod node;
 mod node_hash;
-mod verify_range;
 mod rlp;
 mod state;
-mod trie_iter;
-mod nibbles;
 #[cfg(test)]
 mod test_utils;
+mod trie_iter;
+mod verify_range;
 use ethereum_rust_rlp::constants::RLP_NULL;
 use ethereum_types::H256;
 use nibbles::Nibbles;
