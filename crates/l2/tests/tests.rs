@@ -92,6 +92,7 @@ async fn testito() {
     let mut retries = 0;
     while retries < 10 && l2_after_deposit_balance < l2_initial_balance + deposit_value {
         std::thread::sleep(std::time::Duration::from_secs(2));
+        println!("[{retries}/10] Waiting for L2 balance to update after deposit");
         l2_after_deposit_balance = proposer_client
             .get_balance(l1_rich_wallet_address())
             .await
