@@ -6,7 +6,7 @@ use crate::{
         },
         handshake::encode_ack_message,
         message::Message,
-        p2p::{self, PingMessage, PongMessage},
+        p2p::{self, DisconnectMessage, PingMessage, PongMessage},
         utils::id2pubkey,
     },
     snap::{
@@ -206,9 +206,10 @@ impl<S: AsyncWrite + AsyncRead + std::marker::Unpin> RLPxConnection<S> {
             Message::Pong(_) => {
                 // We ignore received Pong messages
             }
-            // Implmenent Status vaidations
-            // https://github.com/lambdaclass/lambda_ethereum_rust/issues/420
-            Message::Status(_) => info!("Received Status"),
+            Message::Status(msg_data) => {
+                info!("Received Status");
+                backend::validate_status(msg_data, &self.storage)?
+            }
             Message::GetAccountRange(req) => {
                 let response = process_account_range_request(req, self.storage.clone())?;
                 self.send(Message::AccountRange(response)).await?
@@ -249,7 +250,11 @@ impl<S: AsyncWrite + AsyncRead + std::marker::Unpin> RLPxConnection<S> {
         // Sending eth Status if peer supports it
         if self.capabilities.contains(&CAP_ETH) {
             let status = backend::get_status(&self.storage)?;
-            self.send(Message::Status(status)).await?;
+            // info!("Sending status");
+            // self.send(Message::Status(status)).await?;
+            info!("Sending Disconnect");
+            self.send(Message::Disconnect(DisconnectMessage { reason: Some(1u8) }))
+                .await?;
         }
         // TODO: add new capabilities startup when required (eg. snap)
         Ok(())

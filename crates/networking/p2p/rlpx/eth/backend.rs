@@ -35,3 +35,48 @@ pub fn get_status(storage: &Store) -> Result<StatusMessage, RLPxError> {
         fork_id,
     })
 }
+
+pub fn validate_status(msg_data: StatusMessage, storage: &Store) -> Result<(), RLPxError> {
+    let chain_config = storage.get_chain_config()?;
+
+    // These blocks must always be available
+    let genesis_header = storage
+        .get_block_header(0)?
+        .ok_or(RLPxError::NotFound("Genesis Block".to_string()))?;
+    let block_number = storage
+        .get_latest_block_number()?
+        .ok_or(RLPxError::NotFound("Latest Block Number".to_string()))?;
+    let block_header = storage
+        .get_block_header(block_number)?
+        .ok_or(RLPxError::NotFound(format!("Block {block_number}")))?;
+
+    let genesis = genesis_header.compute_block_hash();
+    let fork_id = ForkId::new(chain_config, genesis, block_header.timestamp, block_number);
+
+    //Check networkID
+    if msg_data.network_id != chain_config.chain_id {
+        return Err(RLPxError::HandshakeError(
+            "Network Id does not match".to_string(),
+        ));
+    }
+    //Check Protocol Version
+    if msg_data.eth_version != ETH_VERSION {
+        return Err(RLPxError::HandshakeError(
+            "Eth protocol version does not match".to_string(),
+        ));
+    }
+    //Check Genesis
+    if msg_data.genesis != genesis {
+        return Err(RLPxError::HandshakeError(
+            "Genesis does not match".to_string(),
+        ));
+    }
+    // Check ForkID
+    if msg_data.fork_id != fork_id {
+        return Err(RLPxError::HandshakeError(
+            "Fork Id does not match".to_string(),
+        ));
+    }
+
+    Ok(())
+}
