@@ -100,8 +100,8 @@ pub fn verify_range_proof(
         return Err(TrieError::Verify("invalid edge keys".to_string()));
     }
     // Fill up the state with the nodes from the proof
-    let _ = fill_state(&mut trie.state, root, first_key, &proof_nodes)?;
-    let _ = fill_state(&mut trie.state, root, last_key, &proof_nodes)?;
+    fill_state(&mut trie.state, root, first_key, &proof_nodes)?;
+    fill_state(&mut trie.state, root, last_key, &proof_nodes)?;
     // Remove all references to the internal nodes that belong to the range so they can be reconstructed
     let empty = remove_internal_references(root, first_key, last_key, &mut trie.state);
     if !empty {
@@ -123,7 +123,69 @@ pub fn verify_range_proof(
     return has_right_element(root, first_key.as_bytes(), &trie.state);
 }
 
-// Indicates where there exist more elements to the right side of the given path
+/// Fills up the TrieState with nodes from the proof traversing the path given by first_key
+/// Returns an error if there are gaps in the proof node path
+/// Also returns the value if it is part of the proof
+fn fill_state(
+    trie_state: &mut TrieState,
+    root_hash: H256,
+    first_key: H256,
+    proof_nodes: &ProofNodeStorage,
+) -> Result<Vec<u8>, TrieError> {
+    let mut path = Nibbles::from_bytes(&first_key.0);
+    fill_node(
+        &mut path,
+        &NodeHash::from(root_hash),
+        trie_state,
+        proof_nodes,
+    )
+}
+
+/// Fills up the TrieState with nodes from the proof traversing the path given by first_key
+/// Returns an error if there are gaps in the proof node path
+/// Also returns the value if it is part of the proof
+fn fill_node(
+    path: &mut Nibbles,
+    node_hash: &NodeHash,
+    trie_state: &mut TrieState,
+    proof_nodes: &ProofNodeStorage,
+) -> Result<Vec<u8>, TrieError> {
+    let node = proof_nodes.get_node(node_hash)?;
+    let child_hash = get_child(path, &node);
+    if let Some(ref child_hash) = child_hash {
+        trie_state.insert_node(node, node_hash.clone());
+        fill_node(path, child_hash, trie_state, proof_nodes)
+    } else {
+        let value = match &node {
+            Node::Branch(n) => n.value.clone(),
+            Node::Extension(_) => vec![],
+            Node::Leaf(n) => (*path == n.partial)
+                .then_some(n.value.clone())
+                .unwrap_or_default(),
+        };
+        trie_state.insert_node(node, node_hash.clone());
+        Ok(value)
+    }
+}
+
+/// Returns the node hash of the node's child (if any) following the given path
+fn get_child<'a>(path: &'a mut Nibbles, node: &'a Node) -> Option<NodeHash> {
+    match node {
+        Node::Branch(n) => {
+            if let Some(choice) = path.next_choice() {
+                if n.choices[choice].is_valid() {
+                    return Some(n.choices[choice].clone());
+                }
+            }
+            None
+        }
+        Node::Extension(n) => path.skip_prefix(&n.prefix).then_some(n.child.clone()),
+        Node::Leaf(_) => None,
+    }
+}
+
+/// Returns true if the trie contains elements to the right of the given key
+/// (Aka if the given key is not the edge key of the trie)
 fn has_right_element(
     root_hash: H256,
     key: &[u8],
@@ -133,6 +195,8 @@ fn has_right_element(
     has_right_element_inner(root_hash.into(), path, trie_state)
 }
 
+/// Returns true if the node's subtrie contains elements to the right of the given key
+/// (Aka if the given key is not the edge key of the subtrie)
 fn has_right_element_inner(
     node_hash: NodeHash,
     mut path: Nibbles,
@@ -163,62 +227,6 @@ fn has_right_element_inner(
         Node::Leaf(_) => {}
     }
     Ok(false)
-}
-
-fn get_child<'a>(path: &'a mut Nibbles, node: &'a Node) -> Option<NodeHash> {
-    match node {
-        Node::Branch(n) => {
-            if let Some(choice) = path.next_choice() {
-                if n.choices[choice].is_valid() {
-                    return Some(n.choices[choice].clone());
-                }
-            }
-            None
-        }
-        Node::Extension(n) => path.skip_prefix(&n.prefix).then_some(n.child.clone()),
-        Node::Leaf(_) => None,
-    }
-}
-
-/// Fills up the TrieState with nodes from the proof traversing the path given by first_key
-/// Also returns the value if it is part of the proof
-fn fill_state(
-    trie_state: &mut TrieState,
-    root_hash: H256,
-    first_key: H256,
-    proof_nodes: &ProofNodeStorage,
-) -> Result<Vec<u8>, TrieError> {
-    let mut path = Nibbles::from_bytes(&first_key.0);
-    fill_node(
-        &mut path,
-        &NodeHash::from(root_hash),
-        trie_state,
-        proof_nodes,
-    )
-}
-
-fn fill_node(
-    path: &mut Nibbles,
-    node_hash: &NodeHash,
-    trie_state: &mut TrieState,
-    proof_nodes: &ProofNodeStorage,
-) -> Result<Vec<u8>, TrieError> {
-    let node = proof_nodes.get_node(node_hash)?;
-    let child_hash = get_child(path, &node);
-    if let Some(ref child_hash) = child_hash {
-        trie_state.insert_node(node, node_hash.clone());
-        fill_node(path, child_hash, trie_state, proof_nodes)
-    } else {
-        let value = match &node {
-            Node::Branch(n) => n.value.clone(),
-            Node::Extension(_) => vec![],
-            Node::Leaf(n) => (*path == n.partial)
-                .then_some(n.value.clone())
-                .unwrap_or_default(),
-        };
-        trie_state.insert_node(node, node_hash.clone());
-        Ok(value)
-    }
 }
 
 /// Removes references to internal nodes between the left and right key
@@ -395,11 +403,13 @@ fn remove_node(
     false
 }
 
+/// An intermediate storage for proof nodes, containing encoded nodes indexed by hash
 struct ProofNodeStorage<'a> {
     nodes: HashMap<Vec<u8>, &'a Vec<u8>>,
 }
 
 impl<'a> ProofNodeStorage<'a> {
+    // Construct a ProofNodeStorage for a proof
     fn from_proof(proof: &'a Vec<Vec<u8>>) -> Self {
         Self {
             nodes: proof
@@ -408,7 +418,7 @@ impl<'a> ProofNodeStorage<'a> {
                 .collect::<HashMap<_, _>>(),
         }
     }
-
+    // Fetch a node by its hash, return an error if the node is not present or badly encoded
     fn get_node(&self, hash: &NodeHash) -> Result<Node, TrieError> {
         let encoded = match hash {
             NodeHash::Hashed(hash) => {
