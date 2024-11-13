@@ -43,7 +43,9 @@ jobs:
             name: "Cancun Engine tests"
             run_command: exit 0
     if: false
-    steps: [run: true]
+    steps:
+      - name: Run Hive Simulation
+        run: ${{ matrix.run_command }}
 
   run-assertoor:
     name: Assertoor - Stability Check
