@@ -220,19 +220,29 @@ impl VM {
         if value != storage_slot.current_value {
             if storage_slot.current_value == storage_slot.original_value {
                 if storage_slot.original_value.is_zero() && value.is_zero() {
-                    gas_refunds += U256::from(4800);
+                    gas_refunds = gas_refunds
+                        .checked_add(U256::from(4800))
+                        .ok_or(VMError::GasRefundsOverflow)?;
                 }
             } else if !storage_slot.original_value.is_zero() {
                 if storage_slot.current_value.is_zero() {
-                    gas_refunds -= U256::from(4800);
+                    gas_refunds = gas_refunds
+                        .checked_sub(U256::from(4800))
+                        .ok_or(VMError::GasRefundsUnderflow)?;
                 } else if value.is_zero() {
-                    gas_refunds += U256::from(4800);
+                    gas_refunds = gas_refunds
+                        .checked_add(U256::from(4800))
+                        .ok_or(VMError::GasRefundsOverflow)?;
                 }
             } else if value == storage_slot.original_value {
                 if storage_slot.original_value.is_zero() {
-                    gas_refunds += U256::from(20000) - U256::from(100);
+                    gas_refunds = gas_refunds
+                        .checked_add(U256::from(19900))
+                        .ok_or(VMError::GasRefundsOverflow)?;
                 } else {
-                    gas_refunds += U256::from(5000) - U256::from(2100) - U256::from(100);
+                    gas_refunds = gas_refunds
+                        .checked_add(U256::from(2800))
+                        .ok_or(VMError::GasRefundsOverflow)?;
                 }
             }
         };
