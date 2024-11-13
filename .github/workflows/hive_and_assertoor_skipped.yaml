@@ -18,6 +18,7 @@ jobs:
   run-hive:
     name: Hive - ${{ matrix.name }}
     runs-on: ubuntu-latest
+    if: false
     strategy:
       matrix:
         include:
