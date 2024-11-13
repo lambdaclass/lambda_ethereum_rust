@@ -417,33 +417,24 @@ pub fn callcode(
     value: U256,
     is_cached: bool,
 ) -> Result<U256, OutOfGasError> {
-    let memory_byte_size = args_offset
-        .checked_add(args_size)
-        .and_then(|src_sum| {
-            ret_offset
-                .checked_add(ret_size)
-                .map(|dest_sum| src_sum.max(dest_sum))
-        })
-        .ok_or(OutOfGasError::ArithmeticOperationOverflow)?;
-    let memory_expansion_cost = current_call_frame.memory.expansion_cost(memory_byte_size)?;
-
-    let access_cost = if is_cached {
-        WARM_ADDRESS_ACCESS_COST
-    } else {
-        COLD_ADDRESS_ACCESS_COST
-    };
-
     let transfer_cost = if value == U256::zero() {
         U256::zero()
     } else {
         NON_ZERO_VALUE_COST
+        // Should also add BASIC_FALLBACK_FUNCTION_STIPEND??
+        // See https://www.evm.codes/?fork=cancun#f2 and call impl
     };
 
-    memory_expansion_cost
-        .checked_add(access_cost)
-        .ok_or(OutOfGasError::GasCostOverflow)?
-        .checked_add(transfer_cost)
-        .ok_or(OutOfGasError::GasCostOverflow)
+    compute_gas_call(
+        current_call_frame,
+        args_size,
+        args_offset,
+        ret_size,
+        ret_offset,
+        is_cached,
+    )?
+    .checked_add(transfer_cost)
+    .ok_or(OutOfGasError::GasCostOverflow)
 }
 
 pub fn delegatecall(
@@ -454,28 +445,35 @@ pub fn delegatecall(
     ret_offset: usize,
     is_cached: bool,
 ) -> Result<U256, OutOfGasError> {
-    let memory_byte_size = args_offset
-        .checked_add(args_size)
-        .and_then(|src_sum| {
-            ret_offset
-                .checked_add(ret_size)
-                .map(|dest_sum| src_sum.max(dest_sum))
-        })
-        .ok_or(OutOfGasError::ArithmeticOperationOverflow)?;
-    let memory_expansion_cost = current_call_frame.memory.expansion_cost(memory_byte_size)?;
-
-    let access_cost = if is_cached {
-        WARM_ADDRESS_ACCESS_COST
-    } else {
-        COLD_ADDRESS_ACCESS_COST
-    };
-
-    memory_expansion_cost
-        .checked_add(access_cost)
-        .ok_or(OutOfGasError::GasCostOverflow)
+    compute_gas_call(
+        current_call_frame,
+        args_size,
+        args_offset,
+        ret_size,
+        ret_offset,
+        is_cached,
+    )
 }
 
 pub fn staticcall(
+    current_call_frame: &mut CallFrame,
+    args_size: usize,
+    args_offset: usize,
+    ret_size: usize,
+    ret_offset: usize,
+    is_cached: bool,
+) -> Result<U256, OutOfGasError> {
+    compute_gas_call(
+        current_call_frame,
+        args_size,
+        args_offset,
+        ret_size,
+        ret_offset,
+        is_cached,
+    )
+}
+
+fn compute_gas_call(
     current_call_frame: &mut CallFrame,
     args_size: usize,
     args_offset: usize,
@@ -509,41 +507,32 @@ pub fn create(
     code_offset_in_memory: U256,
     code_size_in_memory: U256,
 ) -> Result<U256, OutOfGasError> {
-    let minimum_word_size = (code_size_in_memory
-        .checked_add(U256::from(31))
-        .ok_or(OutOfGasError::ArithmeticOperationOverflow)?)
-    .checked_div(U256::from(32))
-    .ok_or(OutOfGasError::ArithmeticOperationDividedByZero)?; // '32' will never be zero
-
-    let init_code_cost = minimum_word_size
-        .checked_mul(INIT_CODE_WORD_COST)
-        .ok_or(OutOfGasError::GasCostOverflow)?;
-
-    let code_deposit_cost = code_size_in_memory
-        .checked_mul(CODE_DEPOSIT_COST)
-        .ok_or(OutOfGasError::GasCostOverflow)?;
-
-    let memory_expansion_cost = current_call_frame.memory.expansion_cost(
-        code_size_in_memory
-            .checked_add(code_offset_in_memory)
-            .ok_or(OutOfGasError::ArithmeticOperationOverflow)?
-            .try_into()
-            .map_err(|_err| OutOfGasError::ArithmeticOperationOverflow)?,
-    )?;
-
-    init_code_cost
-        .checked_add(memory_expansion_cost)
-        .ok_or(OutOfGasError::CreationCostIsTooHigh)?
-        .checked_add(code_deposit_cost)
-        .ok_or(OutOfGasError::CreationCostIsTooHigh)?
-        .checked_add(CREATE_BASE_COST)
-        .ok_or(OutOfGasError::CreationCostIsTooHigh)
+    compute_gas_create(
+        current_call_frame,
+        code_offset_in_memory,
+        code_size_in_memory,
+        false,
+    )
 }
 
 pub fn create_2(
     current_call_frame: &mut CallFrame,
     code_offset_in_memory: U256,
     code_size_in_memory: U256,
+) -> Result<U256, OutOfGasError> {
+    compute_gas_create(
+        current_call_frame,
+        code_offset_in_memory,
+        code_size_in_memory,
+        true,
+    )
+}
+
+fn compute_gas_create(
+    current_call_frame: &mut CallFrame,
+    code_offset_in_memory: U256,
+    code_size_in_memory: U256,
+    is_create_2: bool,
 ) -> Result<U256, OutOfGasError> {
     let minimum_word_size = (code_size_in_memory
         .checked_add(U256::from(31))
@@ -567,9 +556,13 @@ pub fn create_2(
             .map_err(|_err| OutOfGasError::ArithmeticOperationOverflow)?,
     )?;
 
-    let hash_cost = minimum_word_size
-        .checked_mul(KECCAK25_DYNAMIC_BASE)
-        .ok_or(OutOfGasError::GasCostOverflow)?;
+    let hash_cost = if is_create_2 {
+        minimum_word_size
+            .checked_mul(KECCAK25_DYNAMIC_BASE)
+            .ok_or(OutOfGasError::GasCostOverflow)?
+    } else {
+        U256::zero()
+    };
 
     init_code_cost
         .checked_add(memory_expansion_cost)
