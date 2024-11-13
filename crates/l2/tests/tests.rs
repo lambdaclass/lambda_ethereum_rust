@@ -1,7 +1,7 @@
 use ethereum_rust_l2::utils::eth_client::EthClient;
 use ethereum_types::{Address, H160, U256};
 use keccak_hash::H256;
-use libsecp256k1::{PublicKey, SecretKey};
+use secp256k1::SecretKey;
 use std::str::FromStr;
 
 const DEFAULT_ETH_URL: &str = "http://localhost:8545";
@@ -273,13 +273,12 @@ fn l1_rich_wallet_address() -> Address {
 
 fn l1_rich_wallet_private_key() -> SecretKey {
     std::env::var("L1_RICH_WALLET_PRIVATE_KEY")
-        .map(|s| SecretKey::parse(H256::from_str(&s).unwrap().as_fixed_bytes()).unwrap())
-        .unwrap_or(SecretKey::parse(DEFAULT_L1_RICH_WALLET_PRIVATE_KEY.as_fixed_bytes()).unwrap())
+        .map(|s| SecretKey::from_slice(H256::from_str(&s).unwrap().as_bytes()).unwrap())
+        .unwrap_or(SecretKey::from_slice(DEFAULT_L1_RICH_WALLET_PRIVATE_KEY.as_bytes()).unwrap())
 }
 
 fn random_account() -> (Address, SecretKey) {
-    let sk = SecretKey::random(&mut rand::thread_rng());
-    let pk = PublicKey::from_secret_key(&sk);
-    let address = Address::from_slice(pk.serialize()[45..].try_into().unwrap());
+    let (sk, pk) = secp256k1::generate_keypair(&mut rand::thread_rng());
+    let address = Address::from_slice(pk.serialize()[1..].try_into().unwrap());
     (address, sk)
 }

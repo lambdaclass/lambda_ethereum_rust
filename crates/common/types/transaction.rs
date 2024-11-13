@@ -4,7 +4,7 @@ use bytes::Bytes;
 use ethereum_types::{Address, H256, U256};
 use keccak_hash::keccak;
 pub use mempool::MempoolTransaction;
-use secp256k1::{ecdsa::RecoveryId, Message, Secp256k1, SecretKey, SECP256K1};
+use secp256k1::{ecdsa::RecoveryId, Message, SecretKey};
 use serde::{ser::SerializeStruct, Deserialize, Serialize};
 pub use serde_impl::{AccessListEntry, GenericTransaction};
 use sha3::{Digest, Keccak256};
@@ -630,7 +630,7 @@ impl Signable for LegacyTransaction {
     fn sign_inplace(&mut self, private_key: &SecretKey) {
         let data = Message::from_digest_slice(&keccak(self.encode_payload_to_vec()).0).unwrap();
 
-        let (recovery_id, signature) = Secp256k1::new()
+        let (recovery_id, signature) = secp256k1::SECP256K1
             .sign_ecdsa_recoverable(&data, private_key)
             .serialize_compact();
 
@@ -651,7 +651,7 @@ impl Signable for EIP1559Transaction {
         payload.append(self.encode_payload_to_vec().as_mut());
         let data = Message::from_digest_slice(&keccak(payload).0).unwrap();
 
-        let (recovery_id, signature) = Secp256k1::new()
+        let (recovery_id, signature) = secp256k1::SECP256K1
             .sign_ecdsa_recoverable(&data, private_key)
             .serialize_compact();
 
@@ -673,7 +673,7 @@ impl Signable for EIP2930Transaction {
         payload.append(self.encode_payload_to_vec().as_mut());
         let data = Message::from_digest_slice(&keccak(payload).0).unwrap();
 
-        let (recovery_id, signature) = Secp256k1::new()
+        let (recovery_id, signature) = secp256k1::SECP256K1
             .sign_ecdsa_recoverable(&data, private_key)
             .serialize_compact();
 
@@ -695,7 +695,7 @@ impl Signable for EIP4844Transaction {
         payload.append(self.encode_payload_to_vec().as_mut());
         let data = Message::from_digest_slice(&keccak(payload).0).unwrap();
 
-        let (recovery_id, signature) = Secp256k1::new()
+        let (recovery_id, signature) = secp256k1::SECP256K1
             .sign_ecdsa_recoverable(&data, private_key)
             .serialize_compact();
 
@@ -717,7 +717,7 @@ impl Signable for PrivilegedL2Transaction {
         payload.append(self.encode_payload_to_vec().as_mut());
         let data = Message::from_digest_slice(&keccak(payload).0).unwrap();
 
-        let (recovery_id, signature) = Secp256k1::new()
+        let (recovery_id, signature) = secp256k1::SECP256K1
             .sign_ecdsa_recoverable(&data, private_key)
             .serialize_compact();
 
@@ -1034,7 +1034,7 @@ fn recover_address(
         .finalize()
         .into();
     // Recover public key
-    let public = SECP256K1
+    let public = secp256k1::SECP256K1
         .recover_ecdsa(&Message::from_digest(msg_digest), &signature)
         .unwrap();
     // Hash public key to obtain address
