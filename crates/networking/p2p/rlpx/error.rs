@@ -31,6 +31,8 @@ pub(crate) enum RLPxError {
     StoreError(#[from] StoreError),
     #[error("Error in cryptographic library: {0}")]
     CryptographyError(String),
+    #[error(transparent)]
+    Trie(#[from] TrieError),
     #[error("Failed to broadcast msg: {0}")]
     BroadcastError(String),
 }

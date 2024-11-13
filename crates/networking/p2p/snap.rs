@@ -1,6 +1,8 @@
 use bytes::Bytes;
+use ethereum_rust_core::types::AccountState;
 use ethereum_rust_rlp::encode::RLPEncode;
 use ethereum_rust_storage::{error::StoreError, Store};
+use ethereum_rust_trie::verify_range_proof;
 
 use crate::rlpx::{
     error::RLPxError,
@@ -9,6 +11,8 @@ use crate::rlpx::{
         GetStorageRanges, GetTrieNodes, StorageRanges, StorageSlot, TrieNodes,
     },
 };
+
+// Request Processing
 
 pub fn process_account_range_request(
     request: GetAccountRange,
@@ -151,6 +155,39 @@ pub fn process_trie_nodes_request(
         id: request.id,
         nodes,
     })
+}
+
+// Response Processing
+
+#[allow(unused)]
+pub fn validate_account_range_response(
+    request: &GetAccountRange,
+    response: &AccountRange,
+) -> Result<(), RLPxError> {
+    // Reconstruct a partial trie from the response and verify it
+    let (keys, accounts) = response
+        .accounts
+        .iter()
+        .map(|unit| {
+            (
+                unit.hash,
+                AccountState::from(unit.account.clone()).encode_to_vec(),
+            )
+        })
+        .unzip();
+    let proof = response
+        .proof
+        .iter()
+        .map(|bytes| bytes.as_ref().to_vec())
+        .collect();
+    verify_range_proof(
+        request.root_hash,
+        request.starting_hash,
+        keys,
+        accounts,
+        proof,
+    )?;
+    Ok(())
 }
 
 #[cfg(test)]
