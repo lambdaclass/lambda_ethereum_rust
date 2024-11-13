@@ -8,6 +8,7 @@ on:
       - 'LICENSE'
       - "**/README.md"
       - "**/docs/**"
+      - .github/workflows/**
 jobs:
   docker-build:
     name: Docker Build image
