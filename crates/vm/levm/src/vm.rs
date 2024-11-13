@@ -473,10 +473,13 @@ impl VM {
 
             // If the initialization code completes successfully, a final contract-creation cost is paid,
             // the code-deposit cost, c, proportional to the size of the created contract’s code
-            let mut creation_cost = contract_code
-                .len()
+            let code_length: u64 = contract_code
+            .len()
+            .try_into()
+            .map_err(|_| VMError::Internal(InternalError::ConversionError))?;
+            let mut creation_cost = code_length
                 .checked_mul(200)
-                .ok_or(VMError::CreationCostIsTooHigh)? as u64;
+                .ok_or(VMError::CreationCostIsTooHigh)?;
             creation_cost = creation_cost
                 .checked_add(32000)
                 .ok_or(VMError::CreationCostIsTooHigh)?;
@@ -489,7 +492,9 @@ impl VM {
             // Charge 22100 gas for each storage variable set
 
             // GInitCodeword * number_of_words rounded up. GinitCodeWord = 2
-            let number_of_words = initial_call_frame.calldata.chunks(WORD_SIZE).len() as u64;
+            let number_of_words: u64 = initial_call_frame.calldata.chunks(WORD_SIZE).len()
+            .try_into()
+            .map_err(|_| VMError::Internal(InternalError::ConversionError))?;
             let words_cost = number_of_words.checked_mul(2).ok_or(VMError::Internal(
                 InternalError::ArithmeticOperationOverflow,
             ))?;
@@ -721,7 +726,7 @@ impl VM {
         sender_address: Address,
         initialization_code: &Bytes,
         salt: U256,
-    ) -> Address {
+    ) -> Result<Address, VMError> {
         let mut hasher = Keccak256::new();
         hasher.update(initialization_code.clone());
         let initialization_code_hash = hasher.finalize();
@@ -732,7 +737,9 @@ impl VM {
         hasher.update(sender_address.as_bytes());
         hasher.update(salt_bytes);
         hasher.update(initialization_code_hash);
-        Address::from_slice(&hasher.finalize()[12..])
+        Ok(Address::from_slice(hasher.finalize().get(12..).ok_or(
+            VMError::Internal(InternalError::CouldNotComputeCreate2Address),
+        )?))
     }
 
     fn compute_gas_create(
@@ -864,7 +871,7 @@ impl VM {
 
         let new_address = match salt {
             Some(salt) => {
-                Self::calculate_create2_address(current_call_frame.msg_sender, &code, salt)
+                Self::calculate_create2_address(current_call_frame.msg_sender, &code, salt)?
             }
             None => Self::calculate_create_address(
                 current_call_frame.msg_sender,

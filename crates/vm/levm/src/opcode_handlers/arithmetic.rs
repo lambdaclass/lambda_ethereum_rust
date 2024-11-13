@@ -227,10 +227,13 @@ impl VM {
         let base = current_call_frame.stack.pop()?;
         let exponent = current_call_frame.stack.pop()?;
 
-        let exponent_byte_size = (exponent.bits().checked_add(7).ok_or(VMError::Internal(
+        let exponent_bits: u64 = exponent
+            .bits()
+            .try_into()
+            .map_err(|_| VMError::Internal(InternalError::ConversionError))?;
+        let exponent_byte_size = (exponent_bits.checked_add(7).ok_or(VMError::Internal(
             InternalError::ArithmeticOperationOverflow,
-        ))? as u64)
-            / 8;
+        ))?) / 8;
         let exponent_byte_size_cost = gas_cost::EXP_DYNAMIC_BASE
             .checked_mul(exponent_byte_size.into())
             .ok_or(VMError::GasCostOverflow)?;

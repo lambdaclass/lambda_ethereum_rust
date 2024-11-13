@@ -17,8 +17,8 @@ impl VM {
         op: Opcode,
     ) -> Result<OpcodeSuccess, VMError> {
         // Calculate the depth based on the opcode
-        let depth = (op as u8)
-            .checked_sub(Opcode::DUP1 as u8)
+        let depth = (usize::from(op))
+            .checked_sub(usize::from(Opcode::DUP1))
             .ok_or(VMError::InvalidOpcode)?
             .checked_add(1)
             .ok_or(VMError::InvalidOpcode)?;
@@ -27,7 +27,7 @@ impl VM {
         self.increase_consumed_gas(current_call_frame, gas_cost::DUPN)?;
 
         // Ensure the stack has enough elements to duplicate
-        if current_call_frame.stack.len() < depth as usize {
+        if current_call_frame.stack.len() < depth {
             return Err(VMError::StackUnderflow);
         }
 

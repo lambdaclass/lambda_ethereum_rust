@@ -19,8 +19,8 @@ impl VM {
     ) -> Result<OpcodeSuccess, VMError> {
         self.increase_consumed_gas(current_call_frame, gas_cost::PUSHN)?;
 
-        let n_bytes = (op as u8)
-            .checked_sub(Opcode::PUSH1 as u8)
+        let n_bytes = (usize::from(op))
+            .checked_sub(usize::from(Opcode::PUSH1))
             .ok_or(VMError::InvalidOpcode)?
             .checked_add(1)
             .ok_or(VMError::InvalidOpcode)?;
@@ -31,7 +31,7 @@ impl VM {
                 current_call_frame.pc()
                     ..current_call_frame
                         .pc()
-                        .checked_add(n_bytes as usize)
+                        .checked_add(n_bytes)
                         .ok_or(VMError::Internal(InternalError::PCOverflowed))?,
             )
             .ok_or(VMError::InvalidBytecode)?; // This shouldn't happen during execution
@@ -40,7 +40,7 @@ impl VM {
 
         current_call_frame.stack.push(value_to_push)?;
 
-        current_call_frame.increment_pc_by(n_bytes as usize)?;
+        current_call_frame.increment_pc_by(n_bytes)?;
 
         Ok(OpcodeSuccess::Continue)
     }

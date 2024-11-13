@@ -1,4 +1,4 @@
-use crate::errors::VMError;
+use crate::errors::{InternalError, VMError};
 use ethereum_rust_core::U256;
 
 pub const SUCCESS_FOR_CALL: i32 = 1;
@@ -121,11 +121,13 @@ pub const MAX_CREATE_CODE_SIZE: usize = 2 * MAX_CODE_SIZE;
 pub const INVALID_CONTRACT_PREFIX: u8 = 0xef;
 
 // Costs in gas for init word and init code (in wei)
-pub const INIT_WORD_COST: usize = 2;
+pub const INIT_WORD_COST: u64 = 2;
 
 // TODO: See if this function should exist, since has no usages
 pub fn init_code_cost(init_code_length: usize) -> Result<u64, VMError> {
-    let increased_length = init_code_length
+    let length_u64 = u64::try_from(init_code_length)
+    .map_err(|_| VMError::Internal(InternalError::ConversionError))?;
+    let increased_length = length_u64
         .checked_add(31)
         .ok_or(VMError::GasCostOverflow)?;
     Ok((INIT_WORD_COST
@@ -133,7 +135,6 @@ pub fn init_code_cost(init_code_length: usize) -> Result<u64, VMError> {
         .ok_or(VMError::GasCostOverflow)?
         / 32) as u64)
 }
-
 pub mod create_opcode {
     use ethereum_rust_core::U256;
 
