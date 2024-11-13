@@ -18,13 +18,14 @@ use ethereum_rust_core::{
     },
     Address, H256, U256,
 };
+use ethereum_rust_rpc::types::transaction::WrappedEIP4844Transaction;
 use ethereum_rust_storage::Store;
 use ethereum_rust_vm::{evm_state, execute_block, get_state_transitions};
 use keccak_hash::keccak;
 use secp256k1::SecretKey;
 use sha2::{Digest, Sha256};
 use tokio::time::sleep;
-use tracing::{error, info};
+use tracing::{error, info, warn};
 
 use super::{errors::CommitterError, state_diff::StateDiff};
 use crate::utils::eth_client::{errors::EthClientError, eth_sender::Overrides};
@@ -368,20 +369,20 @@ impl Committer {
 
         let commit_tx_hash = self
             .eth_client
-            .send_eip4844_transaction(wrapped_tx, &self.l1_private_key)
+            .send_eip4844_transaction(wrapped_tx.clone(), &self.l1_private_key)
             .await
             .map_err(CommitterError::from)?;
 
-        info!("Commitment sent: {commit_tx_hash:#x}");
+        let commit_tx_hash = wrapped_eip4844_transaction_handler(
+            &self.eth_client,
+            &wrapped_tx,
+            &self.l1_private_key,
+            commit_tx_hash,
+            10,
+        )
+        .await?;
 
-        while self
-            .eth_client
-            .get_transaction_receipt(commit_tx_hash)
-            .await?
-            .is_none()
-        {
-            sleep(Duration::from_secs(1)).await;
-        }
+        info!("Commitment sent: {commit_tx_hash:#x}");
 
         Ok(commit_tx_hash)
     }
@@ -436,4 +437,55 @@ async fn get_last_committed_block(
     eth_client
         .call(contract_address, calldata.into(), overrides)
         .await
+}
+
+async fn wrapped_eip4844_transaction_handler(
+    eth_client: &EthClient,
+    wrapped_eip4844: &WrappedEIP4844Transaction,
+    l1_private_key: &SecretKey,
+    commit_tx_hash: H256,
+    max_retries: u32,
+) -> Result<H256, CommitterError> {
+    let mut retries = 0;
+    let max_receipt_retries = 20_u32;
+    let mut commit_tx_hash = commit_tx_hash;
+    let mut wrapped_tx = wrapped_eip4844.clone();
+
+    while retries < max_retries {
+        if (eth_client.get_transaction_receipt(commit_tx_hash).await?).is_some() {
+            // If the tx_receipt was found, return the tx_hash.
+            return Ok(commit_tx_hash);
+        } else {
+            // Else, wait for receipt and send again if necessary.
+            let mut receipt_retries = 0;
+
+            // Try for 20 seconds with an interval of 1 second to get the tx_receipt.
+            while receipt_retries < max_receipt_retries {
+                match eth_client.get_transaction_receipt(commit_tx_hash).await? {
+                    Some(_) => return Ok(commit_tx_hash),
+                    None => {
+                        receipt_retries += 1;
+                        sleep(Duration::from_secs(1)).await;
+                    }
+                }
+            }
+
+            // If receipt was not found, send the same tx(same nonce) but with more gas.
+            warn!("Transaction not confirmed, resending with 50% more gas...");
+
+            wrapped_tx.tx.max_fee_per_gas += wrapped_tx.tx.max_fee_per_gas / 2;
+            wrapped_tx.tx.max_priority_fee_per_gas += wrapped_tx.tx.max_priority_fee_per_gas / 2;
+            wrapped_tx.tx.max_fee_per_blob_gas += wrapped_eip4844.tx.max_fee_per_blob_gas / 2;
+
+            commit_tx_hash = eth_client
+                .send_eip4844_transaction(wrapped_tx.clone(), l1_private_key)
+                .await
+                .map_err(CommitterError::from)?;
+
+            retries += 1;
+        }
+    }
+    Err(CommitterError::FailedToSendCommitment(
+        "Error handling eip4844".to_owned(),
+    ))
 }

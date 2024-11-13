@@ -16,7 +16,7 @@ use tokio::{
 use tracing::{debug, error, info, warn};
 
 use ethereum_rust_core::{
-    types::{Block, BlockHeader},
+    types::{Block, BlockHeader, EIP1559Transaction},
     Address, H256,
 };
 
@@ -355,7 +355,7 @@ impl ProverServer {
             .to_vec();
         calldata.extend(verify_proof_selector);
 
-        // The calldata has to be structures in the following way:
+        // The calldata has to be structured in the following way:
         // block_number
         // size in bytes
         // image_id digest
@@ -401,19 +401,70 @@ impl ProverServer {
             .await?;
         let verify_tx_hash = self
             .eth_client
-            .send_eip1559_transaction(verify_tx, &self.verifier_private_key)
+            .send_eip1559_transaction(verify_tx.clone(), &self.verifier_private_key)
             .await?;
+
+        eip1559_transaction_handler(
+            &self.eth_client,
+            &verify_tx,
+            &self.verifier_private_key,
+            verify_tx_hash,
+            20,
+        )
+        .await?;
 
         info!("Proof sent: {verify_tx_hash:#x}");
 
-        while self
-            .eth_client
-            .get_transaction_receipt(verify_tx_hash)
-            .await?
-            .is_none()
-        {
-            sleep(Duration::from_secs(1)).await;
-        }
         Ok(verify_tx_hash)
     }
+}
+
+async fn eip1559_transaction_handler(
+    eth_client: &EthClient,
+    eip1559: &EIP1559Transaction,
+    l1_private_key: &SecretKey,
+    verify_tx_hash: H256,
+    max_retries: u32,
+) -> Result<H256, ProverServerError> {
+    let mut retries = 0;
+    let max_receipt_retries = 20_u32;
+    let mut verify_tx_hash = verify_tx_hash;
+    let mut tx = eip1559.clone();
+
+    while retries < max_retries {
+        if (eth_client.get_transaction_receipt(verify_tx_hash).await?).is_some() {
+            // If the tx_receipt was found, return the tx_hash.
+            return Ok(verify_tx_hash);
+        } else {
+            // Else, wait for receipt and send again if necessary.
+            let mut receipt_retries = 0;
+
+            // Try for 20 seconds with an interval of 1 second to get the tx_receipt.
+            while receipt_retries < max_receipt_retries {
+                match eth_client.get_transaction_receipt(verify_tx_hash).await? {
+                    Some(_) => return Ok(verify_tx_hash),
+                    None => {
+                        receipt_retries += 1;
+                        sleep(Duration::from_secs(1)).await;
+                    }
+                }
+            }
+
+            // If receipt was not found, send the same tx(same nonce) but with more gas.
+            warn!("Transaction not confirmed, resending with 50% more gas...");
+
+            tx.max_fee_per_gas += tx.max_fee_per_gas / 2;
+            tx.max_priority_fee_per_gas += tx.max_priority_fee_per_gas / 2;
+
+            verify_tx_hash = eth_client
+                .send_eip1559_transaction(tx.clone(), l1_private_key)
+                .await
+                .map_err(ProverServerError::from)?;
+
+            retries += 1;
+        }
+    }
+    Err(ProverServerError::FailedToVerifyProofOnChain(
+        "Error handling eip1559".to_owned(),
+    ))
 }

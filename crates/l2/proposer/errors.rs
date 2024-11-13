@@ -24,8 +24,10 @@ pub enum L1WatcherError {
 pub enum ProverServerError {
     #[error("ProverServer connection failed: {0}")]
     ConnectionError(#[from] std::io::Error),
-    #[error("Proposer failed because of an EthClient error: {0}")]
+    #[error("ProverServer failed because of an EthClient error: {0}")]
     EthClientError(#[from] EthClientError),
+    #[error("ProverServer failed to send transaction: {0}")]
+    FailedToVerifyProofOnChain(String),
 }
 
 #[derive(Debug, thiserror::Error)]
@@ -56,6 +58,8 @@ pub enum CommitterError {
     FailedToReExecuteBlock(#[from] EvmError),
     #[error("Committer failed to make KZG operations: {0}")]
     KZGError(#[from] c_kzg::Error),
+    #[error("Committer failed to send transaction: {0}")]
+    FailedToSendCommitment(String),
 }
 
 #[derive(Debug, thiserror::Error)]
