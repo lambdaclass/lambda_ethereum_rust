@@ -451,10 +451,12 @@ async fn eip1559_transaction_handler(
             }
 
             // If receipt was not found, send the same tx(same nonce) but with more gas.
-            warn!("Transaction not confirmed, resending with 50% more gas...");
-
-            tx.max_fee_per_gas += tx.max_fee_per_gas / 2;
-            tx.max_priority_fee_per_gas += tx.max_priority_fee_per_gas / 2;
+            // Sometimes the penalty is a 100%
+            warn!("Transaction not confirmed, resending with 110% more gas...");
+            // Increase max fee per gas by 110% (set it to 210% of the original)
+            tx.max_fee_per_gas = (tx.max_fee_per_gas as f64 * 2.1).round() as u64;
+            tx.max_priority_fee_per_gas +=
+                (tx.max_priority_fee_per_gas as f64 * 2.1).round() as u64;
 
             verify_tx_hash = eth_client
                 .send_eip1559_transaction(tx.clone(), l1_private_key)

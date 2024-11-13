@@ -359,7 +359,7 @@ impl Committer {
                 Bytes::from(calldata),
                 Overrides {
                     from: Some(self.l1_address),
-                    gas_price_per_blob: Some(U256::from_dec_str("100000000000000").unwrap()),
+                    gas_price_per_blob: Some(U256::from_dec_str("50000000000").unwrap()),
                     ..Default::default()
                 },
                 blobs_bundle,
@@ -434,6 +434,9 @@ async fn get_last_committed_block(
     let mut calldata = Vec::new();
     calldata.extend_from_slice(&selector);
 
+    let leading_zeros = 32 - ((calldata.len() - 4) % 32);
+    calldata.extend(vec![0; leading_zeros]);
+
     eth_client
         .call(contract_address, calldata.into(), overrides)
         .await
@@ -471,10 +474,14 @@ async fn wrapped_eip4844_transaction_handler(
             }
 
             // If receipt was not found, send the same tx(same nonce) but with more gas.
+            // Sometimes the penalty is a 100%
             warn!("Transaction not confirmed, resending with 50% more gas...");
 
-            wrapped_tx.tx.max_fee_per_gas += wrapped_tx.tx.max_fee_per_gas / 2;
-            wrapped_tx.tx.max_priority_fee_per_gas += wrapped_tx.tx.max_priority_fee_per_gas / 2;
+            // Increase max fee per gas by 110% (set it to 210% of the original)
+            wrapped_tx.tx.max_fee_per_gas =
+                (wrapped_tx.tx.max_fee_per_gas as f64 * 2.1).round() as u64;
+            wrapped_tx.tx.max_priority_fee_per_gas =
+                (wrapped_tx.tx.max_priority_fee_per_gas as f64 * 2.1).round() as u64;
             wrapped_tx.tx.max_fee_per_blob_gas += wrapped_eip4844.tx.max_fee_per_blob_gas / 2;
 
             commit_tx_hash = eth_client
