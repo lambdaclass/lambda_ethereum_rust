@@ -19,7 +19,6 @@ jobs:
   run-hive:
     name: Hive - ${{ matrix.name }}
     runs-on: ubuntu-latest
-    if: false
     strategy:
       matrix:
         include:
@@ -46,6 +45,7 @@ jobs:
             run_command: exit 0
     steps:
       - name: Run Hive Simulation
+        if: false
         run: ${{ matrix.run_command }}
 
   run-assertoor:
