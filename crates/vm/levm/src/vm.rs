@@ -13,7 +13,6 @@ use ethereum_rust_core::{types::TxKind, Address, H256, U256};
 use ethereum_rust_rlp;
 use ethereum_rust_rlp::encode::RLPEncode;
 use gas_cost::KECCAK25_DYNAMIC_BASE;
-use keccak_hash::keccak;
 use sha3::{Digest, Keccak256};
 use std::{
     collections::{HashMap, HashSet},
