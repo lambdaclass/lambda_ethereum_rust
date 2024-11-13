@@ -54,19 +54,24 @@ pub fn run_ef_tests() -> Result<EFTestsReport, Box<dyn Error>> {
 }
 
 pub fn run_ef_test(test: EFTest, report: &mut EFTestsReport) -> Result<(), Box<dyn Error>> {
-    dbg!(&test.name);
-    let mut evm = prepare_vm(&test, report)?;
-    ensure_pre_state(&evm, &test, report)?;
-    let execution_result = evm.transact();
-    ensure_post_state(execution_result, &evm, &test, report)?;
+    for (tx_id, _tx) in test.transactions.iter().enumerate() {
+        let mut evm = prepare_vm_for_tx(tx_id, &test, report)?;
+        ensure_pre_state(&evm, &test, report)?;
+        let execution_result = evm.transact();
+        ensure_post_state(execution_result, &evm, &test, report)?;
+    }
     Ok(())
 }
 
-pub fn prepare_vm(test: &EFTest, report: &mut EFTestsReport) -> Result<VM, Box<dyn Error>> {
+pub fn prepare_vm_for_tx(
+    tx_id: usize,
+    test: &EFTest,
+    report: &mut EFTestsReport,
+) -> Result<VM, Box<dyn Error>> {
     let vm_result = VM::new(
-        test.transaction.to.clone(),
+        test.transactions.get(tx_id).unwrap().to.clone(),
         Environment {
-            origin: test.transaction.sender,
+            origin: test.transactions.get(tx_id).unwrap().sender,
             consumed_gas: U256::default(),
             refunded_gas: U256::default(),
             gas_limit: test.env.current_gas_limit,
@@ -76,13 +81,18 @@ pub fn prepare_vm(test: &EFTest, report: &mut EFTestsReport) -> Result<VM, Box<d
             prev_randao: Some(test.env.current_random),
             chain_id: U256::from(1729),
             base_fee_per_gas: test.env.current_base_fee,
-            gas_price: test.transaction.gas_price.unwrap_or_default(), // or max_fee_per_gas?
+            gas_price: test
+                .transactions
+                .get(tx_id)
+                .unwrap()
+                .gas_price
+                .unwrap_or_default(), // or max_fee_per_gas?
             block_excess_blob_gas: Some(test.env.current_excess_blob_gas),
             block_blob_gas_used: None,
             tx_blob_hashes: None,
         },
-        *test.transaction.value.first().unwrap(),
-        test.transaction.data.first().unwrap().clone(),
+        test.transactions.get(tx_id).unwrap().value,
+        test.transactions.get(tx_id).unwrap().data.clone(),
         Arc::new(Db::from(test)),
         Cache::default(),
     );
