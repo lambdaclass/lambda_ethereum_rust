@@ -1,3 +1,7 @@
 *.tar.gz
 
 tests/ef/tests
+<<<<<<< HEAD
+=======
+tmp/
+>>>>>>> main

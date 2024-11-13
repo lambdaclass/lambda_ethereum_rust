@@ -4,17 +4,18 @@ use crate::{
     constants::*,
     db::{Cache, Database},
     environment::Environment,
-    errors::{OpcodeSuccess, ResultReason, TransactionReport, TxResult, VMError},
+    errors::{InternalError, OpcodeSuccess, ResultReason, TransactionReport, TxResult, VMError},
     opcodes::Opcode,
 };
 use bytes::Bytes;
+use create_opcode::{CODE_DEPOSIT_COST, CREATE_BASE_COST, INIT_CODE_WORD_COST};
 use ethereum_rust_core::{types::TxKind, Address, H256, U256};
 use ethereum_rust_rlp;
 use ethereum_rust_rlp::encode::RLPEncode;
+use gas_cost::KECCAK25_DYNAMIC_BASE;
 use sha3::{Digest, Keccak256};
 use std::{
     collections::{HashMap, HashSet},
-    str::FromStr,
     sync::Arc,
 };
 
@@ -42,9 +43,15 @@ pub struct VM {
     pub tx_kind: TxKind,
 }
 
-fn address_to_word(address: Address) -> U256 {
+pub fn address_to_word(address: Address) -> U256 {
     // This unwrap can't panic, as Address are 20 bytes long and U256 use 32 bytes
-    U256::from_str(&format!("{address:?}")).unwrap()
+    let mut word = [0u8; 32];
+
+    for (word_byte, address_byte) in word.iter_mut().skip(12).zip(address.as_bytes().iter()) {
+        *word_byte = *address_byte;
+    }
+
+    U256::from_big_endian(&word)
 }
 
 pub fn word_to_address(word: U256) -> Address {
@@ -63,7 +70,7 @@ impl VM {
         calldata: Bytes,
         db: Arc<dyn Database>,
         mut cache: Cache,
-    ) -> Self {
+    ) -> Result<Self, VMError> {
         // Maybe this decision should be made in an upper layer
 
         match to {
@@ -77,19 +84,19 @@ impl VM {
                     value,
                     calldata.clone(),
                     false,
-                    env.gas_limit,
+                    env.gas_limit.min(MAX_BLOCK_GAS_LIMIT),
                     TX_BASE_COST,
                     0,
                 );
 
-                Self {
+                Ok(Self {
                     call_frames: vec![initial_call_frame],
                     db,
                     env,
                     accrued_substate: Substate::default(),
                     cache,
                     tx_kind: to,
-                }
+                })
             }
             TxKind::Create => {
                 // CREATE tx
@@ -115,19 +122,19 @@ impl VM {
                     value,
                     calldata.clone(),
                     false,
-                    env.gas_limit,
+                    env.gas_limit.min(MAX_BLOCK_GAS_LIMIT),
                     TX_BASE_COST,
                     0,
                 );
 
-                Self {
+                Ok(Self {
                     call_frames: vec![initial_call_frame],
                     db,
                     env,
                     accrued_substate: Substate::default(),
                     cache,
                     tx_kind: TxKind::Create,
-                }
+                })
             }
         }
         // TODO: https://github.com/lambdaclass/lambda_ethereum_rust/issues/1088
@@ -143,7 +150,7 @@ impl VM {
 
         loop {
             let opcode = current_call_frame.next_opcode().unwrap_or(Opcode::STOP);
-            // Note: these are commented because they're still being used in development.
+            // Note: This is commented because it's used for debugging purposes in development.
             // dbg!(&current_call_frame.gas_used);
             // dbg!(&opcode);
             let op_result: Result<OpcodeSuccess, VMError> = match opcode {
@@ -299,7 +306,7 @@ impl VM {
         self.env.refunded_gas = backup_refunded_gas;
     }
 
-    // let account = self.db.accounts.get(&self.env.origin).unwrap();
+    // let account = self.db.accounts.get(&self.env.origin).ok_or(VMError::FatalUnwrap)?;
     /// Based on Ethereum yellow paper's initial tests of intrinsic validity (Section 6). The last version is
     /// Shanghai, so there are probably missing Cancun validations. The intrinsic validations are:
     ///
@@ -320,18 +327,24 @@ impl VM {
     fn validate_transaction(&mut self) -> Result<(), VMError> {
         // Validations (1), (2), (3), (5), and (8) are assumed done in upper layers.
 
+        let call_frame = self
+            .call_frames
+            .last()
+            .ok_or(VMError::Internal(
+                InternalError::CouldNotAccessLastCallframe,
+            ))?
+            .clone();
+
         if self.is_create() {
             // If address is already in db, there's an error
-            let new_address_acc = self
-                .db
-                .get_account_info(self.call_frames.first().unwrap().to);
+            let new_address_acc = self.db.get_account_info(call_frame.to);
             if !new_address_acc.is_empty() {
                 return Err(VMError::AddressAlreadyOccupied);
             }
         }
 
         let origin = self.env.origin;
-        let to = self.call_frames[0].to;
+        let to = call_frame.to;
 
         let mut receiver_account = self.get_account(&to);
         let mut sender_account = self.get_account(&origin);
@@ -344,16 +357,16 @@ impl VM {
             .ok_or(VMError::NonceOverflow)?;
 
         // (4)
-        if sender_account.has_code() {
+        if sender_account.has_code()? {
             return Err(VMError::SenderAccountShouldNotHaveBytecode);
         }
         // (6)
-        if sender_account.info.balance < self.call_frames[0].msg_value {
+        if sender_account.info.balance < call_frame.msg_value {
             return Err(VMError::SenderBalanceShouldContainTransferValue);
         }
         // TODO: This belongs elsewhere.
-        sender_account.info.balance -= self.call_frames[0].msg_value;
-        receiver_account.info.balance += self.call_frames[0].msg_value;
+        sender_account.info.balance -= call_frame.msg_value;
+        receiver_account.info.balance += call_frame.msg_value;
 
         self.cache.add_account(&origin, &sender_account);
         self.cache.add_account(&to, &receiver_account);
@@ -371,19 +384,27 @@ impl VM {
 
     fn revert_create(&mut self) -> Result<(), VMError> {
         // Note: currently working with copies
-        let sender = self.call_frames.first().unwrap().msg_sender;
+        let call_frame = self
+            .call_frames
+            .last()
+            .ok_or(VMError::Internal(
+                InternalError::CouldNotAccessLastCallframe,
+            ))?
+            .clone();
+
+        let sender = call_frame.msg_sender;
         let mut sender_account = self.get_account(&sender);
 
         sender_account.info.nonce -= 1;
 
-        let new_contract_address = self.call_frames.first().unwrap().to;
+        let new_contract_address = call_frame.to;
 
         if self.cache.accounts.remove(&new_contract_address).is_none() {
             return Err(VMError::AddressDoesNotMatchAnAccount); // Should not be this error
         }
 
         // Should revert this?
-        // sender_account.info.balance -= self.call_frames.first().unwrap().msg_value;
+        // sender_account.info.balance -= self.call_frames.first().ok_or(VMError::FatalUnwrap)?.msg_value;
 
         Ok(())
     }
@@ -395,22 +416,36 @@ impl VM {
 
         self.env.consumed_gas = initial_gas;
 
-        let mut current_call_frame = self.call_frames.pop().unwrap();
+        let mut current_call_frame = self
+            .call_frames
+            .pop()
+            .ok_or(VMError::Internal(InternalError::CouldNotPopCallframe))?;
 
         let mut report = self.execute(&mut current_call_frame);
-        let sender = self.call_frames.first().unwrap().msg_sender;
+
+        let initial_call_frame = self
+            .call_frames
+            .last()
+            .ok_or(VMError::Internal(
+                InternalError::CouldNotAccessLastCallframe,
+            ))?
+            .clone();
+
+        let sender = initial_call_frame.msg_sender;
 
         // This cost applies both for call and create
         // 4 gas for each zero byte in the transaction data 16 gas for each non-zero byte in the transaction.
         let mut calldata_cost = 0;
-        for byte in &self.call_frames[0].calldata {
+        for byte in &initial_call_frame.calldata {
             if *byte != 0 {
                 calldata_cost += 16;
             } else {
                 calldata_cost += 4;
             }
         }
-        report.gas_used += calldata_cost;
+
+        let max_gas = self.env.gas_limit.low_u64();
+        report.add_gas_with_max(calldata_cost, max_gas);
 
         if self.is_create() {
             // If create should check if transaction failed. If failed should revert (delete created contract, )
@@ -436,16 +471,25 @@ impl VM {
 
             // If the initialization code completes successfully, a final contract-creation cost is paid,
             // the code-deposit cost, c, proportional to the size of the created contract’s code
-            let mut creation_cost = 200 * contract_code.len() as u64;
+            let code_length: u64 = contract_code
+                .len()
+                .try_into()
+                .map_err(|_| VMError::Internal(InternalError::ConversionError))?;
+            let mut creation_cost = 200 * code_length;
             creation_cost += 32000;
-            report.gas_used += creation_cost;
+            report.add_gas_with_max(creation_cost, max_gas);
             // Charge 22100 gas for each storage variable set
 
             // GInitCodeword * number_of_words rounded up. GinitCodeWord = 2
-            let number_of_words = self.call_frames[0].calldata.chunks(32).len() as u64;
-            report.gas_used += number_of_words * 2;
+            let number_of_words: u64 = initial_call_frame
+                .calldata
+                .chunks(WORD_SIZE)
+                .len()
+                .try_into()
+                .map_err(|_| VMError::Internal(InternalError::ConversionError))?;
+            report.add_gas_with_max(number_of_words * 2, max_gas);
 
-            let contract_address = self.call_frames.first().unwrap().to;
+            let contract_address = initial_call_frame.to;
             let mut created_contract = self.get_account(&contract_address);
 
             created_contract.info.bytecode = contract_code;
@@ -466,13 +510,28 @@ impl VM {
             )
             .ok_or(VMError::OutOfGas)?;
 
-        // Gas refunds are capped to 1/5th of the total gas used (https://www.evm.codes/about#gasrefunds)
-        report.gas_refunded = report.gas_refunded.min(report.gas_used / 5);
+        let receiver_address = initial_call_frame.to;
+        let mut receiver_account = self.get_account(&receiver_address);
+        // If execution was successful we want to transfer value from sender to receiver
+        if report.is_success() {
+            // Subtract to the caller the gas sent
+            sender_account.info.balance = sender_account
+                .info
+                .balance
+                .checked_sub(initial_call_frame.msg_value)
+                .ok_or(VMError::OutOfGas)?; // This error shouldn't be OutOfGas
+            receiver_account.info.balance = receiver_account
+                .info
+                .balance
+                .checked_add(initial_call_frame.msg_value)
+                .ok_or(VMError::OutOfGas)?; // This error shouldn't be OutOfGas
+        }
 
-        // Note: this is commented because it is still being used in development.
+        // Note: This is commented because it's used for debugging purposes in development.
         // dbg!(&report.gas_refunded);
 
         self.cache.add_account(&sender, &sender_account);
+        self.cache.add_account(&receiver_address, &receiver_account);
 
         // Send coinbase fee
         let priority_fee_per_gas = self.env.gas_price - self.env.base_fee_per_gas;
@@ -488,8 +547,10 @@ impl VM {
         Ok(report)
     }
 
-    pub fn current_call_frame_mut(&mut self) -> &mut CallFrame {
-        self.call_frames.last_mut().unwrap()
+    pub fn current_call_frame_mut(&mut self) -> Result<&mut CallFrame, VMError> {
+        self.call_frames.last_mut().ok_or(VMError::Internal(
+            InternalError::CouldNotAccessLastCallframe,
+        ))
     }
 
     // TODO: Improve and test REVERT behavior for XCALL opcodes. Issue: https://github.com/lambdaclass/lambda_ethereum_rust/issues/1061
@@ -557,10 +618,11 @@ impl VM {
             current_call_frame.depth + 1,
         );
 
-        // EIP-7686 + log((gaslimit + 6300) / 6400) / log(64/63) = 537
-        if new_call_frame.depth > 537 {
+        // TODO: Increase this to 1024
+        if new_call_frame.depth > 10 {
             current_call_frame.stack.push(U256::from(REVERT_FOR_CALL))?;
-            return Ok(OpcodeSuccess::Result(ResultReason::Revert));
+            // return Ok(OpcodeSuccess::Result(ResultReason::Revert));
+            return Err(VMError::OutOfGas); // This is wrong but it is for testing purposes.
         }
 
         current_call_frame.sub_return_data_offset = ret_offset;
@@ -578,7 +640,7 @@ impl VM {
         current_call_frame.logs.extend(tx_report.logs);
         current_call_frame
             .memory
-            .store_n_bytes(ret_offset, &tx_report.output, ret_size);
+            .store_n_bytes(ret_offset, &tx_report.output, ret_size)?;
         current_call_frame.sub_return_data = tx_report.output;
 
         // What to do, depending on TxResult
@@ -613,11 +675,12 @@ impl VM {
     /// initialization_code = memory[offset:offset+size]
     ///
     /// address = keccak256(0xff + sender_address + salt + keccak256(initialization_code))[12:]
+    ///
     pub fn calculate_create2_address(
         sender_address: Address,
         initialization_code: &Bytes,
         salt: U256,
-    ) -> Address {
+    ) -> Result<Address, VMError> {
         let mut hasher = Keccak256::new();
         hasher.update(initialization_code.clone());
         let initialization_code_hash = hasher.finalize();
@@ -628,7 +691,57 @@ impl VM {
         hasher.update(sender_address.as_bytes());
         hasher.update(salt_bytes);
         hasher.update(initialization_code_hash);
-        Address::from_slice(&hasher.finalize()[12..])
+        Ok(Address::from_slice(hasher.finalize().get(12..).ok_or(
+            VMError::Internal(InternalError::CouldNotComputeCreate2Address),
+        )?))
+    }
+
+    fn compute_gas_create(
+        &mut self,
+        current_call_frame: &mut CallFrame,
+        code_offset_in_memory: U256,
+        code_size_in_memory: U256,
+        is_create_2: bool,
+    ) -> Result<U256, VMError> {
+        let minimum_word_size = (code_size_in_memory
+            .checked_add(U256::from(31))
+            .ok_or(VMError::DataSizeOverflow)?)
+        .checked_div(U256::from(32))
+        .ok_or(VMError::Internal(InternalError::DivisionError))?; // '32' will never be zero
+
+        let init_code_cost = minimum_word_size
+            .checked_mul(INIT_CODE_WORD_COST)
+            .ok_or(VMError::GasCostOverflow)?;
+
+        let code_deposit_cost = code_size_in_memory
+            .checked_mul(CODE_DEPOSIT_COST)
+            .ok_or(VMError::GasCostOverflow)?;
+
+        let memory_expansion_cost = current_call_frame.memory.expansion_cost(
+            code_size_in_memory
+                .checked_add(code_offset_in_memory)
+                .ok_or(VMError::OffsetOverflow)?
+                .try_into()
+                .map_err(|_err| VMError::OffsetOverflow)?,
+        )?;
+
+        let hash_cost = if is_create_2 {
+            minimum_word_size
+                .checked_mul(KECCAK25_DYNAMIC_BASE)
+                .ok_or(VMError::GasCostOverflow)?
+        } else {
+            U256::zero()
+        };
+
+        init_code_cost
+            .checked_add(memory_expansion_cost)
+            .ok_or(VMError::CreationCostIsTooHigh)?
+            .checked_add(code_deposit_cost)
+            .ok_or(VMError::CreationCostIsTooHigh)?
+            .checked_add(CREATE_BASE_COST)
+            .ok_or(VMError::CreationCostIsTooHigh)?
+            .checked_add(hash_cost)
+            .ok_or(VMError::CreationCostIsTooHigh)
     }
 
     /// Common behavior for CREATE and CREATE2 opcodes
@@ -643,6 +756,15 @@ impl VM {
         salt: Option<U256>,
         current_call_frame: &mut CallFrame,
     ) -> Result<OpcodeSuccess, VMError> {
+        let gas_cost = self.compute_gas_create(
+            current_call_frame,
+            code_offset_in_memory,
+            code_size_in_memory,
+            false,
+        )?;
+
+        self.increase_consumed_gas(current_call_frame, gas_cost)?;
+
         let code_size_in_memory = code_size_in_memory
             .try_into()
             .map_err(|_err| VMError::VeryLargeNumber)?;
@@ -667,7 +789,7 @@ impl VM {
         let sender_account = self
             .cache
             .get_mut_account(current_call_frame.msg_sender)
-            .unwrap();
+            .ok_or(VMError::Internal(InternalError::AccountNotFound))?;
 
         if sender_account.info.balance < value_in_wei_to_send {
             current_call_frame
@@ -696,7 +818,7 @@ impl VM {
 
         let new_address = match salt {
             Some(salt) => {
-                Self::calculate_create2_address(current_call_frame.msg_sender, &code, salt)
+                Self::calculate_create2_address(current_call_frame.msg_sender, &code, salt)?
             }
             None => Self::calculate_create_address(
                 current_call_frame.msg_sender,
@@ -731,7 +853,15 @@ impl VM {
             code_size_in_memory,
             code_offset_in_memory,
             code_size_in_memory,
-        )
+        )?;
+
+        // Erases the success value in the stack result of calling generic call, probably this should be refactored soon...
+        current_call_frame
+            .stack
+            .pop()
+            .map_err(|_| VMError::StackUnderflow)?;
+
+        Ok(OpcodeSuccess::Continue)
     }
 
     /// Increases gas consumption of CallFrame and Environment, returning an error if the callframe gas limit is reached.

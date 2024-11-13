@@ -1,3 +1,5 @@
+#![allow(clippy::unwrap_used)]
+
 use crate::ef::{report::EFTestsReport, test::EFTest};
 use ethereum_rust_core::{H256, U256};
 use ethereum_rust_levm::{
@@ -8,20 +10,10 @@ use ethereum_rust_levm::{
 };
 use keccak_hash::keccak;
 use spinoff::{spinners::Dots, Color, Spinner};
-use std::{error::Error, process::Command, sync::Arc};
-
-fn download_ef_tests() {
-    Command::new("git")
-        .args(["clone", "https://github.com/ethereum/tests.git"])
-        .spawn()
-        .expect("Failed to clone Ethereum tests repository")
-        .wait()
-        .expect("Failed to clone Ethereum tests repository");
-}
+use std::{error::Error, sync::Arc};
 
 pub fn run_ef_tests() -> Result<EFTestsReport, Box<dyn Error>> {
     let mut report = EFTestsReport::default();
-    download_ef_tests();
     let cargo_manifest_dir = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"));
     let ef_general_state_tests_path = cargo_manifest_dir.join("tests/ef/tests/GeneralStateTests");
     let mut spinner = Spinner::new(Dots, report.to_string(), Color::Cyan);
@@ -63,15 +55,15 @@ pub fn run_ef_tests() -> Result<EFTestsReport, Box<dyn Error>> {
 
 pub fn run_ef_test(test: EFTest, report: &mut EFTestsReport) -> Result<(), Box<dyn Error>> {
     dbg!(&test.name);
-    let mut evm = prepare_vm(&test);
+    let mut evm = prepare_vm(&test, report)?;
     ensure_pre_state(&evm, &test, report)?;
     let execution_result = evm.transact();
     ensure_post_state(execution_result, &evm, &test, report)?;
     Ok(())
 }
 
-pub fn prepare_vm(test: &EFTest) -> VM {
-    VM::new(
+pub fn prepare_vm(test: &EFTest, report: &mut EFTestsReport) -> Result<VM, Box<dyn Error>> {
+    let vm_result = VM::new(
         test.transaction.to.clone(),
         Environment {
             origin: test.transaction.sender,
@@ -93,7 +85,16 @@ pub fn prepare_vm(test: &EFTest) -> VM {
         test.transaction.data.first().unwrap().clone(),
         Arc::new(Db::from(test)),
         Cache::default(),
-    )
+    );
+
+    match vm_result {
+        Ok(vm) => Ok(vm),
+        Err(err) => {
+            let error_reason = format!("VM initialization failed: {err:?}");
+            report.register_fail(&test.name, &error_reason);
+            Err(error_reason.into())
+        }
+    }
 }
 
 pub fn ensure_pre_state(
