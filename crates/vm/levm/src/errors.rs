@@ -19,8 +19,6 @@ pub enum VMError {
     OpcodeNotFound,
     #[error("Invalid Bytecode")]
     InvalidBytecode,
-    #[error("Out Of Gas")]
-    OutOfGas,
     #[error("Very Large Number")]
     VeryLargeNumber,
     #[error("Fatal Error")]
@@ -65,7 +63,7 @@ pub enum VMError {
     RemainingGasUnderflow, // When gas used is higher than gas limit, is there already an error for that?
     // OutOfGas
     #[error("Out Of Gas")]
-    OutOfGasErr(#[from] OutOfGasError),
+    OutOfGas(#[from] OutOfGasError),
     // Internal
     #[error("Internal error: {0}")]
     Internal(#[from] InternalError),

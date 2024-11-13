@@ -1,7 +1,7 @@
 use crate::{
     call_frame::CallFrame,
     constants::{BALANCE_COLD_ADDRESS_ACCESS_COST, WARM_ADDRESS_ACCESS_COST, WORD_SIZE},
-    errors::{InternalError, OpcodeSuccess, VMError},
+    errors::{InternalError, OpcodeSuccess, OutOfGasError, VMError},
     gas_cost,
     vm::{word_to_address, VM},
 };
@@ -161,7 +161,7 @@ impl VM {
             .map_err(|_err| VMError::VeryLargeNumber)?;
 
         let gas_cost = gas_cost::calldatacopy(current_call_frame, size, dest_offset)
-            .map_err(VMError::OutOfGasErr)?;
+            .map_err(VMError::OutOfGas)?;
 
         self.increase_consumed_gas(current_call_frame, gas_cost)?;
 
@@ -201,10 +201,10 @@ impl VM {
             .env
             .consumed_gas
             .checked_add(gas_cost::CODESIZE)
-            .ok_or(VMError::OutOfGas)?
+            .ok_or(VMError::OutOfGas(OutOfGasError::ConsumedGasOverflow))?
             > self.env.gas_limit
         {
-            return Err(VMError::OutOfGas);
+            return Err(VMError::OutOfGas(OutOfGasError::MaxGasLimitExceeded));
         }
 
         current_call_frame
@@ -237,8 +237,8 @@ impl VM {
             .try_into()
             .map_err(|_| VMError::VeryLargeNumber)?;
 
-        let gas_cost = gas_cost::codecopy(current_call_frame, size, dest_offset)
-            .map_err(VMError::OutOfGasErr)?;
+        let gas_cost =
+            gas_cost::codecopy(current_call_frame, size, dest_offset).map_err(VMError::OutOfGas)?;
 
         self.increase_consumed_gas(current_call_frame, gas_cost)?;
 
@@ -323,7 +323,7 @@ impl VM {
         let is_cached = self.cache.is_account_cached(&address);
 
         let gas_cost = gas_cost::extcodecopy(current_call_frame, size, dest_offset, is_cached)
-            .map_err(VMError::OutOfGasErr)?;
+            .map_err(VMError::OutOfGas)?;
 
         self.increase_consumed_gas(current_call_frame, gas_cost)?;
 
@@ -391,7 +391,7 @@ impl VM {
             .unwrap_or(usize::MAX);
 
         let gas_cost = gas_cost::returndatacopy(current_call_frame, size, dest_offset)
-            .map_err(VMError::OutOfGasErr)?;
+            .map_err(VMError::OutOfGas)?;
 
         self.increase_consumed_gas(current_call_frame, gas_cost)?;
 

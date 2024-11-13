@@ -67,7 +67,7 @@ impl VM {
             is_cached,
             account_is_empty,
         )
-        .map_err(VMError::OutOfGasErr)?;
+        .map_err(VMError::OutOfGas)?;
 
         self.increase_consumed_gas(current_call_frame, gas_cost)?;
 
@@ -137,7 +137,7 @@ impl VM {
             value,
             is_cached,
         )
-        .map_err(VMError::OutOfGasErr)?;
+        .map_err(VMError::OutOfGas)?;
 
         self.increase_consumed_gas(current_call_frame, gas_cost)?;
 
@@ -244,7 +244,7 @@ impl VM {
             ret_offset,
             is_cached,
         )
-        .map_err(VMError::OutOfGasErr)?;
+        .map_err(VMError::OutOfGas)?;
 
         self.increase_consumed_gas(current_call_frame, gas_cost)?;
 
@@ -312,7 +312,7 @@ impl VM {
             ret_offset,
             is_cached,
         )
-        .map_err(VMError::OutOfGasErr)?;
+        .map_err(VMError::OutOfGas)?;
 
         self.increase_consumed_gas(current_call_frame, gas_cost)?;
 
@@ -348,7 +348,7 @@ impl VM {
             code_offset_in_memory,
             code_size_in_memory,
         )
-        .map_err(VMError::OutOfGasErr)?;
+        .map_err(VMError::OutOfGas)?;
 
         self.increase_consumed_gas(current_call_frame, gas_cost)?;
 
@@ -378,7 +378,7 @@ impl VM {
             code_offset_in_memory,
             code_size_in_memory,
         )
-        .map_err(VMError::OutOfGasErr)?;
+        .map_err(VMError::OutOfGas)?;
 
         self.increase_consumed_gas(current_call_frame, gas_cost)?;
 
@@ -461,7 +461,7 @@ impl VM {
         let account_is_empty = target_account.is_empty();
 
         let gas_cost =
-            gas_cost::selfdestruct(is_cached, account_is_empty).map_err(VMError::OutOfGasErr)?;
+            gas_cost::selfdestruct(is_cached, account_is_empty).map_err(VMError::OutOfGas)?;
 
         target_account.info.balance = target_account
             .info

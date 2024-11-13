@@ -64,7 +64,7 @@ impl VM {
             .try_into()
             .unwrap_or(usize::MAX);
 
-        let gas_cost = gas_cost::mload(current_call_frame, offset).map_err(VMError::OutOfGasErr)?;
+        let gas_cost = gas_cost::mload(current_call_frame, offset).map_err(VMError::OutOfGas)?;
 
         self.increase_consumed_gas(current_call_frame, gas_cost)?;
 
@@ -85,8 +85,7 @@ impl VM {
             .try_into()
             .map_err(|_err| VMError::VeryLargeNumber)?;
 
-        let gas_cost =
-            gas_cost::mstore(current_call_frame, offset).map_err(VMError::OutOfGasErr)?;
+        let gas_cost = gas_cost::mstore(current_call_frame, offset).map_err(VMError::OutOfGas)?;
 
         self.increase_consumed_gas(current_call_frame, gas_cost)?;
 
@@ -109,8 +108,7 @@ impl VM {
         // TODO: modify expansion cost to accept U256
         let offset: usize = current_call_frame.stack.pop()?.try_into().unwrap();
 
-        let gas_cost =
-            gas_cost::mstore8(current_call_frame, offset).map_err(VMError::OutOfGasErr)?;
+        let gas_cost = gas_cost::mstore8(current_call_frame, offset).map_err(VMError::OutOfGas)?;
 
         self.increase_consumed_gas(current_call_frame, gas_cost)?;
 
@@ -183,7 +181,7 @@ impl VM {
         let address = current_call_frame.to;
 
         let (gas_cost, storage_slot) =
-            gas_cost::sstore(self, address, key, value).map_err(VMError::OutOfGasErr)?;
+            gas_cost::sstore(self, address, key, value).map_err(VMError::OutOfGas)?;
 
         self.increase_consumed_gas(current_call_frame, gas_cost)?;
 
@@ -219,9 +217,9 @@ impl VM {
             .env
             .gas_limit
             .checked_sub(self.env.consumed_gas)
-            .ok_or(VMError::OutOfGasErr(OutOfGasError::ConsumedGasOverflow))?
+            .ok_or(VMError::OutOfGas(OutOfGasError::ConsumedGasOverflow))?
             .checked_sub(gas_cost::GAS)
-            .ok_or(VMError::OutOfGasErr(OutOfGasError::ConsumedGasOverflow))?;
+            .ok_or(VMError::OutOfGas(OutOfGasError::ConsumedGasOverflow))?;
         // Note: These are not consumed gas calculations, but are related, so I used this wrapping here
         current_call_frame.stack.push(remaining_gas)?;
 
@@ -250,7 +248,7 @@ impl VM {
             .unwrap_or(usize::MAX);
 
         let gas_cost = gas_cost::mcopy(current_call_frame, size, src_offset, dest_offset)
-            .map_err(VMError::OutOfGasErr)?;
+            .map_err(VMError::OutOfGas)?;
 
         self.increase_consumed_gas(current_call_frame, gas_cost)?;
 

@@ -27,7 +27,7 @@ impl VM {
             .unwrap_or(usize::MAX);
 
         let gas_cost =
-            gas_cost::keccak256(current_call_frame, size, offset).map_err(VMError::OutOfGasErr)?;
+            gas_cost::keccak256(current_call_frame, size, offset).map_err(VMError::OutOfGas)?;
 
         self.increase_consumed_gas(current_call_frame, gas_cost)?;
 

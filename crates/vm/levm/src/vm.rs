@@ -432,12 +432,12 @@ impl VM {
         let mut report = self.execute(&mut initial_call_frame);
 
         let calldata_cost =
-            gas_cost::tx_calldata(&initial_call_frame.calldata).map_err(VMError::OutOfGasErr)?;
+            gas_cost::tx_calldata(&initial_call_frame.calldata).map_err(VMError::OutOfGas)?;
 
         report.gas_used = report
             .gas_used
             .checked_add(calldata_cost)
-            .ok_or(VMError::OutOfGasErr(OutOfGasError::GasUsedOverflow))?;
+            .ok_or(VMError::OutOfGas(OutOfGasError::GasUsedOverflow))?;
 
         if self.is_create() {
             // If create should check if transaction failed. If failed should revert (delete created contract, )
@@ -466,11 +466,11 @@ impl VM {
             let number_of_words = initial_call_frame.calldata.chunks(WORD_SIZE).len() as u64;
 
             let creation_cost = gas_cost::tx_creation(&contract_code, number_of_words)
-                .map_err(VMError::OutOfGasErr)?;
+                .map_err(VMError::OutOfGas)?;
             report.gas_used = report
                 .gas_used
                 .checked_add(creation_cost)
-                .ok_or(VMError::OutOfGasErr(OutOfGasError::GasUsedOverflow))?;
+                .ok_or(VMError::OutOfGas(OutOfGasError::GasUsedOverflow))?;
             // Charge 22100 gas for each storage variable set
 
             let contract_address = initial_call_frame.to;
@@ -493,7 +493,7 @@ impl VM {
                     .checked_mul(self.env.gas_price)
                     .ok_or(VMError::GasLimitPriceProductOverflow)?,
             )
-            .ok_or(VMError::OutOfGas)?;
+            .ok_or(VMError::BalanceUnderflow)?;
 
         let receiver_address = initial_call_frame.to;
         let mut receiver_account = self.get_account(&receiver_address);
@@ -504,12 +504,12 @@ impl VM {
                 .info
                 .balance
                 .checked_sub(initial_call_frame.msg_value)
-                .ok_or(VMError::OutOfGas)?; // This error shouldn't be OutOfGas
+                .ok_or(VMError::BalanceUnderflow)?;
             receiver_account.info.balance = receiver_account
                 .info
                 .balance
                 .checked_add(initial_call_frame.msg_value)
-                .ok_or(VMError::OutOfGas)?; // This error shouldn't be OutOfGas
+                .ok_or(VMError::BalanceUnderflow)?;
         }
 
         // Note: This is commented because it's used for debugging purposes in development.
@@ -634,7 +634,7 @@ impl VM {
         if new_call_frame.depth > 10 {
             current_call_frame.stack.push(U256::from(REVERT_FOR_CALL))?;
             // return Ok(OpcodeSuccess::Result(ResultReason::Revert));
-            return Err(VMError::OutOfGas); // This is wrong but it is for testing purposes.
+            return Err(VMError::StackOverflow); // This is wrong but it is for testing purposes.
         }
 
         current_call_frame.sub_return_data_offset = ret_offset;
@@ -652,7 +652,7 @@ impl VM {
         current_call_frame.gas_used = current_call_frame
             .gas_used
             .checked_add(tx_report.gas_used.into())
-            .ok_or(VMError::OutOfGasErr(OutOfGasError::ConsumedGasOverflow))?;
+            .ok_or(VMError::OutOfGas(OutOfGasError::ConsumedGasOverflow))?;
         current_call_frame.logs.extend(tx_report.logs);
         current_call_frame
             .memory
@@ -826,9 +826,9 @@ impl VM {
         let potential_consumed_gas = current_call_frame
             .gas_used
             .checked_add(gas)
-            .ok_or(VMError::OutOfGasErr(OutOfGasError::ConsumedGasOverflow))?;
+            .ok_or(VMError::OutOfGas(OutOfGasError::ConsumedGasOverflow))?;
         if potential_consumed_gas > current_call_frame.gas_limit {
-            return Err(VMError::OutOfGas);
+            return Err(VMError::OutOfGas(OutOfGasError::MaxGasLimitExceeded));
         }
 
         current_call_frame.gas_used = potential_consumed_gas;
@@ -836,7 +836,7 @@ impl VM {
             .env
             .consumed_gas
             .checked_add(gas)
-            .ok_or(VMError::OutOfGasErr(OutOfGasError::ConsumedGasOverflow))?;
+            .ok_or(VMError::OutOfGas(OutOfGasError::ConsumedGasOverflow))?;
 
         Ok(())
     }
