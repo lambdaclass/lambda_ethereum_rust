@@ -250,7 +250,7 @@ fn remove_internal_references_inner(
     trie_state: &mut TrieState,
 ) -> bool {
     if !node_hash.is_valid() {
-        return true
+        return true;
     }
     // We already looked up the nodes when filling the state so this shouldn't fail
     let node = trie_state.get_node(node_hash.clone()).unwrap().unwrap();
@@ -301,28 +301,20 @@ fn remove_internal_references_inner(
         }
         Node::Extension(n) => {
             // Compare left and right paths against prefix
-            let compare_path = |path: &Nibbles, prefix: &Nibbles| -> Ordering {
-                if path.len() > prefix.len() {
-                    path.as_ref()[..prefix.len()].cmp(prefix.as_ref())
-                } else {
-                    path.as_ref().cmp(prefix.as_ref())
-                }
-            };
 
-            let left_fork = compare_path(&left_path, &n.prefix);
-            let right_fork = compare_path(&right_path, &n.prefix);
+            let left_fork = left_path.compare_prefix(&n.prefix);
+            let right_fork = right_path.compare_prefix(&n.prefix);
 
-            if left_fork.is_eq() && right_fork.is_eq() {
-                // If both paths contain the same prefix as the extension node, keep going
-                return remove_internal_references_inner(
-                    n.child,
-                    left_path.offset(n.prefix.len()),
-                    right_path.offset(n.prefix.len()),
-                    trie_state,
-                );
-            }
-            // We found our fork node, now we can remove the internal references
             match (left_fork, right_fork) {
+                // If both paths contain the same prefix as the extension node, keep going
+                (Ordering::Equal, Ordering::Equal) => {
+                    return remove_internal_references_inner(
+                        n.child,
+                        left_path.offset(n.prefix.len()),
+                        right_path.offset(n.prefix.len()),
+                        trie_state,
+                    );
+                }
                 // If both paths are greater or lesser than the node's prefix then the range is empty
                 // TODO: return the error instead of panicking here
                 (Ordering::Greater, Ordering::Greater) | (Ordering::Less, Ordering::Less) => {
@@ -342,7 +334,9 @@ fn remove_internal_references_inner(
                 }
             }
         }
-        Node::Leaf(_) => todo!(),
+        // This case should be unreachable as we checked that left_path != right_path
+        // before calling this function
+        Node::Leaf(_) => {}
     }
     false
 }
@@ -388,8 +382,8 @@ fn remove_node(
             // If no child subtrie would result from this process remove the node entirely
             // (Such as removing the left side of a trie with no right side)
             if !path.skip_prefix(&n.prefix) {
-                if (remove_left && n.prefix.as_ref() < path.as_ref())
-                    || (!remove_left && n.prefix.as_ref() > path.as_ref())
+                if (remove_left && path.compare_prefix(&n.prefix).is_gt())
+                    || !remove_left && path.compare_prefix(&n.prefix).is_lt()
                 {
                     return true;
                 }
