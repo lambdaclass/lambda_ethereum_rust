@@ -54,7 +54,7 @@ pub fn write_env(lines: Vec<String>) -> Result<(), errors::ConfigError> {
 
     let mut writer = std::io::BufWriter::new(file);
     for line in lines {
-        writeln!(writer, "{}", line)?;
+        writeln!(writer, "{line}")?;
     }
 
     Ok(())
