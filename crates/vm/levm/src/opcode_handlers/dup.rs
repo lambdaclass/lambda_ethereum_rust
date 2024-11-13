@@ -36,7 +36,7 @@ impl VM {
             current_call_frame
                 .stack
                 .len()
-                .checked_sub(depth as usize)
+                .checked_sub(depth)
                 .ok_or(VMError::StackUnderflow)?,
         )?;
 

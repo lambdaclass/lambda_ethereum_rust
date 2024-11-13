@@ -126,14 +126,12 @@ pub const INIT_WORD_COST: u64 = 2;
 // TODO: See if this function should exist, since has no usages
 pub fn init_code_cost(init_code_length: usize) -> Result<u64, VMError> {
     let length_u64 = u64::try_from(init_code_length)
-    .map_err(|_| VMError::Internal(InternalError::ConversionError))?;
-    let increased_length = length_u64
-        .checked_add(31)
-        .ok_or(VMError::GasCostOverflow)?;
-    Ok((INIT_WORD_COST
+        .map_err(|_| VMError::Internal(InternalError::ConversionError))?;
+    let increased_length = length_u64.checked_add(31).ok_or(VMError::GasCostOverflow)?;
+    Ok(INIT_WORD_COST
         .checked_mul(increased_length)
         .ok_or(VMError::GasCostOverflow)?
-        / 32) as u64)
+        / 32)
 }
 pub mod create_opcode {
     use ethereum_rust_core::U256;

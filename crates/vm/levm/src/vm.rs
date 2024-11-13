@@ -474,9 +474,9 @@ impl VM {
             // If the initialization code completes successfully, a final contract-creation cost is paid,
             // the code-deposit cost, c, proportional to the size of the created contract’s code
             let code_length: u64 = contract_code
-            .len()
-            .try_into()
-            .map_err(|_| VMError::Internal(InternalError::ConversionError))?;
+                .len()
+                .try_into()
+                .map_err(|_| VMError::Internal(InternalError::ConversionError))?;
             let mut creation_cost = code_length
                 .checked_mul(200)
                 .ok_or(VMError::CreationCostIsTooHigh)?;
@@ -492,9 +492,12 @@ impl VM {
             // Charge 22100 gas for each storage variable set
 
             // GInitCodeword * number_of_words rounded up. GinitCodeWord = 2
-            let number_of_words: u64 = initial_call_frame.calldata.chunks(WORD_SIZE).len()
-            .try_into()
-            .map_err(|_| VMError::Internal(InternalError::ConversionError))?;
+            let number_of_words: u64 = initial_call_frame
+                .calldata
+                .chunks(WORD_SIZE)
+                .len()
+                .try_into()
+                .map_err(|_| VMError::Internal(InternalError::ConversionError))?;
             let words_cost = number_of_words.checked_mul(2).ok_or(VMError::Internal(
                 InternalError::ArithmeticOperationOverflow,
             ))?;
