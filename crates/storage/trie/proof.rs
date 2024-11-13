@@ -541,7 +541,14 @@ mod tests {
             let mut proof = trie.get_proof(&values[0]).unwrap();
             proof.extend(trie.get_proof(values.last().unwrap()).unwrap());
             // Verify the range proof
-            verify_range_proof(root, keys[0], keys, values, proof).unwrap();
+            let fetch_more = verify_range_proof(root, keys[0], keys, values, proof).unwrap();
+            if end == 199 {
+                // The last key is at the edge of the trie
+                assert!(!fetch_more)
+            } else {
+                // Our trie contains more elements to the right
+                assert!(fetch_more)
+            }
         }
 
         #[test]
@@ -577,7 +584,9 @@ mod tests {
             let mut proof = trie.get_proof(&first_key).unwrap();
             proof.extend(trie.get_proof(&last_key).unwrap());
             // Verify the range proof
-            verify_range_proof(root, H256::from_slice(&first_key), keys, values, proof).unwrap();
+            let fetch_more = verify_range_proof(root, H256::from_slice(&first_key), keys, values, proof).unwrap();
+            // Our trie contains more elements to the right
+            assert!(fetch_more)
         }
 
         #[test]
@@ -606,17 +615,19 @@ mod tests {
                     return Ok(());
                 }
             } else {
-            first_key[31] -=1;
-            if first_key == data[start -1] {
-                // Skip test
-                return Ok(());
+                first_key[31] -=1;
+                if first_key == data[start -1] {
+                    // Skip test
+                    return Ok(());
             }
             }
             // Generate proofs
             let mut proof = trie.get_proof(&first_key).unwrap();
             proof.extend(trie.get_proof(&last_key).unwrap());
             // Verify the range proof
-            verify_range_proof(root, H256::from_slice(&first_key), keys, values, proof).unwrap();
+            let fetch_more = verify_range_proof(root, H256::from_slice(&first_key), keys, values, proof).unwrap();
+            // Our trie contains more elements to the right
+            assert!(fetch_more)
         }
 
         #[test]
@@ -634,7 +645,9 @@ mod tests {
             // The keyset contains the entire trie so we don't need edge proofs
             let proof = vec![];
             // Verify the range proof
-            verify_range_proof(root, keys[0], keys, values, proof).unwrap();
+            let fetch_more = verify_range_proof(root, keys[0], keys, values, proof).unwrap();
+            // Our range is the full leafset, there shouldn't be more values left in the trie
+            assert!(!fetch_more)
         }
 
         #[test]
@@ -655,7 +668,9 @@ mod tests {
             // Generate proof (last element)
             let proof = trie.get_proof(&last_element).unwrap();
             // Verify the range proof
-            verify_range_proof(root, first_key, keys, values, proof).unwrap();
+            let fetch_more = verify_range_proof(root, first_key, keys, values, proof).unwrap();
+            // There are no more elements to the right of the range
+            assert!(!fetch_more)
         }
 
         #[test]
@@ -673,7 +688,14 @@ mod tests {
             // Generate proofs
             let proof = trie.get_proof(&values[0]).unwrap();
             // Verify the range proof
-            verify_range_proof(root, keys[0], keys, values, proof).unwrap();
+            let fetch_more = verify_range_proof(root, keys[0], keys, values, proof).unwrap();
+            if start == 199 {
+                // The last key is at the edge of the trie
+                assert!(!fetch_more)
+            } else {
+                // Our trie contains more elements to the right
+                assert!(fetch_more)
+            }
         }
     }
 
