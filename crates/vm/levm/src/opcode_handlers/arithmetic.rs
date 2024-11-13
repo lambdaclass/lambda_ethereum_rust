@@ -1,7 +1,7 @@
 use crate::{
     call_frame::CallFrame,
     constants::gas_cost,
-    errors::{OpcodeSuccess, VMError},
+    errors::{InternalError, OpcodeSuccess, VMError},
     vm::VM,
 };
 use ethereum_rust_core::{U256, U512};
@@ -56,7 +56,10 @@ impl VM {
             current_call_frame.stack.push(U256::zero())?;
             return Ok(OpcodeSuccess::Continue);
         }
-        let quotient = dividend / divisor;
+        let Some(quotient) = dividend.checked_div(divisor) else {
+            current_call_frame.stack.push(U256::zero())?;
+            return Ok(OpcodeSuccess::Continue);
+        };
         current_call_frame.stack.push(quotient)?;
 
         Ok(OpcodeSuccess::Continue)
@@ -88,7 +91,10 @@ impl VM {
         } else {
             divisor
         };
-        let quotient = dividend / divisor;
+        let Some(quotient) = dividend.checked_div(divisor) else {
+            current_call_frame.stack.push(U256::zero())?;
+            return Ok(OpcodeSuccess::Continue);
+        };
         let quotient_is_negative = dividend_is_negative ^ divisor_is_negative;
         let quotient = if quotient_is_negative {
             negate(quotient)
@@ -208,7 +214,11 @@ impl VM {
         let base = current_call_frame.stack.pop()?;
         let exponent = current_call_frame.stack.pop()?;
 
-        let exponent_byte_size = (exponent.bits() as u64 + 7) / 8;
+        let exponent_bits: u64 = exponent
+            .bits()
+            .try_into()
+            .map_err(|_| VMError::Internal(InternalError::ConversionError))?;
+        let exponent_byte_size = (exponent_bits + 7) / 8;
         let gas_cost = gas_cost::EXP_STATIC + gas_cost::EXP_DYNAMIC_BASE * exponent_byte_size;
 
         self.increase_consumed_gas(current_call_frame, gas_cost)?;
@@ -264,5 +274,6 @@ fn abs(value: U256) -> U256 {
 
 /// Negates a number in two's complement
 fn negate(value: U256) -> U256 {
-    !value + U256::one()
+    let inverted = !value;
+    inverted.saturating_add(U256::one())
 }

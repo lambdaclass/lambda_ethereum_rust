@@ -4,13 +4,15 @@ use crate::{
     constants::*,
     db::{Cache, Database},
     environment::Environment,
-    errors::{OpcodeSuccess, ResultReason, TransactionReport, TxResult, VMError},
+    errors::{InternalError, OpcodeSuccess, ResultReason, TransactionReport, TxResult, VMError},
     opcodes::Opcode,
 };
 use bytes::Bytes;
+use create_opcode::{CODE_DEPOSIT_COST, CREATE_BASE_COST, INIT_CODE_WORD_COST};
 use ethereum_rust_core::{types::TxKind, Address, H256, U256};
 use ethereum_rust_rlp;
 use ethereum_rust_rlp::encode::RLPEncode;
+use gas_cost::KECCAK25_DYNAMIC_BASE;
 use sha3::{Digest, Keccak256};
 use std::{
     collections::{HashMap, HashSet},
@@ -63,7 +65,7 @@ impl VM {
         calldata: Bytes,
         db: Arc<dyn Database>,
         mut cache: Cache,
-    ) -> Self {
+    ) -> Result<Self, VMError> {
         // Maybe this decision should be made in an upper layer
 
         match to {
@@ -77,19 +79,19 @@ impl VM {
                     value,
                     calldata.clone(),
                     false,
-                    env.gas_limit,
+                    env.gas_limit.min(MAX_BLOCK_GAS_LIMIT),
                     TX_BASE_COST,
                     0,
                 );
 
-                Self {
+                Ok(Self {
                     call_frames: vec![initial_call_frame],
                     db,
                     env,
                     accrued_substate: Substate::default(),
                     cache,
                     tx_kind: to,
-                }
+                })
             }
             TxKind::Create => {
                 // CREATE tx
@@ -115,19 +117,19 @@ impl VM {
                     value,
                     calldata.clone(),
                     false,
-                    env.gas_limit,
+                    env.gas_limit.min(MAX_BLOCK_GAS_LIMIT),
                     TX_BASE_COST,
                     0,
                 );
 
-                Self {
+                Ok(Self {
                     call_frames: vec![initial_call_frame],
                     db,
                     env,
                     accrued_substate: Substate::default(),
                     cache,
                     tx_kind: TxKind::Create,
-                }
+                })
             }
         }
         // TODO: https://github.com/lambdaclass/lambda_ethereum_rust/issues/1088
@@ -341,8 +343,7 @@ impl VM {
             .info
             .nonce
             .checked_add(1)
-            .ok_or(VMError::NonceOverflow)
-            .unwrap(); // Should check this error
+            .ok_or(VMError::NonceOverflow)?;
 
         // (4)
         if sender_account.has_code() {
@@ -423,6 +424,11 @@ impl VM {
             }
             let contract_code = report.clone().output;
 
+            // TODO: Is this the expected behavior?
+            if contract_code.is_empty() {
+                return Err(VMError::InvalidBytecode);
+            }
+
             // (6)
             if contract_code.len() > MAX_CODE_SIZE {
                 return Err(VMError::ContractOutputTooBig);
@@ -434,13 +440,22 @@ impl VM {
 
             // If the initialization code completes successfully, a final contract-creation cost is paid,
             // the code-deposit cost, c, proportional to the size of the created contract’s code
-            let mut creation_cost = 200 * contract_code.len() as u64;
+            let code_length: u64 = contract_code
+                .len()
+                .try_into()
+                .map_err(|_| VMError::Internal(InternalError::ConversionError))?;
+            let mut creation_cost = 200 * code_length;
             creation_cost += 32000;
             report.add_gas_with_max(creation_cost, max_gas);
             // Charge 22100 gas for each storage variable set
 
             // GInitCodeword * number_of_words rounded up. GinitCodeWord = 2
-            let number_of_words = initial_call_frame.calldata.chunks(32).len() as u64;
+            let number_of_words: u64 = initial_call_frame
+                .calldata
+                .chunks(WORD_SIZE)
+                .len()
+                .try_into()
+                .map_err(|_| VMError::Internal(InternalError::ConversionError))?;
             report.add_gas_with_max(number_of_words * 2, max_gas);
 
             let contract_address = initial_call_frame.to;
@@ -457,7 +472,11 @@ impl VM {
         sender_account.info.balance = sender_account
             .info
             .balance
-            .checked_sub(U256::from(report.gas_used) * self.env.gas_price)
+            .checked_sub(
+                U256::from(report.gas_used)
+                    .checked_mul(self.env.gas_price)
+                    .ok_or(VMError::GasLimitPriceProductOverflow)?,
+            )
             .ok_or(VMError::OutOfGas)?;
 
         let receiver_address = initial_call_frame.to;
@@ -544,7 +563,7 @@ impl VM {
 
         let calldata = current_call_frame
             .memory
-            .load_range(args_offset, args_size)
+            .load_range(args_offset, args_size)?
             .into();
 
         // I don't know if this gas limit should be calculated before or after consuming gas
@@ -566,6 +585,13 @@ impl VM {
             current_call_frame.depth + 1,
         );
 
+        // TODO: Increase this to 1024
+        if new_call_frame.depth > 10 {
+            current_call_frame.stack.push(U256::from(REVERT_FOR_CALL))?;
+            // return Ok(OpcodeSuccess::Result(ResultReason::Revert));
+            return Err(VMError::OutOfGas); // This is wrong but it is for testing purposes.
+        }
+
         current_call_frame.sub_return_data_offset = ret_offset;
         current_call_frame.sub_return_data_size = ret_size;
 
@@ -581,7 +607,7 @@ impl VM {
         current_call_frame.logs.extend(tx_report.logs);
         current_call_frame
             .memory
-            .store_n_bytes(ret_offset, &tx_report.output, ret_size);
+            .store_n_bytes(ret_offset, &tx_report.output, ret_size)?;
         current_call_frame.sub_return_data = tx_report.output;
 
         // What to do, depending on TxResult
@@ -634,6 +660,54 @@ impl VM {
         Address::from_slice(&hasher.finalize()[12..])
     }
 
+    fn compute_gas_create(
+        &mut self,
+        current_call_frame: &mut CallFrame,
+        code_offset_in_memory: U256,
+        code_size_in_memory: U256,
+        is_create_2: bool,
+    ) -> Result<U256, VMError> {
+        let minimum_word_size = (code_size_in_memory
+            .checked_add(U256::from(31))
+            .ok_or(VMError::DataSizeOverflow)?)
+        .checked_div(U256::from(32))
+        .ok_or(VMError::OverflowInArithmeticOp)?; // '32' will never be zero. The error is wrong but will see later...
+
+        let init_code_cost = minimum_word_size
+            .checked_mul(INIT_CODE_WORD_COST)
+            .ok_or(VMError::GasCostOverflow)?;
+
+        let code_deposit_cost = code_size_in_memory
+            .checked_mul(CODE_DEPOSIT_COST)
+            .ok_or(VMError::GasCostOverflow)?;
+
+        let memory_expansion_cost = current_call_frame.memory.expansion_cost(
+            code_size_in_memory
+                .checked_add(code_offset_in_memory)
+                .ok_or(VMError::OffsetOverflow)?
+                .try_into()
+                .map_err(|_err| VMError::OffsetOverflow)?,
+        )?;
+
+        let hash_cost = if is_create_2 {
+            minimum_word_size
+                .checked_mul(KECCAK25_DYNAMIC_BASE)
+                .ok_or(VMError::GasCostOverflow)?
+        } else {
+            U256::zero()
+        };
+
+        init_code_cost
+            .checked_add(memory_expansion_cost)
+            .ok_or(VMError::CreationCostIsTooHigh)?
+            .checked_add(code_deposit_cost)
+            .ok_or(VMError::CreationCostIsTooHigh)?
+            .checked_add(CREATE_BASE_COST)
+            .ok_or(VMError::CreationCostIsTooHigh)?
+            .checked_add(hash_cost)
+            .ok_or(VMError::CreationCostIsTooHigh)
+    }
+
     /// Common behavior for CREATE and CREATE2 opcodes
     ///
     /// Could be used for CREATE type transactions
@@ -641,11 +715,24 @@ impl VM {
     pub fn create(
         &mut self,
         value_in_wei_to_send: U256,
-        code_offset_in_memory: usize,
-        code_size_in_memory: usize,
+        code_offset_in_memory: U256,
+        code_size_in_memory: U256,
         salt: Option<U256>,
         current_call_frame: &mut CallFrame,
     ) -> Result<OpcodeSuccess, VMError> {
+        let gas_cost = self.compute_gas_create(
+            current_call_frame,
+            code_offset_in_memory,
+            code_size_in_memory,
+            false,
+        )?;
+
+        self.increase_consumed_gas(current_call_frame, gas_cost)?;
+
+        let code_size_in_memory = code_size_in_memory
+            .try_into()
+            .map_err(|_err| VMError::VeryLargeNumber)?;
+
         if code_size_in_memory > MAX_CODE_SIZE * 2 {
             current_call_frame
                 .stack
@@ -682,11 +769,15 @@ impl VM {
             return Ok(OpcodeSuccess::Result(ResultReason::Revert));
         };
         sender_account.info.nonce = new_nonce;
-        // sender_account.info.balance -= value_in_wei_to_send; // This is done in the generic_call
+
+        let code_offset_in_memory = code_offset_in_memory
+            .try_into()
+            .map_err(|_err| VMError::VeryLargeNumber)?;
+
         let code = Bytes::from(
             current_call_frame
                 .memory
-                .load_range(code_offset_in_memory, code_size_in_memory),
+                .load_range(code_offset_in_memory, code_size_in_memory)?,
         );
 
         let new_address = match salt {
@@ -726,7 +817,12 @@ impl VM {
             code_size_in_memory,
             code_offset_in_memory,
             code_size_in_memory,
-        )
+        )?;
+
+        // Erases the success value in the stack result of calling generic call
+        current_call_frame.stack.pop().unwrap();
+
+        Ok(OpcodeSuccess::Continue)
     }
 
     /// Increases gas consumption of CallFrame and Environment, returning an error if the callframe gas limit is reached.

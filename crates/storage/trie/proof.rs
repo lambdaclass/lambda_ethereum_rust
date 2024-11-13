@@ -4,7 +4,8 @@ use ethereum_types::H256;
 use sha3::{Digest, Keccak256};
 
 use crate::{
-    nibbles::Nibbles, node::Node, node_hash::NodeHash, state::TrieState, Trie, TrieError, ValueRLP,
+    nibbles::Nibbles, node::Node, node_hash::NodeHash, state::TrieState,
+    Trie, TrieError, ValueRLP,
 };
 
 /// Verifies that the key value range belongs to the trie with the given root given the edge proofs for the range
