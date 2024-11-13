@@ -1,4 +1,5 @@
-use ethereum_rust_core::U256;
+use crate::errors::{InternalError, VMError};
+use ethereum_rust_core::{H256, U256};
 
 pub const SUCCESS_FOR_CALL: i32 = 1;
 pub const REVERT_FOR_CALL: i32 = 0;
@@ -106,8 +107,10 @@ pub const STACK_LIMIT: usize = 1024;
 
 pub const GAS_REFUND_DENOMINATOR: u64 = 5;
 
-pub const EMPTY_CODE_HASH_STR: &str =
-    "0xc5d2460186f7233c927e7db2dcc703c0e500b653ca82273b7bfad8045d85a470";
+pub const EMPTY_CODE_HASH: H256 = H256([
+    0xc5, 0xd2, 0x46, 0x01, 0x86, 0xf7, 0x23, 0x3c, 0x92, 0x7e, 0x7d, 0xb2, 0xdc, 0xc7, 0x03, 0xc0,
+    0xe5, 0x00, 0xb6, 0x53, 0xca, 0x82, 0x27, 0x3b, 0x7b, 0xfa, 0xd8, 0x04, 0x5d, 0x85, 0xa4, 0x70,
+]);
 
 pub const MEMORY_EXPANSION_QUOTIENT: usize = 512;
 
@@ -120,10 +123,19 @@ pub const MAX_CREATE_CODE_SIZE: usize = 2 * MAX_CODE_SIZE;
 pub const INVALID_CONTRACT_PREFIX: u8 = 0xef;
 
 // Costs in gas for init word and init code (in wei)
-pub const INIT_WORD_COST: i64 = 2;
+pub const INIT_WORD_COST: u64 = 2;
 
-pub fn init_code_cost(init_code_length: usize) -> u64 {
-    INIT_WORD_COST as u64 * (init_code_length as u64 + 31) / 32
+pub fn init_code_cost(init_code_length: usize) -> Result<u64, VMError> {
+    let length_u64 = u64::try_from(init_code_length)
+        .map_err(|_| VMError::Internal(InternalError::ConversionError))?;
+    Ok(INIT_WORD_COST * (length_u64 + 31) / 32)
+}
+pub mod create_opcode {
+    use ethereum_rust_core::U256;
+
+    pub const INIT_CODE_WORD_COST: U256 = U256([2, 0, 0, 0]);
+    pub const CODE_DEPOSIT_COST: U256 = U256([200, 0, 0, 0]);
+    pub const CREATE_BASE_COST: U256 = U256([32000, 0, 0, 0]);
 }
 
 pub const VERSIONED_HASH_VERSION_KZG: u8 = 0x01;
@@ -139,3 +151,4 @@ pub const COLD_STORAGE_ACCESS_COST: U256 = U256([2100, 0, 0, 0]);
 
 // Block constants
 pub const LAST_AVAILABLE_BLOCK_LIMIT: U256 = U256([256, 0, 0, 0]);
+pub const MAX_BLOCK_GAS_LIMIT: U256 = U256([30_000_000, 0, 0, 0]);

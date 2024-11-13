@@ -53,10 +53,6 @@ pub enum EvmState {
 }
 
 impl EvmState {
-    pub fn from_exec_db(db: ExecutionDB) -> Self {
-        EvmState::Execution(revm::db::CacheDB::new(db))
-    }
-
     /// Get a reference to inner `Store` database
     pub fn database(&self) -> Option<&Store> {
         if let EvmState::Store(db) = self {
@@ -75,6 +71,12 @@ impl EvmState {
     }
 }
 
+impl From<ExecutionDB> for EvmState {
+    fn from(value: ExecutionDB) -> Self {
+        EvmState::Execution(revm::db::CacheDB::new(value))
+    }
+}
+
 cfg_if::cfg_if! {
     if #[cfg(feature = "levm")] {
         use ethereum_rust_levm::{
@@ -84,7 +86,7 @@ cfg_if::cfg_if! {
             Environment,
         };
         use std::{collections::HashMap, sync::Arc};
-        use ethereum_rust_core::types::{code_hash, TxType};
+        use ethereum_rust_core::types::code_hash;
 
         /// Executes all transactions in a block and returns their receipts.
         pub fn execute_block(
@@ -160,29 +162,11 @@ cfg_if::cfg_if! {
             block_header: &BlockHeader,
             db: Arc<dyn LevmDatabase>,
         ) -> Result<TransactionReport, VMError> {
-            let gas_price: U256 = match tx.tx_type() {
-                TxType::Legacy => tx.gas_price().into(),
-                TxType::EIP2930 => tx.gas_price().into(),
-                TxType::EIP1559 => {
-                    let priority_fee_per_gas = min(
-                        tx.max_priority_fee().unwrap(),
-                        tx.max_fee_per_gas().unwrap() - block_header.base_fee_per_gas.unwrap(),
-                    );
-                    (priority_fee_per_gas + block_header.base_fee_per_gas.unwrap()).into()
-                }
-                TxType::EIP4844 => {
-                    let priority_fee_per_gas = min(
-                        tx.max_priority_fee().unwrap(),
-                        tx.max_fee_per_gas().unwrap() - block_header.base_fee_per_gas.unwrap(),
-                    );
-                    (priority_fee_per_gas + block_header.base_fee_per_gas.unwrap()).into()
-                }
-                TxType::Privileged => tx.gas_price().into(),
-            };
+            let gas_price : U256 = tx.effective_gas_price(block_header.base_fee_per_gas).ok_or(VMError::InvalidTransaction)?.into();
 
             let env = Environment {
                 origin: tx.sender(),
-                consumed_gas: U256::zero(),
+                consumed_gas: U256::from(21000), // Base gas cost for a transaction
                 refunded_gas: U256::zero(),
                 gas_limit: tx.gas_limit().into(),
                 block_number: block_header.number.into(),
@@ -204,7 +188,7 @@ cfg_if::cfg_if! {
                 tx.data().clone(),
                 db,
                 Cache::default(),
-            );
+            )?;
 
             vm.transact()
         }
@@ -735,7 +719,7 @@ fn tx_env_from_generic(tx: &GenericTransaction, basefee: u64) -> TxEnv {
         },
         value: RevmU256::from_limbs(tx.value.0),
         data: tx.input.clone().into(),
-        nonce: Some(tx.nonce),
+        nonce: tx.nonce,
         chain_id: tx.chain_id,
         access_list: tx
             .access_list
@@ -760,7 +744,7 @@ fn tx_env_from_generic(tx: &GenericTransaction, basefee: u64) -> TxEnv {
             .iter()
             .map(|hash| B256::from(hash.0))
             .collect(),
-        max_fee_per_blob_gas: tx.max_fee_per_blob_gas.map(RevmU256::from),
+        max_fee_per_blob_gas: tx.max_fee_per_blob_gas.map(|x| RevmU256::from_limbs(x.0)),
         // TODO revise
         // https://eips.ethereum.org/EIPS/eip-7702
         authorization_list: None,
