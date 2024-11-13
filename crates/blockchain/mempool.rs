@@ -23,7 +23,10 @@ pub fn add_blob_transaction(
     blobs_bundle: BlobsBundle,
     store: Store,
 ) -> Result<H256, MempoolError> {
-    // Validate blobs bundle
+    // Validate blob transaction
+    validate_blob_transaction(&transaction, &blobs_bundle)?;
+
+    // validate blobs bundle
     validate_blobs_bundle(&transaction, &blobs_bundle)?;
 
     // Validate transaction
@@ -67,7 +70,7 @@ pub fn filter_transactions(
 ) -> Result<HashMap<Address, Vec<MempoolTransaction>>, StoreError> {
     let filter_tx = |tx: &Transaction| -> bool {
         // Filter by tx type
-        let is_blob_tx = matches!(tx, Transaction::EIP4844Transaction(_));
+        let is_blob_tx = is_blob_transaction(tx);
         if filter.only_plain_txs && is_blob_tx || filter.only_blob_txs && !is_blob_tx {
             return false;
         }
@@ -95,6 +98,7 @@ pub fn filter_transactions(
         }
         true
     };
+
     store.filter_pool_transactions(&filter_tx)
 }
 
@@ -198,14 +202,6 @@ fn validate_transaction(tx: &Transaction, store: Store) -> Result<(), MempoolErr
         return Err(MempoolError::TxIntrinsicGasCostAboveLimitError);
     }
 
-    // Check that the specified blob gas fee is above the minimum value
-    if let Some(fee) = tx.max_fee_per_blob_gas() {
-        // Blob tx
-        if fee < MIN_BASE_FEE_PER_BLOB_GAS.into() {
-            return Err(MempoolError::TxBlobBaseFeeTooLowError);
-        }
-    }
-
     let maybe_sender_acc_info = store.get_account_info(header_no, tx.sender())?;
 
     if let Some(sender_acc_info) = maybe_sender_acc_info {
@@ -230,15 +226,27 @@ fn validate_transaction(tx: &Transaction, store: Store) -> Result<(), MempoolErr
             return Err(MempoolError::InvalidChainId(config.chain_id));
         }
     }
-
+     
     Ok(())
 }
 
-fn validate_blobs_bundle(
+fn is_blob_transaction(tx: &Transaction) -> bool {
+    matches!(tx, Transaction::EIP4844Transaction(_))
+}
+
+fn validate_blob_transaction(
     tx: &EIP4844Transaction,
     blobs_bundle: &BlobsBundle,
 ) -> Result<(), MempoolError> {
     let tx_blob_count = tx.blob_versioned_hashes.len();
+
+    if tx_blob_count == 0 {
+        return Err(MempoolError::BlobTxNoBlobsBundle);
+    }
+
+    if tx.max_fee_per_blob_gas < MIN_BASE_FEE_PER_BLOB_GAS.into() {
+        return Err(MempoolError::TxBlobBaseFeeTooLowError);
+    }
 
     if tx_blob_count != blobs_bundle.blobs.len()
         || tx_blob_count != blobs_bundle.commitments.len()
@@ -247,6 +255,13 @@ fn validate_blobs_bundle(
         return Err(MempoolError::BlobsBundleWrongLen);
     };
 
+    Ok(())
+}
+
+fn validate_blobs_bundle(
+    tx: &EIP4844Transaction,
+    blobs_bundle: &BlobsBundle,
+) -> Result<(), MempoolError> {
     // return error early if any commitment doesn't match it's blob versioned hash
     for (commitment, blob_versioned_hash) in blobs_bundle
         .commitments
@@ -261,7 +276,7 @@ fn validate_blobs_bundle(
     Ok(())
 }
 
-pub fn kzg_to_versioned_hash(data: &[u8]) -> H256 {
+fn kzg_to_versioned_hash(data: &[u8]) -> H256 {
     use k256::sha2::Digest;
     let mut versioned_hash: [u8; 32] = k256::sha2::Sha256::digest(data).into();
     versioned_hash[0] = VERSIONED_HASH_VERSION_KZG;
