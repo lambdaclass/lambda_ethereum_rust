@@ -657,12 +657,9 @@ impl VM {
         hasher.update(sender_address.as_bytes());
         hasher.update(salt_bytes);
         hasher.update(initialization_code_hash);
-        Ok(Address::from_slice(
-            hasher
-                .finalize()
-                .get(12..)
-                .ok_or(VMError::Internal(InternalError::Uncategorized))?,
-        ))
+        Ok(Address::from_slice(hasher.finalize().get(12..).ok_or(
+            VMError::Internal(InternalError::CouldNotComputeCreate2Address),
+        )?))
     }
 
     fn compute_gas_create(
@@ -676,7 +673,7 @@ impl VM {
             .checked_add(U256::from(31))
             .ok_or(VMError::DataSizeOverflow)?)
         .checked_div(U256::from(32))
-        .ok_or(VMError::Internal(InternalError::Uncategorized))?; // '32' will never be zero
+        .ok_or(VMError::Internal(InternalError::DivisionError))?; // '32' will never be zero
 
         let init_code_cost = minimum_word_size
             .checked_mul(INIT_CODE_WORD_COST)
