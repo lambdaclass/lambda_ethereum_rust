@@ -2,7 +2,7 @@ use bytes::Bytes;
 use ethereum_rust_core::types::AccountState;
 use ethereum_rust_rlp::encode::RLPEncode;
 use ethereum_rust_storage::{error::StoreError, Store};
-use ethereum_rust_trie::verify_range_proof;
+use ethereum_rust_trie::verify_range;
 
 use crate::rlpx::{
     error::RLPxError,
@@ -165,7 +165,7 @@ pub fn validate_account_range_response(
     response: &AccountRange,
 ) -> Result<(), RLPxError> {
     // Reconstruct a partial trie from the response and verify it
-    let (keys, accounts) = response
+    let (keys, accounts): (Vec<_>, Vec<_>) = response
         .accounts
         .iter()
         .map(|unit| {
@@ -179,13 +179,13 @@ pub fn validate_account_range_response(
         .proof
         .iter()
         .map(|bytes| bytes.as_ref().to_vec())
-        .collect();
-    verify_range_proof(
+        .collect::<Vec<_>>();
+    verify_range(
         request.root_hash,
-        request.starting_hash,
-        keys,
-        accounts,
-        proof,
+        &request.starting_hash,
+        &keys,
+        &accounts,
+        &proof,
     )?;
     Ok(())
 }
