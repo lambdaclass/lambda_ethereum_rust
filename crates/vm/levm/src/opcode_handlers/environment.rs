@@ -43,7 +43,7 @@ impl VM {
             self.cache_from_db(address);
         };
 
-        let balance = self.cache.get_account(*address).unwrap().info.balance;
+        let balance = self.get_account(address).info.balance;
 
         current_call_frame.stack.push(balance)?;
         Ok(OpcodeSuccess::Continue)
@@ -104,7 +104,7 @@ impl VM {
             .stack
             .pop()?
             .try_into()
-            .unwrap_or(usize::MAX);
+            .map_err(|_| VMError::VeryLargeNumber)?;
 
         // This check is because if offset is larger than the calldata then we should push 0 to the stack.
         let result = if offset < current_call_frame.calldata.len() {
@@ -298,13 +298,7 @@ impl VM {
             self.cache_from_db(&address);
         };
 
-        let bytecode = self
-            .cache
-            .get_account(address)
-            .unwrap()
-            .info
-            .bytecode
-            .clone();
+        let bytecode = self.get_account(&address).info.bytecode;
 
         current_call_frame.stack.push(bytecode.len().into())?;
         Ok(OpcodeSuccess::Continue)
@@ -348,13 +342,7 @@ impl VM {
             self.cache_from_db(&address);
         };
 
-        let mut bytecode = self
-            .cache
-            .get_account(address)
-            .unwrap()
-            .info
-            .bytecode
-            .clone();
+        let mut bytecode = self.get_account(&address).info.bytecode;
 
         if bytecode.len()
             < offset
@@ -404,17 +392,17 @@ impl VM {
             .stack
             .pop()?
             .try_into()
-            .unwrap_or(usize::MAX);
+            .map_err(|_| VMError::VeryLargeNumber)?;
         let returndata_offset: usize = current_call_frame
             .stack
             .pop()?
             .try_into()
-            .unwrap_or(usize::MAX);
+            .map_err(|_| VMError::VeryLargeNumber)?;
         let size: usize = current_call_frame
             .stack
             .pop()?
             .try_into()
-            .unwrap_or(usize::MAX);
+            .map_err(|_| VMError::VeryLargeNumber)?;
 
         let minimum_word_size = (size + WORD_SIZE - 1) / WORD_SIZE;
         let memory_expansion_cost = current_call_frame.memory.expansion_cost(
@@ -464,13 +452,7 @@ impl VM {
             self.cache_from_db(&address);
         };
 
-        let bytecode = self
-            .cache
-            .get_account(address)
-            .unwrap()
-            .info
-            .bytecode
-            .clone();
+        let bytecode = self.get_account(&address).info.bytecode;
 
         let mut hasher = Keccak256::new();
         hasher.update(bytecode);
