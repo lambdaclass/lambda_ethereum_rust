@@ -111,6 +111,8 @@ pub fn verify_range_proof(
     for (i, key) in keys.iter().enumerate() {
         trie.insert(key.0.to_vec(), values[i].clone())?;
     }
+    // Check for elements to the right of the range before we wipe the sate
+    let has_right_element = has_right_element(root, last_key.as_bytes(), &trie.state)?;
     // Check that the hash is the one we expected (aka the trie was properly reconstructed from the edge proofs and the range)
     let hash = trie.hash()?;
     if hash != root {
@@ -119,8 +121,7 @@ pub fn verify_range_proof(
             root, hash
         )));
     }
-
-    return has_right_element(root, first_key.as_bytes(), &trie.state);
+    Ok(has_right_element)
 }
 
 /// Fills up the TrieState with nodes from the proof traversing the path given by first_key
@@ -456,7 +457,9 @@ mod tests {
         let root = trie.hash().unwrap();
         let keys = (50_u8..=75).map(|i| H256([i; 32])).collect::<Vec<_>>();
         let values = (50_u8..=75).map(|i| [i; 32].to_vec()).collect::<Vec<_>>();
-        verify_range_proof(root, keys[0], keys, values, proof).unwrap();
+        let fetch_more = verify_range_proof(root, keys[0], keys, values, proof).unwrap();
+        // Our trie contains more elements to the right
+        assert!(fetch_more)
     }
 
     #[test]
@@ -500,8 +503,8 @@ mod tests {
             .iter()
             .map(|addr| addr.0.to_vec())
             .collect::<Vec<_>>();
-        let key_range = account_addresses[7..=17].to_vec();
-        let value_range = account_addresses[7..=17]
+        let keys = account_addresses[7..=17].to_vec();
+        let values = account_addresses[7..=17]
             .iter()
             .map(|v| v.0.to_vec())
             .collect::<Vec<_>>();
@@ -512,7 +515,9 @@ mod tests {
         let mut proof = trie.get_proof(&trie_values[7]).unwrap();
         proof.extend(trie.get_proof(&trie_values[17]).unwrap());
         let root = trie.hash().unwrap();
-        verify_range_proof(root, key_range[0], key_range, value_range, proof).unwrap();
+        let fetch_more = verify_range_proof(root, keys[0], keys, values, proof).unwrap();
+        // Our trie contains more elements to the right
+        assert!(fetch_more)
     }
 
     // Proptests for verify_range_proof
@@ -671,4 +676,6 @@ mod tests {
             verify_range_proof(root, keys[0], keys, values, proof).unwrap();
         }
     }
+
+    // Unsuccesful Cases
 }
