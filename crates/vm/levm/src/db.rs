@@ -96,12 +96,20 @@ impl Cache {
         self.accounts.insert(*address, account.clone());
     }
 
-    pub fn write_account_storage(&mut self, address: &Address, key: H256, slot: StorageSlot) {
+    pub fn write_account_storage(
+        &mut self,
+        address: &Address,
+        key: H256,
+        slot: StorageSlot,
+    ) -> Result<(), VMError> {
         self.accounts
             .get_mut(address)
-            .expect("Account should have been cached")
+            .ok_or(VMError::Internal(
+                InternalError::AccountShouldHaveBeenCached,
+            ))?
             .storage
             .insert(key, slot);
+        Ok(())
     }
 
     // TODO: Replace nonce increments with this (currently does not have senders)

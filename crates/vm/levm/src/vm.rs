@@ -463,10 +463,20 @@ impl VM {
 
             // If the initialization code completes successfully, a final contract-creation cost is paid,
             // the code-deposit cost, c, proportional to the size of the created contract’s code
-            let number_of_words = initial_call_frame.calldata.chunks(WORD_SIZE).len() as u64;
+            let number_of_words: u64 = initial_call_frame
+                .calldata
+                .chunks(WORD_SIZE)
+                .len()
+                .try_into()
+                .map_err(|_| VMError::Internal(InternalError::ConversionError))?;
 
-            let creation_cost = gas_cost::tx_creation(&contract_code, number_of_words)
-                .map_err(VMError::OutOfGas)?;
+            let code_length: u64 = contract_code
+                .len()
+                .try_into()
+                .map_err(|_| VMError::Internal(InternalError::ConversionError))?;
+
+            let creation_cost =
+                gas_cost::tx_creation(code_length, number_of_words).map_err(VMError::OutOfGas)?;
             report.gas_used = report
                 .gas_used
                 .checked_add(creation_cost)
@@ -695,7 +705,7 @@ impl VM {
         sender_address: Address,
         initialization_code: &Bytes,
         salt: U256,
-    ) -> Address {
+    ) -> Result<Address, VMError> {
         let mut hasher = Keccak256::new();
         hasher.update(initialization_code.clone());
         let initialization_code_hash = hasher.finalize();
@@ -706,7 +716,9 @@ impl VM {
         hasher.update(sender_address.as_bytes());
         hasher.update(salt_bytes);
         hasher.update(initialization_code_hash);
-        Address::from_slice(&hasher.finalize()[12..])
+        Ok(Address::from_slice(hasher.finalize().get(12..).ok_or(
+            VMError::Internal(InternalError::CouldNotComputeCreate2Address),
+        )?))
     }
 
     /// Common behavior for CREATE and CREATE2 opcodes
@@ -774,7 +786,7 @@ impl VM {
 
         let new_address = match salt {
             Some(salt) => {
-                Self::calculate_create2_address(current_call_frame.msg_sender, &code, salt)
+                Self::calculate_create2_address(current_call_frame.msg_sender, &code, salt)?
             }
             None => Self::calculate_create_address(
                 current_call_frame.msg_sender,

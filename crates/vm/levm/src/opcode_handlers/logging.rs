@@ -22,20 +22,20 @@ impl VM {
             return Err(VMError::OpcodeNotAllowedInStaticContext);
         }
 
-        let number_of_topics = (op as u8)
-            .checked_sub(Opcode::LOG0 as u8)
+        let number_of_topics = (u8::from(op))
+            .checked_sub(u8::from(Opcode::LOG0))
             .ok_or(VMError::InvalidOpcode)?;
 
         let offset: usize = current_call_frame
             .stack
             .pop()?
             .try_into()
-            .map_err(|_err| VMError::VeryLargeNumber)?;
+            .map_err(|_| VMError::VeryLargeNumber)?;
         let size = current_call_frame
             .stack
             .pop()?
             .try_into()
-            .map_err(|_err| VMError::VeryLargeNumber)?;
+            .map_err(|_| VMError::VeryLargeNumber)?;
         let mut topics = Vec::new();
         for _ in 0..number_of_topics {
             let topic = current_call_frame.stack.pop()?;

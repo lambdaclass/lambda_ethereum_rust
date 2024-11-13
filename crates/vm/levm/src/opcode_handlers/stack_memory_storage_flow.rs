@@ -58,11 +58,11 @@ impl VM {
         &mut self,
         current_call_frame: &mut CallFrame,
     ) -> Result<OpcodeSuccess, VMError> {
-        let offset = current_call_frame
+        let offset: usize = current_call_frame
             .stack
             .pop()?
             .try_into()
-            .unwrap_or(usize::MAX);
+            .map_err(|_| VMError::VeryLargeNumber)?;
 
         let gas_cost = gas_cost::mload(current_call_frame, offset).map_err(VMError::OutOfGas)?;
 
@@ -146,14 +146,7 @@ impl VM {
             COLD_STORAGE_ACCESS_COST
         };
 
-        let current_value = if is_cached {
-            self.cache
-                .get_storage_slot(address, key)
-                .expect("Should be already cached") // Because entered the if is_slot_cached
-                .current_value
-        } else {
-            self.get_storage_slot(&address, key).current_value
-        };
+        let current_value = self.get_storage_slot(&address, key).current_value;
 
         self.increase_consumed_gas(current_call_frame, gas_cost)?;
 
@@ -192,7 +185,7 @@ impl VM {
                 original_value: storage_slot.original_value,
                 current_value: value,
             },
-        );
+        )?;
 
         Ok(OpcodeSuccess::Continue)
     }
@@ -231,21 +224,21 @@ impl VM {
         &mut self,
         current_call_frame: &mut CallFrame,
     ) -> Result<OpcodeSuccess, VMError> {
-        let dest_offset = current_call_frame
+        let dest_offset: usize = current_call_frame
             .stack
             .pop()?
             .try_into()
-            .unwrap_or(usize::MAX);
+            .map_err(|_| VMError::VeryLargeNumber)?;
         let src_offset: usize = current_call_frame
             .stack
             .pop()?
             .try_into()
-            .unwrap_or(usize::MAX);
+            .map_err(|_| VMError::VeryLargeNumber)?;
         let size: usize = current_call_frame
             .stack
             .pop()?
             .try_into()
-            .unwrap_or(usize::MAX);
+            .map_err(|_| VMError::VeryLargeNumber)?;
 
         let gas_cost = gas_cost::mcopy(current_call_frame, size, src_offset, dest_offset)
             .map_err(VMError::OutOfGas)?;

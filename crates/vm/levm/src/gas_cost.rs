@@ -101,11 +101,10 @@ pub const INIT_CODE_WORD_COST: U256 = U256([2, 0, 0, 0]);
 pub const CODE_DEPOSIT_COST: U256 = U256([200, 0, 0, 0]);
 pub const CREATE_BASE_COST: U256 = U256([32000, 0, 0, 0]);
 
-pub fn exp(exponent: U256) -> Result<U256, OutOfGasError> {
-    let exponent_byte_size = (exponent
-        .bits()
+pub fn exp(exponent_bits: u64) -> Result<U256, OutOfGasError> {
+    let exponent_byte_size = (exponent_bits
         .checked_add(7)
-        .ok_or(OutOfGasError::GasCostOverflow)? as u64)
+        .ok_or(OutOfGasError::GasCostOverflow)?)
         / 8;
     let exponent_byte_size_cost = EXP_DYNAMIC_BASE
         .checked_mul(exponent_byte_size.into())
@@ -611,11 +610,10 @@ pub fn tx_calldata(calldata: &Bytes) -> Result<u64, OutOfGasError> {
     Ok(calldata_cost)
 }
 
-pub fn tx_creation(contract_code: &Bytes, number_of_words: u64) -> Result<u64, OutOfGasError> {
-    let mut creation_cost = contract_code
-        .len()
+pub fn tx_creation(code_length: u64, number_of_words: u64) -> Result<u64, OutOfGasError> {
+    let mut creation_cost = code_length
         .checked_mul(200)
-        .ok_or(OutOfGasError::CreationCostIsTooHigh)? as u64;
+        .ok_or(OutOfGasError::CreationCostIsTooHigh)?;
     creation_cost = creation_cost
         .checked_add(32000)
         .ok_or(OutOfGasError::CreationCostIsTooHigh)?;

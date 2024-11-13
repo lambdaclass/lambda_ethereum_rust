@@ -5,7 +5,7 @@ use std::collections::HashMap;
 use thiserror;
 
 /// Errors that halt the program
-#[derive(Debug, Clone, PartialEq, Eq, Hash, thiserror::Error)]
+#[derive(Debug, Clone, PartialEq, Eq, thiserror::Error)]
 pub enum VMError {
     #[error("Stack Underflow")]
     StackUnderflow,
@@ -53,7 +53,7 @@ pub enum VMError {
     MemoryLoadOutOfBounds,
     #[error("Memory Store Out Of Bounds")]
     MemoryStoreOutOfBounds,
-    #[error("Gas Limit Product Overflow")]
+    #[error("Gas limit price product overflow")]
     GasLimitPriceProductOverflow,
     #[error("Balance Overflow")]
     BalanceOverflow,
@@ -85,7 +85,7 @@ pub enum OutOfGasError {
     ArithmeticOperationDividedByZero,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Hash, thiserror::Error)]
+#[derive(Debug, Clone, PartialEq, Eq, thiserror::Error)]
 pub enum InternalError {
     #[error("Overflowed when incrementing nonce")]
     NonceOverflowed,
@@ -101,6 +101,14 @@ pub enum InternalError {
     ArithmeticOperationUnderflow,
     #[error("Arithmetic operation divided by zero")]
     ArithmeticOperationDividedByZero,
+    #[error("Accound should have been cached")]
+    AccountShouldHaveBeenCached,
+    #[error("Tried to convert one type to another")]
+    ConversionError,
+    #[error("Failed computing CREATE2 address")]
+    CouldNotComputeCreate2Address,
+    #[error("Division error")]
+    DivisionError,
 }
 
 #[derive(Debug, Clone)]
@@ -109,7 +117,7 @@ pub enum OpcodeSuccess {
     Result(ResultReason),
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum ResultReason {
     Stop,
     Revert,
