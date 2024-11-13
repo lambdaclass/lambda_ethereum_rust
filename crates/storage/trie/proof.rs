@@ -42,7 +42,7 @@ pub fn verify_range_proof(
 
     // Verify ranges depending on the given proof
 
-    // Special Case A) No proofs given, the range is expected to be the full set of leaves
+    // Special Case: No proofs given, the range is expected to be the full set of leaves
     if proof.is_empty() {
         let mut trie = Trie::stateless();
         for (index, key) in keys.iter().enumerate() {
@@ -59,9 +59,7 @@ pub fn verify_range_proof(
         return Ok(false);
     }
 
-    let last_key = *keys.last().unwrap();
-
-    // Special Case B) One edge proof no range given, there are no more values in the trie
+    // Special Case: One edge proof, no range given, there are no more values in the trie
     if keys.is_empty() {
         let (has_right_element, value) =
             has_right_element(root, first_key.as_bytes(), &proof_nodes)?;
@@ -72,7 +70,9 @@ pub fn verify_range_proof(
         }
     }
 
-    // Special Case C) There is only one element and the two edge keys are the same
+    let last_key = *keys.last().unwrap();
+
+    // Special Case: There is only one element and the two edge keys are the same
     if keys.len() == 1 && first_key == last_key {
         let (has_right_element, value) =
             has_right_element(root, first_key.as_bytes(), &proof_nodes)?;
@@ -502,7 +502,10 @@ mod tests {
         verify_range_proof(root, key_range[0], key_range, value_range, proof).unwrap();
     }
 
+    // Proptests for verify_range_proof
     proptest! {
+
+        // Successful Cases
 
         #[test]
         // Regular Case: Two Edge Proofs, both keys exist
@@ -614,6 +617,27 @@ mod tests {
             let proof = vec![];
             // Verify the range proof
             verify_range_proof(root, keys[0], keys, values, proof).unwrap();
+        }
+
+        #[test]
+        // Special Case: No values, one edge proof
+        fn proptest_verify_range_no_values(mut data in btree_set(vec(any::<u8>(), 32), 100..200)) {
+            // Remove the last element so we can use it as key for the proof of non-existance
+            let last_element = data.pop_last().unwrap();
+            // Build trie
+            let mut trie = Trie::new_temp();
+            for val in data.iter() {
+                trie.insert(val.clone(), val.clone()).unwrap()
+            }
+            let root = trie.hash().unwrap();
+            // Range is empty
+            let values = vec![];
+            let keys = vec![];
+            let first_key = H256::from_slice(&last_element);
+            // Generate proof (last element)
+            let proof = trie.get_proof(&last_element).unwrap();
+            // Verify the range proof
+            verify_range_proof(root, first_key, keys, values, proof).unwrap();
         }
     }
 }
