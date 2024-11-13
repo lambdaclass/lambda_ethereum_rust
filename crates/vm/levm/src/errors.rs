@@ -86,8 +86,6 @@ pub enum InternalError {
     ExcessBlobGasShouldNotBeNone,
     #[error("Error in utils file")]
     UtilsError,
-    #[error("Uncategorized error")]
-    Uncategorized,
     #[error("Accound should have been cached")]
     AccountShouldHaveBeenCached,
     #[error("Tried to convert one type to another")]
