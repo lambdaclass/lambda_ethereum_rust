@@ -190,7 +190,7 @@ cfg_if::cfg_if! {
                 Cache::default(),
             )?;
 
-            vm?.transact()
+            vm.transact()
         }
     } else if #[cfg(not(feature = "levm"))] {
         /// Executes all transactions in a block and returns their receipts.
