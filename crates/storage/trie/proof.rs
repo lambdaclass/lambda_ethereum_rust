@@ -600,5 +600,23 @@ mod tests {
             // Verify the range proof
             verify_range_proof(root, H256::from_slice(&first_key), keys, values, proof).unwrap();
         }
+
+        #[test]
+        // Special Case: Range contains all the leafs in the trie, no proofs
+        fn proptest_verify_range_full_leafset(data in btree_set(vec(any::<u8>(), 32), 100..200)) {
+            // Build trie
+            let mut trie = Trie::new_temp();
+            for val in data.iter() {
+                trie.insert(val.clone(), val.clone()).unwrap()
+            }
+            let root = trie.hash().unwrap();
+            // Select range to prove
+            let values = data.into_iter().collect::<Vec<_>>();
+            let keys = values.iter().map(|a| H256::from_slice(a)).collect::<Vec<_>>();
+            // The keyset contains the entire trie so we don't need edge proofs
+            let proof = vec![];
+            // Verify the range proof
+            verify_range_proof(root, keys[0], keys, values, proof).unwrap();
+        }
     }
 }
