@@ -5,7 +5,7 @@ use ethereum_rust_blockchain::constants::TX_GAS_COST;
 use ethereum_rust_l2::utils::eth_client::{eth_sender::Overrides, EthClient};
 use ethereum_types::{Address, H160, H256, U256};
 use keccak_hash::keccak;
-use secp256k1::{Secp256k1, SecretKey};
+use secp256k1::SecretKey;
 use std::{
     fs::File,
     io::{self, BufRead},
@@ -73,7 +73,7 @@ async fn transfer_from(
     let private_key = SecretKey::from_slice(pk.parse::<H256>().unwrap().as_bytes()).unwrap();
 
     let mut buffer = [0u8; 64];
-    let public_key = private_key.public_key(&Secp256k1::new()).serialize();
+    let public_key = private_key.public_key(secp256k1::SECP256K1).serialize();
     buffer.copy_from_slice(&public_key[1..]);
 
     let address = H160::from(keccak(buffer));
