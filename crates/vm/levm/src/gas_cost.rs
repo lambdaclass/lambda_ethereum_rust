@@ -251,39 +251,23 @@ pub fn log(
 }
 
 pub fn mload(current_call_frame: &mut CallFrame, offset: usize) -> Result<U256, OutOfGasError> {
-    let memory_expansion_cost = current_call_frame.memory.expansion_cost(
-        offset
-            .checked_add(WORD_SIZE)
-            .ok_or(OutOfGasError::ArithmeticOperationOverflow)?,
-    )?;
-    MLOAD_STATIC
-        .checked_add(memory_expansion_cost)
-        .ok_or(OutOfGasError::GasCostOverflow)
+    mem_expansion_behavior(current_call_frame, offset, WORD_SIZE, MLOAD_STATIC)
 }
 
 pub fn mstore(current_call_frame: &mut CallFrame, offset: usize) -> Result<U256, OutOfGasError> {
-    let memory_expansion_cost = current_call_frame.memory.expansion_cost(
-        offset
-            .checked_add(WORD_SIZE)
-            .ok_or(OutOfGasError::ArithmeticOperationOverflow)?,
-    )?;
-    MSTORE_STATIC
-        .checked_add(memory_expansion_cost)
-        .ok_or(OutOfGasError::GasCostOverflow)
+    mem_expansion_behavior(current_call_frame, offset, WORD_SIZE, MSTORE_STATIC)
 }
 
 pub fn mstore8(current_call_frame: &mut CallFrame, offset: usize) -> Result<U256, OutOfGasError> {
-    let memory_expansion_cost = current_call_frame.memory.expansion_cost(
-        offset
-            .checked_add(1)
-            .ok_or(OutOfGasError::ArithmeticOperationOverflow)?,
-    )?;
-    MSTORE8_STATIC
-        .checked_add(memory_expansion_cost)
-        .ok_or(OutOfGasError::GasCostOverflow)
+    mem_expansion_behavior(current_call_frame, offset, 1, MSTORE8_STATIC)
 }
-/* 
-fn mem_expansion_behavior(current_call_frame: &mut CallFrame, offset: usize, offset_add: usize, static_cost: U256) -> Result<U256, OutOfGasError> {
+
+fn mem_expansion_behavior(
+    current_call_frame: &mut CallFrame,
+    offset: usize,
+    offset_add: usize,
+    static_cost: U256,
+) -> Result<U256, OutOfGasError> {
     let memory_expansion_cost = current_call_frame.memory.expansion_cost(
         offset
             .checked_add(offset_add)
@@ -293,7 +277,7 @@ fn mem_expansion_behavior(current_call_frame: &mut CallFrame, offset: usize, off
         .checked_add(memory_expansion_cost)
         .ok_or(OutOfGasError::GasCostOverflow)
 }
- */
+
 pub fn sload(is_cached: bool) -> U256 {
     if is_cached {
         // If slot is warm (cached) add 100 to base_dynamic_gas
