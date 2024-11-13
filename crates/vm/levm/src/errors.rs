@@ -10,11 +10,11 @@ pub enum VMError {
     StackUnderflow,
     #[error("Stack overflow")]
     StackOverflow,
-    #[error("Invalid jump destination")]
+    #[error("Invalid jump")]
     InvalidJump,
-    #[error("Invalid jump destination in static context")]
+    #[error("Opcode not allowed in static context")]
     OpcodeNotAllowedInStaticContext,
-    #[error("Invalid opcode")]
+    #[error("Opcode not found")]
     OpcodeNotFound,
     #[error("Invalid bytecode")]
     InvalidBytecode,
@@ -86,8 +86,12 @@ pub enum InternalError {
     CouldNotComputeCreate2Address,
     #[error("Tried to slice non-existing data")]
     SlicingError,
-    #[error("Uncategorized internal error")]
-    Uncategorized,
+    #[error("Accound should have been cached")]
+    AccountShouldHaveBeenCached,
+    #[error("Tried to convert one type to another")]
+    ConversionError,
+    #[error("Division error")]
+    DivisionError,
 }
 
 #[derive(Debug, Clone)]
@@ -96,7 +100,7 @@ pub enum OpcodeSuccess {
     Result(ResultReason),
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum ResultReason {
     Stop,
     Revert,

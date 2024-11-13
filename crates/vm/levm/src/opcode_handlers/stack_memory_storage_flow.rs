@@ -59,11 +59,11 @@ impl VM {
         &mut self,
         current_call_frame: &mut CallFrame,
     ) -> Result<OpcodeSuccess, VMError> {
-        let offset = current_call_frame
+        let offset: usize = current_call_frame
             .stack
             .pop()?
             .try_into()
-            .unwrap_or(usize::MAX);
+            .map_err(|_| VMError::VeryLargeNumber)?;
         let memory_expansion_cost = current_call_frame.memory.expansion_cost(
             offset
                 .checked_add(WORD_SIZE)
@@ -154,10 +154,7 @@ impl VM {
             // If slot is warm (cached) add 100 to base_dynamic_gas
             base_dynamic_gas += WARM_ADDRESS_ACCESS_COST;
 
-            self.cache
-                .get_storage_slot(address, key)
-                .expect("Should be already cached") // Because entered the if is_slot_cached
-                .current_value
+            self.get_storage_slot(&address, key).current_value
         } else {
             // If slot is cold (not cached) add 2100 to base_dynamic_gas
             base_dynamic_gas += COLD_STORAGE_ACCESS_COST;
@@ -222,7 +219,7 @@ impl VM {
                 original_value: storage_slot.original_value,
                 current_value: value,
             },
-        );
+        )?;
 
         Ok(OpcodeSuccess::Continue)
     }
@@ -254,21 +251,21 @@ impl VM {
         &mut self,
         current_call_frame: &mut CallFrame,
     ) -> Result<OpcodeSuccess, VMError> {
-        let dest_offset = current_call_frame
+        let dest_offset: usize = current_call_frame
             .stack
             .pop()?
             .try_into()
-            .unwrap_or(usize::MAX);
+            .map_err(|_| VMError::VeryLargeNumber)?;
         let src_offset: usize = current_call_frame
             .stack
             .pop()?
             .try_into()
-            .unwrap_or(usize::MAX);
+            .map_err(|_| VMError::VeryLargeNumber)?;
         let size: usize = current_call_frame
             .stack
             .pop()?
             .try_into()
-            .unwrap_or(usize::MAX);
+            .map_err(|_| VMError::VeryLargeNumber)?;
 
         let words_copied = (size + WORD_SIZE - 1) / WORD_SIZE;
 

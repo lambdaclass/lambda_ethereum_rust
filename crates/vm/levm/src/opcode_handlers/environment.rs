@@ -104,7 +104,7 @@ impl VM {
             .stack
             .pop()?
             .try_into()
-            .unwrap_or(usize::MAX);
+            .map_err(|_| VMError::VeryLargeNumber)?;
 
         // All bytes after the end of the calldata are set to 0.
         let mut data = [0u8; 32];
@@ -402,17 +402,17 @@ impl VM {
             .stack
             .pop()?
             .try_into()
-            .unwrap_or(usize::MAX);
+            .map_err(|_| VMError::VeryLargeNumber)?;
         let returndata_offset: usize = current_call_frame
             .stack
             .pop()?
             .try_into()
-            .unwrap_or(usize::MAX);
+            .map_err(|_| VMError::VeryLargeNumber)?;
         let size: usize = current_call_frame
             .stack
             .pop()?
             .try_into()
-            .unwrap_or(usize::MAX);
+            .map_err(|_| VMError::VeryLargeNumber)?;
 
         let minimum_word_size = (size + WORD_SIZE - 1) / WORD_SIZE;
         let memory_expansion_cost = current_call_frame.memory.expansion_cost(

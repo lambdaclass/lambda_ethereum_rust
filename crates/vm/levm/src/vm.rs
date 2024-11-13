@@ -13,7 +13,6 @@ use ethereum_rust_core::{types::TxKind, Address, H256, U256};
 use ethereum_rust_rlp;
 use ethereum_rust_rlp::encode::RLPEncode;
 use gas_cost::KECCAK25_DYNAMIC_BASE;
-use keccak_hash::keccak;
 use sha3::{Digest, Keccak256};
 use std::{
     collections::{HashMap, HashSet},
@@ -469,13 +468,22 @@ impl VM {
 
             // If the initialization code completes successfully, a final contract-creation cost is paid,
             // the code-deposit cost, c, proportional to the size of the created contract’s code
-            let mut creation_cost = 200 * contract_code.len() as u64;
+            let code_length: u64 = contract_code
+                .len()
+                .try_into()
+                .map_err(|_| VMError::Internal(InternalError::ConversionError))?;
+            let mut creation_cost = 200 * code_length;
             creation_cost += 32000;
             report.add_gas_with_max(creation_cost, max_gas);
             // Charge 22100 gas for each storage variable set
 
             // GInitCodeword * number_of_words rounded up. GinitCodeWord = 2
-            let number_of_words = initial_call_frame.calldata.chunks(32).len() as u64;
+            let number_of_words: u64 = initial_call_frame
+                .calldata
+                .chunks(WORD_SIZE)
+                .len()
+                .try_into()
+                .map_err(|_| VMError::Internal(InternalError::ConversionError))?;
             report.add_gas_with_max(number_of_words * 2, max_gas);
 
             let contract_address = initial_call_frame.to;
@@ -672,26 +680,19 @@ impl VM {
         initialization_code: &Bytes,
         salt: U256,
     ) -> Result<Address, VMError> {
-        let init_code_hash = keccak(initialization_code);
+        let mut hasher = Keccak256::new();
+        hasher.update(initialization_code.clone());
+        let initialization_code_hash = hasher.finalize();
+        let mut hasher = Keccak256::new();
         let mut salt_bytes = [0; 32];
         salt.to_big_endian(&mut salt_bytes);
-
-        Ok(Address::from_slice(
-            keccak(
-                [
-                    &[0xff],
-                    sender_address.as_bytes(),
-                    &salt_bytes,
-                    init_code_hash.as_bytes(),
-                ]
-                .concat(),
-            )
-            .as_bytes()
-            .get(12..)
-            .ok_or(VMError::Internal(
-                InternalError::CouldNotComputeCreate2Address,
-            ))?,
-        ))
+        hasher.update([0xff]);
+        hasher.update(sender_address.as_bytes());
+        hasher.update(salt_bytes);
+        hasher.update(initialization_code_hash);
+        Ok(Address::from_slice(hasher.finalize().get(12..).ok_or(
+            VMError::Internal(InternalError::CouldNotComputeCreate2Address),
+        )?))
     }
 
     fn compute_gas_create(
@@ -705,7 +706,7 @@ impl VM {
             .checked_add(U256::from(31))
             .ok_or(VMError::DataSizeOverflow)?)
         .checked_div(U256::from(32))
-        .ok_or(VMError::Internal(InternalError::Uncategorized))?; // '32' will never be zero
+        .ok_or(VMError::Internal(InternalError::DivisionError))?; // '32' will never be zero
 
         let init_code_cost = minimum_word_size
             .checked_mul(INIT_CODE_WORD_COST)
@@ -815,7 +816,9 @@ impl VM {
         );
 
         let new_address = match salt {
-            Some(salt) => Self::calculate_create2_address(current_call_frame.to, &code, salt)?,
+            Some(salt) => {
+                Self::calculate_create2_address(current_call_frame.msg_sender, &code, salt)?
+            }
             None => Self::calculate_create_address(
                 current_call_frame.msg_sender,
                 sender_account.info.nonce,
