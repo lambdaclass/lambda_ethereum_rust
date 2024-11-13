@@ -103,7 +103,7 @@ pub fn verify_range_proof(
     fill_state(&mut trie.state, root, first_key, &proof_nodes)?;
     fill_state(&mut trie.state, root, last_key, &proof_nodes)?;
     // Remove all references to the internal nodes that belong to the range so they can be reconstructed
-    let empty = remove_internal_references(root, first_key, last_key, &mut trie.state);
+    let empty = remove_internal_references(root, first_key, last_key, &mut trie.state)?;
     if !empty {
         trie.root = Some(NodeHash::from(root));
     }
@@ -233,12 +233,13 @@ fn has_right_element_inner(
 /// Removes references to internal nodes between the left and right key
 /// These nodes should be entirely reconstructed when inserting the elements between left and right key (the proven range)
 /// Returns true if the trie is left empty (rootless) as a result of this process
+/// Asumes that left_key & right_key are not equal and of same length
 fn remove_internal_references(
     root_hash: H256,
     left_key: H256,
     right_key: H256,
     trie_state: &mut TrieState,
-) -> bool {
+) -> Result<bool, TrieError> {
     // First find the node at which the left and right path differ
     let left_path = Nibbles::from_bytes(&left_key.0);
     let right_path = Nibbles::from_bytes(&right_key.0);
@@ -250,21 +251,27 @@ fn remove_internal_references(
 /// Once the paths diverge, removes the nodes between the left and right path
 /// Returns true if the given node was completely removed as a result of this process
 /// In which case the caller should remove the reference to this node from its parent node
+/// Asumes that left_key & right_key are not equal and of same length
 fn remove_internal_references_inner(
     node_hash: NodeHash,
     mut left_path: Nibbles,
     mut right_path: Nibbles,
     trie_state: &mut TrieState,
-) -> bool {
+) -> Result<bool, TrieError> {
     if !node_hash.is_valid() {
-        return true;
+        return Ok(true);
     }
     // We already looked up the nodes when filling the state so this shouldn't fail
-    let node = trie_state.get_node(node_hash.clone()).unwrap().unwrap();
+    let node = trie_state.get_node(node_hash.clone())?.unwrap();
     match node {
         Node::Branch(mut n) => {
+            // If none of the paths have next choice nibble then it means that this is the end of the path
+            // which would mean that both paths are equal, which we already checked before
+            // Only one path doesn't have a next choice then it would mean that the paths have different lengths,
+            // which we also checked before calling this function
             let left_choice = left_path.next_choice().unwrap();
             let right_choice = right_path.next_choice().unwrap();
+
             if left_choice == right_choice && n.choices[left_choice].is_valid() {
                 // Keep going
                 // Check if the child extension node should be removed as a result of this process
@@ -273,7 +280,7 @@ fn remove_internal_references_inner(
                     left_path,
                     right_path,
                     trie_state,
-                );
+                )?;
                 if should_remove {
                     // Remove child node
                     n.choices[left_choice] = NodeHash::default();
@@ -325,19 +332,19 @@ fn remove_internal_references_inner(
                 // If both paths are greater or lesser than the node's prefix then the range is empty
                 // TODO: return the error instead of panicking here
                 (Ordering::Greater, Ordering::Greater) | (Ordering::Less, Ordering::Less) => {
-                    panic!("empty range")
+                    return Err(TrieError::Verify("empty range".to_string()))
                 }
                 // None of the paths fit the prefix, remove the entire subtrie
                 (left, right) if left.is_ne() && right.is_ne() => {
                     // Return true so that the parent node removes this node
-                    return true;
+                    return Ok(true);
                 }
                 // One path fits the prefix, the other one doesn't
                 (left, right) => {
                     // Remove the nodes from the child's subtrie
                     let path = if left.is_eq() { left_path } else { right_path };
                     // Propagate the response so that this node will be removed too if the child's subtrie is wiped
-                    return remove_node(node_hash, path, right.is_eq(), trie_state);
+                    return Ok(remove_node(node_hash, path, right.is_eq(), trie_state));
                 }
             }
         }
@@ -345,7 +352,7 @@ fn remove_internal_references_inner(
         // before calling this function
         Node::Leaf(_) => {}
     }
-    false
+    Ok(false)
 }
 
 // Removes all nodes in the node's subtrie to the left or right of the path (given by the `remove_left` flag)
@@ -366,7 +373,10 @@ fn remove_node(
     match node {
         Node::Branch(mut n) => {
             // Remove child nodes
-            let choice = path.next_choice().unwrap();
+            let Some(choice) = path.next_choice() else {
+                // Path ends in the branch node
+                return true;
+            };
             if remove_left {
                 for child in &mut n.choices[..choice] {
                     *child = NodeHash::default()
