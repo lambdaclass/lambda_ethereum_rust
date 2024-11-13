@@ -120,26 +120,13 @@ pub fn calldatacopy(
     size: usize,
     dest_offset: usize,
 ) -> Result<U256, OutOfGasError> {
-    let minimum_word_size = (size
-        .checked_add(WORD_SIZE)
-        .ok_or(OutOfGasError::ArithmeticOperationOverflow)?
-        .saturating_sub(1))
-        / WORD_SIZE;
-
-    let memory_expansion_cost = current_call_frame.memory.expansion_cost(
-        dest_offset
-            .checked_add(size)
-            .ok_or(OutOfGasError::ArithmeticOperationOverflow)?,
-    )?;
-
-    let minimum_word_size_cost = CALLDATACOPY_DYNAMIC_BASE
-        .checked_mul(minimum_word_size.into())
-        .ok_or(OutOfGasError::GasCostOverflow)?;
-    CALLDATACOPY_STATIC
-        .checked_add(minimum_word_size_cost)
-        .ok_or(OutOfGasError::GasCostOverflow)?
-        .checked_add(memory_expansion_cost)
-        .ok_or(OutOfGasError::GasCostOverflow)
+    copy_behavior(
+        CALLDATACOPY_DYNAMIC_BASE,
+        CALLDATACOPY_STATIC,
+        current_call_frame,
+        size,
+        dest_offset,
+    )
 }
 
 pub fn codecopy(
@@ -147,26 +134,13 @@ pub fn codecopy(
     size: usize,
     dest_offset: usize,
 ) -> Result<U256, OutOfGasError> {
-    let minimum_word_size = (size
-        .checked_add(WORD_SIZE)
-        .ok_or(OutOfGasError::ArithmeticOperationOverflow)?
-        .saturating_sub(1))
-        / WORD_SIZE;
-
-    let memory_expansion_cost = current_call_frame.memory.expansion_cost(
-        dest_offset
-            .checked_add(size)
-            .ok_or(OutOfGasError::ArithmeticOperationOverflow)?,
-    )?;
-
-    let minimum_word_size_cost = CODECOPY_DYNAMIC_BASE
-        .checked_mul(minimum_word_size.into())
-        .ok_or(OutOfGasError::GasCostOverflow)?;
-    CODECOPY_STATIC
-        .checked_add(minimum_word_size_cost)
-        .ok_or(OutOfGasError::GasCostOverflow)?
-        .checked_add(memory_expansion_cost)
-        .ok_or(OutOfGasError::GasCostOverflow)
+    copy_behavior(
+        CODECOPY_DYNAMIC_BASE,
+        CODECOPY_STATIC,
+        current_call_frame,
+        size,
+        dest_offset,
+    )
 }
 
 pub fn extcodecopy(
@@ -175,32 +149,21 @@ pub fn extcodecopy(
     dest_offset: usize,
     is_cached: bool,
 ) -> Result<U256, OutOfGasError> {
-    let minimum_word_size = (size
-        .checked_add(WORD_SIZE)
-        .ok_or(OutOfGasError::ArithmeticOperationOverflow)?
-        .saturating_sub(1))
-        / WORD_SIZE;
-
-    let memory_expansion_cost = current_call_frame.memory.expansion_cost(
-        dest_offset
-            .checked_add(size)
-            .ok_or(OutOfGasError::ArithmeticOperationOverflow)?,
-    )?;
-    let minimum_word_size_cost = EXTCODECOPY_DYNAMIC_BASE
-        .checked_add(minimum_word_size.into())
-        .ok_or(OutOfGasError::GasCostOverflow)?;
-
     let address_access_cost = if is_cached {
         WARM_ADDRESS_ACCESS_COST
     } else {
         COLD_ADDRESS_ACCESS_COST
     };
 
-    minimum_word_size_cost
-        .checked_add(memory_expansion_cost)
-        .ok_or(OutOfGasError::GasCostOverflow)?
-        .checked_add(address_access_cost)
-        .ok_or(OutOfGasError::GasCostOverflow)
+    // address_access_cost is not a static cost, but there's no static
+    // cost and there is the address_access_cost
+    copy_behavior(
+        EXTCODECOPY_DYNAMIC_BASE,
+        address_access_cost,
+        current_call_frame,
+        size,
+        dest_offset,
+    )
 }
 
 pub fn returndatacopy(
@@ -208,22 +171,39 @@ pub fn returndatacopy(
     size: usize,
     dest_offset: usize,
 ) -> Result<U256, OutOfGasError> {
+    copy_behavior(
+        RETURNDATACOPY_DYNAMIC_BASE,
+        RETURNDATACOPY_STATIC,
+        current_call_frame,
+        size,
+        dest_offset,
+    )
+}
+
+fn copy_behavior(
+    dynamic_base: U256,
+    static_cost: U256,
+    current_call_frame: &mut CallFrame,
+    size: usize,
+    offset: usize,
+) -> Result<U256, OutOfGasError> {
     let minimum_word_size = (size
         .checked_add(WORD_SIZE)
         .ok_or(OutOfGasError::ArithmeticOperationOverflow)?
         .saturating_sub(1))
         / WORD_SIZE;
+
     let memory_expansion_cost = current_call_frame.memory.expansion_cost(
-        dest_offset
+        offset
             .checked_add(size)
             .ok_or(OutOfGasError::ArithmeticOperationOverflow)?,
     )?;
-    let minumum_word_size_cost = RETURNDATACOPY_DYNAMIC_BASE
+
+    let minimum_word_size_cost = dynamic_base
         .checked_mul(minimum_word_size.into())
         .ok_or(OutOfGasError::GasCostOverflow)?;
-
-    RETURNDATACOPY_STATIC
-        .checked_add(minumum_word_size_cost)
+    static_cost
+        .checked_add(minimum_word_size_cost)
         .ok_or(OutOfGasError::GasCostOverflow)?
         .checked_add(memory_expansion_cost)
         .ok_or(OutOfGasError::GasCostOverflow)
@@ -234,25 +214,13 @@ pub fn keccak256(
     size: usize,
     offset: usize,
 ) -> Result<U256, OutOfGasError> {
-    let minimum_word_size = (size
-        .checked_add(WORD_SIZE)
-        .ok_or(OutOfGasError::ArithmeticOperationOverflow)?
-        .saturating_sub(1))
-        / WORD_SIZE;
-    let memory_expansion_cost = current_call_frame.memory.expansion_cost(
-        offset
-            .checked_add(size)
-            .ok_or(OutOfGasError::ArithmeticOperationOverflow)?,
-    )?;
-    let minimum_word_size_cost = KECCAK25_DYNAMIC_BASE
-        .checked_mul(minimum_word_size.into())
-        .ok_or(OutOfGasError::GasCostOverflow)?;
-
-    KECCAK25_STATIC
-        .checked_add(minimum_word_size_cost)
-        .ok_or(OutOfGasError::GasCostOverflow)?
-        .checked_add(memory_expansion_cost)
-        .ok_or(OutOfGasError::GasCostOverflow)
+    copy_behavior(
+        KECCAK25_DYNAMIC_BASE,
+        KECCAK25_STATIC,
+        current_call_frame,
+        size,
+        offset,
+    )
 }
 
 pub fn log(
@@ -314,7 +282,18 @@ pub fn mstore8(current_call_frame: &mut CallFrame, offset: usize) -> Result<U256
         .checked_add(memory_expansion_cost)
         .ok_or(OutOfGasError::GasCostOverflow)
 }
-
+/* 
+fn mem_expansion_behavior(current_call_frame: &mut CallFrame, offset: usize, offset_add: usize, static_cost: U256) -> Result<U256, OutOfGasError> {
+    let memory_expansion_cost = current_call_frame.memory.expansion_cost(
+        offset
+            .checked_add(offset_add)
+            .ok_or(OutOfGasError::ArithmeticOperationOverflow)?,
+    )?;
+    static_cost
+        .checked_add(memory_expansion_cost)
+        .ok_or(OutOfGasError::GasCostOverflow)
+}
+ */
 pub fn sload(is_cached: bool) -> U256 {
     if is_cached {
         // If slot is warm (cached) add 100 to base_dynamic_gas
