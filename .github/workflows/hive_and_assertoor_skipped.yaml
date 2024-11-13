@@ -19,7 +19,6 @@ jobs:
   run-hive:
     name: Hive - ${{ matrix.name }}
     runs-on: ubuntu-latest
-    if: false
     strategy:
       matrix:
         include:
@@ -44,9 +43,8 @@ jobs:
           - simulation: engine-cancun
             name: "Cancun Engine tests"
             run_command: exit 0
-    steps:
-      - name: Run Hive Simulation
-        run: ${{ matrix.run_command }}
+    if: false
+    steps: [run: true]
 
   run-assertoor:
     name: Assertoor - Stability Check
