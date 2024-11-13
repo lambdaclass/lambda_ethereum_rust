@@ -71,6 +71,6 @@ init-l2-prover-gpu: ## 🚀 Initializes the Prover with GPU support
 
 test:
 	docker compose -f ${ETHEREUM_RUST_L2_DOCKER_COMPOSE_PATH} down
-	docker compose -f ${ETHEREUM_RUST_L2_DOCKER_COMPOSE_PATH} up -d
-	cargo test --release testito -- --nocapture
+	docker compose -f ${ETHEREUM_RUST_L2_DOCKER_COMPOSE_PATH} up -d --build
+	BRIDGE_ADDRESS=$$(grep 'L1_WATCHER_BRIDGE_ADDRESS' .env | cut -d= -f2) cargo test --release testito -- --nocapture
 	docker compose -f ${ETHEREUM_RUST_L2_DOCKER_COMPOSE_PATH} down
