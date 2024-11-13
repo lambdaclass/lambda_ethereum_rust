@@ -80,6 +80,8 @@ pub enum InternalError {
     AccountShouldHaveBeenCached,
     #[error("Uncategorized internal error")]
     Uncategorized,
+    #[error("Tried to convert one type to another")]
+    ConversionError,
 }
 
 #[derive(Debug, Clone)]
