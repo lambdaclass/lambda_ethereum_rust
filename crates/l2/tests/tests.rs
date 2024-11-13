@@ -90,7 +90,7 @@ async fn testito() {
     // TODO: Improve this. Ideally, the L1 contract should return the L2 mint
     // tx hash for the user to wait for the receipt.
     let mut retries = 0;
-    while retries < 10 && l2_after_deposit_balance < l2_initial_balance + deposit_value {
+    while l2_after_deposit_balance < l2_initial_balance + deposit_value {
         tokio::time::sleep(std::time::Duration::from_secs(2)).await;
         l2_after_deposit_balance = proposer_client
             .get_balance(l1_rich_wallet_address())
