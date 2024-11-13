@@ -786,7 +786,9 @@ impl VM {
         );
 
         let new_address = match salt {
-            Some(salt) => Self::calculate_create2_address(current_call_frame.to, &code, salt)?,
+            Some(salt) => {
+                Self::calculate_create2_address(current_call_frame.msg_sender, &code, salt)?
+            }
             None => Self::calculate_create_address(
                 current_call_frame.msg_sender,
                 sender_account.info.nonce,
