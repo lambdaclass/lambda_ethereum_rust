@@ -43,7 +43,7 @@ impl VM {
             self.cache_from_db(address);
         };
 
-        let balance = self.cache.get_account(*address).unwrap().info.balance;
+        let balance = self.get_account(address).info.balance;
 
         current_call_frame.stack.push(balance)?;
         Ok(OpcodeSuccess::Continue)
@@ -292,13 +292,7 @@ impl VM {
             self.cache_from_db(&address);
         };
 
-        let bytecode = self
-            .cache
-            .get_account(address)
-            .unwrap()
-            .info
-            .bytecode
-            .clone();
+        let bytecode = self.get_account(&address).info.bytecode;
 
         current_call_frame.stack.push(bytecode.len().into())?;
         Ok(OpcodeSuccess::Continue)
@@ -342,13 +336,7 @@ impl VM {
             self.cache_from_db(&address);
         };
 
-        let mut bytecode = self
-            .cache
-            .get_account(address)
-            .unwrap()
-            .info
-            .bytecode
-            .clone();
+        let mut bytecode = self.get_account(&address).info.bytecode;
 
         if bytecode.len()
             < offset
@@ -462,13 +450,7 @@ impl VM {
             self.cache_from_db(&address);
         };
 
-        let bytecode = self
-            .cache
-            .get_account(address)
-            .unwrap()
-            .info
-            .bytecode
-            .clone();
+        let bytecode = self.get_account(&address).info.bytecode;
 
         let mut hasher = Keccak256::new();
         hasher.update(bytecode);

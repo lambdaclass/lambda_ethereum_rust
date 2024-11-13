@@ -37,7 +37,7 @@ indexing_slicing = "warn"
 manual_unwrap_or = "warn"
 manual_unwrap_or_default = "warn"
 as_conversions = "deny"
-# unwrap_used = "deny"
+unwrap_used = "deny"
 expect_used = "deny"
 
 [lib]

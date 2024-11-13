@@ -61,7 +61,7 @@ pub enum VMError {
     #[error("Gas limit price product overflow")]
     GasLimitPriceProductOverflow,
     #[error("Internal error: {0}")]
-    Internal(InternalError),
+    Internal(#[from] InternalError),
     #[error("Data size overflow")]
     DataSizeOverflow,
     #[error("Gas cost overflow")]
@@ -86,6 +86,14 @@ pub enum InternalError {
     CouldNotComputeCreate2Address,
     #[error("Tried to slice non-existing data")]
     SlicingError,
+    #[error("Could not pop callframe")]
+    CouldNotPopCallframe,
+    #[error("Account not found")]
+    AccountNotFound,
+    #[error("ExcessBlobGas should not be None")]
+    ExcessBlobGasShouldNotBeNone,
+    #[error("Error in utils file")]
+    UtilsError,
     #[error("Accound should have been cached")]
     AccountShouldHaveBeenCached,
     #[error("Tried to convert one type to another")]
