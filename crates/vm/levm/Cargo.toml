@@ -39,3 +39,5 @@ unnecessary_cast = "warn"
 # indexing_slicing = "warn"
 # manual_unwrap_or = "warn"
 # manual_unwrap_or_default = "warn"
+[lib]
+path = "./src/lib.rs"

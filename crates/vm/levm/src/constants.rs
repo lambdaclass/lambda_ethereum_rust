@@ -128,7 +128,6 @@ pub fn init_code_cost(init_code_length: usize) -> Result<u64, VMError> {
         .map_err(|_| VMError::Internal(InternalError::ConversionError))?;
     Ok(INIT_WORD_COST * (length_u64 + 31) / 32)
 }
-
 pub mod create_opcode {
     use ethereum_rust_core::U256;
 
