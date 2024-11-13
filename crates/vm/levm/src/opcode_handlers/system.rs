@@ -57,7 +57,7 @@ impl VM {
             .clone()
             .is_empty();
 
-        let gas_cost = gas_cost::call_gas_cost(
+        let gas_cost = gas_cost::call(
             current_call_frame,
             args_size,
             args_offset,
@@ -128,7 +128,7 @@ impl VM {
             self.cache_from_db(&code_address);
         };
 
-        let gas_cost = gas_cost::callcode_gas_cost(
+        let gas_cost = gas_cost::callcode(
             current_call_frame,
             args_size,
             args_offset,
@@ -236,7 +236,7 @@ impl VM {
             self.cache_from_db(&code_address);
         };
 
-        let gas_cost = gas_cost::delegatecall_gas_cost(
+        let gas_cost = gas_cost::delegatecall(
             current_call_frame,
             args_size,
             args_offset,
@@ -304,7 +304,7 @@ impl VM {
             self.cache_from_db(&code_address);
         };
 
-        let gas_cost = gas_cost::staticcall_gas_cost(
+        let gas_cost = gas_cost::staticcall(
             current_call_frame,
             args_size,
             args_offset,
@@ -343,7 +343,7 @@ impl VM {
         let code_size_in_memory = current_call_frame.stack.pop()?;
 
         // Gas Cost
-        let gas_cost = gas_cost::create_gas_cost(
+        let gas_cost = gas_cost::create(
             current_call_frame,
             code_offset_in_memory,
             code_size_in_memory,
@@ -373,7 +373,7 @@ impl VM {
         let salt = current_call_frame.stack.pop()?;
 
         // Gas Cost
-        let gas_cost = gas_cost::create_2_gas_cost(
+        let gas_cost = gas_cost::create_2(
             current_call_frame,
             code_offset_in_memory,
             code_size_in_memory,
@@ -460,7 +460,7 @@ impl VM {
         let mut target_account = self.get_account(&target_address);
         let account_is_empty = target_account.is_empty();
 
-        let gas_cost = gas_cost::selfdestruct_gas_cost(is_cached, account_is_empty)
+        let gas_cost = gas_cost::selfdestruct(is_cached, account_is_empty)
             .map_err(VMError::OutOfGasErr)?;
 
         target_account.info.balance = target_account

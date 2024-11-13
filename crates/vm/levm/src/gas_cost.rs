@@ -102,7 +102,7 @@ pub const INIT_CODE_WORD_COST: U256 = U256([2, 0, 0, 0]);
 pub const CODE_DEPOSIT_COST: U256 = U256([200, 0, 0, 0]);
 pub const CREATE_BASE_COST: U256 = U256([32000, 0, 0, 0]);
 
-pub fn exp_gas_cost(exponent: U256) -> Result<U256, OutOfGasError> {
+pub fn exp(exponent: U256) -> Result<U256, OutOfGasError> {
     let exponent_byte_size = (exponent
         .bits()
         .checked_add(7)
@@ -116,7 +116,7 @@ pub fn exp_gas_cost(exponent: U256) -> Result<U256, OutOfGasError> {
         .ok_or(OutOfGasError::GasCostOverflow)
 }
 
-pub fn calldatacopy_gas_cost(
+pub fn calldatacopy(
     current_call_frame: &mut CallFrame,
     size: usize,
     dest_offset: usize,
@@ -143,7 +143,7 @@ pub fn calldatacopy_gas_cost(
         .ok_or(OutOfGasError::GasCostOverflow)
 }
 
-pub fn codecopy_gas_cost(
+pub fn codecopy(
     current_call_frame: &mut CallFrame,
     size: usize,
     dest_offset: usize,
@@ -170,7 +170,7 @@ pub fn codecopy_gas_cost(
         .ok_or(OutOfGasError::GasCostOverflow)
 }
 
-pub fn extcodecopy_gas_cost(
+pub fn extcodecopy(
     current_call_frame: &mut CallFrame,
     size: usize,
     dest_offset: usize,
@@ -204,7 +204,7 @@ pub fn extcodecopy_gas_cost(
         .ok_or(OutOfGasError::GasCostOverflow)
 }
 
-pub fn returndatacopy_gas_cost(
+pub fn returndatacopy(
     current_call_frame: &mut CallFrame,
     size: usize,
     dest_offset: usize,
@@ -230,7 +230,7 @@ pub fn returndatacopy_gas_cost(
         .ok_or(OutOfGasError::GasCostOverflow)
 }
 
-pub fn keccak256_gas_cost(
+pub fn keccak256(
     current_call_frame: &mut CallFrame,
     size: usize,
     offset: usize,
@@ -256,7 +256,7 @@ pub fn keccak256_gas_cost(
         .ok_or(OutOfGasError::GasCostOverflow)
 }
 
-pub fn log_gas_cost(
+pub fn log(
     current_call_frame: &mut CallFrame,
     size: usize,
     offset: usize,
@@ -283,7 +283,7 @@ pub fn log_gas_cost(
         .ok_or(OutOfGasError::GasCostOverflow)
 }
 
-pub fn mload_gas_cost(
+pub fn mload(
     current_call_frame: &mut CallFrame,
     offset: usize,
 ) -> Result<U256, OutOfGasError> {
@@ -297,7 +297,7 @@ pub fn mload_gas_cost(
         .ok_or(OutOfGasError::GasCostOverflow)
 }
 
-pub fn mstore_gas_cost(
+pub fn mstore(
     current_call_frame: &mut CallFrame,
     offset: usize,
 ) -> Result<U256, OutOfGasError> {
@@ -311,7 +311,7 @@ pub fn mstore_gas_cost(
         .ok_or(OutOfGasError::GasCostOverflow)
 }
 
-pub fn mstore8_gas_cost(
+pub fn mstore8(
     current_call_frame: &mut CallFrame,
     offset: usize,
 ) -> Result<U256, OutOfGasError> {
@@ -325,7 +325,7 @@ pub fn mstore8_gas_cost(
         .ok_or(OutOfGasError::GasCostOverflow)
 }
 
-pub fn sload_gas_cost(is_cached: bool) -> U256 {
+pub fn sload(is_cached: bool) -> U256 {
     if is_cached {
         // If slot is warm (cached) add 100 to base_dynamic_gas
         WARM_ADDRESS_ACCESS_COST
@@ -335,7 +335,7 @@ pub fn sload_gas_cost(is_cached: bool) -> U256 {
     }
 }
 
-pub fn sstore_gas_cost(
+pub fn sstore(
     vm: &mut VM,
     address: Address,
     key: H256,
@@ -373,7 +373,7 @@ pub fn sstore_gas_cost(
     Ok((base_dynamic_gas, storage_slot))
 }
 
-pub fn mcopy_gas_cost(
+pub fn mcopy(
     current_call_frame: &mut CallFrame,
     size: usize,
     src_offset: usize,
@@ -406,7 +406,7 @@ pub fn mcopy_gas_cost(
 }
 
 #[allow(clippy::too_many_arguments)]
-pub fn call_gas_cost(
+pub fn call(
     current_call_frame: &mut CallFrame,
     args_size: usize,
     args_offset: usize,
@@ -455,7 +455,7 @@ pub fn call_gas_cost(
         .ok_or(OutOfGasError::GasCostOverflow)
 }
 
-pub fn callcode_gas_cost(
+pub fn callcode(
     current_call_frame: &mut CallFrame,
     args_size: usize,
     args_offset: usize,
@@ -493,7 +493,7 @@ pub fn callcode_gas_cost(
         .ok_or(OutOfGasError::GasCostOverflow)
 }
 
-pub fn delegatecall_gas_cost(
+pub fn delegatecall(
     current_call_frame: &mut CallFrame,
     args_size: usize,
     args_offset: usize,
@@ -522,7 +522,7 @@ pub fn delegatecall_gas_cost(
         .ok_or(OutOfGasError::GasCostOverflow)
 }
 
-pub fn staticcall_gas_cost(
+pub fn staticcall(
     current_call_frame: &mut CallFrame,
     args_size: usize,
     args_offset: usize,
@@ -551,7 +551,7 @@ pub fn staticcall_gas_cost(
         .ok_or(OutOfGasError::GasCostOverflow)
 }
 
-pub fn create_gas_cost(
+pub fn create(
     current_call_frame: &mut CallFrame,
     code_offset_in_memory: U256,
     code_size_in_memory: U256,
@@ -587,7 +587,7 @@ pub fn create_gas_cost(
         .ok_or(OutOfGasError::CreationCostIsTooHigh)
 }
 
-pub fn create_2_gas_cost(
+pub fn create_2(
     current_call_frame: &mut CallFrame,
     code_offset_in_memory: U256,
     code_size_in_memory: U256,
@@ -629,7 +629,7 @@ pub fn create_2_gas_cost(
         .ok_or(OutOfGasError::CreationCostIsTooHigh)
 }
 
-pub fn selfdestruct_gas_cost(
+pub fn selfdestruct(
     is_cached: bool,
     account_is_empty: bool,
 ) -> Result<U256, OutOfGasError> {
@@ -650,7 +650,7 @@ pub fn selfdestruct_gas_cost(
     Ok(gas_cost)
 }
 
-pub fn tx_calldata_gas_cost(calldata: &Bytes) -> Result<u64, OutOfGasError> {
+pub fn tx_calldata(calldata: &Bytes) -> Result<u64, OutOfGasError> {
     // This cost applies both for call and create
     // 4 gas for each zero byte in the transaction data 16 gas for each non-zero byte in the transaction.
     let mut calldata_cost: u64 = 0;
@@ -668,7 +668,7 @@ pub fn tx_calldata_gas_cost(calldata: &Bytes) -> Result<u64, OutOfGasError> {
     Ok(calldata_cost)
 }
 
-pub fn tx_creation_cost(contract_code: &Bytes, number_of_words: u64) -> Result<u64, OutOfGasError> {
+pub fn tx_creation(contract_code: &Bytes, number_of_words: u64) -> Result<u64, OutOfGasError> {
     let mut creation_cost = contract_code
         .len()
         .checked_mul(200)

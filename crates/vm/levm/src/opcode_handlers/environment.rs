@@ -160,7 +160,7 @@ impl VM {
             .try_into()
             .map_err(|_err| VMError::VeryLargeNumber)?;
 
-        let gas_cost = gas_cost::calldatacopy_gas_cost(current_call_frame, size, dest_offset)
+        let gas_cost = gas_cost::calldatacopy(current_call_frame, size, dest_offset)
             .map_err(VMError::OutOfGasErr)?;
 
         self.increase_consumed_gas(current_call_frame, gas_cost)?;
@@ -237,7 +237,7 @@ impl VM {
             .try_into()
             .map_err(|_| VMError::VeryLargeNumber)?;
 
-        let gas_cost = gas_cost::codecopy_gas_cost(current_call_frame, size, dest_offset)
+        let gas_cost = gas_cost::codecopy(current_call_frame, size, dest_offset)
             .map_err(VMError::OutOfGasErr)?;
 
         self.increase_consumed_gas(current_call_frame, gas_cost)?;
@@ -323,7 +323,7 @@ impl VM {
         let is_cached = self.cache.is_account_cached(&address);
 
         let gas_cost =
-            gas_cost::extcodecopy_gas_cost(current_call_frame, size, dest_offset, is_cached)
+            gas_cost::extcodecopy(current_call_frame, size, dest_offset, is_cached)
                 .map_err(VMError::OutOfGasErr)?;
 
         self.increase_consumed_gas(current_call_frame, gas_cost)?;
@@ -391,7 +391,7 @@ impl VM {
             .try_into()
             .unwrap_or(usize::MAX);
 
-        let gas_cost = gas_cost::returndatacopy_gas_cost(current_call_frame, size, dest_offset)
+        let gas_cost = gas_cost::returndatacopy(current_call_frame, size, dest_offset)
             .map_err(VMError::OutOfGasErr)?;
 
         self.increase_consumed_gas(current_call_frame, gas_cost)?;

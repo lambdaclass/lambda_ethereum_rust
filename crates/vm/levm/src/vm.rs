@@ -436,7 +436,7 @@ impl VM {
             .first()
             .ok_or(VMError::StackUnderflow)?
             .calldata;
-        let calldata_cost = gas_cost::tx_calldata_gas_cost(first_callframe_calldata)
+        let calldata_cost = gas_cost::tx_calldata(first_callframe_calldata)
             .map_err(VMError::OutOfGasErr)?;
 
         report.gas_used = report
@@ -470,7 +470,7 @@ impl VM {
             // the code-deposit cost, c, proportional to the size of the created contract’s code
             let number_of_words = self.call_frames[0].calldata.chunks(WORD_SIZE).len() as u64;
 
-            let creation_cost = gas_cost::tx_creation_cost(&contract_code, number_of_words)
+            let creation_cost = gas_cost::tx_creation(&contract_code, number_of_words)
                 .map_err(VMError::OutOfGasErr)?;
             report.gas_used = report
                 .gas_used
