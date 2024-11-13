@@ -4,7 +4,7 @@
 use crate::{
     call_frame::CallFrame,
     errors::{OpcodeSuccess, VMError},
-    gas_cost::log_gas_cost,
+    gas_cost,
     opcodes::Opcode,
     vm::VM,
 };
@@ -44,7 +44,7 @@ impl VM {
             topics.push(H256::from_slice(&topic_bytes));
         }
 
-        let gas_cost = log_gas_cost(current_call_frame, size, offset, number_of_topics)
+        let gas_cost = gas_cost::log_gas_cost(current_call_frame, size, offset, number_of_topics)
             .map_err(VMError::OutOfGasErr)?;
 
         self.increase_consumed_gas(current_call_frame, gas_cost)?;
