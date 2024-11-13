@@ -134,7 +134,7 @@ fn has_right_element_inner(
     mut path: Nibbles,
     trie_state: &TrieState,
 ) -> Result<bool, TrieError> {
-    let Some(node) = trie_state.get_node(node_hash.clone())? else {
+    let Ok(Some(node)) = trie_state.get_node(node_hash.clone()) else {
         return Ok(false);
     };
     match node {
@@ -169,7 +169,14 @@ fn has_right_element_inner(
 
 fn get_child<'a>(path: &'a mut Nibbles, node: &'a Node) -> Option<NodeHash> {
     match node {
-        Node::Branch(n) => path.next_choice().map(|i| n.choices[i].clone()),
+        Node::Branch(n) => {
+            if let Some(choice) = path.next_choice() {
+                if n.choices[choice].is_valid() {
+                    return Some(n.choices[choice].clone());
+                }
+            }
+            None
+        }
         Node::Extension(n) => path.skip_prefix(&n.prefix).then_some(n.child.clone()),
         Node::Leaf(_) => None,
     }
