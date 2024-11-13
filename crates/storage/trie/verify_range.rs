@@ -422,7 +422,7 @@ struct ProofNodeStorage<'a> {
 
 impl<'a> ProofNodeStorage<'a> {
     // Construct a ProofNodeStorage for a proof
-    fn from_proof(proof: &'a Vec<Vec<u8>>) -> Self {
+    fn from_proof(proof: &'a [Vec<u8>]) -> Self {
         Self {
             nodes: proof
                 .iter()
@@ -782,9 +782,9 @@ mod tests {
             // Range is empty
             let values = vec![];
             let keys = vec![];
-            let first_key = H256::from_slice(&last_element);
+            let first_key = H256::from_slice(last_element);
             // Generate proof (last element)
-            let proof = trie.get_proof(&last_element).unwrap();
+            let proof = trie.get_proof(last_element).unwrap();
             // Verify the range proof
             assert!(verify_range(root, first_key, keys, values, proof).is_err());
         }
