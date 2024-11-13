@@ -1,0 +1,52 @@
+name: "Hive & Assertoor Skipped"
+on:
+  pull_request:
+    branches: ["**"]
+    paths:
+      - "crates/l2/**"
+      - 'README.md'
+      - 'LICENSE'
+      - "**/README.md"
+      - "**/docs/**"
+jobs:
+  docker-build:
+    name: Docker Build image
+    runs-on: ubuntu-latest
+    if: false
+    steps: [run: true]
+
+  run-hive:
+    name: Hive - ${{ matrix.name }}
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        include:
+          - simulation: rpc-compat
+            name: "Rpc Compat tests"
+            run_command: exit 0
+          - simulation: rpc-auth
+            name: "Rpc Auth tests"
+            run_command: exit 0
+          - simulation: discv4
+            name: "Devp2p discv4 tests"
+            run_command: exit 0
+          - simulation: snap
+            name: "Devp2p snap tests"
+            run_command: exit 0
+          - simulation: eth
+            name: "Devp2p eth tests"
+            run_command: exit 0
+          - simulation: engine
+            name: "Engine tests"
+            run_command: exit 0
+          - simulation: engine-cancun
+            name: "Cancun Engine tests"
+            run_command: exit 0
+    if: false
+    steps: [run: true]
+
+  run-assertoor:
+    name: Assertoor - Stability Check
+    runs-on: ubuntu-latest
+    if: false
+    steps: [run: true]
