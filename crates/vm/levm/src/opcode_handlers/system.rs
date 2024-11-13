@@ -460,8 +460,8 @@ impl VM {
         let mut target_account = self.get_account(&target_address);
         let account_is_empty = target_account.is_empty();
 
-        let gas_cost = gas_cost::selfdestruct(is_cached, account_is_empty)
-            .map_err(VMError::OutOfGasErr)?;
+        let gas_cost =
+            gas_cost::selfdestruct(is_cached, account_is_empty).map_err(VMError::OutOfGasErr)?;
 
         target_account.info.balance = target_account
             .info

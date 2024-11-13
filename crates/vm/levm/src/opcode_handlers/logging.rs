@@ -1,6 +1,3 @@
-// Logging Operations (5)
-// Opcodes: LOG0 ... LOG4
-
 use crate::{
     call_frame::CallFrame,
     errors::{OpcodeSuccess, VMError},
@@ -10,6 +7,9 @@ use crate::{
 };
 use bytes::Bytes;
 use ethereum_rust_core::{types::Log, H256};
+
+// Logging Operations (5)
+// Opcodes: LOG0 ... LOG4
 
 impl VM {
     // LOG operation

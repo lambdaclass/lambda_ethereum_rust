@@ -322,9 +322,8 @@ impl VM {
 
         let is_cached = self.cache.is_account_cached(&address);
 
-        let gas_cost =
-            gas_cost::extcodecopy(current_call_frame, size, dest_offset, is_cached)
-                .map_err(VMError::OutOfGasErr)?;
+        let gas_cost = gas_cost::extcodecopy(current_call_frame, size, dest_offset, is_cached)
+            .map_err(VMError::OutOfGasErr)?;
 
         self.increase_consumed_gas(current_call_frame, gas_cost)?;
 

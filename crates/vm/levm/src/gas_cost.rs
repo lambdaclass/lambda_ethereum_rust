@@ -1,7 +1,3 @@
-use bytes::Bytes;
-/// Contains the gas costs of the EVM instructions (in wei)
-use ethereum_rust_core::{Address, H256, U256};
-
 use crate::{
     call_frame::CallFrame,
     constants::{COLD_STORAGE_ACCESS_COST, WORD_SIZE},
@@ -9,6 +5,9 @@ use crate::{
     vm::VM,
     StorageSlot,
 };
+use bytes::Bytes;
+/// Contains the gas costs of the EVM instructions (in wei)
+use ethereum_rust_core::{Address, H256, U256};
 
 // Opcodes cost
 pub const ADD: U256 = U256([3, 0, 0, 0]);
@@ -283,10 +282,7 @@ pub fn log(
         .ok_or(OutOfGasError::GasCostOverflow)
 }
 
-pub fn mload(
-    current_call_frame: &mut CallFrame,
-    offset: usize,
-) -> Result<U256, OutOfGasError> {
+pub fn mload(current_call_frame: &mut CallFrame, offset: usize) -> Result<U256, OutOfGasError> {
     let memory_expansion_cost = current_call_frame.memory.expansion_cost(
         offset
             .checked_add(WORD_SIZE)
@@ -297,10 +293,7 @@ pub fn mload(
         .ok_or(OutOfGasError::GasCostOverflow)
 }
 
-pub fn mstore(
-    current_call_frame: &mut CallFrame,
-    offset: usize,
-) -> Result<U256, OutOfGasError> {
+pub fn mstore(current_call_frame: &mut CallFrame, offset: usize) -> Result<U256, OutOfGasError> {
     let memory_expansion_cost = current_call_frame.memory.expansion_cost(
         offset
             .checked_add(WORD_SIZE)
@@ -311,10 +304,7 @@ pub fn mstore(
         .ok_or(OutOfGasError::GasCostOverflow)
 }
 
-pub fn mstore8(
-    current_call_frame: &mut CallFrame,
-    offset: usize,
-) -> Result<U256, OutOfGasError> {
+pub fn mstore8(current_call_frame: &mut CallFrame, offset: usize) -> Result<U256, OutOfGasError> {
     let memory_expansion_cost = current_call_frame.memory.expansion_cost(
         offset
             .checked_add(1)
@@ -629,10 +619,7 @@ pub fn create_2(
         .ok_or(OutOfGasError::CreationCostIsTooHigh)
 }
 
-pub fn selfdestruct(
-    is_cached: bool,
-    account_is_empty: bool,
-) -> Result<U256, OutOfGasError> {
+pub fn selfdestruct(is_cached: bool, account_is_empty: bool) -> Result<U256, OutOfGasError> {
     let mut gas_cost = SELFDESTRUCT_STATIC;
 
     if !is_cached {

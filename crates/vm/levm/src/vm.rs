@@ -436,8 +436,8 @@ impl VM {
             .first()
             .ok_or(VMError::StackUnderflow)?
             .calldata;
-        let calldata_cost = gas_cost::tx_calldata(first_callframe_calldata)
-            .map_err(VMError::OutOfGasErr)?;
+        let calldata_cost =
+            gas_cost::tx_calldata(first_callframe_calldata).map_err(VMError::OutOfGasErr)?;
 
         report.gas_used = report
             .gas_used

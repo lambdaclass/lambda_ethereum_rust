@@ -64,8 +64,7 @@ impl VM {
             .try_into()
             .unwrap_or(usize::MAX);
 
-        let gas_cost =
-            gas_cost::mload(current_call_frame, offset).map_err(VMError::OutOfGasErr)?;
+        let gas_cost = gas_cost::mload(current_call_frame, offset).map_err(VMError::OutOfGasErr)?;
 
         self.increase_consumed_gas(current_call_frame, gas_cost)?;
 
