@@ -88,8 +88,14 @@ pub enum InternalError {
     UtilsError,
     #[error("Uncategorized error")]
     Uncategorized,
+    #[error("Accound should have been cached")]
+    AccountShouldHaveBeenCached,
     #[error("Tried to convert one type to another")]
     ConversionError,
+    #[error("Failed computing CREATE2 address")]
+    CouldNotComputeCreate2Address,
+    #[error("Division error")]
+    DivisionError,
 }
 
 #[derive(Debug, Clone)]
@@ -98,7 +104,7 @@ pub enum OpcodeSuccess {
     Result(ResultReason),
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum ResultReason {
     Stop,
     Revert,
