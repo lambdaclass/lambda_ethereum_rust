@@ -141,8 +141,12 @@ fn has_right_element_inner(
                 if n.choices[choice..].iter().any(|child| child.is_valid()) {
                     Ok((true, vec![]))
                 } else {
-                    let node = proof_nodes.get_node(&n.choices[choice])?;
-                    has_right_element_inner(&node, path, proof_nodes)
+                    if n.choices[choice].is_valid() {
+                        let node = proof_nodes.get_node(&n.choices[choice])?;
+                        has_right_element_inner(&node, path, proof_nodes)
+                    } else {
+                        Ok((false, vec![]))
+                    }
                 }
             } else {
                 Ok((false, n.value.clone()))
