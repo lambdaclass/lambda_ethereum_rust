@@ -181,9 +181,12 @@ impl Operation {
                 value.to_big_endian(&mut word_buffer);
                 // extract the last n bytes to push
                 let value_to_push = &word_buffer
-                .get((32_usize.checked_sub(n_usize).ok_or(
-                    VMError::Internal(InternalError::ArithmeticOperationUnderflow),
-                )?)..).ok_or(VMError::Internal(InternalError::SlicingError))?;
+                    .get(
+                        (32_usize.checked_sub(n_usize).ok_or(VMError::Internal(
+                            InternalError::ArithmeticOperationUnderflow,
+                        ))?)..,
+                    )
+                    .ok_or(VMError::Internal(InternalError::SlicingError))?;
                 assert_eq!(value_to_push.len(), n_usize);
                 let opcode = Opcode::try_from((u8::from(Opcode::PUSH0)).checked_add(*n).ok_or(
                     VMError::Internal(InternalError::ArithmeticOperationOverflow),

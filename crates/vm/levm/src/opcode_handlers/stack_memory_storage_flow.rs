@@ -121,7 +121,11 @@ impl VM {
         current_call_frame: &mut CallFrame,
     ) -> Result<OpcodeSuccess, VMError> {
         // TODO: modify expansion cost to accept U256
-        let offset: usize = current_call_frame.stack.pop()?.try_into().map_err(|_| VMError::VeryLargeNumber)?;
+        let offset: usize = current_call_frame
+            .stack
+            .pop()?
+            .try_into()
+            .map_err(|_| VMError::VeryLargeNumber)?;
         let memory_expansion_cost =
             current_call_frame
                 .memory
@@ -209,7 +213,7 @@ impl VM {
                 .checked_add(U256::from(2100))
                 .ok_or(VMError::GasCostOverflow)?;
         };
-        
+
         let storage_slot = self.get_storage_slot(&address, key); // it is not in cache because of previous if
 
         let sstore_gas_cost = if value == storage_slot.current_value {

@@ -116,7 +116,11 @@ impl Memory {
 
         let mut temp = vec![0u8; size];
 
-        temp.copy_from_slice(&self.data[src_offset..src_copy_size]);
+        temp.copy_from_slice(
+            self.data
+                .get(src_offset..src_copy_size)
+                .ok_or(VMError::Internal(InternalError::SlicingError))?,
+        );
 
         // self.data[dest_offset..dest_copy_size].copy_from_slice(&temp);
 

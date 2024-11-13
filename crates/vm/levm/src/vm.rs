@@ -384,8 +384,8 @@ impl VM {
         // (6)
         if sender_account.info.balance < call_frame.msg_value {
             return Err(VMError::SenderBalanceShouldContainTransferValue);
-        } 
- 
+        }
+
         // TODO: This belongs elsewhere.
         sender_account.info.balance = sender_account
             .info

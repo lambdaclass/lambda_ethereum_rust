@@ -1,8 +1,11 @@
+use crate::{
+    constants::EMPTY_CODE_HASH,
+    errors::{InternalError, VMError},
+};
 use bytes::Bytes;
 use ethereum_rust_core::{H256, U256};
 use keccak_hash::keccak;
 use std::collections::HashMap;
-use crate::{constants::EMPTY_CODE_HASH, errors::{InternalError, VMError}};
 
 #[derive(Clone, Default, Debug, PartialEq, Eq)]
 pub struct AccountInfo {

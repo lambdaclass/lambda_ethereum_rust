@@ -256,7 +256,11 @@ impl VM {
     ) -> Result<OpcodeSuccess, VMError> {
         self.increase_consumed_gas(current_call_frame, gas_cost::SIGNEXTEND)?;
 
-        let byte_size: usize = current_call_frame.stack.pop()?.try_into().map_err(|_| VMError::VeryLargeNumber)?;
+        let byte_size: usize = current_call_frame
+            .stack
+            .pop()?
+            .try_into()
+            .map_err(|_| VMError::VeryLargeNumber)?;
 
         let value_to_extend = current_call_frame.stack.pop()?;
 
@@ -271,11 +275,12 @@ impl VM {
             .ok_or(VMError::Internal(
                 InternalError::ArithmeticOperationOverflow,
             ))?;
-        let sign_bit_index = total_bits
-            .checked_add(sign_bit_position_on_byte)
-            .ok_or(VMError::Internal(
-                InternalError::ArithmeticOperationOverflow,
-            ))?;        
+        let sign_bit_index =
+            total_bits
+                .checked_add(sign_bit_position_on_byte)
+                .ok_or(VMError::Internal(
+                    InternalError::ArithmeticOperationOverflow,
+                ))?;
 
         let is_negative = value_to_extend.bit(sign_bit_index);
         let sign_bit_mask = checked_shift_left(U256::one(), sign_bit_index)?

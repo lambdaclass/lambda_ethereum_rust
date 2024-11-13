@@ -120,24 +120,24 @@ impl VM {
             }
         }
         let result = U256::from_big_endian(&data);
-      
-      /*   
-        // This check is because if offset is larger than the calldata then we should push 0 to the stack.
-        let result = if offset < current_call_frame.calldata.len() {
-            // Read calldata from offset to the end
-            let calldata = current_call_frame.calldata.slice(offset..);
 
-            // Get the 32 bytes from the data slice, padding with 0 if fewer than 32 bytes are available
-            let mut padded_calldata = [0u8; WORD_SIZE];
-            let data_len_to_copy = calldata.len().min(WORD_SIZE);
+        /*
+               // This check is because if offset is larger than the calldata then we should push 0 to the stack.
+               let result = if offset < current_call_frame.calldata.len() {
+                   // Read calldata from offset to the end
+                   let calldata = current_call_frame.calldata.slice(offset..);
 
-            padded_calldata[..data_len_to_copy].copy_from_slice(&calldata[..data_len_to_copy]);
+                   // Get the 32 bytes from the data slice, padding with 0 if fewer than 32 bytes are available
+                   let mut padded_calldata = [0u8; WORD_SIZE];
+                   let data_len_to_copy = calldata.len().min(WORD_SIZE);
 
-            U256::from_big_endian(&padded_calldata)
-        } else {
-            U256::zero()
-        };
- */
+                   padded_calldata[..data_len_to_copy].copy_from_slice(&calldata[..data_len_to_copy]);
+
+                   U256::from_big_endian(&padded_calldata)
+               } else {
+                   U256::zero()
+               };
+        */
 
         current_call_frame.stack.push(result)?;
 
@@ -419,9 +419,11 @@ impl VM {
             extended_code.resize(new_offset, 0);
             bytecode = Bytes::from(extended_code);
         }
-        current_call_frame
-            .memory
-            .store_bytes(dest_offset, &bytecode.get(offset..new_offset).ok_or(VMError::Internal(InternalError::SlicingError))? // bytecode can be "refactored" in order to avoid handling the error.
+        current_call_frame.memory.store_bytes(
+            dest_offset,
+            bytecode
+                .get(offset..new_offset)
+                .ok_or(VMError::Internal(InternalError::SlicingError))?, // bytecode can be "refactored" in order to avoid handling the error.
         )?;
 
         Ok(OpcodeSuccess::Continue)

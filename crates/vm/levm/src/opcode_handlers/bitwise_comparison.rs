@@ -289,11 +289,9 @@ pub fn checked_shift_left(value: U256, shift: usize) -> Result<U256, VMError> {
                     ))?
             }
         };
-        shifts_left = shifts_left
-            .checked_sub(1)
-            .ok_or(VMError::Internal(
-                InternalError::ArithmeticOperationUnderflow,
-            ))?; // Should not reach negative values
+        shifts_left = shifts_left.checked_sub(1).ok_or(VMError::Internal(
+            InternalError::ArithmeticOperationUnderflow,
+        ))?; // Should not reach negative values
     }
 
     Ok(result)
@@ -308,11 +306,9 @@ fn checked_shift_right(value: U256, shift: usize) -> Result<U256, VMError> {
         result = result.checked_div(U256::from(2)).ok_or(VMError::Internal(
             InternalError::ArithmeticOperationDividedByZero,
         ))?; // '2' will never be zero
-        shifts_left = shifts_left
-            .checked_sub(1)
-            .ok_or(VMError::Internal(
-                InternalError::ArithmeticOperationUnderflow,
-            ))?; // Should not reach negative values
+        shifts_left = shifts_left.checked_sub(1).ok_or(VMError::Internal(
+            InternalError::ArithmeticOperationUnderflow,
+        ))?; // Should not reach negative values
     }
 
     Ok(result)
