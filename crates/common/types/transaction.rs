@@ -2053,7 +2053,7 @@ mod serde_impl {
                 blob_versioned_hashes: vec![],
                 blobs: vec![],
                 chain_id: Some(value.chain_id),
-                ..Default::default()
+                from: Address::default(),
             }
         }
     }
@@ -2078,8 +2078,8 @@ mod serde_impl {
                     .collect(),
                 blob_versioned_hashes: value.blob_versioned_hashes,
                 blobs: vec![],
-                chain_id: None,
-                ..Default::default()
+                chain_id: Some(value.chain_id),
+                from: Address::default(),
             }
         }
     }
@@ -2105,7 +2105,7 @@ mod serde_impl {
                 blob_versioned_hashes: vec![],
                 blobs: vec![],
                 chain_id: Some(value.chain_id),
-                ..Default::default()
+                from: Address::default(),
             }
         }
     }
