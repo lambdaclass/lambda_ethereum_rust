@@ -144,7 +144,9 @@ impl VM {
                     .checked_add(ret_size)
                     .map(|dest_sum| src_sum.max(dest_sum))
             })
-            .ok_or(VMError::Internal(InternalError::ArithmeticOperationOverflow))?;
+            .ok_or(VMError::Internal(
+                InternalError::ArithmeticOperationOverflow,
+            ))?;
         let memory_expansion_cost = current_call_frame.memory.expansion_cost(memory_byte_size)?;
 
         self.increase_consumed_gas(current_call_frame, memory_expansion_cost)?;
@@ -245,7 +247,9 @@ impl VM {
                     .checked_add(ret_size)
                     .map(|dest_sum| src_sum.max(dest_sum))
             })
-            .ok_or(VMError::Internal(InternalError::ArithmeticOperationOverflow))?;
+            .ok_or(VMError::Internal(
+                InternalError::ArithmeticOperationOverflow,
+            ))?;
         let memory_expansion_cost = current_call_frame.memory.expansion_cost(memory_byte_size)?;
 
         self.increase_consumed_gas(current_call_frame, memory_expansion_cost)?;
@@ -306,7 +310,9 @@ impl VM {
                     .checked_add(ret_size)
                     .map(|dest_sum| src_sum.max(dest_sum))
             })
-            .ok_or(VMError::Internal(InternalError::ArithmeticOperationOverflow))?;
+            .ok_or(VMError::Internal(
+                InternalError::ArithmeticOperationOverflow,
+            ))?;
         let memory_expansion_cost = current_call_frame.memory.expansion_cost(memory_byte_size)?;
 
         self.increase_consumed_gas(current_call_frame, memory_expansion_cost)?;
