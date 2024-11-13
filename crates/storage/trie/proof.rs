@@ -140,7 +140,7 @@ fn has_right_element_inner(
         Node::Branch(ref n) => {
             // Check if there are children to the right side
             if let Some(choice) = path.next_choice() {
-                if n.choices[choice..].iter().any(|child| child.is_valid()) {
+                if n.choices[choice+1..].iter().any(|child| child.is_valid()) {
                     Ok((true, vec![]))
                 } else {
                     if n.choices[choice].is_valid() {
