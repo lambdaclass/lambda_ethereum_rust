@@ -25,7 +25,7 @@ pub use self::db::{libmdbx::LibmdbxTrieDB, libmdbx_dupsort::LibmdbxDupsortTrieDB
 pub use self::db::{in_memory::InMemoryTrieDB, TrieDB};
 
 pub use self::error::TrieError;
-use self::{node::LeafNode, state::TrieState, trie_iter::TrieIterator};
+use self::{node::LeafNode, state::TrieState, trie_iter::TrieIterator, proof::verify_range_proof};
 
 use lazy_static::lazy_static;
 
