@@ -1,5 +1,6 @@
 use ethereum_rust_rlp::error::{RLPDecodeError, RLPEncodeError};
 use ethereum_rust_storage::error::StoreError;
+use ethereum_rust_trie::TrieError;
 use thiserror::Error;
 
 // TODO improve errors
@@ -31,6 +32,8 @@ pub(crate) enum RLPxError {
     StoreError(#[from] StoreError),
     #[error("Error in cryptographic library: {0}")]
     CryptographyError(String),
+    #[error(transparent)]
+    Trie(#[from] TrieError),
 }
 
 // Grouping all cryptographic related errors in a single CryptographicError variant

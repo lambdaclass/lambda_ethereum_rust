@@ -1,7 +1,4 @@
-use std::{
-    cmp::{self, Ordering},
-    collections::HashMap,
-};
+use std::{cmp::Ordering, collections::HashMap};
 
 use ethereum_types::H256;
 use sha3::{Digest, Keccak256};

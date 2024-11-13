@@ -199,19 +199,6 @@ impl<S: AsyncWrite + AsyncRead + std::marker::Unpin> RLPxConnection<S> {
                             let response = process_trie_nodes_request(req, self.storage.clone())?;
                             self.send(Message::TrieNodes(response)).await?
                         }
-                        Message::GetStorageRanges(req) => {
-                            let response =
-                                process_storage_ranges_request(req, self.storage.clone())?;
-                            self.send(Message::StorageRanges(response)).await
-                        }
-                        Message::GetByteCodes(req) => {
-                            let response = process_byte_codes_request(req, self.storage.clone())?;
-                            self.send(Message::ByteCodes(response)).await
-                        }
-                        Message::GetTrieNodes(req) => {
-                            let response = process_trie_nodes_request(req, self.storage.clone())?;
-                            self.send(Message::TrieNodes(response)).await
-                        }
                         // TODO: Add new message types and handlers as they are implemented
                         _ => return Err(RLPxError::MessageNotHandled()),
                     };
