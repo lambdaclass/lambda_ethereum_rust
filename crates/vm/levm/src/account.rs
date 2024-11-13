@@ -1,12 +1,8 @@
 use bytes::Bytes;
 use ethereum_rust_core::{H256, U256};
 use keccak_hash::keccak;
-use std::{collections::HashMap, str::FromStr};
-
-use crate::{
-    constants::EMPTY_CODE_HASH_STR,
-    errors::{InternalError, VMError},
-};
+use std::collections::HashMap;
+use crate::{constants::EMPTY_CODE_HASH, errors::{InternalError, VMError}};
 
 #[derive(Clone, Default, Debug, PartialEq, Eq)]
 pub struct AccountInfo {
@@ -50,9 +46,8 @@ impl Account {
         }
     }
 
-    pub fn has_code(&self) -> bool {
-        !(self.info.bytecode.is_empty()
-            || self.bytecode_hash() == H256::from_str(EMPTY_CODE_HASH_STR).unwrap())
+    pub fn has_code(&self) -> Result<bool, VMError> {
+        Ok(!(self.info.bytecode.is_empty() || self.bytecode_hash() == EMPTY_CODE_HASH))
     }
 
     pub fn bytecode_hash(&self) -> H256 {

@@ -256,14 +256,15 @@ impl VM {
     ) -> Result<OpcodeSuccess, VMError> {
         self.increase_consumed_gas(current_call_frame, gas_cost::SIGNEXTEND)?;
 
-        let byte_size = current_call_frame.stack.pop()?;
+        let byte_size: usize = current_call_frame.stack.pop()?.try_into().map_err(|_| VMError::VeryLargeNumber)?;
+
         let value_to_extend = current_call_frame.stack.pop()?;
 
-        let bits_per_byte = U256::from(8);
+        let bits_per_byte: usize = 8;
         let sign_bit_position_on_byte = 7;
 
-        let max_byte_size = 31;
-        let byte_size = byte_size.min(U256::from(max_byte_size));
+        let max_byte_size: usize = 31;
+        let byte_size: usize = byte_size.min(max_byte_size);
 
         let total_bits = bits_per_byte
             .checked_mul(byte_size)
@@ -271,12 +272,12 @@ impl VM {
                 InternalError::ArithmeticOperationOverflow,
             ))?;
         let sign_bit_index = total_bits
-            .checked_add(sign_bit_position_on_byte.into())
+            .checked_add(sign_bit_position_on_byte)
             .ok_or(VMError::Internal(
                 InternalError::ArithmeticOperationOverflow,
-            ))?;
+            ))?;        
 
-        let is_negative = value_to_extend.bit(sign_bit_index.as_usize());
+        let is_negative = value_to_extend.bit(sign_bit_index);
         let sign_bit_mask = checked_shift_left(U256::one(), sign_bit_index)?
             .checked_sub(U256::one())
             .ok_or(VMError::Internal(
