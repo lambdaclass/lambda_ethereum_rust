@@ -63,10 +63,12 @@ pub fn verify_range_proof(
     if keys.is_empty() {
         let (has_right_element, value) =
             has_right_element(root, first_key.as_bytes(), &proof_nodes)?;
-        if has_right_element || value.is_empty() {
+        if has_right_element || !value.is_empty() {
             return Err(TrieError::Verify(format!(
                 "no keys returned but more are available on the trie"
             )));
+        } else {
+            return Ok(false)
         }
     }
 
