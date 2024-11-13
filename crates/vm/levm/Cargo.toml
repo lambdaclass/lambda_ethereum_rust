@@ -30,12 +30,11 @@ warnings = "warn"
 rust_2018_idioms = "warn"
 
 [lints.clippy]
-# as_conversions = "deny"
+as_conversions = "deny"
 unwrap_used = "deny"
 # expect_used = "deny"
 # panic = "deny"
-# unnecessary_cast = "warn"
-# deref_by_slicing = "warn"
-# indexing_slicing = "warn"
-# manual_unwrap_or = "warn"
-# manual_unwrap_or_default = "warn"
+unnecessary_cast = "warn"
+
+[lib]
+path = "./src/lib.rs"

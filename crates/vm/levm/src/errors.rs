@@ -88,6 +88,8 @@ pub enum InternalError {
     UtilsError,
     #[error("Uncategorized error")]
     Uncategorized,
+    #[error("Tried to convert one type to another")]
+    ConversionError,
 }
 
 #[derive(Debug, Clone)]

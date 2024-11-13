@@ -2485,6 +2485,7 @@ fn calldataload_being_set_by_parent() {
     let expected_data = U256::from_big_endian(&calldata[..32]);
 
     assert_eq!(expected_data, current_call_frame.memory.load(0).unwrap());
+    assert_eq!(expected_data, current_call_frame.memory.load(0).unwrap());
 }
 
 #[test]
@@ -4247,6 +4248,7 @@ fn address_op() {
         cache,
     )
     .unwrap();
+
     let mut current_call_frame = vm.call_frames.pop().unwrap();
     vm.execute(&mut current_call_frame);
 
@@ -4291,6 +4293,7 @@ fn selfbalance_op() {
         cache,
     )
     .unwrap();
+
     let mut current_call_frame = vm.call_frames.pop().unwrap();
     vm.execute(&mut current_call_frame);
 
