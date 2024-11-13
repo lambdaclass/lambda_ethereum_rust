@@ -651,7 +651,7 @@ mod tests {
         }
 
         #[test]
-        // Special Case: No values, one edge proof
+        // Special Case: No values, one edge proof (of non-existance)
         fn proptest_verify_range_no_values(mut data in btree_set(vec(any::<u8>(), 32), 100..200)) {
             // Remove the last element so we can use it as key for the proof of non-existance
             let last_element = data.pop_last().unwrap();
@@ -735,6 +735,65 @@ mod tests {
             proof.extend(trie.get_proof(values.last().unwrap()).unwrap());
             // Remove the last node of the second proof (to make sure we don't remove a node that is also part of the first proof)
             proof.pop();
+            // Verify the range proof
+            assert!(verify_range_proof(root, keys[0], keys, values, proof).is_err());
+        }
+
+        #[test]
+        // Regular Case: No proofs both keys exist
+        fn proptest_verify_range_regular_case_no_proofs(data in btree_set(vec(any::<u8>(), 32), 200), start in 1_usize..=100_usize, end in 101..200_usize) {
+            // Build trie
+            let mut trie = Trie::new_temp();
+            for val in data.iter() {
+                trie.insert(val.clone(), val.clone()).unwrap()
+            }
+            let root = trie.hash().unwrap();
+            // Select range to prove
+            let values = data.into_iter().collect::<Vec<_>>()[start..=end].to_vec();
+            let keys = values.iter().map(|a| H256::from_slice(a)).collect::<Vec<_>>();
+            // Dont generate proof
+            let proof = vec![];
+            // Verify the range proof
+            assert!(verify_range_proof(root, keys[0], keys, values, proof).is_err());
+        }
+
+        #[test]
+        // Special Case: No values, one edge proof (of existance)
+        fn proptest_verify_range_no_values_proof_of_existance(data in btree_set(vec(any::<u8>(), 32), 100..200)) {
+            // Fetch the last element so we can use it as key for the proof
+            let last_element = data.last().unwrap();
+            // Build trie
+            let mut trie = Trie::new_temp();
+            for val in data.iter() {
+                trie.insert(val.clone(), val.clone()).unwrap()
+            }
+            let root = trie.hash().unwrap();
+            // Range is empty
+            let values = vec![];
+            let keys = vec![];
+            let first_key = H256::from_slice(&last_element);
+            // Generate proof (last element)
+            let proof = trie.get_proof(&last_element).unwrap();
+            // Verify the range proof
+            assert!(verify_range_proof(root, first_key, keys, values, proof).is_err());
+        }
+
+        #[test]
+        // Special Case: One element range (but the proof is of nonexistance)
+        fn proptest_verify_range_one_element_bad_proof(data in btree_set(vec(any::<u8>(), 32), 200), start in 0_usize..200_usize) {
+            // Build trie
+            let mut trie = Trie::new_temp();
+            for val in data.iter() {
+                trie.insert(val.clone(), val.clone()).unwrap()
+            }
+            let root = trie.hash().unwrap();
+            // Select range to prove
+            let values = vec![data.iter().collect::<Vec<_>>()[start].clone()];
+            let keys = values.iter().map(|a| H256::from_slice(a)).collect::<Vec<_>>();
+            // Remove the value to generate a proof of non-existance
+            trie.remove(values[0].clone()).unwrap();
+            // Generate proofs
+            let proof = trie.get_proof(&values[0]).unwrap();
             // Verify the range proof
             assert!(verify_range_proof(root, keys[0], keys, values, proof).is_err());
         }
