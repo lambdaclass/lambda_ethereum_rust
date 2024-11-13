@@ -5,11 +5,15 @@ use errors::{
     GetTransactionReceiptError, SendRawTransactionError,
 };
 use ethereum_rust_core::types::{
-    BlockBody, EIP1559Transaction, GenericTransaction, PrivilegedL2Transaction, TxKind, TxType,
+    EIP1559Transaction, GenericTransaction, PrivilegedL2Transaction, TxKind, TxType,
 };
 use ethereum_rust_rlp::encode::RLPEncode;
 use ethereum_rust_rpc::{
-    types::receipt::{RpcLog, RpcReceipt},
+    types::{
+        block::RpcBlock,
+        receipt::{RpcLog, RpcReceipt},
+        transaction::WrappedEIP4844Transaction,
+    },
     utils::{RpcErrorResponse, RpcRequest, RpcRequestId, RpcSuccessResponse},
 };
 use ethereum_types::{Address, H256, U256};
@@ -111,6 +115,27 @@ impl EthClient {
         self.send_raw_transaction(data.as_slice()).await
     }
 
+    pub async fn send_eip4844_transaction(
+        &self,
+        wrapped_tx: &mut WrappedEIP4844Transaction,
+        private_key: SecretKey,
+    ) -> Result<H256, EthClientError> {
+        let mut payload = vec![TxType::EIP4844 as u8];
+        payload.append(wrapped_tx.tx.encode_payload_to_vec().as_mut());
+
+        let data = Message::parse(&keccak(payload).0);
+        let signature = sign(&data, &private_key);
+
+        wrapped_tx.tx.signature_r = U256::from(signature.0.r.b32());
+        wrapped_tx.tx.signature_s = U256::from(signature.0.s.b32());
+        wrapped_tx.tx.signature_y_parity = signature.1.serialize() != 0;
+
+        let mut encoded_tx = wrapped_tx.encode_to_vec();
+        encoded_tx.insert(0, TxType::EIP4844 as u8);
+
+        self.send_raw_transaction(encoded_tx.as_slice()).await
+    }
+
     pub async fn send_privileged_l2_transaction(
         &self,
         mut tx: PrivilegedL2Transaction,
@@ -143,12 +168,17 @@ impl EthClient {
             TxKind::Call(addr) => addr,
             TxKind::Create => Address::zero(),
         };
-        let data = json!({
+        let mut data = json!({
             "to": format!("{to:#x}"),
             "input": format!("{:#x}", transaction.input),
             "from": format!("{:#x}", transaction.from),
-            "nonce": format!("{:#x}", transaction.nonce),
+            "value": format!("{:#x}", transaction.value),
         });
+
+        // Add the nonce just if present, otherwise the RPC will use the latest nonce
+        if let Some(nonce) = transaction.nonce {
+            data["nonce"] = json!(format!("{:#x}", nonce));
+        }
 
         let request = RpcRequest {
             id: RpcRequestId::Number(1),
@@ -251,7 +281,7 @@ impl EthClient {
         }
     }
 
-    pub async fn get_block_by_hash(&self, block_hash: H256) -> Result<BlockBody, EthClientError> {
+    pub async fn get_block_by_hash(&self, block_hash: H256) -> Result<RpcBlock, EthClientError> {
         let request = RpcRequest {
             id: RpcRequestId::Number(1),
             jsonrpc: "2.0".to_string(),
@@ -388,15 +418,15 @@ impl EthClient {
 #[derive(Serialize, Deserialize, Debug)]
 #[serde(rename_all = "camelCase")]
 pub struct GetTransactionByHashTransaction {
-    #[serde(default)]
+    #[serde(default, with = "ethereum_rust_core::serde_utils::u64::hex_str")]
     pub chain_id: u64,
-    #[serde(default)]
+    #[serde(default, with = "ethereum_rust_core::serde_utils::u64::hex_str")]
     pub nonce: u64,
-    #[serde(default)]
+    #[serde(default, with = "ethereum_rust_core::serde_utils::u64::hex_str")]
     pub max_priority_fee_per_gas: u64,
-    #[serde(default)]
+    #[serde(default, with = "ethereum_rust_core::serde_utils::u64::hex_str")]
     pub max_fee_per_gas: u64,
-    #[serde(default)]
+    #[serde(default, with = "ethereum_rust_core::serde_utils::u64::hex_str")]
     pub gas_limit: u64,
     #[serde(default)]
     pub to: Address,

@@ -32,14 +32,14 @@ impl Memory {
 
     pub fn load(&mut self, offset: usize) -> Result<U256, VMError> {
         self.resize(offset.checked_add(WORD_SIZE).ok_or(VMError::Internal(
-            InternalError::ArithmeticOperationOverflow,
+            InternalError::ArithmeticOperationOverflow, // MemoryLoadOutOfBounds?
         ))?);
         let value_bytes: [u8; WORD_SIZE] = self
             .data
             .get(
                 offset
                     ..offset.checked_add(WORD_SIZE).ok_or(VMError::Internal(
-                        InternalError::ArithmeticOperationOverflow,
+                        InternalError::ArithmeticOperationOverflow, // MemoryLoadOutOfBounds?
                     ))?,
             )
             .ok_or(VMError::MemoryLoadOutOfBounds)?
@@ -61,13 +61,15 @@ impl Memory {
 
     pub fn store_bytes(&mut self, offset: usize, value: &[u8]) -> Result<(), VMError> {
         let len = value.len();
-        let data_len = self.data.len();
         let size_to_store = offset.checked_add(len).ok_or(VMError::Internal(
             InternalError::ArithmeticOperationOverflow,
         ))?;
-        if data_len < offset || data_len < size_to_store {
-            return Err(VMError::MemoryStoreOutOfBounds);
-        }
+        /*
+               let data_len = self.data.len();
+               if data_len < offset || data_len < size_to_store {
+                   return Err(VMError::MemoryStoreOutOfBounds);
+               }
+        */
         self.resize(size_to_store);
         self.data
             .splice(offset..size_to_store, value.iter().copied());

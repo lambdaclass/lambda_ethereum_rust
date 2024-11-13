@@ -17,6 +17,7 @@ members = [
     "crates/l2/",
     "crates/l2/prover",
     "crates/l2/contracts",
+    "crates/l2/sdk",
 ]
 resolver = "2"
 
@@ -62,3 +63,4 @@ jsonwebtoken = "9.3.0"
 rand = "0.8.5"
 cfg-if = "1.0.0"
 reqwest = { version = "0.12.7", features = ["json"] }
+snap = "1.1.1"

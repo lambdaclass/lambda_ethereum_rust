@@ -161,7 +161,7 @@ impl VM {
                 }
             };
 
-            // Note: these are commented because they're still being used in development.
+            // Note: This is commented because it's used for debugging purposes in development.
             // dbg!(&current_call_frame.gas_used);
             // dbg!(&opcode);
             let op_result: Result<OpcodeSuccess, VMError> = match opcode {
@@ -426,18 +426,13 @@ impl VM {
 
         self.env.consumed_gas = initial_gas;
 
-        let mut current_call_frame = self.call_frames.pop().unwrap();
+        let mut initial_call_frame = self.call_frames.pop().unwrap();
+        let sender = initial_call_frame.msg_sender;
 
-        let mut report = self.execute(&mut current_call_frame);
-        let sender = self.call_frames.first().unwrap().msg_sender;
+        let mut report = self.execute(&mut initial_call_frame);
 
-        let first_callframe_calldata = &self
-            .call_frames
-            .first()
-            .ok_or(VMError::StackUnderflow)?
-            .calldata;
         let calldata_cost =
-            gas_cost::tx_calldata(first_callframe_calldata).map_err(VMError::OutOfGasErr)?;
+            gas_cost::tx_calldata(&initial_call_frame.calldata).map_err(VMError::OutOfGasErr)?;
 
         report.gas_used = report
             .gas_used
@@ -468,7 +463,7 @@ impl VM {
 
             // If the initialization code completes successfully, a final contract-creation cost is paid,
             // the code-deposit cost, c, proportional to the size of the created contract’s code
-            let number_of_words = self.call_frames[0].calldata.chunks(WORD_SIZE).len() as u64;
+            let number_of_words = initial_call_frame.calldata.chunks(WORD_SIZE).len() as u64;
 
             let creation_cost = gas_cost::tx_creation(&contract_code, number_of_words)
                 .map_err(VMError::OutOfGasErr)?;
@@ -478,7 +473,8 @@ impl VM {
                 .ok_or(VMError::OutOfGasErr(OutOfGasError::GasUsedOverflow))?;
             // Charge 22100 gas for each storage variable set
 
-            let contract_address = self.call_frames.first().unwrap().to;
+            let contract_address = initial_call_frame.to;
+
             let mut created_contract = self.get_account(&contract_address);
 
             created_contract.info.bytecode = contract_code;
@@ -499,10 +495,28 @@ impl VM {
             )
             .ok_or(VMError::OutOfGas)?;
 
-        // Note: this is commented because it is still being used in development.
+        let receiver_address = initial_call_frame.to;
+        let mut receiver_account = self.get_account(&receiver_address);
+        // If execution was successful we want to transfer value from sender to receiver
+        if report.is_success() {
+            // Subtract to the caller the gas sent
+            sender_account.info.balance = sender_account
+                .info
+                .balance
+                .checked_sub(initial_call_frame.msg_value)
+                .ok_or(VMError::OutOfGas)?; // This error shouldn't be OutOfGas
+            receiver_account.info.balance = receiver_account
+                .info
+                .balance
+                .checked_add(initial_call_frame.msg_value)
+                .ok_or(VMError::OutOfGas)?; // This error shouldn't be OutOfGas
+        }
+
+        // Note: This is commented because it's used for debugging purposes in development.
         // dbg!(&report.gas_refunded);
 
         self.cache.add_account(&sender, &sender_account);
+        self.cache.add_account(&receiver_address, &receiver_account);
 
         // Send coinbase fee
         let priority_fee_per_gas = self
