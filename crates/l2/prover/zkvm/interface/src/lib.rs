@@ -16,7 +16,7 @@ pub mod io {
     use ethereum_rust_rlp::{decode::RLPDecode, encode::RLPEncode};
     use ethereum_rust_vm::execution_db::ExecutionDB;
     use serde::{Deserialize, Serialize};
-    use serde_with::serde_as;
+    use serde_with::{serde_as, DeserializeAs, SerializeAs};
 
     /// Private input variables passed into the zkVM execution program.
     #[serde_as]
@@ -46,7 +46,7 @@ pub mod io {
     /// format other than JSON.
     pub struct RLPBlock;
 
-    impl serde_with::SerializeAs<Block> for RLPBlock {
+    impl SerializeAs<Block> for RLPBlock {
         fn serialize_as<S>(val: &Block, serializer: S) -> Result<S::Ok, S::Error>
         where
             S: serde::Serializer,
@@ -57,7 +57,7 @@ pub mod io {
         }
     }
 
-    impl<'de> serde_with::DeserializeAs<'de, Block> for RLPBlock {
+    impl<'de> DeserializeAs<'de, Block> for RLPBlock {
         fn deserialize_as<D>(deserializer: D) -> Result<Block, D::Error>
         where
             D: serde::Deserializer<'de>,
