@@ -75,25 +75,16 @@ impl VM {
 
         // Add sender, coinbase and recipient (in the case of a Call) to cache [https://www.evm.codes/about#access_list]
         let sender_account_info = db.get_account_info(env.origin);
-        cache.add_account(
-            &env.origin,
-            &Account::from(sender_account_info.clone()),
-        );
+        cache.add_account(&env.origin, &Account::from(sender_account_info.clone()));
 
         let coinbase_account_info = db.get_account_info(env.coinbase);
-        cache.add_account(
-            &env.coinbase,
-            &Account::from(coinbase_account_info),
-        );
+        cache.add_account(&env.coinbase, &Account::from(coinbase_account_info));
 
         match to {
             TxKind::Call(address_to) => {
                 // add address_to to cache
                 let recipient_account_info = db.get_account_info(address_to);
-                cache.add_account(
-                    &address_to,
-                    &Account::from(recipient_account_info.clone()),
-                );
+                cache.add_account(&address_to, &Account::from(recipient_account_info.clone()));
 
                 // CALL tx
                 let initial_call_frame = CallFrame::new(
