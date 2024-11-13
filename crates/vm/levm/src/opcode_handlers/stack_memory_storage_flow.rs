@@ -216,6 +216,7 @@ impl VM {
         self.increase_consumed_gas(current_call_frame, base_dynamic_gas)?;
 
         // Gas Refunds
+        // TODO: Think about what to do in case of underflow of gas refunds (when we try to substract from it if the value is low)
         let mut gas_refunds = U256::zero();
         if value != storage_slot.current_value {
             if storage_slot.current_value == storage_slot.original_value {
