@@ -9,7 +9,12 @@ use ethereum_types::{Address, H160, H256};
 use keccak_hash::keccak;
 use libsecp256k1::SecretKey;
 use spinoff::{spinner, spinners, Color, Spinner};
-use std::{process::Command, str::FromStr};
+use std::{
+    path::{Path, PathBuf},
+    process::Command,
+    str::FromStr,
+};
+use tracing::warn;
 
 // 0x4e59b44847b379578588920cA78FbF26c0B4956C
 const DETERMINISTIC_CREATE2_ADDRESS: Address = H160([
@@ -23,11 +28,11 @@ lazy_static::lazy_static! {
 
 #[tokio::main]
 async fn main() {
-    let (deployer, deployer_private_key, eth_client) = setup();
-    download_contract_deps();
-    compile_contracts();
+    let (deployer, deployer_private_key, eth_client, contracts_path) = setup();
+    download_contract_deps(&contracts_path);
+    compile_contracts(&contracts_path);
     let (on_chain_proposer, bridge_address) =
-        deploy_contracts(deployer, deployer_private_key, &eth_client).await;
+        deploy_contracts(deployer, deployer_private_key, &eth_client, &contracts_path).await;
     initialize_contracts(
         deployer,
         deployer_private_key,
@@ -38,8 +43,11 @@ async fn main() {
     .await;
 }
 
-fn setup() -> (Address, SecretKey, EthClient) {
-    read_env_file().expect("Failed to read .env file");
+fn setup() -> (Address, SecretKey, EthClient, PathBuf) {
+    if let Err(e) = read_env_file() {
+        warn!("Failed to read .env file: {e}");
+    }
+
     let eth_client = EthClient::new(&std::env::var("ETH_RPC_URL").expect("ETH_RPC_URL not set"));
     let deployer = std::env::var("DEPLOYER_ADDRESS")
         .expect("DEPLOYER_ADDRESS not set")
@@ -56,6 +64,12 @@ fn setup() -> (Address, SecretKey, EthClient) {
         .as_fixed_bytes(),
     )
     .expect("Malformed DEPLOYER_PRIVATE_KEY (SecretKey::parse)");
+    let contracts_path = Path::new(
+        std::env::var("DEPLOYER_CONTRACTS_PATH")
+            .unwrap_or(".".to_string())
+            .as_str(),
+    )
+    .to_path_buf();
 
     // If not set, randomize the SALT
     let input = std::env::var("DEPLOYER_SALT_IS_ZERO").unwrap_or("false".to_owned());
@@ -69,30 +83,42 @@ fn setup() -> (Address, SecretKey, EthClient) {
         _ => panic!("Invalid boolean string: {input}"),
     };
 
-    (deployer, deployer_private_key, eth_client)
+    (deployer, deployer_private_key, eth_client, contracts_path)
 }
 
-fn download_contract_deps() {
-    std::fs::create_dir_all("contracts/lib").expect("Failed to create contracts/lib");
+fn download_contract_deps(contracts_path: &Path) {
+    std::fs::create_dir_all(contracts_path.join("lib")).expect("Failed to create contracts/lib");
     Command::new("git")
         .arg("clone")
         .arg("https://github.com/OpenZeppelin/openzeppelin-contracts.git")
-        .arg("contracts/lib/openzeppelin-contracts")
+        .arg(
+            contracts_path
+                .join("lib/openzeppelin-contracts")
+                .to_str()
+                .unwrap(),
+        )
         .spawn()
         .expect("Failed to spawn git")
         .wait()
         .expect("Failed to wait for git");
 }
 
-fn compile_contracts() {
+fn compile_contracts(contracts_path: &Path) {
     // Both the contract path and the output path are relative to where the Makefile is.
     assert!(
         Command::new("solc")
             .arg("--bin")
-            .arg("./contracts/src/l1/OnChainProposer.sol")
+            .arg(
+                contracts_path
+                    .join("src/l1/OnChainProposer.sol")
+                    .to_str()
+                    .unwrap()
+            )
             .arg("-o")
-            .arg("contracts/solc_out")
+            .arg(contracts_path.join("solc_out").to_str().unwrap())
             .arg("--overwrite")
+            .arg("--allow-paths")
+            .arg(contracts_path.to_str().unwrap())
             .spawn()
             .expect("Failed to spawn solc")
             .wait()
@@ -104,10 +130,17 @@ fn compile_contracts() {
     assert!(
         Command::new("solc")
             .arg("--bin")
-            .arg("./contracts/src/l1/CommonBridge.sol")
+            .arg(
+                contracts_path
+                    .join("src/l1/CommonBridge.sol")
+                    .to_str()
+                    .unwrap()
+            )
             .arg("-o")
-            .arg("contracts/solc_out")
+            .arg(contracts_path.join("solc_out").to_str().unwrap())
             .arg("--overwrite")
+            .arg("--allow-paths")
+            .arg(contracts_path.to_str().unwrap())
             .spawn()
             .expect("Failed to spawn solc")
             .wait()
@@ -121,6 +154,7 @@ async fn deploy_contracts(
     deployer: Address,
     deployer_private_key: SecretKey,
     eth_client: &EthClient,
+    contracts_path: &Path,
 ) -> (Address, Address) {
     let overrides = Overrides {
         gas_limit: Some(GAS_LIMIT_MINIMUM * GAS_LIMIT_ADJUSTMENT_FACTOR),
@@ -142,6 +176,7 @@ async fn deploy_contracts(
             deployer_private_key,
             overrides.clone(),
             eth_client,
+            contracts_path,
         )
         .await;
 
@@ -153,8 +188,14 @@ async fn deploy_contracts(
     spinner.success(&msg);
 
     let mut spinner = Spinner::new(deploy_frames, "Deploying CommonBridge", Color::Cyan);
-    let (bridge_deployment_tx_hash, bridge_address) =
-        deploy_bridge(deployer, deployer_private_key, overrides, eth_client).await;
+    let (bridge_deployment_tx_hash, bridge_address) = deploy_bridge(
+        deployer,
+        deployer_private_key,
+        overrides,
+        eth_client,
+        contracts_path,
+    )
+    .await;
 
     let msg = format!(
         "CommonBridge:\n\tDeployed at address {} with tx hash {}",
@@ -171,9 +212,10 @@ async fn deploy_on_chain_proposer(
     deployer_private_key: SecretKey,
     overrides: Overrides,
     eth_client: &EthClient,
+    contracts_path: &Path,
 ) -> (H256, Address) {
     let on_chain_proposer_init_code = hex::decode(
-        std::fs::read_to_string("./contracts/solc_out/OnChainProposer.bin")
+        std::fs::read_to_string(contracts_path.join("solc_out/OnChainProposer.bin"))
             .expect("Failed to read on_chain_proposer_init_code"),
     )
     .expect("Failed to decode on_chain_proposer_init_code")
@@ -196,9 +238,10 @@ async fn deploy_bridge(
     deployer_private_key: SecretKey,
     overrides: Overrides,
     eth_client: &EthClient,
+    contracts_path: &Path,
 ) -> (H256, Address) {
     let mut bridge_init_code = hex::decode(
-        std::fs::read_to_string("./contracts/solc_out/CommonBridge.bin")
+        std::fs::read_to_string(contracts_path.join("solc_out/CommonBridge.bin"))
             .expect("Failed to read bridge_init_code"),
     )
     .expect("Failed to decode bridge_init_code");
@@ -409,7 +452,7 @@ async fn wait_for_transaction_receipt(tx_hash: H256, eth_client: &EthClient) {
 #[cfg(test)]
 mod test {
     use crate::{compile_contracts, download_contract_deps};
-    use std::env;
+    use std::{env, path::Path};
 
     #[test]
     fn test_contract_compilation() {
@@ -432,8 +475,8 @@ mod test {
             }
         }
 
-        download_contract_deps();
-        compile_contracts();
+        download_contract_deps(Path::new("contracts"));
+        compile_contracts(Path::new("contracts"));
 
         std::fs::remove_dir_all(solc_out).unwrap();
         std::fs::remove_dir_all(lib).unwrap();
