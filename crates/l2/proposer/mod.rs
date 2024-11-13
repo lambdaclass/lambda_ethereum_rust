@@ -487,7 +487,7 @@ impl Proposer {
         let mut block_number_bytes = [0_u8; 32];
         U256::from(block_number).to_big_endian(&mut block_number_bytes);
         calldata.extend(block_number_bytes);
-        calldata.extend(H256::from_low_u64_be(32).as_bytes());
+        calldata.extend(H256::from_low_u64_be(64).as_bytes());
         calldata.extend(H256::from_low_u64_be(block_proof.len() as u64).as_bytes());
         calldata.extend(block_proof);
         let leading_zeros = 32 - ((calldata.len() - 4) % 32);

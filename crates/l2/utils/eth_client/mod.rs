@@ -386,6 +386,11 @@ impl EthClient {
         }
     }
 
+    /// Build an EIP1559 transaction with the given parameters.
+    /// Either `overrides.nonce` or `overrides.from` must be provided.
+    /// If `overrides.gas_price`, `overrides.chain_id` or `overrides.gas_price`
+    /// are not provided, the client will fetch them from the network.
+    /// If `overrides.gas_limit` is not provided, the client will estimate the tx cost.
     pub async fn build_eip1559_transaction(
         &self,
         to: Address,
@@ -394,34 +399,42 @@ impl EthClient {
     ) -> Result<EIP1559Transaction, EthClientError> {
         let mut tx = EIP1559Transaction {
             to: TxKind::Call(to),
-            chain_id: overrides
-                .chain_id
-                .unwrap_or(self.get_chain_id().await?.as_u64()),
-            nonce: overrides.nonce.unwrap_or({
-                let address = overrides.from.ok_or(EthClientError::UnrecheableNonce)?;
-                self.get_nonce(address).await?
-            }),
+            chain_id: if let Some(chain_id) = overrides.chain_id {
+                chain_id
+            } else {
+                self.get_chain_id().await?.as_u64()
+            },
+            nonce: self.get_nonce_from_overrides(&overrides).await?,
             max_priority_fee_per_gas: overrides.priority_gas_price.unwrap_or_default(),
-            max_fee_per_gas: overrides
-                .gas_price
-                .unwrap_or(self.get_gas_price().await?.as_u64()),
+            max_fee_per_gas: if let Some(gas_price) = overrides.gas_price {
+                gas_price
+            } else {
+                self.get_gas_price().await?.as_u64()
+            },
             value: overrides.value.unwrap_or_default(),
             data: calldata,
             access_list: overrides.access_list,
             ..Default::default()
         };
 
-        tx.gas_limit = overrides.gas_limit.unwrap_or({
+        tx.gas_limit = if let Some(gas_limit) = overrides.gas_limit {
+            gas_limit
+        } else {
             let mut generic_tx = GenericTransaction::from(tx.clone());
             if let Some(from) = overrides.from {
                 generic_tx.from = from;
             }
             self.estimate_gas(generic_tx).await?
-        });
+        };
 
         Ok(tx)
     }
 
+    /// Build an EIP4844 transaction with the given parameters.
+    /// Either `overrides.nonce` or `overrides.from` must be provided.
+    /// If `overrides.gas_price`, `overrides.chain_id` or `overrides.gas_price`
+    /// are not provided, the client will fetch them from the network.
+    /// If `overrides.gas_limit` is not provided, the client will estimate the tx cost.
     pub async fn build_eip4844_transaction(
         &self,
         to: Address,
@@ -443,17 +456,18 @@ impl EthClient {
 
         let mut tx = EIP4844Transaction {
             to,
-            chain_id: overrides
-                .chain_id
-                .unwrap_or(self.get_chain_id().await?.as_u64()),
-            nonce: overrides.nonce.unwrap_or({
-                let address = overrides.from.ok_or(EthClientError::UnrecheableNonce)?;
-                self.get_nonce(address).await?
-            }),
+            chain_id: if let Some(chain_id) = overrides.chain_id {
+                chain_id
+            } else {
+                self.get_chain_id().await?.as_u64()
+            },
+            nonce: self.get_nonce_from_overrides(&overrides).await?,
             max_priority_fee_per_gas: overrides.priority_gas_price.unwrap_or_default(),
-            max_fee_per_gas: overrides
-                .gas_price
-                .unwrap_or(self.get_gas_price().await?.as_u64()),
+            max_fee_per_gas: if let Some(gas_price) = overrides.gas_price {
+                gas_price
+            } else {
+                self.get_gas_price().await?.as_u64()
+            },
             value: overrides.value.unwrap_or_default(),
             data: calldata,
             access_list: overrides.access_list,
@@ -462,17 +476,24 @@ impl EthClient {
             ..Default::default()
         };
 
-        tx.gas = overrides.gas_limit.unwrap_or({
+        tx.gas = if let Some(gas_limit) = overrides.gas_limit {
+            gas_limit
+        } else {
             let mut generic_tx = GenericTransaction::from(tx.clone());
             if let Some(from) = overrides.from {
                 generic_tx.from = from;
             }
             self.estimate_gas(generic_tx).await?
-        });
+        };
 
         Ok(WrappedEIP4844Transaction { tx, blobs_bundle })
     }
 
+    /// Build a PrivilegedL2 transaction with the given parameters.
+    /// Either `overrides.nonce` or `overrides.from` must be provided.
+    /// If `overrides.gas_price`, `overrides.chain_id` or `overrides.gas_price`
+    /// are not provided, the client will fetch them from the network.
+    /// If `overrides.gas_limit` is not provided, the client will estimate the tx cost.
     pub async fn build_privileged_transaction(
         &self,
         tx_type: PrivilegedTxType,
@@ -483,32 +504,44 @@ impl EthClient {
         let mut tx = PrivilegedL2Transaction {
             tx_type,
             to: TxKind::Call(to),
-            chain_id: overrides
-                .chain_id
-                .unwrap_or(self.get_chain_id().await?.as_u64()),
-            nonce: overrides.nonce.unwrap_or({
-                let address = overrides.from.ok_or(EthClientError::UnrecheableNonce)?;
-                self.get_nonce(address).await?
-            }),
+            chain_id: if let Some(chain_id) = overrides.chain_id {
+                chain_id
+            } else {
+                self.get_chain_id().await?.as_u64()
+            },
+            nonce: self.get_nonce_from_overrides(&overrides).await?,
             max_priority_fee_per_gas: overrides.priority_gas_price.unwrap_or_default(),
-            max_fee_per_gas: overrides
-                .gas_price
-                .unwrap_or(self.get_gas_price().await?.as_u64()),
+            max_fee_per_gas: if let Some(gas_price) = overrides.gas_price {
+                gas_price
+            } else {
+                self.get_gas_price().await?.as_u64()
+            },
             value: overrides.value.unwrap_or_default(),
             data: calldata,
             access_list: overrides.access_list,
             ..Default::default()
         };
 
-        tx.gas_limit = overrides.gas_limit.unwrap_or({
+        tx.gas_limit = if let Some(gas_limit) = overrides.gas_limit {
+            gas_limit
+        } else {
             let mut generic_tx = GenericTransaction::from(tx.clone());
             if let Some(from) = overrides.from {
                 generic_tx.from = from;
             }
             self.estimate_gas(generic_tx).await?
-        });
+        };
 
         Ok(tx)
+    }
+
+    async fn get_nonce_from_overrides(&self, overrides: &Overrides) -> Result<u64, EthClientError> {
+        if let Some(nonce) = overrides.nonce {
+            return Ok(nonce);
+        }
+
+        let address = overrides.from.ok_or(EthClientError::UnrecheableNonce)?;
+        self.get_nonce(address).await
     }
 }
 
