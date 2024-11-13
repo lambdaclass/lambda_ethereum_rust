@@ -42,7 +42,6 @@ jobs:
           - simulation: engine-cancun
             name: "Cancun Engine tests"
             run_command: exit 0
-    if: false
     steps:
       - name: Run Hive Simulation
         run: ${{ matrix.run_command }}
