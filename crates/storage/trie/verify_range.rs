@@ -107,8 +107,8 @@ pub fn verify_range(
         trie.root = Some(NodeHash::from(root));
     }
     // Reconstruct the internal nodes by inserting the elements on the range
-    for (i, key) in keys.iter().enumerate() {
-        trie.insert(key.0.to_vec(), values[i].clone())?;
+    for (key, value) in keys.iter().zip(values.iter()) {
+        trie.insert(key.0.to_vec(), value.clone())?;
     }
     // Check for elements to the right of the range before we wipe the sate
     let has_right_element = has_right_element(root, last_key.as_bytes(), &trie.state)?;
