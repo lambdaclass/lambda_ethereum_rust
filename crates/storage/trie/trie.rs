@@ -2,7 +2,7 @@ mod db;
 mod error;
 mod node;
 mod node_hash;
-mod proof;
+mod verify_range;
 mod rlp;
 mod state;
 mod trie_iter;
@@ -20,7 +20,7 @@ use sha3::{Digest, Keccak256};
 pub use self::db::{libmdbx::LibmdbxTrieDB, libmdbx_dupsort::LibmdbxDupsortTrieDB};
 
 pub use self::db::{in_memory::InMemoryTrieDB, TrieDB};
-pub use self::proof::verify_range_proof;
+pub use self::verify_range::verify_range;
 
 pub use self::error::TrieError;
 use self::{node::LeafNode, state::TrieState, trie_iter::TrieIterator};

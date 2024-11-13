@@ -10,7 +10,7 @@ use crate::{
 
 /// Verifies that the key value range belongs to the trie with the given root given the edge proofs for the range
 /// Also returns true if there is more state to be fetched (aka if there are more keys to the right of the given range)
-pub fn verify_range_proof(
+pub fn verify_range(
     root: H256,
     first_key: H256,
     keys: Vec<H256>,
@@ -455,7 +455,7 @@ mod tests {
     use std::str::FromStr;
 
     #[test]
-    fn verify_range_proof_regular_case_only_branch_nodes() {
+    fn verify_range_regular_case_only_branch_nodes() {
         // The trie will have keys and values ranging from 25-100
         // We will prove the range from 50-75
         // Note values are written as hashes in the form i -> [i;32]
@@ -468,13 +468,13 @@ mod tests {
         let root = trie.hash().unwrap();
         let keys = (50_u8..=75).map(|i| H256([i; 32])).collect::<Vec<_>>();
         let values = (50_u8..=75).map(|i| [i; 32].to_vec()).collect::<Vec<_>>();
-        let fetch_more = verify_range_proof(root, keys[0], keys, values, proof).unwrap();
+        let fetch_more = verify_range(root, keys[0], keys, values, proof).unwrap();
         // Our trie contains more elements to the right
         assert!(fetch_more)
     }
 
     #[test]
-    fn verify_range_proof_regular_case() {
+    fn verify_range_regular_case() {
         // The account ranges were taken form a hive test state, but artificially modified
         // so that the resulting trie has a wide variety of different nodes (and not only branches)
         let account_addresses: [&str; 26] = [
@@ -526,12 +526,12 @@ mod tests {
         let mut proof = trie.get_proof(&trie_values[7]).unwrap();
         proof.extend(trie.get_proof(&trie_values[17]).unwrap());
         let root = trie.hash().unwrap();
-        let fetch_more = verify_range_proof(root, keys[0], keys, values, proof).unwrap();
+        let fetch_more = verify_range(root, keys[0], keys, values, proof).unwrap();
         // Our trie contains more elements to the right
         assert!(fetch_more)
     }
 
-    // Proptests for verify_range_proof
+    // Proptests for verify_range
     proptest! {
 
         // Successful Cases
@@ -552,7 +552,7 @@ mod tests {
             let mut proof = trie.get_proof(&values[0]).unwrap();
             proof.extend(trie.get_proof(values.last().unwrap()).unwrap());
             // Verify the range proof
-            let fetch_more = verify_range_proof(root, keys[0], keys, values, proof).unwrap();
+            let fetch_more = verify_range(root, keys[0], keys, values, proof).unwrap();
             if end == 199 {
                 // The last key is at the edge of the trie
                 assert!(!fetch_more)
@@ -595,7 +595,7 @@ mod tests {
             let mut proof = trie.get_proof(&first_key).unwrap();
             proof.extend(trie.get_proof(&last_key).unwrap());
             // Verify the range proof
-            let fetch_more = verify_range_proof(root, H256::from_slice(&first_key), keys, values, proof).unwrap();
+            let fetch_more = verify_range(root, H256::from_slice(&first_key), keys, values, proof).unwrap();
             // Our trie contains more elements to the right
             assert!(fetch_more)
         }
@@ -636,7 +636,7 @@ mod tests {
             let mut proof = trie.get_proof(&first_key).unwrap();
             proof.extend(trie.get_proof(&last_key).unwrap());
             // Verify the range proof
-            let fetch_more = verify_range_proof(root, H256::from_slice(&first_key), keys, values, proof).unwrap();
+            let fetch_more = verify_range(root, H256::from_slice(&first_key), keys, values, proof).unwrap();
             // Our trie contains more elements to the right
             assert!(fetch_more)
         }
@@ -656,7 +656,7 @@ mod tests {
             // The keyset contains the entire trie so we don't need edge proofs
             let proof = vec![];
             // Verify the range proof
-            let fetch_more = verify_range_proof(root, keys[0], keys, values, proof).unwrap();
+            let fetch_more = verify_range(root, keys[0], keys, values, proof).unwrap();
             // Our range is the full leafset, there shouldn't be more values left in the trie
             assert!(!fetch_more)
         }
@@ -679,7 +679,7 @@ mod tests {
             // Generate proof (last element)
             let proof = trie.get_proof(&last_element).unwrap();
             // Verify the range proof
-            let fetch_more = verify_range_proof(root, first_key, keys, values, proof).unwrap();
+            let fetch_more = verify_range(root, first_key, keys, values, proof).unwrap();
             // There are no more elements to the right of the range
             assert!(!fetch_more)
         }
@@ -699,7 +699,7 @@ mod tests {
             // Generate proofs
             let proof = trie.get_proof(&values[0]).unwrap();
             // Verify the range proof
-            let fetch_more = verify_range_proof(root, keys[0], keys, values, proof).unwrap();
+            let fetch_more = verify_range(root, keys[0], keys, values, proof).unwrap();
             if start == 199 {
                 // The last key is at the edge of the trie
                 assert!(!fetch_more)
@@ -726,7 +726,7 @@ mod tests {
             // Generate proofs (only prove first key)
             let proof = trie.get_proof(&values[0]).unwrap();
             // Verify the range proof
-            assert!(verify_range_proof(root, keys[0], keys, values, proof).is_err());
+            assert!(verify_range(root, keys[0], keys, values, proof).is_err());
         }
 
         #[test]
@@ -747,7 +747,7 @@ mod tests {
             // Remove the last node of the second proof (to make sure we don't remove a node that is also part of the first proof)
             proof.pop();
             // Verify the range proof
-            assert!(verify_range_proof(root, keys[0], keys, values, proof).is_err());
+            assert!(verify_range(root, keys[0], keys, values, proof).is_err());
         }
 
         #[test]
@@ -765,7 +765,7 @@ mod tests {
             // Dont generate proof
             let proof = vec![];
             // Verify the range proof
-            assert!(verify_range_proof(root, keys[0], keys, values, proof).is_err());
+            assert!(verify_range(root, keys[0], keys, values, proof).is_err());
         }
 
         #[test]
@@ -786,7 +786,7 @@ mod tests {
             // Generate proof (last element)
             let proof = trie.get_proof(&last_element).unwrap();
             // Verify the range proof
-            assert!(verify_range_proof(root, first_key, keys, values, proof).is_err());
+            assert!(verify_range(root, first_key, keys, values, proof).is_err());
         }
 
         #[test]
@@ -806,7 +806,7 @@ mod tests {
             // Generate proofs
             let proof = trie.get_proof(&values[0]).unwrap();
             // Verify the range proof
-            assert!(verify_range_proof(root, keys[0], keys, values, proof).is_err());
+            assert!(verify_range(root, keys[0], keys, values, proof).is_err());
         }
     }
 }
