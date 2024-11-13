@@ -697,7 +697,46 @@ mod tests {
                 assert!(fetch_more)
             }
         }
-    }
 
     // Unsuccesful Cases
+
+        #[test]
+        // Regular Case: Only one edge proof, both keys exist
+        fn proptest_verify_range_regular_case_only_one_edge_proof(data in btree_set(vec(any::<u8>(), 32), 200), start in 1_usize..=100_usize, end in 101..200_usize) {
+            // Build trie
+            let mut trie = Trie::new_temp();
+            for val in data.iter() {
+                trie.insert(val.clone(), val.clone()).unwrap()
+            }
+            let root = trie.hash().unwrap();
+            // Select range to prove
+            let values = data.into_iter().collect::<Vec<_>>()[start..=end].to_vec();
+            let keys = values.iter().map(|a| H256::from_slice(a)).collect::<Vec<_>>();
+            // Generate proofs (only prove first key)
+            let proof = trie.get_proof(&values[0]).unwrap();
+            // Verify the range proof
+            assert!(verify_range_proof(root, keys[0], keys, values, proof).is_err());
+        }
+
+        #[test]
+        // Regular Case: Two Edge Proofs, both keys exist, but there is a missing node in the proof
+        fn proptest_verify_range_regular_case_gap_in_proof(data in btree_set(vec(any::<u8>(), 32), 200), start in 1_usize..=100_usize, end in 101..200_usize) {
+            // Build trie
+            let mut trie = Trie::new_temp();
+            for val in data.iter() {
+                trie.insert(val.clone(), val.clone()).unwrap()
+            }
+            let root = trie.hash().unwrap();
+            // Select range to prove
+            let values = data.into_iter().collect::<Vec<_>>()[start..=end].to_vec();
+            let keys = values.iter().map(|a| H256::from_slice(a)).collect::<Vec<_>>();
+            // Generate proofs
+            let mut proof = trie.get_proof(&values[0]).unwrap();
+            proof.extend(trie.get_proof(values.last().unwrap()).unwrap());
+            // Remove the last node of the second proof (to make sure we don't remove a node that is also part of the first proof)
+            proof.pop();
+            // Verify the range proof
+            assert!(verify_range_proof(root, keys[0], keys, values, proof).is_err());
+        }
+    }
 }
