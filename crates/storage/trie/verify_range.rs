@@ -264,10 +264,11 @@ fn remove_internal_references_inner(
     let node = trie_state.get_node(node_hash.clone())?.unwrap();
     match node {
         Node::Branch(mut n) => {
-            // If none of the paths have next choice nibble then it means that this is the end of the path
+            // If none of the paths have a next choice nibble then it means that this is the end of the path
             // which would mean that both paths are equal, which we already checked before
-            // Only one path doesn't have a next choice then it would mean that the paths have different lengths,
+            // If only one path doesn't have a next choice then it would mean that the paths have different lengths,
             // which we also checked before calling this function
+            // Therefore we can safely unwrap here
             let left_choice = left_path.next_choice().unwrap();
             let right_choice = right_path.next_choice().unwrap();
 
