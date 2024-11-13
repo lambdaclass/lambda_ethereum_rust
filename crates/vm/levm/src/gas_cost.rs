@@ -105,7 +105,7 @@ pub fn exp(exponent: U256) -> Result<U256, OutOfGasError> {
     let exponent_byte_size = (exponent
         .bits()
         .checked_add(7)
-        .ok_or(OutOfGasError::ArithmeticOperationOverflow)? as u64)
+        .ok_or(OutOfGasError::GasCostOverflow)? as u64)
         / 8;
     let exponent_byte_size_cost = EXP_DYNAMIC_BASE
         .checked_mul(exponent_byte_size.into())
@@ -189,14 +189,14 @@ fn copy_behavior(
 ) -> Result<U256, OutOfGasError> {
     let minimum_word_size = (size
         .checked_add(WORD_SIZE)
-        .ok_or(OutOfGasError::ArithmeticOperationOverflow)?
+        .ok_or(OutOfGasError::GasCostOverflow)?
         .saturating_sub(1))
         / WORD_SIZE;
 
     let memory_expansion_cost = current_call_frame.memory.expansion_cost(
         offset
             .checked_add(size)
-            .ok_or(OutOfGasError::ArithmeticOperationOverflow)?,
+            .ok_or(OutOfGasError::GasCostOverflow)?,
     )?;
 
     let minimum_word_size_cost = dynamic_base
@@ -232,7 +232,7 @@ pub fn log(
     let memory_expansion_cost = current_call_frame.memory.expansion_cost(
         offset
             .checked_add(size)
-            .ok_or(OutOfGasError::ArithmeticOperationOverflow)?,
+            .ok_or(OutOfGasError::GasCostOverflow)?,
     )?;
 
     let topics_cost = LOGN_DYNAMIC_BASE
@@ -271,7 +271,7 @@ fn mem_expansion_behavior(
     let memory_expansion_cost = current_call_frame.memory.expansion_cost(
         offset
             .checked_add(offset_add)
-            .ok_or(OutOfGasError::ArithmeticOperationOverflow)?,
+            .ok_or(OutOfGasError::GasCostOverflow)?,
     )?;
     static_cost
         .checked_add(memory_expansion_cost)
@@ -334,7 +334,7 @@ pub fn mcopy(
 ) -> Result<U256, OutOfGasError> {
     let words_copied = (size
         .checked_add(WORD_SIZE)
-        .ok_or(OutOfGasError::ArithmeticOperationOverflow)?
+        .ok_or(OutOfGasError::GasCostOverflow)?
         .saturating_sub(1))
         / WORD_SIZE;
 
@@ -345,7 +345,7 @@ pub fn mcopy(
                 .checked_add(size)
                 .map(|dest_sum| src_sum.max(dest_sum))
         })
-        .ok_or(OutOfGasError::ArithmeticOperationOverflow)?;
+        .ok_or(OutOfGasError::GasCostOverflow)?;
 
     let memory_expansion_cost = current_call_frame.memory.expansion_cost(memory_byte_size)?;
     let copied_words_cost = MCOPY_DYNAMIC_BASE
@@ -371,18 +371,18 @@ pub fn call(
 ) -> Result<U256, OutOfGasError> {
     let memory_byte_size = args_size
         .checked_add(args_offset)
-        .ok_or(OutOfGasError::ArithmeticOperationOverflow)?
+        .ok_or(OutOfGasError::GasCostOverflow)?
         .max(
             ret_size
                 .checked_add(ret_offset)
-                .ok_or(OutOfGasError::ArithmeticOperationOverflow)?,
+                .ok_or(OutOfGasError::GasCostOverflow)?,
         );
     let memory_expansion_cost = current_call_frame.memory.expansion_cost(memory_byte_size)?;
 
     let positive_value_cost = if !value.is_zero() {
         NON_ZERO_VALUE_COST
             .checked_add(BASIC_FALLBACK_FUNCTION_STIPEND)
-            .ok_or(OutOfGasError::ArithmeticOperationOverflow)?
+            .ok_or(OutOfGasError::GasCostOverflow)?
     } else {
         U256::zero()
     };
@@ -488,7 +488,7 @@ fn compute_gas_call(
                 .checked_add(ret_size)
                 .map(|dest_sum| src_sum.max(dest_sum))
         })
-        .ok_or(OutOfGasError::ArithmeticOperationOverflow)?;
+        .ok_or(OutOfGasError::GasCostOverflow)?;
     let memory_expansion_cost = current_call_frame.memory.expansion_cost(memory_byte_size)?;
 
     let access_cost = if is_cached {
@@ -536,7 +536,7 @@ fn compute_gas_create(
 ) -> Result<U256, OutOfGasError> {
     let minimum_word_size = (code_size_in_memory
         .checked_add(U256::from(31))
-        .ok_or(OutOfGasError::ArithmeticOperationOverflow)?)
+        .ok_or(OutOfGasError::GasCostOverflow)?)
     .checked_div(U256::from(32))
     .ok_or(OutOfGasError::ArithmeticOperationDividedByZero)?; // '32' will never be zero
 
@@ -551,9 +551,9 @@ fn compute_gas_create(
     let memory_expansion_cost = current_call_frame.memory.expansion_cost(
         code_size_in_memory
             .checked_add(code_offset_in_memory)
-            .ok_or(OutOfGasError::ArithmeticOperationOverflow)?
+            .ok_or(OutOfGasError::GasCostOverflow)?
             .try_into()
-            .map_err(|_err| OutOfGasError::ArithmeticOperationOverflow)?,
+            .map_err(|_err| OutOfGasError::GasCostOverflow)?,
     )?;
 
     let hash_cost = if is_create_2 {
@@ -623,7 +623,7 @@ pub fn tx_creation(contract_code: &Bytes, number_of_words: u64) -> Result<u64, O
     // GInitCodeword * number_of_words rounded up. GinitCodeWord = 2
     let words_cost = number_of_words
         .checked_mul(2)
-        .ok_or(OutOfGasError::ArithmeticOperationOverflow)?;
+        .ok_or(OutOfGasError::GasCostOverflow)?;
     creation_cost
         .checked_add(words_cost)
         .ok_or(OutOfGasError::GasUsedOverflow)

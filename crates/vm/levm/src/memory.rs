@@ -127,27 +127,27 @@ impl Memory {
 
         let new_memory_size_word = memory_byte_size
             .checked_add(WORD_SIZE - 1)
-            .ok_or(OutOfGasError::ArithmeticOperationOverflow)?
+            .ok_or(OutOfGasError::GasCostOverflow)?
             / WORD_SIZE;
 
         let new_memory_cost = new_memory_size_word
             .checked_mul(new_memory_size_word)
             .map(|square| square / MEMORY_EXPANSION_QUOTIENT)
             .and_then(|cost| cost.checked_add(new_memory_size_word.checked_mul(3)?))
-            .ok_or(OutOfGasError::ArithmeticOperationOverflow)?;
+            .ok_or(OutOfGasError::GasCostOverflow)?;
 
         let last_memory_size_word = self
             .data
             .len()
             .checked_add(WORD_SIZE - 1)
-            .ok_or(OutOfGasError::ArithmeticOperationOverflow)?
+            .ok_or(OutOfGasError::GasCostOverflow)?
             / WORD_SIZE;
 
         let last_memory_cost = last_memory_size_word
             .checked_mul(last_memory_size_word)
             .map(|square| square / MEMORY_EXPANSION_QUOTIENT)
             .and_then(|cost| cost.checked_add(last_memory_size_word.checked_mul(3)?))
-            .ok_or(OutOfGasError::ArithmeticOperationOverflow)?;
+            .ok_or(OutOfGasError::GasCostOverflow)?;
 
         Ok((new_memory_cost
             .checked_sub(last_memory_cost)

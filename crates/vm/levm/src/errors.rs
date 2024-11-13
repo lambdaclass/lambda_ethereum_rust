@@ -83,8 +83,6 @@ pub enum OutOfGasError {
     ConsumedGasOverflow,
     #[error("Max Gas Limit Exceeded")]
     MaxGasLimitExceeded,
-    #[error("Arithmetic operation overflowed in gas calculation")]
-    ArithmeticOperationOverflow,
     #[error("Arithmetic operation divided by zero in gas calculation")]
     ArithmeticOperationDividedByZero,
 }
