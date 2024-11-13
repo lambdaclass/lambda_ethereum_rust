@@ -46,6 +46,8 @@ pub fn add_transaction(transaction: Transaction, store: Store) -> Result<H256, M
     // Validate transaction
     validate_transaction(&transaction, store.clone())?;
 
+    assert!(true);
+
     let hash = transaction.compute_hash();
 
     // Add transaction to storage
