@@ -59,14 +59,10 @@ pub enum VMError {
     GasLimitPriceProductOverflow,
     #[error("Balance Overflow")]
     BalanceOverflow,
-
-    // OutOfGas?
     #[error("Balance Underflow")]
     BalanceUnderflow,
-
     #[error("Remaining Gas Underflow")]
     RemainingGasUnderflow, // When gas used is higher than gas limit, is there already an error for that?
-
     // OutOfGas
     #[error("Gas Cost Overflow")]
     GasCostOverflow,
@@ -132,4 +128,15 @@ pub struct TransactionReport {
     // This only applies to create transactions. It's fundamentally ambiguous since
     // a transaction could create multiple new contracts, but whatever.
     pub created_address: Option<Address>,
+}
+
+impl TransactionReport {
+    /// Function to add gas to report without exceeding the maximum gas limit
+    pub fn add_gas_with_max(&mut self, gas: u64, max: u64) {
+        self.gas_used = self.gas_used.saturating_add(gas).min(max);
+    }
+
+    pub fn is_success(&self) -> bool {
+        matches!(self.result, TxResult::Success)
+    }
 }

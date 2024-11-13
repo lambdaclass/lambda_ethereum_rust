@@ -28,3 +28,6 @@ spinoff = "0.8.0"
 
 [features]
 ethereum_foundation_tests = []
+
+[lib]
+path = "./src/lib.rs"

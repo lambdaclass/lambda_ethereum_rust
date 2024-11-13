@@ -159,7 +159,7 @@ impl VM {
                 }
             };
 
-            // Note: these are commented because they're still being used in development.
+            // Note: This is commented because it's used for debugging purposes in development.
             // dbg!(&current_call_frame.gas_used);
             // dbg!(&opcode);
             let op_result: Result<OpcodeSuccess, VMError> = match opcode {
@@ -424,15 +424,15 @@ impl VM {
 
         self.env.consumed_gas = initial_gas;
 
-        let mut current_call_frame = self.call_frames.pop().unwrap();
+        let mut initial_call_frame = self.call_frames.pop().unwrap();
+        let sender = initial_call_frame.msg_sender;
 
-        let mut report = self.execute(&mut current_call_frame);
-        let sender = self.call_frames.first().unwrap().msg_sender;
+        let mut report = self.execute(&mut initial_call_frame);
 
         // This cost applies both for call and create
         // 4 gas for each zero byte in the transaction data 16 gas for each non-zero byte in the transaction.
-        let mut calldata_cost: u64 = 0;
-        for byte in &self.call_frames[0].calldata {
+        let mut calldata_cost = 0;
+        for byte in &initial_call_frame.calldata {
             if *byte != 0 {
                 calldata_cost = calldata_cost
                     .checked_add(16)
@@ -443,6 +443,7 @@ impl VM {
                     .ok_or(VMError::GasUsedOverflow)?;
             }
         }
+        // Or report.add_gas_with_max(calldata_cost, max_gas); (let max_gas = self.env.gas_limit.low_u64();)
         report.gas_used = report
             .gas_used
             .checked_add(calldata_cost)
@@ -479,6 +480,8 @@ impl VM {
             creation_cost = creation_cost
                 .checked_add(32000)
                 .ok_or(VMError::CreationCostIsTooHigh)?;
+
+            // Or use report.add_gas_with_max(creation_cost, max_gas);
             report.gas_used = report
                 .gas_used
                 .checked_add(creation_cost)
@@ -486,15 +489,18 @@ impl VM {
             // Charge 22100 gas for each storage variable set
 
             // GInitCodeword * number_of_words rounded up. GinitCodeWord = 2
-            let number_of_words = self.call_frames[0].calldata.chunks(WORD_SIZE).len() as u64;
+            let number_of_words = initial_call_frame.calldata.chunks(WORD_SIZE).len() as u64;
+            let words_cost = number_of_words.checked_mul(2).ok_or(VMError::Internal(
+                InternalError::ArithmeticOperationOverflow,
+            ))?;
+
+            // Or report.add_gas_with_max(words_cost, max_gas);
             report.gas_used = report
                 .gas_used
-                .checked_add(number_of_words.checked_mul(2).ok_or(VMError::Internal(
-                    InternalError::ArithmeticOperationOverflow,
-                ))?)
+                .checked_add(words_cost)
                 .ok_or(VMError::GasUsedOverflow)?;
 
-            let contract_address = self.call_frames.first().unwrap().to;
+            let contract_address = initial_call_frame.to;
             let mut created_contract = self.get_account(&contract_address);
 
             created_contract.info.bytecode = contract_code;
@@ -515,10 +521,28 @@ impl VM {
             )
             .ok_or(VMError::OutOfGas)?;
 
-        // Note: this is commented because it is still being used in development.
+        let receiver_address = initial_call_frame.to;
+        let mut receiver_account = self.get_account(&receiver_address);
+        // If execution was successful we want to transfer value from sender to receiver
+        if report.is_success() {
+            // Subtract to the caller the gas sent
+            sender_account.info.balance = sender_account
+                .info
+                .balance
+                .checked_sub(initial_call_frame.msg_value)
+                .ok_or(VMError::OutOfGas)?; // This error shouldn't be OutOfGas
+            receiver_account.info.balance = receiver_account
+                .info
+                .balance
+                .checked_add(initial_call_frame.msg_value)
+                .ok_or(VMError::OutOfGas)?; // This error shouldn't be OutOfGas
+        }
+
+        // Note: This is commented because it's used for debugging purposes in development.
         // dbg!(&report.gas_refunded);
 
         self.cache.add_account(&sender, &sender_account);
+        self.cache.add_account(&receiver_address, &receiver_account);
 
         // Send coinbase fee
         let priority_fee_per_gas = self

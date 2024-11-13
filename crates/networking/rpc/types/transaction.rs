@@ -6,20 +6,25 @@ use ethereum_rust_core::{
     },
     Address, H256,
 };
-use ethereum_rust_rlp::{decode::RLPDecode, error::RLPDecodeError, structs::Decoder};
-use serde::Serialize;
+use ethereum_rust_rlp::{
+    decode::RLPDecode,
+    encode::RLPEncode,
+    error::RLPDecodeError,
+    structs::{Decoder, Encoder},
+};
+use serde::{Deserialize, Serialize};
 
 #[allow(unused)]
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct RpcTransaction {
     #[serde(flatten)]
-    tx: Transaction,
+    pub tx: Transaction,
     #[serde(with = "serde_utils::u64::hex_str")]
     block_number: BlockNumber,
     block_hash: BlockHash,
     from: Address,
-    hash: H256,
+    pub hash: H256,
     #[serde(with = "serde_utils::u64::hex_str")]
     transaction_index: u64,
 }
@@ -59,6 +64,18 @@ pub enum SendRawTransactionRequest {
 pub struct WrappedEIP4844Transaction {
     pub tx: EIP4844Transaction,
     pub blobs_bundle: BlobsBundle,
+}
+
+impl RLPEncode for WrappedEIP4844Transaction {
+    fn encode(&self, buf: &mut dyn bytes::BufMut) {
+        let encoder = Encoder::new(buf);
+        encoder
+            .encode_field(&self.tx)
+            .encode_field(&self.blobs_bundle.blobs)
+            .encode_field(&self.blobs_bundle.commitments)
+            .encode_field(&self.blobs_bundle.proofs)
+            .finish();
+    }
 }
 
 impl RLPDecode for WrappedEIP4844Transaction {
