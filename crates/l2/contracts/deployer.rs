@@ -1,13 +1,13 @@
 use bytes::Bytes;
 use colored::Colorize;
-use ethereum_rust_core::types::{TxKind, GAS_LIMIT_ADJUSTMENT_FACTOR, GAS_LIMIT_MINIMUM};
+use ethereum_rust_core::types::{GAS_LIMIT_ADJUSTMENT_FACTOR, GAS_LIMIT_MINIMUM};
 use ethereum_rust_l2::utils::{
-    config::read_env_file,
+    config::{read_env_as_lines, read_env_file, write_env},
     eth_client::{eth_sender::Overrides, EthClient},
 };
 use ethereum_types::{Address, H160, H256};
 use keccak_hash::keccak;
-use libsecp256k1::SecretKey;
+use secp256k1::SecretKey;
 use spinoff::{spinner, spinners, Color, Spinner};
 use std::{
     path::{Path, PathBuf},
@@ -41,6 +41,27 @@ async fn main() {
         &eth_client,
     )
     .await;
+
+    let env_lines = read_env_as_lines().expect("Failed to read env file as lines.");
+
+    let mut wr_lines: Vec<String> = Vec::new();
+    for line in env_lines {
+        let mut line = line.unwrap();
+        if let Some(eq) = line.find('=') {
+            let (envar, _) = line.split_at(eq);
+            line = match envar {
+                "PROPOSER_ON_CHAIN_PROPOSER_ADDRESS" => {
+                    format!("{envar}={on_chain_proposer:#x}")
+                }
+                "L1_WATCHER_BRIDGE_ADDRESS" => {
+                    format!("{envar}={bridge_address:#x}")
+                }
+                _ => line,
+            };
+        }
+        wr_lines.push(line);
+    }
+    write_env(wr_lines).expect("Failed to write changes to the .env file.");
 }
 
 fn setup() -> (Address, SecretKey, EthClient, PathBuf) {
@@ -53,7 +74,7 @@ fn setup() -> (Address, SecretKey, EthClient, PathBuf) {
         .expect("DEPLOYER_ADDRESS not set")
         .parse()
         .expect("Malformed DEPLOYER_ADDRESS");
-    let deployer_private_key = SecretKey::parse(
+    let deployer_private_key = SecretKey::from_slice(
         H256::from_str(
             std::env::var("DEPLOYER_PRIVATE_KEY")
                 .expect("DEPLOYER_PRIVATE_KEY not set")
@@ -61,7 +82,7 @@ fn setup() -> (Address, SecretKey, EthClient, PathBuf) {
                 .expect("Malformed DEPLOYER_ADDRESS (strip_prefix(\"0x\"))"),
         )
         .expect("Malformed DEPLOYER_ADDRESS (H256::from_str)")
-        .as_fixed_bytes(),
+        .as_bytes(),
     )
     .expect("Malformed DEPLOYER_PRIVATE_KEY (SecretKey::parse)");
     let contracts_path = Path::new(
@@ -275,16 +296,21 @@ async fn create2_deploy(
     eth_client: &EthClient,
 ) -> (H256, Address) {
     let calldata = [SALT.lock().unwrap().as_bytes(), init_code].concat();
-    let deploy_tx_hash = eth_client
-        .send(
+    let deploy_tx = eth_client
+        .build_eip1559_transaction(
+            DETERMINISTIC_CREATE2_ADDRESS,
             calldata.into(),
-            deployer,
-            TxKind::Call(DETERMINISTIC_CREATE2_ADDRESS),
-            deployer_private_key,
-            overrides,
+            Overrides {
+                from: Some(deployer),
+                ..overrides
+            },
         )
         .await
-        .unwrap();
+        .expect("Failed to build create2 deploy tx");
+    let deploy_tx_hash = eth_client
+        .send_eip1559_transaction(deploy_tx, &deployer_private_key)
+        .await
+        .expect("Failed to send create2 deploy tx");
 
     wait_for_transaction_receipt(deploy_tx_hash, eth_client).await;
 
@@ -383,14 +409,19 @@ async fn initialize_on_chain_proposer(
         .extend_from_slice(&on_chain_proposer_initialize_selector);
     on_chain_proposer_initialization_calldata.extend_from_slice(&encoded_bridge);
 
-    let initialize_tx_hash = eth_client
-        .send(
+    let initialize_tx = eth_client
+        .build_eip1559_transaction(
+            on_chain_proposer,
             on_chain_proposer_initialization_calldata.into(),
-            deployer,
-            TxKind::Call(on_chain_proposer),
-            deployer_private_key,
-            Overrides::default(),
+            Overrides {
+                from: Some(deployer),
+                ..Default::default()
+            },
         )
+        .await
+        .expect("Failed to build initialize transaction");
+    let initialize_tx_hash = eth_client
+        .send_eip1559_transaction(initialize_tx, &deployer_private_key)
         .await
         .expect("Failed to send initialize transaction");
 
@@ -422,14 +453,19 @@ async fn initialize_bridge(
     bridge_initialization_calldata.extend_from_slice(&bridge_initialize_selector);
     bridge_initialization_calldata.extend_from_slice(&encoded_on_chain_proposer);
 
-    let initialize_tx_hash = eth_client
-        .send(
+    let initialize_tx = eth_client
+        .build_eip1559_transaction(
+            bridge,
             bridge_initialization_calldata.into(),
-            deployer,
-            TxKind::Call(bridge),
-            deployer_private_key,
-            Overrides::default(),
+            Overrides {
+                from: Some(deployer),
+                ..Default::default()
+            },
         )
+        .await
+        .expect("Failed to build initialize transaction");
+    let initialize_tx_hash = eth_client
+        .send_eip1559_transaction(initialize_tx, &deployer_private_key)
         .await
         .expect("Failed to send initialize transaction");
 
