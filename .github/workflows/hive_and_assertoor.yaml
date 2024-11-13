@@ -7,7 +7,6 @@ on:
       - 'LICENSE'
       - "**/README.md"
       - "**/docs/**"
-      - .github/workflows/**
   pull_request:
     branches: ["**"]
     paths-ignore:
@@ -16,7 +15,6 @@ on:
       - 'LICENSE'
       - "**/README.md"
       - "**/docs/**"
-      - .github/workflows/**
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.head_ref || github.run_id }}
