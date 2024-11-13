@@ -276,7 +276,7 @@ impl VM {
                 ))?)?;
 
         let minimum_word_size_cost = gas_cost::CODECOPY_DYNAMIC_BASE
-            .checked_add(minimum_word_size.into())
+            .checked_mul(minimum_word_size.into())
             .ok_or(VMError::GasCostOverflow)?;
         let gas_cost = gas_cost::CODECOPY_STATIC
             .checked_add(minimum_word_size_cost)
@@ -379,7 +379,7 @@ impl VM {
                     InternalError::ArithmeticOperationOverflow,
                 ))?)?;
         let minimum_word_size_cost = gas_cost::EXTCODECOPY_DYNAMIC_BASE
-            .checked_add(minimum_word_size.into())
+            .checked_mul(minimum_word_size.into())
             .ok_or(VMError::GasCostOverflow)?;
         let gas_cost = minimum_word_size_cost
             .checked_add(memory_expansion_cost)
