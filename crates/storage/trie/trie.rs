@@ -168,19 +168,8 @@ impl Trie {
         //     2. the trie contains the (key, value) pair to verify
 
         // We will only be using the trie's cache so we don't need a working DB
-        // struct NullTrieDB;
 
-        // impl TrieDB for NullTrieDB {
-        //     fn get(&self, _key: Vec<u8>) -> Result<Option<Vec<u8>>, TrieError> {
-        //         Ok(None)
-        //     }
-
-        //     fn put(&self, _key: Vec<u8>, _value: Vec<u8>) -> Result<(), TrieError> {
-        //         Ok(())
-        //     }
-        // }
-
-        // let mut trie = Trie::new(Box::new(NullTrieDB));
+        // let mut trie = Trie::stateless();
 
         // Insert root into trie
         // let mut proof = proof.into_iter();
