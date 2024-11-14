@@ -1,7 +1,8 @@
 use crate::{
     call_frame::CallFrame,
-    constants::{gas_cost, LAST_AVAILABLE_BLOCK_LIMIT},
+    constants::LAST_AVAILABLE_BLOCK_LIMIT,
     errors::{InternalError, OpcodeSuccess, VMError},
+    gas_cost,
     vm::{address_to_word, VM},
 };
 use ethereum_rust_core::{

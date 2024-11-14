@@ -19,8 +19,6 @@ pub enum VMError {
     OpcodeNotFound,
     #[error("Invalid Bytecode")]
     InvalidBytecode,
-    #[error("Out Of Gas")]
-    OutOfGas,
     #[error("Very Large Number")]
     VeryLargeNumber,
     #[error("Fatal Error")]
@@ -61,9 +59,20 @@ pub enum VMError {
     BalanceOverflow,
     #[error("Balance Underflow")]
     BalanceUnderflow,
-    #[error("Remaining Gas Underflow")]
-    RemainingGasUnderflow, // When gas used is higher than gas limit, is there already an error for that?
+    #[error("Gas refunds underflow")]
+    GasRefundsUnderflow,
+    #[error("Gas refunds overflow")]
+    GasRefundsOverflow,
     // OutOfGas
+    #[error("Out Of Gas")]
+    OutOfGas(#[from] OutOfGasError),
+    // Internal
+    #[error("Internal error: {0}")]
+    Internal(#[from] InternalError),
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash, thiserror::Error)]
+pub enum OutOfGasError {
     #[error("Gas Cost Overflow")]
     GasCostOverflow,
     #[error("Gas Used Overflow")]
@@ -74,13 +83,8 @@ pub enum VMError {
     ConsumedGasOverflow,
     #[error("Max Gas Limit Exceeded")]
     MaxGasLimitExceeded,
-    #[error("Gas refunds underflow")]
-    GasRefundsUnderflow,
-    #[error("Gas refunds overflow")]
-    GasRefundsOverflow,
-    // Internal
-    #[error("Internal error: {0}")]
-    Internal(#[from] InternalError),
+    #[error("Arithmetic operation divided by zero in gas calculation")]
+    ArithmeticOperationDividedByZero,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, thiserror::Error)]

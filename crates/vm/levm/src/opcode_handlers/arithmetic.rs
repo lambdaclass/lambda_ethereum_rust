@@ -1,7 +1,7 @@
 use crate::{
     call_frame::CallFrame,
-    constants::gas_cost,
     errors::{InternalError, OpcodeSuccess, VMError},
+    gas_cost,
     opcode_handlers::bitwise_comparison::checked_shift_left,
     vm::VM,
 };
@@ -231,15 +231,8 @@ impl VM {
             .bits()
             .try_into()
             .map_err(|_| VMError::Internal(InternalError::ConversionError))?;
-        let exponent_byte_size = (exponent_bits.checked_add(7).ok_or(VMError::Internal(
-            InternalError::ArithmeticOperationOverflow,
-        ))?) / 8;
-        let exponent_byte_size_cost = gas_cost::EXP_DYNAMIC_BASE
-            .checked_mul(exponent_byte_size.into())
-            .ok_or(VMError::GasCostOverflow)?;
-        let gas_cost = gas_cost::EXP_STATIC
-            .checked_add(exponent_byte_size_cost)
-            .ok_or(VMError::GasCostOverflow)?;
+
+        let gas_cost = gas_cost::exp(exponent_bits).map_err(VMError::OutOfGas)?;
 
         self.increase_consumed_gas(current_call_frame, gas_cost)?;
 

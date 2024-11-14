@@ -1,10 +1,8 @@
 use crate::{
     call_frame::CallFrame,
-    constants::{
-        call_opcode::{COLD_ADDRESS_ACCESS_COST, WARM_ADDRESS_ACCESS_COST},
-        gas_cost, WORD_SIZE,
-    },
-    errors::{InternalError, OpcodeSuccess, VMError},
+    constants::{BALANCE_COLD_ADDRESS_ACCESS_COST, WARM_ADDRESS_ACCESS_COST},
+    errors::{InternalError, OpcodeSuccess, OutOfGasError, VMError},
+    gas_cost,
     vm::{word_to_address, VM},
 };
 use bytes::Bytes;
@@ -39,7 +37,7 @@ impl VM {
         if self.cache.is_account_cached(address) {
             self.increase_consumed_gas(current_call_frame, WARM_ADDRESS_ACCESS_COST)?;
         } else {
-            self.increase_consumed_gas(current_call_frame, COLD_ADDRESS_ACCESS_COST)?;
+            self.increase_consumed_gas(current_call_frame, BALANCE_COLD_ADDRESS_ACCESS_COST)?;
             self.cache_from_db(address);
         };
 
@@ -121,24 +119,6 @@ impl VM {
         }
         let result = U256::from_big_endian(&data);
 
-        /*
-               // This check is because if offset is larger than the calldata then we should push 0 to the stack.
-               let result = if offset < current_call_frame.calldata.len() {
-                   // Read calldata from offset to the end
-                   let calldata = current_call_frame.calldata.slice(offset..);
-
-                   // Get the 32 bytes from the data slice, padding with 0 if fewer than 32 bytes are available
-                   let mut padded_calldata = [0u8; WORD_SIZE];
-                   let data_len_to_copy = calldata.len().min(WORD_SIZE);
-
-                   padded_calldata[..data_len_to_copy].copy_from_slice(&calldata[..data_len_to_copy]);
-
-                   U256::from_big_endian(&padded_calldata)
-               } else {
-                   U256::zero()
-               };
-        */
-
         current_call_frame.stack.push(result)?;
 
         Ok(OpcodeSuccess::Continue)
@@ -179,29 +159,8 @@ impl VM {
             .try_into()
             .map_err(|_err| VMError::VeryLargeNumber)?;
 
-        let minimum_word_size = (size
-            .checked_add(WORD_SIZE)
-            .ok_or(VMError::Internal(
-                InternalError::ArithmeticOperationOverflow,
-            ))?
-            .saturating_sub(1))
-            / WORD_SIZE;
-
-        let memory_expansion_cost =
-            current_call_frame
-                .memory
-                .expansion_cost(dest_offset.checked_add(size).ok_or(VMError::Internal(
-                    InternalError::ArithmeticOperationOverflow,
-                ))?)?;
-
-        let minimum_word_size_cost = gas_cost::CALLDATACOPY_DYNAMIC_BASE
-            .checked_mul(minimum_word_size.into())
-            .ok_or(VMError::GasCostOverflow)?;
-        let gas_cost = gas_cost::CALLDATACOPY_STATIC
-            .checked_add(minimum_word_size_cost)
-            .ok_or(VMError::GasCostOverflow)?
-            .checked_add(memory_expansion_cost)
-            .ok_or(VMError::GasCostOverflow)?;
+        let gas_cost = gas_cost::calldatacopy(current_call_frame, size, dest_offset)
+            .map_err(VMError::OutOfGas)?;
 
         self.increase_consumed_gas(current_call_frame, gas_cost)?;
 
@@ -236,10 +195,10 @@ impl VM {
             .env
             .consumed_gas
             .checked_add(gas_cost::CODESIZE)
-            .ok_or(VMError::OutOfGas)?
+            .ok_or(VMError::OutOfGas(OutOfGasError::ConsumedGasOverflow))?
             > self.env.gas_limit
         {
-            return Err(VMError::OutOfGas);
+            return Err(VMError::OutOfGas(OutOfGasError::MaxGasLimitExceeded));
         }
 
         current_call_frame
@@ -272,29 +231,8 @@ impl VM {
             .try_into()
             .map_err(|_| VMError::VeryLargeNumber)?;
 
-        let minimum_word_size = (size
-            .checked_add(WORD_SIZE)
-            .ok_or(VMError::Internal(
-                InternalError::ArithmeticOperationOverflow,
-            ))?
-            .saturating_sub(1))
-            / WORD_SIZE;
-
-        let memory_expansion_cost =
-            current_call_frame
-                .memory
-                .expansion_cost(dest_offset.checked_add(size).ok_or(VMError::Internal(
-                    InternalError::ArithmeticOperationOverflow,
-                ))?)?;
-
-        let minimum_word_size_cost = gas_cost::CODECOPY_DYNAMIC_BASE
-            .checked_mul(minimum_word_size.into())
-            .ok_or(VMError::GasCostOverflow)?;
-        let gas_cost = gas_cost::CODECOPY_STATIC
-            .checked_add(minimum_word_size_cost)
-            .ok_or(VMError::GasCostOverflow)?
-            .checked_add(memory_expansion_cost)
-            .ok_or(VMError::GasCostOverflow)?;
+        let gas_cost =
+            gas_cost::codecopy(current_call_frame, size, dest_offset).map_err(VMError::OutOfGas)?;
 
         self.increase_consumed_gas(current_call_frame, gas_cost)?;
 
@@ -338,7 +276,7 @@ impl VM {
         if self.cache.is_account_cached(&address) {
             self.increase_consumed_gas(current_call_frame, WARM_ADDRESS_ACCESS_COST)?;
         } else {
-            self.increase_consumed_gas(current_call_frame, COLD_ADDRESS_ACCESS_COST)?;
+            self.increase_consumed_gas(current_call_frame, BALANCE_COLD_ADDRESS_ACCESS_COST)?;
             self.cache_from_db(&address);
         };
 
@@ -370,41 +308,14 @@ impl VM {
             .try_into()
             .map_err(|_| VMError::VeryLargeNumber)?;
 
-        let minimum_word_size = (size
-            .checked_add(WORD_SIZE)
-            .ok_or(VMError::Internal(
-                InternalError::ArithmeticOperationOverflow,
-            ))?
-            .saturating_sub(1))
-            / WORD_SIZE;
+        let is_cached = self.cache.is_account_cached(&address);
 
-        let memory_expansion_cost =
-            current_call_frame
-                .memory
-                .expansion_cost(dest_offset.checked_add(size).ok_or(VMError::Internal(
-                    InternalError::ArithmeticOperationOverflow,
-                ))?)?;
-        let minimum_word_size_cost = gas_cost::EXTCODECOPY_DYNAMIC_BASE
-            .checked_mul(minimum_word_size.into())
-            .ok_or(VMError::GasCostOverflow)?;
-        let gas_cost = minimum_word_size_cost
-            .checked_add(memory_expansion_cost)
-            .ok_or(VMError::GasCostOverflow)?;
+        let gas_cost = gas_cost::extcodecopy(current_call_frame, size, dest_offset, is_cached)
+            .map_err(VMError::OutOfGas)?;
 
-        if self.cache.is_account_cached(&address) {
-            self.increase_consumed_gas(
-                current_call_frame,
-                gas_cost
-                    .checked_add(WARM_ADDRESS_ACCESS_COST)
-                    .ok_or(VMError::GasCostOverflow)?,
-            )?;
-        } else {
-            self.increase_consumed_gas(
-                current_call_frame,
-                gas_cost
-                    .checked_add(COLD_ADDRESS_ACCESS_COST)
-                    .ok_or(VMError::GasCostOverflow)?,
-            )?;
+        self.increase_consumed_gas(current_call_frame, gas_cost)?;
+
+        if !is_cached {
             self.cache_from_db(&address);
         };
 
@@ -464,28 +375,8 @@ impl VM {
             .try_into()
             .map_err(|_| VMError::VeryLargeNumber)?;
 
-        let minimum_word_size = (size
-            .checked_add(WORD_SIZE)
-            .ok_or(VMError::Internal(
-                InternalError::ArithmeticOperationOverflow,
-            ))?
-            .saturating_sub(1))
-            / WORD_SIZE;
-        let memory_expansion_cost =
-            current_call_frame
-                .memory
-                .expansion_cost(dest_offset.checked_add(size).ok_or(VMError::Internal(
-                    InternalError::ArithmeticOperationOverflow,
-                ))?)?;
-        let minumum_word_size_cost = gas_cost::RETURNDATACOPY_DYNAMIC_BASE
-            .checked_mul(minimum_word_size.into())
-            .ok_or(VMError::GasCostOverflow)?;
-
-        let gas_cost = gas_cost::RETURNDATACOPY_STATIC
-            .checked_add(minumum_word_size_cost)
-            .ok_or(VMError::GasCostOverflow)?
-            .checked_add(memory_expansion_cost)
-            .ok_or(VMError::GasCostOverflow)?;
+        let gas_cost = gas_cost::returndatacopy(current_call_frame, size, dest_offset)
+            .map_err(VMError::OutOfGas)?;
 
         self.increase_consumed_gas(current_call_frame, gas_cost)?;
 
@@ -523,7 +414,7 @@ impl VM {
         if self.cache.is_account_cached(&address) {
             self.increase_consumed_gas(current_call_frame, WARM_ADDRESS_ACCESS_COST)?;
         } else {
-            self.increase_consumed_gas(current_call_frame, COLD_ADDRESS_ACCESS_COST)?;
+            self.increase_consumed_gas(current_call_frame, BALANCE_COLD_ADDRESS_ACCESS_COST)?;
             self.cache_from_db(&address);
         };
 

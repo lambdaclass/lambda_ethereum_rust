@@ -1,7 +1,8 @@
 use crate::{
     call_frame::CallFrame,
-    constants::{gas_cost, WORD_SIZE},
+    constants::WORD_SIZE,
     errors::{InternalError, OpcodeSuccess, VMError},
+    gas_cost,
     vm::VM,
 };
 use ethereum_rust_core::U256;

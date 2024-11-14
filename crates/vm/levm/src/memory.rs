@@ -1,6 +1,6 @@
 use crate::{
     constants::{MEMORY_EXPANSION_QUOTIENT, WORD_SIZE},
-    errors::{InternalError, VMError},
+    errors::{InternalError, OutOfGasError, VMError},
 };
 use ethereum_rust_core::U256;
 
@@ -63,12 +63,6 @@ impl Memory {
         let size_to_store = offset.checked_add(len).ok_or(VMError::Internal(
             InternalError::ArithmeticOperationOverflow,
         ))?;
-        /*
-               let data_len = self.data.len();
-               if data_len < offset || data_len < size_to_store {
-                   return Err(VMError::MemoryStoreOutOfBounds);
-               }
-        */
         self.resize(size_to_store);
         self.data
             .splice(offset..size_to_store, value.iter().copied());
@@ -149,47 +143,38 @@ impl Memory {
         Ok(())
     }
 
-    pub fn expansion_cost(&self, memory_byte_size: usize) -> Result<U256, VMError> {
+    pub fn expansion_cost(&self, memory_byte_size: usize) -> Result<U256, OutOfGasError> {
         if memory_byte_size <= self.data.len() {
             return Ok(U256::zero());
         }
 
-        let new_memory_size_word =
-            memory_byte_size
-                .checked_add(WORD_SIZE - 1)
-                .ok_or(VMError::Internal(
-                    InternalError::ArithmeticOperationOverflow,
-                ))?
-                / WORD_SIZE;
+        let new_memory_size_word = memory_byte_size
+            .checked_add(WORD_SIZE - 1)
+            .ok_or(OutOfGasError::GasCostOverflow)?
+            / WORD_SIZE;
 
         let new_memory_cost = new_memory_size_word
             .checked_mul(new_memory_size_word)
             .map(|square| square / MEMORY_EXPANSION_QUOTIENT)
             .and_then(|cost| cost.checked_add(new_memory_size_word.checked_mul(3)?))
-            .ok_or(VMError::Internal(
-                InternalError::ArithmeticOperationOverflow,
-            ))?;
+            .ok_or(OutOfGasError::GasCostOverflow)?;
 
-        let last_memory_size_word =
-            self.data
-                .len()
-                .checked_add(WORD_SIZE - 1)
-                .ok_or(VMError::Internal(
-                    InternalError::ArithmeticOperationOverflow,
-                ))?
-                / WORD_SIZE;
+        let last_memory_size_word = self
+            .data
+            .len()
+            .checked_add(WORD_SIZE - 1)
+            .ok_or(OutOfGasError::GasCostOverflow)?
+            / WORD_SIZE;
 
         let last_memory_cost = last_memory_size_word
             .checked_mul(last_memory_size_word)
             .map(|square| square / MEMORY_EXPANSION_QUOTIENT)
             .and_then(|cost| cost.checked_add(last_memory_size_word.checked_mul(3)?))
-            .ok_or(VMError::Internal(
-                InternalError::ArithmeticOperationOverflow,
-            ))?;
+            .ok_or(OutOfGasError::GasCostOverflow)?;
 
         Ok((new_memory_cost
             .checked_sub(last_memory_cost)
-            .ok_or(VMError::GasCostOverflow)?)
+            .ok_or(OutOfGasError::GasCostOverflow)?)
         .into())
     }
 }

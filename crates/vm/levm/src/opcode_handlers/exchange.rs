@@ -1,7 +1,7 @@
 use crate::{
     call_frame::CallFrame,
-    constants::gas_cost,
     errors::{OpcodeSuccess, VMError},
+    gas_cost,
     opcodes::Opcode,
     vm::VM,
 };
@@ -23,11 +23,6 @@ impl VM {
             .ok_or(VMError::InvalidOpcode)?
             .checked_add(1)
             .ok_or(VMError::InvalidOpcode)?;
-        /*
-        if current_call_frame.stack.len() < depth as usize {
-            return Err(VMError::StackUnderflow);
-        }
-         */
         let stack_top_index = current_call_frame
             .stack
             .len()
@@ -40,7 +35,6 @@ impl VM {
         let to_swap_index = stack_top_index
             .checked_sub(depth)
             .ok_or(VMError::StackUnderflow)?;
-
         current_call_frame
             .stack
             .swap(stack_top_index, to_swap_index)?;

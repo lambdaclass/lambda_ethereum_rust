@@ -1,7 +1,7 @@
 use crate::{
     call_frame::CallFrame,
-    constants::gas_cost,
-    errors::{InternalError, OpcodeSuccess, VMError},
+    errors::{OpcodeSuccess, VMError},
+    gas_cost,
     opcodes::Opcode,
     vm::VM,
 };
@@ -44,26 +44,8 @@ impl VM {
             topics.push(H256::from_slice(&topic_bytes));
         }
 
-        let memory_expansion_cost =
-            current_call_frame
-                .memory
-                .expansion_cost(offset.checked_add(size).ok_or(VMError::Internal(
-                    InternalError::ArithmeticOperationOverflow,
-                ))?)?;
-
-        let topics_cost = gas_cost::LOGN_DYNAMIC_BASE
-            .checked_mul(number_of_topics.into())
-            .ok_or(VMError::GasCostOverflow)?;
-        let bytes_cost = gas_cost::LOGN_DYNAMIC_BYTE_BASE
-            .checked_mul(size.into())
-            .ok_or(VMError::GasCostOverflow)?;
-        let gas_cost = topics_cost
-            .checked_add(gas_cost::LOGN_STATIC)
-            .ok_or(VMError::GasCostOverflow)?
-            .checked_add(bytes_cost)
-            .ok_or(VMError::GasCostOverflow)?
-            .checked_add(memory_expansion_cost)
-            .ok_or(VMError::GasCostOverflow)?;
+        let gas_cost = gas_cost::log(current_call_frame, size, offset, number_of_topics)
+            .map_err(VMError::OutOfGas)?;
 
         self.increase_consumed_gas(current_call_frame, gas_cost)?;
 
