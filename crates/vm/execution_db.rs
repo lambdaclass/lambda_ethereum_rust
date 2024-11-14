@@ -116,7 +116,6 @@ impl ExecutionDB {
                     address,
                 ))?;
             let storage_paths: Vec<_> = keys.iter().map(hash_key).collect();
-            dbg!(&storage_paths);
             let (storage_trie_root, storage_trie_nodes) =
                 storage_trie.get_pruned_state(&storage_paths)?;
             pruned_storage_tries.insert(address, (storage_trie_root, storage_trie_nodes));
