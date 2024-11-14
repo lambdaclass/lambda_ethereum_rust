@@ -29,7 +29,7 @@ jobs:
       - name: Install Foundry (for cast command)
         run: |
           curl -L https://foundry.paradigm.xyz | bash
-          source ~/.bashrc  # Refresh the shell environment to include foundryup in the PATH
+          source /home/runner/.bashrc
           foundryup          # Now run foundryup to complete the installation
 
       - name: Run Component 1 in the background
