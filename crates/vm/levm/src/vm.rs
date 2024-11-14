@@ -74,14 +74,25 @@ impl VM {
     ) -> Result<Self, VMError> {
         // Maybe this decision should be made in an upper layer
 
+        // Add sender, coinbase and recipient (in the case of a Call) to cache [https://www.evm.codes/about#access_list]
+        let sender_account_info = db.get_account_info(env.origin);
+        cache.add_account(&env.origin, &Account::from(sender_account_info.clone()));
+
+        let coinbase_account_info = db.get_account_info(env.coinbase);
+        cache.add_account(&env.coinbase, &Account::from(coinbase_account_info));
+
         match to {
             TxKind::Call(address_to) => {
+                // add address_to to cache
+                let recipient_account_info = db.get_account_info(address_to);
+                cache.add_account(&address_to, &Account::from(recipient_account_info.clone()));
+
                 // CALL tx
                 let initial_call_frame = CallFrame::new(
                     env.origin,
                     address_to,
                     address_to,
-                    db.get_account_info(address_to).bytecode,
+                    recipient_account_info.bytecode,
                     value,
                     calldata.clone(),
                     false,
@@ -101,8 +112,6 @@ impl VM {
             }
             TxKind::Create => {
                 // CREATE tx
-                let sender_account_info = db.get_account_info(env.origin);
-                // Note that this is a copy of account, not the real one
 
                 // (2)
                 let new_contract_address =
@@ -347,9 +356,7 @@ impl VM {
         }
 
         let origin = self.env.origin;
-        let to = call_frame.to;
 
-        let mut receiver_account = self.get_account(&to);
         let mut sender_account = self.get_account(&origin);
 
         // See if it's raised in upper layers
@@ -367,12 +374,8 @@ impl VM {
         if sender_account.info.balance < call_frame.msg_value {
             return Err(VMError::SenderBalanceShouldContainTransferValue);
         }
-        // TODO: This belongs elsewhere.
-        sender_account.info.balance -= call_frame.msg_value;
-        receiver_account.info.balance += call_frame.msg_value;
 
         self.cache.add_account(&origin, &sender_account);
-        self.cache.add_account(&to, &receiver_account);
 
         // (7)
         if self.env.gas_price < self.env.base_fee_per_gas {
