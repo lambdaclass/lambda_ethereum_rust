@@ -63,12 +63,6 @@ impl Memory {
         let size_to_store = offset.checked_add(len).ok_or(VMError::Internal(
             InternalError::ArithmeticOperationOverflow,
         ))?;
-        /*
-               let data_len = self.data.len();
-               if data_len < offset || data_len < size_to_store {
-                   return Err(VMError::MemoryStoreOutOfBounds);
-               }
-        */
         self.resize(size_to_store);
         self.data
             .splice(offset..size_to_store, value.iter().copied());

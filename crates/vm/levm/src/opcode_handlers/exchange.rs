@@ -23,11 +23,6 @@ impl VM {
             .ok_or(VMError::InvalidOpcode)?
             .checked_add(1)
             .ok_or(VMError::InvalidOpcode)?;
-        /*
-        if current_call_frame.stack.len() < depth as usize {
-            return Err(VMError::StackUnderflow);
-        }
-         */
         let stack_top_index = current_call_frame
             .stack
             .len()
