@@ -1,14 +1,16 @@
-use crate::{report::EFTestsReport, types::EFTest};
-use ethereum_rust_core::{H256, U256};
+use crate::{report::EFTestsReport, types::EFTest, utils};
+use ethereum_rust_core::{
+    types::{code_hash, AccountInfo},
+    H256,
+};
 use ethereum_rust_levm::{
-    db::{Cache, Db},
     errors::{TransactionReport, VMError},
     vm::VM,
-    Environment,
 };
+use ethereum_rust_storage::AccountUpdate;
 use keccak_hash::keccak;
 use spinoff::{spinners::Dots, Color, Spinner};
-use std::{error::Error, sync::Arc};
+use std::{collections::HashMap, error::Error};
 
 pub fn run_ef_tests() -> Result<EFTestsReport, Box<dyn Error>> {
     let mut report = EFTestsReport::default();
@@ -55,36 +57,12 @@ pub fn run_ef_test(test: EFTest, report: &mut EFTestsReport) -> Result<(), Box<d
     let mut evm = prepare_vm(&test, report)?;
     ensure_pre_state(&evm, &test, report)?;
     let execution_result = evm.transact();
-    ensure_post_state(execution_result, &evm, &test, report)?;
+    ensure_post_state(execution_result, &test, report)?;
     Ok(())
 }
 
 pub fn prepare_vm(test: &EFTest, report: &mut EFTestsReport) -> Result<VM, Box<dyn Error>> {
-    let vm_result = VM::new(
-        test.transaction.to.clone(),
-        Environment {
-            origin: test.transaction.sender,
-            consumed_gas: U256::default(),
-            refunded_gas: U256::default(),
-            gas_limit: test.env.current_gas_limit,
-            block_number: test.env.current_number,
-            coinbase: test.env.current_coinbase,
-            timestamp: test.env.current_timestamp,
-            prev_randao: Some(test.env.current_random),
-            chain_id: U256::from(1729),
-            base_fee_per_gas: test.env.current_base_fee,
-            gas_price: test.transaction.gas_price.unwrap_or_default(), // or max_fee_per_gas?
-            block_excess_blob_gas: Some(test.env.current_excess_blob_gas),
-            block_blob_gas_used: None,
-            tx_blob_hashes: None,
-        },
-        *test.transaction.value.first().unwrap(),
-        test.transaction.data.first().unwrap().clone(),
-        Arc::new(Db::from(test)),
-        Cache::default(),
-    );
-
-    match vm_result {
+    match VM::try_from(test) {
         Ok(vm) => Ok(vm),
         Err(err) => {
             let error_reason = format!("VM initialization failed: {err:?}");
@@ -165,12 +143,11 @@ fn ensure_pre_state_condition(
 
 pub fn ensure_post_state(
     execution_result: Result<TransactionReport, VMError>,
-    _evm: &VM,
     test: &EFTest,
     report: &mut EFTestsReport,
 ) -> Result<(), Box<dyn Error>> {
     match execution_result {
-        Ok(_execution_report) => {
+        Ok(execution_report) => {
             match test
                 .post
                 .clone()
@@ -186,7 +163,10 @@ pub fn ensure_post_state(
                 }
                 // Execution result was successful and no exception was expected.
                 // TODO: Check that the post-state matches the expected post-state.
-                None | Some(None) => {}
+                None | Some(None) => {
+                    let pos_state_root = post_state_root(execution_report, test);
+                    // test.post.values()
+                }
             }
         }
         Err(err) => {
@@ -211,4 +191,44 @@ pub fn ensure_post_state(
     };
     report.register_pass(&test.name);
     Ok(())
+}
+
+pub fn post_state_root(execution_report: TransactionReport, test: &EFTest) -> H256 {
+    let (initial_state, parent_hash) = utils::load_initial_state(test);
+
+    let mut account_updates: Vec<AccountUpdate> = vec![];
+    for (address, account) in execution_report.new_state {
+        let mut added_storage = HashMap::new();
+
+        for (key, value) in account.storage {
+            added_storage.insert(key, value.current_value);
+        }
+
+        let code = if account.info.bytecode.is_empty() {
+            None
+        } else {
+            Some(account.info.bytecode.clone())
+        };
+
+        let account_update = AccountUpdate {
+            address,
+            removed: false,
+            info: Some(AccountInfo {
+                code_hash: code_hash(&account.info.bytecode),
+                balance: account.info.balance,
+                nonce: account.info.nonce,
+            }),
+            code,
+            added_storage,
+        };
+
+        account_updates.push(account_update);
+    }
+
+    initial_state
+        .database()
+        .unwrap()
+        .apply_account_updates(parent_hash, &account_updates)
+        .unwrap()
+        .unwrap()
 }
