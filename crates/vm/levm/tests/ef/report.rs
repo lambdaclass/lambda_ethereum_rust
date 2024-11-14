@@ -11,7 +11,7 @@ pub struct EFTestsReport {
     failed: u64,
     total: u64,
     passed_tests: Vec<String>,
-    failed_tests: Vec<(String, String)>,
+    failed_tests: Vec<(String, (usize, usize, usize), String)>,
 }
 
 impl EFTestsReport {
@@ -21,10 +21,15 @@ impl EFTestsReport {
         self.total += 1;
     }
 
-    pub fn register_fail(&mut self, test_name: &str, reason: &str) {
+    pub fn register_fail(
+        &mut self,
+        tx_indexes: (usize, usize, usize),
+        test_name: &str,
+        reason: &str,
+    ) {
         self.failed += 1;
         self.failed_tests
-            .push((test_name.to_owned(), reason.to_owned()));
+            .push((test_name.to_owned(), tx_indexes, reason.to_owned()));
         self.total += 1;
     }
 
@@ -44,9 +49,12 @@ impl fmt::Display for EFTestsReport {
         for failing_test in self.failed_tests.clone() {
             writeln!(
                 f,
-                "{}: {}",
+                "{} - (data_index: {}, gas_limit_index: {}, value_index: {}). Err: {}",
                 failing_test.0.bold(),
-                failing_test.1.bright_red().bold()
+                failing_test.1 .0,
+                failing_test.1 .1,
+                failing_test.1 .2,
+                failing_test.2.bright_red().bold()
             )?;
         }
         Ok(())
