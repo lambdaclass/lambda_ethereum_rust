@@ -11,8 +11,8 @@ on:
 jobs:
   main:
     name: Validate PR title
-    # Skip step for events that are not pull request targets as it currenlty fails when ran in the merge queue
-    if: github.event_name == 'pull_request_target'
+    # Skip step for events that are not pull request targets as it currently fails when ran in the merge queue
+    if: github.event_name == 'pull_request_target' && github.head_ref != 'levm/integration_ci'
     runs-on: ubuntu-latest
     steps:
       - uses: amannn/action-semantic-pull-request@v5
