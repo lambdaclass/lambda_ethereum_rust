@@ -37,7 +37,7 @@ init-local-l1: ## 🚀 Initializes an L1 Lambda Ethereum Rust Client with Docker
 	
 init-l1: ## 🚀 Initializes an L1 Lambda Ethereum Rust Client
 	cargo run --release --manifest-path ../../Cargo.toml --bin ethereum_rust -- removedb --datadir dev_ethereum_rust_l1 && \
-	cargo run --release --manifest-path ../../Cargo.toml --bin ethereum_rust --features dev -- --network ${L2_GENESIS_FILE_PATH} --http.port 8545 --http.addr 0.0.0.0 --datadir dev_ethereum_rust_l1
+	cargo run --release --manifest-path ../../Cargo.toml --bin ethereum_rust --features dev -- --network ${L1_GENESIS_FILE_PATH} --http.port 8545 --http.addr 0.0.0.0 --datadir dev_ethereum_rust_l1
 
 down-local-l1: ## 🛑 Shuts down the L1 Lambda Ethereum Rust Client
 	docker compose -f ${ETHEREUM_RUST_DEV_DOCKER_COMPOSE_PATH} down

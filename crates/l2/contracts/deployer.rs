@@ -53,10 +53,10 @@ async fn main() {
             let (envar, _) = line.split_at(eq);
             line = match envar {
                 "COMMITTER_ON_CHAIN_PROPOSER_ADDRESS" => {
-                    format!("{envar}={on_chain_proposer:?}")
+                    format!("{envar}={on_chain_proposer:#x}")
                 }
                 "L1_WATCHER_BRIDGE_ADDRESS" => {
-                    format!("{envar}={bridge_address:?}")
+                    format!("{envar}={bridge_address:#x}")
                 }
                 _ => line,
             };

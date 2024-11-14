@@ -34,10 +34,16 @@ contract OnChainProposer is IOnChainProposer, ReentrancyGuard {
     /// @dev All blocks with a block number less than or equal to `lastCommittedBlock` are considered committed.
     /// @dev Blocks with a block number greater than `lastCommittedBlock` have not been committed yet.
     /// @dev This is crucial for ensuring that only subsequents blocks are committed in the contract.
+    /// @dev In the initialize function, `lastCommittedBlock` is set to u64::MAX == 0xFFFFFFFFFFFFFFFF, this value is used to allow the block 0 to be committed.
     uint256 public lastCommittedBlock;
 
     address public BRIDGE;
     address public R0VERIFIER;
+
+    /// @notice Address used to avoid the verification process.
+    /// @dev If the `R0VERIFIER` contract address is set to this address, the verification process will not happen.
+    /// @dev Used only in dev mode.
+    address public constant DEV_MODE = address(0xAA);
 
     /// @inheritdoc IOnChainProposer
     function initialize(
@@ -131,7 +137,7 @@ contract OnChainProposer is IOnChainProposer, ReentrancyGuard {
             "OnChainProposer: block already verified"
         );
 
-        if (R0VERIFIER != address(0xAA)) {
+        if (R0VERIFIER != DEV_MODE) {
             // If the verification fails, it will revert.
             IRiscZeroVerifier(R0VERIFIER).verify(
                 blockProof,
