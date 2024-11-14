@@ -18,7 +18,7 @@ fmt: ## 📄 Runs rustfmt
 
 SPECTEST_VERSION := v14.1
 SPECTEST_ARTIFACT := tests_$(SPECTEST_VERSION).tar.gz
-SPECTEST_VECTORS_DIR := tests/ef/tests
+SPECTEST_VECTORS_DIR := ../../../cmd/ef_tests/levm/vectors
 
 $(SPECTEST_ARTIFACT):
 	rm -f tests_*.tar.gz # Delete older versions
@@ -32,7 +32,8 @@ $(SPECTEST_VECTORS_DIR): $(SPECTEST_ARTIFACT)
 download-ef-tests: $(SPECTEST_VECTORS_DIR) ## 📥 Download EF Tests
 
 run-ef-tests: ## 🏃‍♂️ Run EF Tests
-	cargo test ef::testito -- --ignored
+	cd ../../../ && \
+	cargo test -p ef_tests-levm --tests test
 
 clean-ef-tests: ## 🗑️  Clean test vectors
 	rm -rf $(SPECTEST_VECTORS_DIR)
