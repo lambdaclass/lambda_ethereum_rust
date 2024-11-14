@@ -152,7 +152,7 @@ impl VM {
         // TODO: https://github.com/lambdaclass/lambda_ethereum_rust/issues/1088
     }
 
-    pub fn execute(&mut self, current_call_frame: &mut CallFrame) -> TransactionReport {
+    pub fn execute(&mut self, current_call_frame: &mut CallFrame) -> Result<TransactionReport, VMError> {
         // Backup of Database, Substate and Gas Refunds if sub-context is reverted
         let (backup_db, backup_substate, backup_refunded_gas) = (
             self.cache.clone(),
@@ -271,7 +271,7 @@ impl VM {
                 Ok(OpcodeSuccess::Continue) => {}
                 Ok(OpcodeSuccess::Result(_)) => {
                     self.call_frames.push(current_call_frame.clone());
-                    return TransactionReport {
+                    return Ok(TransactionReport {
                         result: TxResult::Success,
                         new_state: self.cache.accounts.clone(),
                         gas_used: current_call_frame.gas_used.low_u64(),
@@ -279,7 +279,7 @@ impl VM {
                         output: current_call_frame.returndata.clone(),
                         logs: current_call_frame.logs.clone(),
                         created_address: None,
-                    };
+                    });
                 }
                 Err(error) => {
                     self.call_frames.push(current_call_frame.clone());
@@ -293,11 +293,11 @@ impl VM {
 
                     self.restore_state(backup_db, backup_substate, backup_refunded_gas);
 
-                    println!(
-                        "Going to return transaction report with error: {:?}",
-                        &error
-                    );
-                    return TransactionReport {
+                    // println!(
+                    //     "Going to return transaction report with error: {:?}",
+                    //     &error
+                    // );
+                    return Ok(TransactionReport {
                         result: TxResult::Revert(error),
                         new_state: self.cache.accounts.clone(),
                         gas_used: current_call_frame.gas_used.low_u64(),
@@ -305,7 +305,7 @@ impl VM {
                         output: current_call_frame.returndata.clone(), // Bytes::new() if error is not RevertOpcode
                         logs: current_call_frame.logs.clone(),
                         created_address: None,
-                    };
+                    });
                 }
             }
         }
@@ -432,7 +432,7 @@ impl VM {
             .pop()
             .ok_or(VMError::Internal(InternalError::CouldNotPopCallframe))?;
 
-        let mut report = self.execute(&mut current_call_frame);
+        let mut report = self.execute(&mut current_call_frame)?;
 
         let initial_call_frame = self
             .call_frames
@@ -660,7 +660,7 @@ impl VM {
         self.cache.add_account(&to, &recipient_account);
 
         // self.call_frames.push(new_call_frame.clone());
-        let tx_report = self.execute(&mut new_call_frame);
+        let tx_report = self.execute(&mut new_call_frame)?;
 
         current_call_frame.gas_used += tx_report.gas_used.into(); // Add gas used by the sub-context to the current one after it's execution.
         current_call_frame.logs.extend(tx_report.logs);
