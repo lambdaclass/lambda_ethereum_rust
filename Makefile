@@ -12,7 +12,7 @@ lint: ## 🧹 Linter check
 
 SPECTEST_VERSION := v3.0.0
 SPECTEST_ARTIFACT := tests_$(SPECTEST_VERSION).tar.gz
-SPECTEST_VECTORS_DIR := cmd/ef_tests/vectors
+SPECTEST_VECTORS_DIR := cmd/ef_tests/ethereum_rust/vectors
 
 CRATE ?= *
 test: $(SPECTEST_VECTORS_DIR) ## 🧪 Run each crate's tests
