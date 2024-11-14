@@ -1,4 +1,4 @@
-use std::{collections::HashMap, hash::Hash};
+use std::collections::HashMap;
 
 use ethereum_rust_core::{
     types::{AccountState, Block, ChainConfig},
@@ -7,7 +7,7 @@ use ethereum_rust_core::{
 use ethereum_rust_rlp::encode::RLPEncode;
 use ethereum_rust_storage::{hash_address, hash_key, Store};
 use ethereum_rust_trie::{NodeRLP, Trie};
-use ethereum_types::{Address, H160, U256};
+use ethereum_types::H160;
 use revm::{
     primitives::{
         AccountInfo as RevmAccountInfo, Address as RevmAddress, Bytecode as RevmBytecode,
@@ -17,10 +17,7 @@ use revm::{
 };
 use serde::{Deserialize, Serialize};
 
-use crate::{
-    errors::{ExecutionDBError, StateProofsError},
-    evm_state, execute_block, get_state_transitions,
-};
+use crate::{errors::ExecutionDBError, evm_state, execute_block, get_state_transitions};
 
 /// In-memory EVM database for caching execution data.
 ///
@@ -44,15 +41,6 @@ pub struct ExecutionDB {
     /// encoded nodes to reconstruct every storage trie, but only including relevant data (pruned)
     /// root nodes are stored separately from the rest.
     pruned_storage_tries: HashMap<H160, (NodeRLP, Vec<NodeRLP>)>,
-}
-
-/// Merkle proofs of inclusion of state values.
-///
-/// Contains Merkle proofs to verfy the inclusion of values in the state and storage tries.
-#[derive(Debug, Clone, Serialize, Deserialize, Default)]
-pub struct StateProofs {
-    account: HashMap<RevmAddress, Vec<Vec<u8>>>,
-    storage: HashMap<RevmAddress, HashMap<RevmU256, Vec<Vec<u8>>>>,
 }
 
 impl ExecutionDB {
@@ -166,9 +154,9 @@ impl ExecutionDB {
     pub fn build_tries(&self) -> Result<(Trie, HashMap<H160, Trie>), ExecutionDBError> {
         let (state_trie_root, state_trie_nodes) = &self.pruned_state_trie;
         let state_trie = Trie::from_nodes(state_trie_root, state_trie_nodes)?;
-        let storage_tries = HashMap::new();
+        let mut storage_tries = HashMap::new();
 
-        for (revm_address, account) in self.accounts {
+        for (revm_address, account) in &self.accounts {
             let address = H160::from_slice(revm_address.as_slice());
 
             // check account is in state trie
@@ -190,10 +178,11 @@ impl ExecutionDB {
             // check all storage keys are in storage trie and compare values
             let storage = self
                 .storage
-                .get(&revm_address)
-                .ok_or(ExecutionDBError::StorageNotFound(revm_address))?;
+                .get(revm_address)
+                .ok_or(ExecutionDBError::StorageNotFound(*revm_address))?;
             for (key, value) in storage {
-                let key = H256::from_slice(&key.to_be_bytes());
+                let key = H256::from_slice(&key.to_be_bytes_vec());
+                let value = H256::from_slice(&value.to_be_bytes_vec());
                 let retrieved_value = storage_trie
                     .get(&hash_key(&key))?
                     .ok_or(ExecutionDBError::MissingKeyInStorageTrie(address, key))?;
@@ -206,89 +195,6 @@ impl ExecutionDB {
         }
 
         Ok((state_trie, storage_tries))
-    }
-}
-
-impl StateProofs {
-    fn new(
-        state_trie: &Trie,
-        storage_tries: &HashMap<Address, Trie>,
-        address_storage_keys: &HashMap<Address, Vec<H256>>,
-    ) -> Result<Self, StateProofsError> {
-        let mut account = HashMap::default();
-        let mut storage = HashMap::default();
-
-        for (address, storage_keys) in address_storage_keys {
-            let storage_trie = storage_tries
-                .get(address)
-                .ok_or(StateProofsError::StorageTrieNotFound(*address))?;
-
-            let proof = state_trie.get_proof(&hash_address(address))?;
-            let address = RevmAddress::from_slice(address.as_bytes());
-            account.insert(address, proof);
-
-            let mut storage_proofs = HashMap::new();
-            for key in storage_keys {
-                let proof = storage_trie.get_proof(&hash_key(key))?;
-                let key = RevmU256::from_be_bytes(key.to_fixed_bytes());
-                storage_proofs.insert(key, proof);
-            }
-            storage.insert(address, storage_proofs);
-        }
-
-        Ok(Self { account, storage })
-    }
-
-    fn verify(
-        &self,
-        state_root: H256,
-        accounts: &HashMap<RevmAddress, AccountState>,
-        storages: &HashMap<RevmAddress, HashMap<RevmU256, RevmU256>>,
-    ) -> Result<bool, StateProofsError> {
-        // Check accounts inclusion in the state trie
-        for (address, account) in accounts {
-            let proof = self
-                .account
-                .get(address)
-                .ok_or(StateProofsError::AccountProofNotFound(*address))?;
-
-            let hashed_address = hash_address(&H160::from_slice(address.as_slice()));
-            let mut encoded_account = Vec::new();
-            account.encode(&mut encoded_account);
-
-            if !Trie::verify_proof(proof, state_root.into(), &hashed_address, &encoded_account)? {
-                return Ok(false);
-            }
-        }
-        // so all account storage roots are valid at this point
-
-        // Check storage values inclusion in storage tries
-        for (address, storage) in storages {
-            let storage_root = accounts
-                .get(address)
-                .map(|account| account.storage_root)
-                .ok_or(StateProofsError::StorageNotFound(*address))?;
-
-            let storage_proofs = self
-                .storage
-                .get(address)
-                .ok_or(StateProofsError::StorageProofsNotFound(*address))?;
-
-            for (key, value) in storage {
-                let proof = storage_proofs
-                    .get(key)
-                    .ok_or(StateProofsError::StorageProofNotFound(*address, *key))?;
-
-                let hashed_key = hash_key(&H256::from_slice(&key.to_be_bytes_vec()));
-                let encoded_value = U256::from_big_endian(&value.to_be_bytes_vec()).encode_to_vec();
-
-                if !Trie::verify_proof(proof, storage_root.into(), &hashed_key, &encoded_value)? {
-                    return Ok(false);
-                }
-            }
-        }
-
-        Ok(true)
     }
 }
 

@@ -142,7 +142,7 @@ impl Trie {
 
     /// Return the hash of the trie's root node.
     /// Returns keccak(RLP_NULL) if the trie is empty
-    pub fn hash_no_commit(&mut self) -> Result<H256, TrieError> {
+    pub fn hash_no_commit(&self) -> Result<H256, TrieError> {
         Ok(self
             .root
             .as_ref()

@@ -16,12 +16,9 @@ fn main() {
     validate_block(&block, &parent_block_header, &state).expect("invalid block");
 
     // Validate the initial state
-    if !db
-        .verify_initial_state(parent_block_header.state_root)
-        .expect("failed to verify initial state")
-    {
-        panic!("initial state is not valid");
-    };
+    let (state_trie, storage_tries) = db
+        .build_tries()
+        .expect("failed to build state and storage tries");
 
     let receipts = execute_block(&block, &mut state).expect("failed to execute block");
 
