@@ -1,12 +1,6 @@
-#![allow(clippy::unwrap_used)]
-
-mod deserialize;
-mod report;
-mod runner;
-mod test;
+use crate::report;
 
 #[test]
-#[ignore]
 fn testito() {
     let report = runner::run_ef_tests().unwrap();
     println!("{report}");
