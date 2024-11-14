@@ -343,7 +343,12 @@ fn remove_internal_references_inner(
                     // Remove the nodes from the child's subtrie
                     let path = if left.is_eq() { left_path } else { right_path };
                     // Propagate the response so that this node will be removed too if the child's subtrie is wiped
-                    return Ok(remove_node(node_hash, path, right.is_eq(), trie_state));
+                    return Ok(remove_node(
+                        node_hash,
+                        path.offset(n.prefix.len()),
+                        right.is_eq(),
+                        trie_state,
+                    ));
                 }
             }
         }
