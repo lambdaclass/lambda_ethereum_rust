@@ -131,6 +131,12 @@ impl EFTestPost {
             EFTestPost::Cancun(v) => v,
         }
     }
+
+    pub fn iter(&self) -> impl Iterator<Item = &EFTestPostValue> {
+        match self {
+            EFTestPost::Cancun(v) => v.iter(),
+        }
+    }
 }
 
 #[derive(Debug, Deserialize, Clone)]

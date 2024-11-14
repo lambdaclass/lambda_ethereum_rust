@@ -165,7 +165,23 @@ pub fn ensure_post_state(
                 // TODO: Check that the post-state matches the expected post-state.
                 None | Some(None) => {
                     let pos_state_root = post_state_root(execution_report, test);
-                    // test.post.values()
+                    let expected_post_state_value = test.post.iter().next().cloned();
+                    if let Some(expected_post_state_root_hash) = expected_post_state_value {
+                        let expected_post_state_root_hash = expected_post_state_root_hash.hash;
+                        if expected_post_state_root_hash != pos_state_root {
+                            let error_reason = format!(
+                                "Post-state root mismatch: expected {expected_post_state_root_hash:#x}, got {pos_state_root:#x}",
+                            );
+                            report.register_fail(&test.name, &error_reason);
+                            return Err(
+                                format!("Post-state condition failed: {error_reason}").into()
+                            );
+                        }
+                    } else {
+                        let error_reason = "No post-state root hash provided";
+                        report.register_fail(&test.name, error_reason);
+                        return Err(format!("Post-state condition failed: {error_reason}").into());
+                    }
                 }
             }
         }
