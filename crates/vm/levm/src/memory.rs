@@ -25,7 +25,11 @@ impl Memory {
     }
 
     fn resize(&mut self, offset: usize) -> Result<(), VMError> {
-        let new_offset = offset.next_multiple_of(WORD_SIZE);
+        let new_offset = offset
+            .checked_next_multiple_of(WORD_SIZE)
+            .ok_or(VMError::Internal(
+                InternalError::ArithmeticOperationOverflow,
+            ))?;
         if new_offset > self.data.len() {
             // Expand the size
             let size_to_expand =
