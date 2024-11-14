@@ -1,7 +1,6 @@
-use crate::report;
+use ef_tests_levm::runner;
 
-#[test]
-fn testito() {
+fn main() {
     let report = runner::run_ef_tests().unwrap();
     println!("{report}");
 }

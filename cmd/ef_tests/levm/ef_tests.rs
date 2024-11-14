@@ -2,6 +2,5 @@
 
 mod deserialize;
 mod report;
-mod runner;
-mod tests;
+pub mod runner;
 mod types;
