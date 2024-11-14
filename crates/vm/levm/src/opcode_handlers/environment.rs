@@ -41,7 +41,7 @@ impl VM {
             self.cache_from_db(address);
         };
 
-        let balance = self.cache.get_account(*address).unwrap().info.balance;
+        let balance = self.get_account(address).info.balance;
 
         current_call_frame.stack.push(balance)?;
         Ok(OpcodeSuccess::Continue)
@@ -104,21 +104,38 @@ impl VM {
             .try_into()
             .map_err(|_| VMError::VeryLargeNumber)?;
 
-        // This check is because if offset is larger than the calldata then we should push 0 to the stack.
-        let result = if offset < current_call_frame.calldata.len() {
-            // Read calldata from offset to the end
-            let calldata = current_call_frame.calldata.slice(offset..);
+        // All bytes after the end of the calldata are set to 0.
+        let mut data = [0u8; 32];
+        for (i, byte) in current_call_frame
+            .calldata
+            .iter()
+            .skip(offset)
+            .take(32)
+            .enumerate()
+        {
+            if let Some(data_byte) = data.get_mut(i) {
+                *data_byte = *byte;
+            }
+        }
+        let result = U256::from_big_endian(&data);
 
-            // Get the 32 bytes from the data slice, padding with 0 if fewer than 32 bytes are available
-            let mut padded_calldata = [0u8; WORD_SIZE];
-            let data_len_to_copy = calldata.len().min(WORD_SIZE);
+        /*
+               // This check is because if offset is larger than the calldata then we should push 0 to the stack.
+               let result = if offset < current_call_frame.calldata.len() {
+                   // Read calldata from offset to the end
+                   let calldata = current_call_frame.calldata.slice(offset..);
 
-            padded_calldata[..data_len_to_copy].copy_from_slice(&calldata[..data_len_to_copy]);
+                   // Get the 32 bytes from the data slice, padding with 0 if fewer than 32 bytes are available
+                   let mut padded_calldata = [0u8; WORD_SIZE];
+                   let data_len_to_copy = calldata.len().min(WORD_SIZE);
 
-            U256::from_big_endian(&padded_calldata)
-        } else {
-            U256::zero()
-        };
+                   padded_calldata[..data_len_to_copy].copy_from_slice(&calldata[..data_len_to_copy]);
+
+                   U256::from_big_endian(&padded_calldata)
+               } else {
+                   U256::zero()
+               };
+        */
 
         current_call_frame.stack.push(result)?;
 
@@ -169,25 +186,20 @@ impl VM {
             return Ok(OpcodeSuccess::Continue);
         }
 
-        // This check is because if offset is larger than the calldata then we should push 0 to the stack.
-        let result = if calldata_offset < current_call_frame.calldata.len() {
-            // Read calldata from offset to the end
-            let calldata = current_call_frame.calldata.slice(calldata_offset..);
+        let mut data = [0u8; 32];
+        for (i, byte) in current_call_frame
+            .calldata
+            .iter()
+            .skip(calldata_offset)
+            .take(32)
+            .enumerate()
+        {
+            if let Some(data_byte) = data.get_mut(i) {
+                *data_byte = *byte;
+            }
+        }
 
-            // Get the 32 bytes from the data slice, padding with 0 if fewer than 32 bytes are available
-            let mut padded_calldata = vec![0u8; size];
-            let data_len_to_copy = calldata.len().min(size);
-
-            padded_calldata[..data_len_to_copy].copy_from_slice(&calldata[..data_len_to_copy]);
-
-            padded_calldata
-        } else {
-            vec![0u8; size]
-        };
-
-        current_call_frame
-            .memory
-            .store_bytes(dest_offset, &result)?;
+        current_call_frame.memory.store_bytes(dest_offset, &data)?;
 
         Ok(OpcodeSuccess::Continue)
     }
@@ -286,13 +298,7 @@ impl VM {
             self.cache_from_db(&address);
         };
 
-        let bytecode = self
-            .cache
-            .get_account(address)
-            .unwrap()
-            .info
-            .bytecode
-            .clone();
+        let bytecode = self.get_account(&address).info.bytecode;
 
         current_call_frame.stack.push(bytecode.len().into())?;
         Ok(OpcodeSuccess::Continue)
@@ -331,13 +337,7 @@ impl VM {
             self.cache_from_db(&address);
         };
 
-        let mut bytecode = self
-            .cache
-            .get_account(address)
-            .unwrap()
-            .info
-            .bytecode
-            .clone();
+        let mut bytecode = self.get_account(&address).info.bytecode;
 
         let new_offset = offset.checked_add(size).ok_or(VMError::Internal(
             InternalError::ArithmeticOperationOverflow,
@@ -348,9 +348,12 @@ impl VM {
             extended_code.resize(new_offset, 0);
             bytecode = Bytes::from(extended_code);
         }
-        current_call_frame
-            .memory
-            .store_bytes(dest_offset, &bytecode[offset..new_offset])?;
+        current_call_frame.memory.store_bytes(
+            dest_offset,
+            bytecode
+                .get(offset..new_offset)
+                .ok_or(VMError::Internal(InternalError::SlicingError))?, // bytecode can be "refactored" in order to avoid handling the error.
+        )?;
 
         Ok(OpcodeSuccess::Continue)
     }
@@ -433,13 +436,7 @@ impl VM {
             self.cache_from_db(&address);
         };
 
-        let bytecode = self
-            .cache
-            .get_account(address)
-            .unwrap()
-            .info
-            .bytecode
-            .clone();
+        let bytecode = self.get_account(&address).info.bytecode;
 
         let mut hasher = Keccak256::new();
         hasher.update(bytecode);

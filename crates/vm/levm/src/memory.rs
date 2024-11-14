@@ -34,7 +34,7 @@ impl Memory {
         self.resize(offset.checked_add(WORD_SIZE).ok_or(VMError::Internal(
             InternalError::ArithmeticOperationOverflow, // MemoryLoadOutOfBounds?
         ))?);
-        let value_bytes: [u8; WORD_SIZE] = self
+        let value_bytes = self
             .data
             .get(
                 offset
@@ -42,10 +42,9 @@ impl Memory {
                         InternalError::ArithmeticOperationOverflow, // MemoryLoadOutOfBounds?
                     ))?,
             )
-            .ok_or(VMError::MemoryLoadOutOfBounds)?
-            .try_into()
-            .unwrap();
-        Ok(U256::from(value_bytes))
+            .ok_or(VMError::MemoryLoadOutOfBounds)?;
+
+        Ok(U256::from_big_endian(value_bytes))
     }
 
     pub fn load_range(&mut self, offset: usize, size: usize) -> Result<Vec<u8>, VMError> {
@@ -110,13 +109,43 @@ impl Memory {
             InternalError::ArithmeticOperationOverflow,
         ))?;
         let max_size = std::cmp::max(src_copy_size, dest_copy_size);
-        self.resize(max_size);
+
+        if max_size > self.data.len() {
+            self.resize(max_size);
+        }
+
         let mut temp = vec![0u8; size];
 
-        temp.copy_from_slice(&self.data[src_offset..src_copy_size]);
+        temp.copy_from_slice(
+            self.data
+                .get(src_offset..src_copy_size)
+                .ok_or(VMError::Internal(InternalError::SlicingError))?,
+        );
 
-        self.data[dest_offset..dest_copy_size].copy_from_slice(&temp);
+        // self.data[dest_offset..dest_copy_size].copy_from_slice(&temp);
 
+        for i in 0..size {
+            if let Some(temp_byte) = temp.get_mut(i) {
+                *temp_byte = *self
+                    .data
+                    .get(
+                        src_offset
+                            .checked_add(i)
+                            .ok_or(VMError::MemoryLoadOutOfBounds)?,
+                    )
+                    .unwrap_or(&0u8);
+            }
+        }
+
+        for i in 0..size {
+            if let Some(memory_byte) = self.data.get_mut(
+                dest_offset
+                    .checked_add(i)
+                    .ok_or(VMError::MemoryLoadOutOfBounds)?,
+            ) {
+                *memory_byte = *temp.get(i).unwrap_or(&0u8);
+            }
+        }
         Ok(())
     }
 

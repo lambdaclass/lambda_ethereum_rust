@@ -61,6 +61,10 @@ pub enum VMError {
     BalanceUnderflow,
     #[error("Remaining Gas Underflow")]
     RemainingGasUnderflow, // When gas used is higher than gas limit, is there already an error for that?
+    #[error("Gas refunds underflow")]
+    GasRefundsUnderflow,
+    #[error("Gas refunds overflow")]
+    GasRefundsOverflow,
     // OutOfGas
     #[error("Out Of Gas")]
     OutOfGas(#[from] OutOfGasError),
@@ -105,10 +109,26 @@ pub enum InternalError {
     AccountShouldHaveBeenCached,
     #[error("Tried to convert one type to another")]
     ConversionError,
-    #[error("Failed computing CREATE2 address")]
-    CouldNotComputeCreate2Address,
     #[error("Division error")]
     DivisionError,
+    #[error("Tried to access last call frame but found none")]
+    CouldNotAccessLastCallframe, // Last callframe before execution is the same as the first, but after execution the last callframe is actually the initial CF
+    #[error("Tried to read from empty code")]
+    TriedToIndexEmptyCode,
+    #[error("Failed computing CREATE address")]
+    CouldNotComputeCreateAddress,
+    #[error("Failed computing CREATE2 address")]
+    CouldNotComputeCreate2Address,
+    #[error("Tried to slice non-existing data")]
+    SlicingError,
+    #[error("Could not pop callframe")]
+    CouldNotPopCallframe,
+    #[error("Account not found")]
+    AccountNotFound,
+    #[error("ExcessBlobGas should not be None")]
+    ExcessBlobGasShouldNotBeNone,
+    #[error("Error in utils file")]
+    UtilsError,
 }
 
 #[derive(Debug, Clone)]
