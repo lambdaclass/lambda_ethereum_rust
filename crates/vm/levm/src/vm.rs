@@ -428,16 +428,10 @@ impl VM {
     //     Ok(())
     // }
 
-    pub fn transact(&mut self) -> Result<TransactionReport, VMError> {
-        self.validate_transaction()?;
-
-        let mut current_call_frame = self
-            .call_frames
-            .pop()
-            .ok_or(VMError::Internal(InternalError::CouldNotPopCallframe))?;
-
-        let mut report = self.execute(&mut current_call_frame)?;
-
+    pub fn post_execution_changes(
+        &mut self,
+        report: &mut TransactionReport,
+    ) -> Result<(), VMError> {
         let initial_call_frame = self
             .call_frames
             .last()
@@ -565,6 +559,33 @@ impl VM {
         self.cache.add_account(&coinbase_address, &coinbase_account);
 
         report.new_state.clone_from(&self.cache.accounts);
+
+        Ok(())
+    }
+
+    pub fn transact(&mut self) -> Result<TransactionReport, VMError> {
+        self.validate_transaction()?;
+
+        let mut current_call_frame = self
+            .call_frames
+            .pop()
+            .ok_or(VMError::Internal(InternalError::CouldNotPopCallframe))?;
+
+        let mut report = self.execute(&mut current_call_frame)?;
+
+        match self.post_execution_changes(&mut report) {
+            Ok(_) => {}
+            Err(error) => {
+                if error.is_internal() {
+                    return Err(error);
+                }
+                else {
+                    if report.result == TxResult::Success {
+                        report.result = TxResult::Revert(error);
+                    }
+                }
+            }
+        }
 
         Ok(report)
     }
