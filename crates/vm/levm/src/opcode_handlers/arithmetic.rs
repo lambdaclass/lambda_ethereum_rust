@@ -245,7 +245,12 @@ impl VM {
 
         let byte_size = byte_size.min(U256::from(max_byte_size));
         let sign_bit_index = bits_per_byte * byte_size + sign_bit_position_on_byte;
-        let is_negative = value_to_extend.bit(sign_bit_index.as_usize());
+
+        let sign_bit_index_usize: usize = sign_bit_index
+            .try_into()
+            .map_err(|_err| VMError::VeryLargeNumber)?;
+        let is_negative = value_to_extend.bit(sign_bit_index_usize);
+
         let sign_bit_mask = (U256::one() << sign_bit_index) - U256::one();
         let result = if is_negative {
             value_to_extend | !sign_bit_mask
