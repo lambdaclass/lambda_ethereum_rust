@@ -431,10 +431,6 @@ impl VM {
     pub fn transact(&mut self) -> Result<TransactionReport, VMError> {
         self.validate_transaction()?;
 
-        let initial_gas = Default::default();
-
-        self.env.consumed_gas = initial_gas;
-
         let mut current_call_frame = self
             .call_frames
             .pop()
