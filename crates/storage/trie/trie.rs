@@ -170,12 +170,16 @@ impl Trie {
     }
 
     /// Obtains all encoded nodes traversed until reaching the node where every path is stored.
+    /// The list doesn't include the root node, this is returned separately.
     /// Will still be constructed even if some path is not stored in the trie.
-    pub fn get_pruned_state(&self, paths: &[PathRLP]) -> Result<Vec<NodeRLP>, TrieError> {
+    pub fn get_pruned_state(
+        &self,
+        paths: &[PathRLP],
+    ) -> Result<(Option<NodeRLP>, Vec<NodeRLP>), TrieError> {
         // Will store all the encoded nodes traversed until reaching the node containing the path
         let mut node_path = Vec::new();
         let Some(root) = &self.root else {
-            return Ok(node_path);
+            return Ok((None, node_path));
         };
         // If the root is inlined, add it to the node_path
         if let NodeHash::Inline(node) = root {
@@ -187,17 +191,19 @@ impl Trie {
             }
         }
 
+        let root_node = node_path.swap_remove(0);
+
         // dedup
         // TODO: really inefficient, by making the traversing smarter we can avoid having
         // duplicates
         let node_path: HashSet<_> = node_path.drain(..).collect();
         let node_path = Vec::from_iter(node_path);
-        Ok(node_path)
+        Ok((Some(root_node), node_path))
     }
 
     /// Creates a cached Trie (with [NullTrieDB]) from a list of encoded nodes.
     /// Generally used in conjuction with [Trie::get_pruned_state].
-    pub fn from_nodes(root_node: NodeRLP, other_nodes: &[NodeRLP]) -> Result<Self, TrieError> {
+    pub fn from_nodes(root_node: &NodeRLP, other_nodes: &[NodeRLP]) -> Result<Self, TrieError> {
         let mut trie = Trie::new(Box::new(NullTrieDB));
 
         let root_node = Node::decode_raw(&root_node)?;
