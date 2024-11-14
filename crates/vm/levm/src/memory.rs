@@ -116,8 +116,6 @@ impl Memory {
                 .ok_or(VMError::Internal(InternalError::SlicingError))?,
         );
 
-        // self.data[dest_offset..dest_copy_size].copy_from_slice(&temp);
-
         for i in 0..size {
             if let Some(temp_byte) = temp.get_mut(i) {
                 *temp_byte = *self
