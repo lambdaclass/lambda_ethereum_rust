@@ -1,4 +1,4 @@
-use ethereum_rust_core::types::InvalidBlockHeaderError;
+use ethereum_rust_core::types::{InvalidBlockHeaderError, BlobsBundleError};
 use ethereum_rust_storage::error::StoreError;
 use ethereum_rust_vm::EvmError;
 
@@ -42,6 +42,8 @@ pub enum MempoolError {
     NoBlockHeaderError,
     #[error("DB error: {0}")]
     StoreError(#[from] StoreError),
+    #[error("BlobsBundle error: {0}")]
+    BlobsBundleError(#[from] BlobsBundleError),
     #[error("Transaction max init code size exceeded")]
     TxMaxInitCodeSizeError,
     #[error("Transaction gas limit exceeded")]
@@ -66,8 +68,6 @@ pub enum MempoolError {
     NotEnoughBalance,
     #[error("Transaction gas fields are invalid")]
     InvalidTxGasvalues,
-    #[error("Blob versioned hashes do not match the blob commitments")]
-    BlobVersionedHashesIncorrectError,
 }
 
 #[derive(Debug)]
