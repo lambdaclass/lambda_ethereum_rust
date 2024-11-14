@@ -201,6 +201,14 @@ fn validate_transaction(tx: &Transaction, store: Store) -> Result<(), MempoolErr
     if tx.gas_limit() < transaction_intrinsic_gas(tx, &header, &config)? {
         return Err(MempoolError::TxIntrinsicGasCostAboveLimitError);
     }
+    
+    // Check that the specified blob gas fee is above the minimum value
+    if let Some(fee) = tx.max_fee_per_blob_gas() {
+        // Blob tx
+        if fee < MIN_BASE_FEE_PER_BLOB_GAS.into() {
+            return Err(MempoolError::TxBlobBaseFeeTooLowError);
+        }
+    };
 
     let maybe_sender_acc_info = store.get_account_info(header_no, tx.sender())?;
 
@@ -242,10 +250,6 @@ fn validate_blob_transaction(
 
     if tx_blob_count == 0 {
         return Err(MempoolError::BlobTxNoBlobsBundle);
-    }
-
-    if tx.max_fee_per_blob_gas < MIN_BASE_FEE_PER_BLOB_GAS.into() {
-        return Err(MempoolError::TxBlobBaseFeeTooLowError);
     }
 
     if tx_blob_count != blobs_bundle.blobs.len()
@@ -329,13 +333,12 @@ mod tests {
 
     use super::{transaction_intrinsic_gas, validate_transaction};
     use ethereum_rust_core::types::{
-        BlobsBundle, BlockHeader, ChainConfig, EIP1559Transaction, EIP4844Transaction, Transaction,
-        TxKind, BYTES_PER_BLOB,
+        BlockHeader, ChainConfig, EIP1559Transaction, EIP4844Transaction, Transaction,
+        TxKind,
     };
     use ethereum_rust_core::{Address, Bytes, H256, U256};
     use ethereum_rust_storage::EngineType;
     use ethereum_rust_storage::{error::StoreError, Store};
-    use hex;
 
     fn setup_storage(config: ChainConfig, header: BlockHeader) -> Result<Store, StoreError> {
         let store = Store::new("test", EngineType::InMemory)?;
