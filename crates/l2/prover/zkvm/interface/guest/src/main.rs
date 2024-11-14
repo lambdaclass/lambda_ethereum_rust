@@ -1,4 +1,4 @@
-use ethereum_rust_rlp::{decode::RLPDecode, error::RLPDecodeError};
+use ethereum_rust_rlp::{decode::RLPDecode, encode::RLPEncode, error::RLPDecodeError};
 use risc0_zkvm::guest::env;
 
 use ethereum_rust_blockchain::{validate_block, validate_gas_used};
@@ -7,12 +7,22 @@ use ethereum_rust_vm::{execute_block, execution_db::ExecutionDB, get_state_trans
 
 fn main() {
     let (block, execution_db, parent_header) = read_inputs().expect("failed to read inputs");
-    let mut state = EvmState::from_exec_db(execution_db.clone());
+    let mut state = EvmState::from(execution_db.clone());
 
     // Validate the block pre-execution
     validate_block(&block, &parent_header, &state).expect("invalid block");
 
+    // Validate the initial state
+    if !execution_db
+        .verify_initial_state(parent_header.state_root)
+        .expect("failed to verify initial state")
+    {
+        panic!("initial state is not valid");
+    };
+
     let receipts = execute_block(&block, &mut state).unwrap();
+
+    env::commit(&receipts);
 
     validate_gas_used(&receipts, &block.header).expect("invalid gas used");
 
@@ -31,9 +41,9 @@ fn read_inputs() -> Result<(Block, ExecutionDB, BlockHeader), RLPDecodeError> {
     let parent_header = BlockHeader::decode(&parent_header_bytes)?;
 
     // make inputs public
-    env::commit(&block);
+    env::commit(&block.encode_to_vec());
     env::commit(&execution_db);
-    env::commit(&parent_header);
+    env::commit(&parent_header.encode_to_vec());
 
     Ok((block, execution_db, parent_header))
 }

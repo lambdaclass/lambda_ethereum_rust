@@ -310,7 +310,7 @@ pub fn fill_transactions(context: &mut PayloadBuildContext) -> Result<(), ChainE
             debug!("Ignoring replay-protected transaction: {}", tx_hash);
             txs.pop();
             mempool::remove_transaction(
-                tx_hash,
+                &head_tx.tx.compute_hash(),
                 context
                     .store()
                     .ok_or(ChainError::StoreError(StoreError::MissingStore))?,
@@ -323,7 +323,7 @@ pub fn fill_transactions(context: &mut PayloadBuildContext) -> Result<(), ChainE
                 txs.shift()?;
                 // Pull transaction from the mempool
                 mempool::remove_transaction(
-                    tx_hash,
+                    &head_tx.tx.compute_hash(),
                     context
                         .store()
                         .ok_or(ChainError::StoreError(StoreError::MissingStore))?,
@@ -418,6 +418,8 @@ fn apply_plain_transaction(
 
 fn finalize_payload(context: &mut PayloadBuildContext) -> Result<(), StoreError> {
     let account_updates = get_state_transitions(context.evm_state);
+    // Note: This is commented because it is still being used in development.
+    // dbg!(&account_updates);
     context.payload.header.state_root = context
         .store()
         .ok_or(StoreError::MissingStore)?

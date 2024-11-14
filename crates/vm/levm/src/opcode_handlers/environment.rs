@@ -1,11 +1,12 @@
-use super::*;
 use crate::{
-    constants::{
-        call_opcode::{COLD_ADDRESS_ACCESS_COST, WARM_ADDRESS_ACCESS_COST},
-        WORD_SIZE,
-    },
-    vm::word_to_address,
+    call_frame::CallFrame,
+    constants::{BALANCE_COLD_ADDRESS_ACCESS_COST, WARM_ADDRESS_ACCESS_COST},
+    errors::{InternalError, OpcodeSuccess, OutOfGasError, VMError},
+    gas_cost,
+    vm::{word_to_address, VM},
 };
+use bytes::Bytes;
+use ethereum_rust_core::U256;
 use sha3::{Digest, Keccak256};
 
 // Environmental Information (16)
@@ -36,11 +37,11 @@ impl VM {
         if self.cache.is_account_cached(address) {
             self.increase_consumed_gas(current_call_frame, WARM_ADDRESS_ACCESS_COST)?;
         } else {
-            self.increase_consumed_gas(current_call_frame, COLD_ADDRESS_ACCESS_COST)?;
+            self.increase_consumed_gas(current_call_frame, BALANCE_COLD_ADDRESS_ACCESS_COST)?;
             self.cache_from_db(address);
         };
 
-        let balance = self.cache.get_account(*address).unwrap().info.balance;
+        let balance = self.get_account(address).info.balance;
 
         current_call_frame.stack.push(balance)?;
         Ok(OpcodeSuccess::Continue)
@@ -101,9 +102,24 @@ impl VM {
             .stack
             .pop()?
             .try_into()
-            .unwrap_or(usize::MAX);
-        let value = U256::from_big_endian(&current_call_frame.calldata.slice(offset..offset + 32));
-        current_call_frame.stack.push(value)?;
+            .map_err(|_| VMError::VeryLargeNumber)?;
+
+        // All bytes after the end of the calldata are set to 0.
+        let mut data = [0u8; 32];
+        for (i, byte) in current_call_frame
+            .calldata
+            .iter()
+            .skip(offset)
+            .take(32)
+            .enumerate()
+        {
+            if let Some(data_byte) = data.get_mut(i) {
+                *data_byte = *byte;
+            }
+        }
+        let result = U256::from_big_endian(&data);
+
+        current_call_frame.stack.push(result)?;
 
         Ok(OpcodeSuccess::Continue)
     }
@@ -131,25 +147,20 @@ impl VM {
             .stack
             .pop()?
             .try_into()
-            .unwrap_or(usize::MAX);
+            .map_err(|_err| VMError::VeryLargeNumber)?;
         let calldata_offset: usize = current_call_frame
             .stack
             .pop()?
             .try_into()
-            .unwrap_or(usize::MAX);
+            .map_err(|_err| VMError::VeryLargeNumber)?;
         let size: usize = current_call_frame
             .stack
             .pop()?
             .try_into()
-            .unwrap_or(usize::MAX);
+            .map_err(|_err| VMError::VeryLargeNumber)?;
 
-        let minimum_word_size = (size + WORD_SIZE - 1) / WORD_SIZE;
-        let memory_expansion_cost = current_call_frame
-            .memory
-            .expansion_cost(dest_offset + size)?;
-        let gas_cost = gas_cost::CALLDATACOPY_STATIC
-            + gas_cost::CALLDATACOPY_DYNAMIC_BASE * minimum_word_size
-            + memory_expansion_cost;
+        let gas_cost = gas_cost::calldatacopy(current_call_frame, size, dest_offset)
+            .map_err(VMError::OutOfGas)?;
 
         self.increase_consumed_gas(current_call_frame, gas_cost)?;
 
@@ -157,10 +168,20 @@ impl VM {
             return Ok(OpcodeSuccess::Continue);
         }
 
-        let data = current_call_frame
+        let mut data = [0u8; 32];
+        for (i, byte) in current_call_frame
             .calldata
-            .slice(calldata_offset..calldata_offset + size);
-        current_call_frame.memory.store_bytes(dest_offset, &data);
+            .iter()
+            .skip(calldata_offset)
+            .take(32)
+            .enumerate()
+        {
+            if let Some(data_byte) = data.get_mut(i) {
+                *data_byte = *byte;
+            }
+        }
+
+        current_call_frame.memory.store_bytes(dest_offset, &data)?;
 
         Ok(OpcodeSuccess::Continue)
     }
@@ -170,15 +191,21 @@ impl VM {
         &mut self,
         current_call_frame: &mut CallFrame,
     ) -> Result<OpcodeSuccess, VMError> {
-        if self.env.consumed_gas + gas_cost::CODESIZE > self.env.gas_limit {
-            return Err(VMError::OutOfGas);
+        if self
+            .env
+            .consumed_gas
+            .checked_add(gas_cost::CODESIZE)
+            .ok_or(VMError::OutOfGas(OutOfGasError::ConsumedGasOverflow))?
+            > self.env.gas_limit
+        {
+            return Err(VMError::OutOfGas(OutOfGasError::MaxGasLimitExceeded));
         }
 
         current_call_frame
             .stack
             .push(U256::from(current_call_frame.bytecode.len()))?;
 
-        self.env.consumed_gas += gas_cost::CODESIZE;
+        self.increase_consumed_gas(current_call_frame, gas_cost::CODESIZE)?;
 
         Ok(OpcodeSuccess::Continue)
     }
@@ -204,21 +231,25 @@ impl VM {
             .try_into()
             .map_err(|_| VMError::VeryLargeNumber)?;
 
-        let minimum_word_size = (size + WORD_SIZE - 1) / WORD_SIZE;
-
-        let memory_expansion_cost = current_call_frame
-            .memory
-            .expansion_cost(dest_offset + size)?;
-
-        let gas_cost = gas_cost::CODECOPY_STATIC
-            + gas_cost::CODECOPY_DYNAMIC_BASE * minimum_word_size
-            + memory_expansion_cost;
+        let gas_cost =
+            gas_cost::codecopy(current_call_frame, size, dest_offset).map_err(VMError::OutOfGas)?;
 
         self.increase_consumed_gas(current_call_frame, gas_cost)?;
 
-        let code = current_call_frame.bytecode.slice(offset..offset + size);
+        let bytecode_len = current_call_frame.bytecode.len();
+        let code = if offset < bytecode_len {
+            current_call_frame.bytecode.slice(
+                offset
+                    ..(offset.checked_add(size).ok_or(VMError::Internal(
+                        InternalError::ArithmeticOperationOverflow,
+                    ))?)
+                    .min(bytecode_len),
+            )
+        } else {
+            vec![0u8; size].into()
+        };
 
-        current_call_frame.memory.store_bytes(dest_offset, &code);
+        current_call_frame.memory.store_bytes(dest_offset, &code)?;
 
         Ok(OpcodeSuccess::Continue)
     }
@@ -245,17 +276,11 @@ impl VM {
         if self.cache.is_account_cached(&address) {
             self.increase_consumed_gas(current_call_frame, WARM_ADDRESS_ACCESS_COST)?;
         } else {
-            self.increase_consumed_gas(current_call_frame, COLD_ADDRESS_ACCESS_COST)?;
+            self.increase_consumed_gas(current_call_frame, BALANCE_COLD_ADDRESS_ACCESS_COST)?;
             self.cache_from_db(&address);
         };
 
-        let bytecode = self
-            .cache
-            .get_account(address)
-            .unwrap()
-            .info
-            .bytecode
-            .clone();
+        let bytecode = self.get_account(&address).info.bytecode;
 
         current_call_frame.stack.push(bytecode.len().into())?;
         Ok(OpcodeSuccess::Continue)
@@ -283,36 +308,34 @@ impl VM {
             .try_into()
             .map_err(|_| VMError::VeryLargeNumber)?;
 
-        let minimum_word_size = (size + WORD_SIZE - 1) / WORD_SIZE;
-        let memory_expansion_cost = current_call_frame
-            .memory
-            .expansion_cost(dest_offset + size)?;
-        let gas_cost =
-            gas_cost::EXTCODECOPY_DYNAMIC_BASE * minimum_word_size + memory_expansion_cost;
+        let is_cached = self.cache.is_account_cached(&address);
 
-        if self.cache.is_account_cached(&address) {
-            self.increase_consumed_gas(current_call_frame, gas_cost + WARM_ADDRESS_ACCESS_COST)?;
-        } else {
-            self.increase_consumed_gas(current_call_frame, gas_cost + COLD_ADDRESS_ACCESS_COST)?;
+        let gas_cost = gas_cost::extcodecopy(current_call_frame, size, dest_offset, is_cached)
+            .map_err(VMError::OutOfGas)?;
+
+        self.increase_consumed_gas(current_call_frame, gas_cost)?;
+
+        if !is_cached {
             self.cache_from_db(&address);
         };
 
-        let mut bytecode = self
-            .cache
-            .get_account(address)
-            .unwrap()
-            .info
-            .bytecode
-            .clone();
+        let mut bytecode = self.get_account(&address).info.bytecode;
 
-        if bytecode.len() < offset + size {
+        let new_offset = offset.checked_add(size).ok_or(VMError::Internal(
+            InternalError::ArithmeticOperationOverflow,
+        ))?;
+
+        if bytecode.len() < new_offset {
             let mut extended_code = bytecode.to_vec();
-            extended_code.resize(offset + size, 0);
+            extended_code.resize(new_offset, 0);
             bytecode = Bytes::from(extended_code);
         }
-        current_call_frame
-            .memory
-            .store_bytes(dest_offset, &bytecode[offset..offset + size]);
+        current_call_frame.memory.store_bytes(
+            dest_offset,
+            bytecode
+                .get(offset..new_offset)
+                .ok_or(VMError::Internal(InternalError::SlicingError))?, // bytecode can be "refactored" in order to avoid handling the error.
+        )?;
 
         Ok(OpcodeSuccess::Continue)
     }
@@ -340,25 +363,20 @@ impl VM {
             .stack
             .pop()?
             .try_into()
-            .unwrap_or(usize::MAX);
+            .map_err(|_| VMError::VeryLargeNumber)?;
         let returndata_offset: usize = current_call_frame
             .stack
             .pop()?
             .try_into()
-            .unwrap_or(usize::MAX);
+            .map_err(|_| VMError::VeryLargeNumber)?;
         let size: usize = current_call_frame
             .stack
             .pop()?
             .try_into()
-            .unwrap_or(usize::MAX);
+            .map_err(|_| VMError::VeryLargeNumber)?;
 
-        let minimum_word_size = (size + WORD_SIZE - 1) / WORD_SIZE;
-        let memory_expansion_cost = current_call_frame
-            .memory
-            .expansion_cost(dest_offset + size)?;
-        let gas_cost = gas_cost::RETURNDATACOPY_STATIC
-            + gas_cost::RETURNDATACOPY_DYNAMIC_BASE * minimum_word_size
-            + memory_expansion_cost;
+        let gas_cost = gas_cost::returndatacopy(current_call_frame, size, dest_offset)
+            .map_err(VMError::OutOfGas)?;
 
         self.increase_consumed_gas(current_call_frame, gas_cost)?;
 
@@ -366,10 +384,22 @@ impl VM {
             return Ok(OpcodeSuccess::Continue);
         }
 
-        let data = current_call_frame
-            .sub_return_data
-            .slice(returndata_offset..returndata_offset + size);
-        current_call_frame.memory.store_bytes(dest_offset, &data);
+        let sub_return_data_len = current_call_frame.sub_return_data.len();
+        let data = if returndata_offset < sub_return_data_len {
+            current_call_frame.sub_return_data.slice(
+                returndata_offset
+                    ..(returndata_offset
+                        .checked_add(size)
+                        .ok_or(VMError::Internal(
+                            InternalError::ArithmeticOperationOverflow,
+                        ))?)
+                    .min(sub_return_data_len),
+            )
+        } else {
+            vec![0u8; size].into()
+        };
+
+        current_call_frame.memory.store_bytes(dest_offset, &data)?;
 
         Ok(OpcodeSuccess::Continue)
     }
@@ -384,17 +414,11 @@ impl VM {
         if self.cache.is_account_cached(&address) {
             self.increase_consumed_gas(current_call_frame, WARM_ADDRESS_ACCESS_COST)?;
         } else {
-            self.increase_consumed_gas(current_call_frame, COLD_ADDRESS_ACCESS_COST)?;
+            self.increase_consumed_gas(current_call_frame, BALANCE_COLD_ADDRESS_ACCESS_COST)?;
             self.cache_from_db(&address);
         };
 
-        let bytecode = self
-            .cache
-            .get_account(address)
-            .unwrap()
-            .info
-            .bytecode
-            .clone();
+        let bytecode = self.get_account(&address).info.bytecode;
 
         let mut hasher = Keccak256::new();
         hasher.update(bytecode);

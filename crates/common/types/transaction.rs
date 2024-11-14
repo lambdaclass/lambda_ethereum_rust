@@ -2,8 +2,9 @@ use std::cmp::min;
 
 use bytes::Bytes;
 use ethereum_types::{Address, H256, U256};
+use keccak_hash::keccak;
 pub use mempool::MempoolTransaction;
-use secp256k1::{ecdsa::RecoveryId, Message, SECP256K1};
+use secp256k1::{ecdsa::RecoveryId, Message, SecretKey};
 use serde::{ser::SerializeStruct, Deserialize, Serialize};
 pub use serde_impl::{AccessListEntry, GenericTransaction};
 use sha3::{Digest, Keccak256};
@@ -11,12 +12,20 @@ use sha3::{Digest, Keccak256};
 use ethereum_rust_rlp::{
     constants::RLP_NULL,
     decode::{get_rlp_bytes_item_payload, is_encoded_as_bytes, RLPDecode},
-    encode::RLPEncode,
+    encode::{PayloadRLPEncode, RLPEncode},
     error::RLPDecodeError,
     structs::{Decoder, Encoder},
 };
 
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+// The `#[serde(untagged)]` attribute allows the `Transaction` enum to be serialized without
+// a tag indicating the variant type. This means that Serde will serialize the enum's variants
+// directly according to the structure of the variant itself.
+// For each variant, Serde will use the serialization logic implemented
+// for the inner type of that variant (like `LegacyTransaction`, `EIP2930Transaction`, etc.).
+// The serialization will fail if the data does not match the structure of any variant.
+//
+// A custom Deserialization method is implemented to match the specific transaction `type`.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize)]
 #[serde(untagged)]
 pub enum Transaction {
     LegacyTransaction(LegacyTransaction),
@@ -90,7 +99,7 @@ pub struct EIP4844Transaction {
     pub signature_s: U256,
 }
 
-#[derive(Clone, Debug, PartialEq, Eq, Default, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Default)]
 pub struct PrivilegedL2Transaction {
     pub chain_id: u64,
     pub nonce: u64,
@@ -126,6 +135,19 @@ pub enum TxType {
     Privileged = 0x7e,
 }
 
+pub trait Signable {
+    fn sign(&self, private_key: &SecretKey) -> Self
+    where
+        Self: Sized,
+        Self: Clone,
+    {
+        let mut signable = self.clone();
+        signable.sign_inplace(private_key);
+        signable
+    }
+    fn sign_inplace(&mut self, private_key: &SecretKey);
+}
+
 impl Transaction {
     pub fn tx_type(&self) -> TxType {
         match self {
@@ -135,6 +157,43 @@ impl Transaction {
             Transaction::EIP4844Transaction(_) => TxType::EIP4844,
             Transaction::PrivilegedL2Transaction(_) => TxType::Privileged,
         }
+    }
+
+    pub fn effective_gas_price(&self, base_fee_per_gas: Option<u64>) -> Option<u64> {
+        match self.tx_type() {
+            TxType::Legacy => Some(self.gas_price()),
+            TxType::EIP2930 => Some(self.gas_price()),
+            TxType::EIP1559 => {
+                let priority_fee_per_gas = min(
+                    self.max_priority_fee()?,
+                    self.max_fee_per_gas()? - base_fee_per_gas?,
+                );
+                Some(priority_fee_per_gas + base_fee_per_gas?)
+            }
+            TxType::EIP4844 => {
+                let priority_fee_per_gas = min(
+                    self.max_priority_fee()?,
+                    self.max_fee_per_gas()? - base_fee_per_gas?,
+                );
+                Some(priority_fee_per_gas + base_fee_per_gas?)
+            }
+            TxType::Privileged => Some(self.gas_price()),
+        }
+    }
+
+    pub fn cost_without_base_fee(&self) -> Option<U256> {
+        let price = match self.tx_type() {
+            TxType::Legacy => self.gas_price(),
+            TxType::EIP2930 => self.gas_price(),
+            TxType::EIP1559 => self.max_fee_per_gas()?,
+            TxType::EIP4844 => self.max_fee_per_gas()?,
+            TxType::Privileged => self.gas_price(),
+        };
+
+        Some(U256::saturating_add(
+            U256::saturating_mul(price.into(), self.gas_limit().into()),
+            self.value(),
+        ))
     }
 }
 
@@ -157,7 +216,7 @@ impl RLPDecode for Transaction {
     /// B) Non legacy transactions: rlp(Bytes) where Bytes represents the canonical encoding for the transaction as a bytes object.
     /// Checkout [Transaction::decode_canonical] for more information
     fn decode_unfinished(rlp: &[u8]) -> Result<(Self, &[u8]), RLPDecodeError> {
-        if is_encoded_as_bytes(rlp) {
+        if is_encoded_as_bytes(rlp)? {
             // Adjust the encoding to get the payload
             let payload = get_rlp_bytes_item_payload(rlp);
             let tx_type = payload.first().unwrap();
@@ -330,6 +389,97 @@ impl RLPEncode for PrivilegedL2Transaction {
     }
 }
 
+impl PayloadRLPEncode for Transaction {
+    fn encode_payload(&self, buf: &mut dyn bytes::BufMut) {
+        match self {
+            Transaction::LegacyTransaction(tx) => tx.encode_payload(buf),
+            Transaction::EIP1559Transaction(tx) => tx.encode_payload(buf),
+            Transaction::EIP2930Transaction(tx) => tx.encode_payload(buf),
+            Transaction::EIP4844Transaction(tx) => tx.encode_payload(buf),
+            Transaction::PrivilegedL2Transaction(tx) => tx.encode_payload(buf),
+        }
+    }
+}
+
+impl PayloadRLPEncode for LegacyTransaction {
+    fn encode_payload(&self, buf: &mut dyn bytes::BufMut) {
+        Encoder::new(buf)
+            .encode_field(&self.nonce)
+            .encode_field(&self.gas_price)
+            .encode_field(&self.gas)
+            .encode_field(&self.to)
+            .encode_field(&self.value)
+            .encode_field(&self.data)
+            .finish();
+    }
+}
+
+impl PayloadRLPEncode for EIP1559Transaction {
+    fn encode_payload(&self, buf: &mut dyn bytes::BufMut) {
+        Encoder::new(buf)
+            .encode_field(&self.chain_id)
+            .encode_field(&self.nonce)
+            .encode_field(&self.max_priority_fee_per_gas)
+            .encode_field(&self.max_fee_per_gas)
+            .encode_field(&self.gas_limit)
+            .encode_field(&self.to)
+            .encode_field(&self.value)
+            .encode_field(&self.data)
+            .encode_field(&self.access_list)
+            .finish();
+    }
+}
+
+impl PayloadRLPEncode for EIP2930Transaction {
+    fn encode_payload(&self, buf: &mut dyn bytes::BufMut) {
+        Encoder::new(buf)
+            .encode_field(&self.chain_id)
+            .encode_field(&self.nonce)
+            .encode_field(&self.gas_price)
+            .encode_field(&self.gas_limit)
+            .encode_field(&self.to)
+            .encode_field(&self.value)
+            .encode_field(&self.data)
+            .encode_field(&self.access_list)
+            .finish();
+    }
+}
+
+impl PayloadRLPEncode for EIP4844Transaction {
+    fn encode_payload(&self, buf: &mut dyn bytes::BufMut) {
+        Encoder::new(buf)
+            .encode_field(&self.chain_id)
+            .encode_field(&self.nonce)
+            .encode_field(&self.max_priority_fee_per_gas)
+            .encode_field(&self.max_fee_per_gas)
+            .encode_field(&self.gas)
+            .encode_field(&self.to)
+            .encode_field(&self.value)
+            .encode_field(&self.data)
+            .encode_field(&self.access_list)
+            .encode_field(&self.max_fee_per_blob_gas)
+            .encode_field(&self.blob_versioned_hashes)
+            .finish();
+    }
+}
+
+impl PayloadRLPEncode for PrivilegedL2Transaction {
+    fn encode_payload(&self, buf: &mut dyn bytes::BufMut) {
+        Encoder::new(buf)
+            .encode_field(&self.chain_id)
+            .encode_field(&self.nonce)
+            .encode_field(&self.max_priority_fee_per_gas)
+            .encode_field(&self.max_fee_per_gas)
+            .encode_field(&self.gas_limit)
+            .encode_field(&self.to)
+            .encode_field(&self.value)
+            .encode_field(&self.data)
+            .encode_field(&self.access_list)
+            .encode_field(&self.tx_type)
+            .finish();
+    }
+}
+
 impl RLPDecode for LegacyTransaction {
     fn decode_unfinished(rlp: &[u8]) -> Result<(LegacyTransaction, &[u8]), RLPDecodeError> {
         let decoder = Decoder::new(rlp)?;
@@ -498,6 +648,125 @@ impl RLPDecode for PrivilegedL2Transaction {
             signature_s,
         };
         Ok((tx, decoder.finish()?))
+    }
+}
+
+impl Signable for Transaction {
+    fn sign_inplace(&mut self, private_key: &SecretKey) {
+        match self {
+            Transaction::LegacyTransaction(tx) => tx.sign_inplace(private_key),
+            Transaction::EIP2930Transaction(tx) => tx.sign_inplace(private_key),
+            Transaction::EIP1559Transaction(tx) => tx.sign_inplace(private_key),
+            Transaction::EIP4844Transaction(tx) => tx.sign_inplace(private_key),
+            Transaction::PrivilegedL2Transaction(tx) => tx.sign_inplace(private_key),
+        }
+    }
+}
+
+impl Signable for LegacyTransaction {
+    fn sign_inplace(&mut self, private_key: &SecretKey) {
+        let data = Message::from_digest_slice(&keccak(self.encode_payload_to_vec()).0).unwrap();
+
+        let (recovery_id, signature) = secp256k1::SECP256K1
+            .sign_ecdsa_recoverable(&data, private_key)
+            .serialize_compact();
+
+        let mut r = [0u8; 32];
+        let mut s = [0u8; 32];
+        r.copy_from_slice(&signature[..32]);
+        s.copy_from_slice(&signature[32..]);
+
+        self.r = U256::from(&r);
+        self.s = U256::from(&s);
+        self.v = U256::from(recovery_id.to_i32());
+    }
+}
+
+impl Signable for EIP1559Transaction {
+    fn sign_inplace(&mut self, private_key: &SecretKey) {
+        let mut payload = vec![TxType::EIP1559 as u8];
+        payload.append(self.encode_payload_to_vec().as_mut());
+        let data = Message::from_digest_slice(&keccak(payload).0).unwrap();
+
+        let (recovery_id, signature) = secp256k1::SECP256K1
+            .sign_ecdsa_recoverable(&data, private_key)
+            .serialize_compact();
+
+        let mut r = [0u8; 32];
+        let mut s = [0u8; 32];
+        r.copy_from_slice(&signature[..32]);
+        s.copy_from_slice(&signature[32..]);
+        let parity = recovery_id.to_i32() != 0;
+
+        self.signature_r = U256::from(&r);
+        self.signature_s = U256::from(&s);
+        self.signature_y_parity = parity;
+    }
+}
+
+impl Signable for EIP2930Transaction {
+    fn sign_inplace(&mut self, private_key: &SecretKey) {
+        let mut payload = vec![TxType::EIP2930 as u8];
+        payload.append(self.encode_payload_to_vec().as_mut());
+        let data = Message::from_digest_slice(&keccak(payload).0).unwrap();
+
+        let (recovery_id, signature) = secp256k1::SECP256K1
+            .sign_ecdsa_recoverable(&data, private_key)
+            .serialize_compact();
+
+        let mut r = [0u8; 32];
+        let mut s = [0u8; 32];
+        r.copy_from_slice(&signature[..32]);
+        s.copy_from_slice(&signature[32..]);
+        let parity = recovery_id.to_i32() != 0;
+
+        self.signature_r = U256::from(&r);
+        self.signature_s = U256::from(&s);
+        self.signature_y_parity = parity;
+    }
+}
+
+impl Signable for EIP4844Transaction {
+    fn sign_inplace(&mut self, private_key: &SecretKey) {
+        let mut payload = vec![TxType::EIP4844 as u8];
+        payload.append(self.encode_payload_to_vec().as_mut());
+        let data = Message::from_digest_slice(&keccak(payload).0).unwrap();
+
+        let (recovery_id, signature) = secp256k1::SECP256K1
+            .sign_ecdsa_recoverable(&data, private_key)
+            .serialize_compact();
+
+        let mut r = [0u8; 32];
+        let mut s = [0u8; 32];
+        r.copy_from_slice(&signature[..32]);
+        s.copy_from_slice(&signature[32..]);
+        let parity = recovery_id.to_i32() != 0;
+
+        self.signature_r = U256::from(&r);
+        self.signature_s = U256::from(&s);
+        self.signature_y_parity = parity;
+    }
+}
+
+impl Signable for PrivilegedL2Transaction {
+    fn sign_inplace(&mut self, private_key: &SecretKey) {
+        let mut payload = vec![TxType::Privileged as u8];
+        payload.append(self.encode_payload_to_vec().as_mut());
+        let data = Message::from_digest_slice(&keccak(payload).0).unwrap();
+
+        let (recovery_id, signature) = secp256k1::SECP256K1
+            .sign_ecdsa_recoverable(&data, private_key)
+            .serialize_compact();
+
+        let mut r = [0u8; 32];
+        let mut s = [0u8; 32];
+        r.copy_from_slice(&signature[..32]);
+        s.copy_from_slice(&signature[32..]);
+        let parity = recovery_id.to_i32() != 0;
+
+        self.signature_r = U256::from(&r);
+        self.signature_s = U256::from(&s);
+        self.signature_y_parity = parity;
     }
 }
 
@@ -802,7 +1071,7 @@ fn recover_address(
         .finalize()
         .into();
     // Recover public key
-    let public = SECP256K1
+    let public = secp256k1::SECP256K1
         .recover_ecdsa(&Message::from_digest(msg_digest), &signature)
         .unwrap();
     // Hash public key to obtain address
@@ -843,6 +1112,9 @@ impl PrivilegedTxType {
 }
 
 impl PrivilegedL2Transaction {
+    /// Returns the formated hash of the withdrawal transaction,
+    /// or None if the transaction is not a withdrawal.
+    /// The hash is computed as keccak256(to || value || tx_hash)
     pub fn get_withdrawal_hash(&self) -> Option<H256> {
         match self.tx_type {
             PrivilegedTxType::Withdrawal => {
@@ -860,6 +1132,26 @@ impl PrivilegedL2Transaction {
                 Some(keccak_hash::keccak(
                     [to.as_bytes(), value, tx_hash.as_bytes()].concat(),
                 ))
+            }
+            _ => None,
+        }
+    }
+
+    /// Returns the formated hash of the deposit transaction,
+    /// or None if the transaction is not a deposit.
+    /// The hash is computed as keccak256(to || value)
+    pub fn get_deposit_hash(&self) -> Option<H256> {
+        match self.tx_type {
+            PrivilegedTxType::Deposit => {
+                let to = match self.to {
+                    TxKind::Call(to) => to,
+                    _ => return None,
+                };
+
+                let value = &mut [0u8; 32];
+                self.value.to_big_endian(value);
+
+                Some(keccak_hash::keccak([to.as_bytes(), value].concat()))
             }
             _ => None,
         }
@@ -951,6 +1243,7 @@ mod canonic_encoding {
 
 mod serde_impl {
     use serde::Deserialize;
+    use serde_json::Value;
     use std::{collections::HashMap, str::FromStr};
 
     use super::*;
@@ -1164,6 +1457,124 @@ mod serde_impl {
         }
     }
 
+    impl Serialize for PrivilegedL2Transaction {
+        fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+        where
+            S: serde::Serializer,
+        {
+            let mut struct_serializer = serializer.serialize_struct("Eip1559Transaction", 14)?;
+            struct_serializer.serialize_field("type", &TxType::Privileged)?;
+            struct_serializer.serialize_field("nonce", &format!("{:#x}", self.nonce))?;
+            struct_serializer.serialize_field("to", &self.to)?;
+            struct_serializer.serialize_field("gas", &format!("{:#x}", self.gas_limit))?;
+            struct_serializer.serialize_field("value", &self.value)?;
+            struct_serializer.serialize_field("input", &format!("0x{:x}", self.data))?;
+            struct_serializer.serialize_field(
+                "maxPriorityFeePerGas",
+                &format!("{:#x}", self.max_priority_fee_per_gas),
+            )?;
+            struct_serializer
+                .serialize_field("maxFeePerGas", &format!("{:#x}", self.max_fee_per_gas))?;
+            struct_serializer
+                .serialize_field("gasPrice", &format!("{:#x}", self.max_fee_per_gas))?;
+            struct_serializer.serialize_field(
+                "accessList",
+                &self
+                    .access_list
+                    .iter()
+                    .map(AccessListEntry::from)
+                    .collect::<Vec<_>>(),
+            )?;
+            struct_serializer.serialize_field("chainId", &format!("{:#x}", self.chain_id))?;
+            struct_serializer
+                .serialize_field("yParity", &format!("{:#x}", self.signature_y_parity as u8))?;
+            struct_serializer
+                .serialize_field("v", &format!("{:#x}", self.signature_y_parity as u8))?; // added to match Hive tests
+            struct_serializer.serialize_field("r", &self.signature_r)?;
+            struct_serializer.serialize_field("s", &self.signature_s)?;
+            struct_serializer.serialize_field("tx_type", &self.tx_type)?;
+            struct_serializer.end()
+        }
+    }
+
+    impl<'de> Deserialize<'de> for Transaction {
+        fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+        where
+            D: serde::Deserializer<'de>,
+        {
+            let mut map = <HashMap<String, serde_json::Value>>::deserialize(deserializer)?;
+            let tx_type =
+                serde_json::from_value::<TxType>(map.remove("type").unwrap_or(Value::default()))
+                    .unwrap_or_else(|_| {
+                        if map.contains_key("tx_type") {
+                            return TxType::Privileged;
+                        }
+                        TxType::EIP1559
+                    });
+
+            let iter = map.into_iter();
+            match tx_type {
+                TxType::Legacy => {
+                    LegacyTransaction::deserialize(serde::de::value::MapDeserializer::new(iter))
+                        .map(Transaction::LegacyTransaction)
+                        .map_err(|e| {
+                            serde::de::Error::custom(format!("Couldn't Deserialize Legacy {e}"))
+                        })
+                }
+                TxType::EIP2930 => {
+                    EIP2930Transaction::deserialize(serde::de::value::MapDeserializer::new(iter))
+                        .map(Transaction::EIP2930Transaction)
+                        .map_err(|e| {
+                            serde::de::Error::custom(format!("Couldn't Deserialize EIP2930 {e}"))
+                        })
+                }
+                TxType::EIP1559 => {
+                    EIP1559Transaction::deserialize(serde::de::value::MapDeserializer::new(iter))
+                        .map(Transaction::EIP1559Transaction)
+                        .map_err(|e| {
+                            serde::de::Error::custom(format!("Couldn't Deserialize EIP1559 {e}"))
+                        })
+                }
+                TxType::EIP4844 => {
+                    EIP4844Transaction::deserialize(serde::de::value::MapDeserializer::new(iter))
+                        .map(Transaction::EIP4844Transaction)
+                        .map_err(|e| {
+                            serde::de::Error::custom(format!("Couldn't Deserialize EIP4844 {e}"))
+                        })
+                }
+                TxType::Privileged => PrivilegedL2Transaction::deserialize(
+                    serde::de::value::MapDeserializer::new(iter),
+                )
+                .map(Transaction::PrivilegedL2Transaction)
+                .map_err(|e| {
+                    serde::de::Error::custom(format!("Couldn't Deserialize Privileged {e}"))
+                }),
+            }
+        }
+    }
+
+    fn deserialize_input_field(
+        map: &mut std::collections::HashMap<String, Value>,
+    ) -> Result<Bytes, serde_json::Error> {
+        let data_str: String = serde_json::from_value(
+            map.remove("input")
+                .ok_or_else(|| serde::de::Error::missing_field("input"))?,
+        )
+        .map_err(serde::de::Error::custom)?;
+        if let Some(stripped) = data_str.strip_prefix("0x") {
+            match hex::decode(stripped) {
+                Ok(decoded_bytes) => Ok(Bytes::from(decoded_bytes)),
+                Err(_) => Err(serde::de::Error::custom(
+                    "Invalid hex format in 'input' field",
+                ))?,
+            }
+        } else {
+            Err(serde::de::Error::custom(
+                "'input' field must start with '0x'",
+            ))?
+        }
+    }
+
     impl<'de> Deserialize<'de> for LegacyTransaction {
         fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
         where
@@ -1186,11 +1597,7 @@ mod serde_impl {
                     .ok_or_else(|| serde::de::Error::missing_field("value"))?,
             )
             .map_err(serde::de::Error::custom)?;
-            let data = serde_json::from_value(
-                map.remove("input")
-                    .ok_or_else(|| serde::de::Error::missing_field("input"))?,
-            )
-            .map_err(serde::de::Error::custom)?;
+            let data = deserialize_input_field(&mut map).map_err(serde::de::Error::custom)?;
             let r = serde_json::from_value(
                 map.remove("r")
                     .ok_or_else(|| serde::de::Error::missing_field("r"))?,
@@ -1252,11 +1659,7 @@ mod serde_impl {
                     .ok_or_else(|| serde::de::Error::missing_field("value"))?,
             )
             .map_err(serde::de::Error::custom)?;
-            let data = serde_json::from_value(
-                map.remove("input")
-                    .ok_or_else(|| serde::de::Error::missing_field("input"))?,
-            )
-            .map_err(serde::de::Error::custom)?;
+            let data = deserialize_input_field(&mut map).map_err(serde::de::Error::custom)?;
             let r = serde_json::from_value(
                 map.remove("r")
                     .ok_or_else(|| serde::de::Error::missing_field("r"))?,
@@ -1335,11 +1738,7 @@ mod serde_impl {
                     .ok_or_else(|| serde::de::Error::missing_field("value"))?,
             )
             .map_err(serde::de::Error::custom)?;
-            let data = serde_json::from_value(
-                map.remove("input")
-                    .ok_or_else(|| serde::de::Error::missing_field("input"))?,
-            )
-            .map_err(serde::de::Error::custom)?;
+            let data = deserialize_input_field(&mut map).map_err(serde::de::Error::custom)?;
             let r = serde_json::from_value(
                 map.remove("r")
                     .ok_or_else(|| serde::de::Error::missing_field("r"))?,
@@ -1448,11 +1847,7 @@ mod serde_impl {
                     .ok_or_else(|| serde::de::Error::missing_field("value"))?,
             )
             .map_err(serde::de::Error::custom)?;
-            let data = serde_json::from_value(
-                map.remove("input")
-                    .ok_or_else(|| serde::de::Error::missing_field("input"))?,
-            )
-            .map_err(serde::de::Error::custom)?;
+            let data = deserialize_input_field(&mut map).map_err(serde::de::Error::custom)?;
             let access_list = serde_json::from_value::<Vec<AccessListEntry>>(
                 map.remove("accessList")
                     .ok_or_else(|| serde::de::Error::missing_field("accessList"))?,
@@ -1512,6 +1907,96 @@ mod serde_impl {
         }
     }
 
+    impl<'de> Deserialize<'de> for PrivilegedL2Transaction {
+        fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+        where
+            D: serde::Deserializer<'de>,
+        {
+            let mut map = <HashMap<String, serde_json::Value>>::deserialize(deserializer)?;
+            let nonce = serde_json::from_value::<U256>(
+                map.remove("nonce")
+                    .ok_or_else(|| serde::de::Error::missing_field("nonce"))?,
+            )
+            .map_err(serde::de::Error::custom)?
+            .as_u64();
+            let to = serde_json::from_value(
+                map.remove("to")
+                    .ok_or_else(|| serde::de::Error::missing_field("to"))?,
+            )
+            .map_err(serde::de::Error::custom)?;
+            let value = serde_json::from_value(
+                map.remove("value")
+                    .ok_or_else(|| serde::de::Error::missing_field("value"))?,
+            )
+            .map_err(serde::de::Error::custom)?;
+            let data = deserialize_input_field(&mut map).map_err(serde::de::Error::custom)?;
+            let r = serde_json::from_value(
+                map.remove("r")
+                    .ok_or_else(|| serde::de::Error::missing_field("r"))?,
+            )
+            .map_err(serde::de::Error::custom)?;
+            let s = serde_json::from_value(
+                map.remove("s")
+                    .ok_or_else(|| serde::de::Error::missing_field("s"))?,
+            )
+            .map_err(serde::de::Error::custom)?;
+
+            Ok(PrivilegedL2Transaction {
+                chain_id: serde_json::from_value::<U256>(
+                    map.remove("chainId")
+                        .ok_or_else(|| serde::de::Error::missing_field("chainId"))?,
+                )
+                .map_err(serde::de::Error::custom)?
+                .as_u64(),
+                nonce,
+                max_priority_fee_per_gas: serde_json::from_value::<U256>(
+                    map.remove("maxPriorityFeePerGas")
+                        .ok_or_else(|| serde::de::Error::missing_field("maxPriorityFeePerGas"))?,
+                )
+                .map_err(serde::de::Error::custom)?
+                .as_u64(),
+                max_fee_per_gas: serde_json::from_value::<U256>(
+                    map.remove("maxFeePerGas")
+                        .ok_or_else(|| serde::de::Error::missing_field("maxFeePerGas"))?,
+                )
+                .map_err(serde::de::Error::custom)?
+                .as_u64(),
+                gas_limit: serde_json::from_value::<U256>(
+                    map.remove("gas")
+                        .ok_or_else(|| serde::de::Error::missing_field("gas"))?,
+                )
+                .map_err(serde::de::Error::custom)?
+                .as_u64(),
+                to,
+                value,
+                data,
+                access_list: serde_json::from_value(
+                    map.remove("accessList")
+                        .ok_or_else(|| serde::de::Error::missing_field("accessList"))?,
+                )
+                .map_err(serde::de::Error::custom)?,
+                signature_y_parity: u8::from_str_radix(
+                    serde_json::from_value::<String>(
+                        map.remove("yParity")
+                            .ok_or_else(|| serde::de::Error::missing_field("yParity"))?,
+                    )
+                    .map_err(serde::de::Error::custom)?
+                    .trim_start_matches("0x"),
+                    16,
+                )
+                .map_err(serde::de::Error::custom)?
+                    != 0,
+                signature_r: r,
+                signature_s: s,
+                tx_type: serde_json::from_value(
+                    map.remove("tx_type")
+                        .ok_or_else(|| serde::de::Error::missing_field("tx_type"))?,
+                )
+                .map_err(serde::de::Error::custom)?,
+            })
+        }
+    }
+
     /// Unsigned Transaction struct generic to all types which may not contain all required transaction fields
     /// Used to perform gas estimations and access list creation
     #[derive(Deserialize, Debug, PartialEq, Clone, Default)]
@@ -1519,8 +2004,8 @@ mod serde_impl {
     pub struct GenericTransaction {
         #[serde(default)]
         pub r#type: TxType,
-        #[serde(default, with = "crate::serde_utils::u64::hex_str")]
-        pub nonce: u64,
+        #[serde(default, with = "crate::serde_utils::u64::hex_str_opt")]
+        pub nonce: Option<u64>,
         pub to: TxKind,
         #[serde(default)]
         pub from: Address,
@@ -1528,7 +2013,7 @@ mod serde_impl {
         pub gas: Option<u64>,
         #[serde(default)]
         pub value: U256,
-        #[serde(default, with = "crate::serde_utils::bytes", alias = "data")]
+        #[serde(default, with = "crate::serde_utils::bytes")]
         pub input: Bytes,
         #[serde(default, with = "crate::serde_utils::u64::hex_str")]
         pub gas_price: u64,
@@ -1536,8 +2021,7 @@ mod serde_impl {
         pub max_priority_fee_per_gas: Option<u64>,
         #[serde(default, with = "crate::serde_utils::u64::hex_str_opt")]
         pub max_fee_per_gas: Option<u64>,
-        #[serde(default, with = "crate::serde_utils::u64::hex_str_opt")]
-        pub max_fee_per_blob_gas: Option<u64>,
+        pub max_fee_per_blob_gas: Option<U256>,
         #[serde(default)]
         pub access_list: Vec<AccessListEntry>,
         #[serde(default)]
@@ -1552,7 +2036,7 @@ mod serde_impl {
         fn from(value: EIP1559Transaction) -> Self {
             Self {
                 r#type: TxType::EIP1559,
-                nonce: value.nonce,
+                nonce: Some(value.nonce),
                 to: value.to,
                 gas: Some(value.gas_limit),
                 value: value.value,
@@ -1569,7 +2053,59 @@ mod serde_impl {
                 blob_versioned_hashes: vec![],
                 blobs: vec![],
                 chain_id: Some(value.chain_id),
-                ..Default::default()
+                from: Address::default(),
+            }
+        }
+    }
+
+    impl From<EIP4844Transaction> for GenericTransaction {
+        fn from(value: EIP4844Transaction) -> Self {
+            Self {
+                r#type: TxType::EIP4844,
+                nonce: Some(value.nonce),
+                to: TxKind::Call(value.to),
+                gas: Some(value.gas),
+                value: value.value,
+                input: value.data,
+                gas_price: value.max_fee_per_gas,
+                max_priority_fee_per_gas: Some(value.max_priority_fee_per_gas),
+                max_fee_per_gas: Some(value.max_fee_per_gas),
+                max_fee_per_blob_gas: Some(value.max_fee_per_blob_gas),
+                access_list: value
+                    .access_list
+                    .iter()
+                    .map(AccessListEntry::from)
+                    .collect(),
+                blob_versioned_hashes: value.blob_versioned_hashes,
+                blobs: vec![],
+                chain_id: Some(value.chain_id),
+                from: Address::default(),
+            }
+        }
+    }
+
+    impl From<PrivilegedL2Transaction> for GenericTransaction {
+        fn from(value: PrivilegedL2Transaction) -> Self {
+            Self {
+                r#type: TxType::Privileged,
+                nonce: Some(value.nonce),
+                to: value.to,
+                gas: Some(value.gas_limit),
+                value: value.value,
+                input: value.data,
+                gas_price: value.max_fee_per_gas,
+                max_priority_fee_per_gas: Some(value.max_priority_fee_per_gas),
+                max_fee_per_gas: Some(value.max_fee_per_gas),
+                max_fee_per_blob_gas: None,
+                access_list: value
+                    .access_list
+                    .iter()
+                    .map(AccessListEntry::from)
+                    .collect(),
+                blob_versioned_hashes: vec![],
+                blobs: vec![],
+                chain_id: Some(value.chain_id),
+                from: Address::default(),
             }
         }
     }
@@ -1656,11 +2192,12 @@ mod mempool {
 #[cfg(test)]
 mod tests {
 
-    use crate::types::{compute_receipts_root, compute_transactions_root, BlockBody, Receipt};
-
     use super::*;
+    use crate::types::{compute_receipts_root, compute_transactions_root, BlockBody, Receipt};
+    use ethereum_types::H160;
     use hex_literal::hex;
     use serde_impl::{AccessListEntry, GenericTransaction};
+    use std::str::FromStr;
 
     #[test]
     fn test_compute_transactions_root() {
@@ -1857,7 +2394,7 @@ mod tests {
         }"#;
         let deserialized_generic_transaction = GenericTransaction {
             r#type: TxType::EIP2930,
-            nonce: 2,
+            nonce: Some(2),
             to: TxKind::Create,
             from: Address::from_slice(
                 &hex::decode("6177843db3138ae69679A54b95cf345ED759450d").unwrap(),
@@ -1895,7 +2432,7 @@ mod tests {
             "gas":"0x5208",
             "to":"0x6177843db3138ae69679A54b95cf345ED759450d",
             "value":"0x01",
-            "input":"0x",
+            "input":"0x3033",
             "accessList": [
                 {
                     "address": "0x000f3df6d732807ef1319fb7b8bb8522d0beac02",
@@ -1925,7 +2462,8 @@ mod tests {
             max_fee_per_blob_gas: U256::from(0x03),
             gas: 0x5208,
             value: U256::from(0x01),
-            data: Bytes::from_static(b"0x"),
+            // 03 in hex is 0x3033, that's why the 'input' has that number.
+            data: Bytes::from_static(b"03"),
             access_list: vec![(
                 Address::from_slice(
                     &hex::decode("000f3df6d732807ef1319fb7b8bb8522d0beac02").unwrap(),
@@ -1942,5 +2480,36 @@ mod tests {
             deserialized_eip4844_transaction,
             serde_json::from_str(eip4844_transaction).unwrap()
         )
+    }
+
+    #[test]
+    fn serialize_deserialize_transaction() {
+        let eip1559 = EIP1559Transaction {
+            chain_id: 1729,
+            nonce: 1,
+            max_priority_fee_per_gas: 1000,
+            max_fee_per_gas: 2000,
+            gas_limit: 21000,
+            to: TxKind::Call(H160::from_str("0x000a52D537c4150ec274dcE3962a0d179B7E71B0").unwrap()),
+            value: U256::from(100000),
+            data: Bytes::from_static(b"03"),
+            access_list: vec![],
+            signature_y_parity: true,
+            signature_r: U256::one(),
+            signature_s: U256::zero(),
+        };
+        let tx_to_serialize = Transaction::EIP1559Transaction(eip1559.clone());
+        let serialized = serde_json::to_string(&tx_to_serialize).expect("Failed to serialize");
+
+        println!("{serialized:?}");
+
+        let deserialized_tx: Transaction =
+            serde_json::from_str(&serialized).expect("Failed to deserialize");
+
+        assert!(deserialized_tx.tx_type() == TxType::EIP1559);
+
+        if let Transaction::EIP1559Transaction(tx) = deserialized_tx {
+            assert_eq!(tx, eip1559);
+        }
     }
 }

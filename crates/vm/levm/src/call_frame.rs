@@ -1,24 +1,15 @@
-use ethereum_types::H32;
-
 use crate::{
     constants::STACK_LIMIT,
-    errors::VMError,
+    errors::{InternalError, VMError},
     memory::Memory,
     opcodes::Opcode,
-    primitives::{Address, Bytes, U256},
 };
+use bytes::Bytes;
+use ethereum_rust_core::{types::Log, Address, U256};
 use std::collections::HashMap;
 
 /// [EIP-1153]: https://eips.ethereum.org/EIPS/eip-1153#reference-implementation
 pub type TransientStorage = HashMap<(Address, U256), U256>;
-
-#[derive(Clone, Debug, Default, Eq, PartialEq, Hash)]
-/// Data record produced during the execution of a transaction.
-pub struct Log {
-    pub address: Address,
-    pub topics: Vec<H32>,
-    pub data: Bytes,
-}
 
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct Stack {
@@ -50,8 +41,12 @@ impl Stack {
         self.stack.get(index).ok_or(VMError::StackUnderflow)
     }
 
-    pub fn swap(&mut self, a: usize, b: usize) {
-        self.stack.swap(a, b)
+    pub fn swap(&mut self, a: usize, b: usize) -> Result<(), VMError> {
+        if a >= self.stack.len() || b >= self.stack.len() {
+            return Err(VMError::StackUnderflow);
+        }
+        self.stack.swap(a, b);
+        Ok(())
     }
 }
 
@@ -124,18 +119,22 @@ impl CallFrame {
         }
     }
 
-    pub fn next_opcode(&mut self) -> Option<Opcode> {
+    pub fn next_opcode(&mut self) -> Result<Option<Opcode>, VMError> {
         let opcode = self.opcode_at(self.pc);
-        self.increment_pc();
-        opcode
+        self.increment_pc()?;
+        Ok(opcode)
     }
 
-    pub fn increment_pc_by(&mut self, count: usize) {
-        self.pc += count;
+    pub fn increment_pc_by(&mut self, count: usize) -> Result<(), VMError> {
+        self.pc = self
+            .pc
+            .checked_add(count)
+            .ok_or(VMError::Internal(InternalError::PCOverflowed))?;
+        Ok(())
     }
 
-    pub fn increment_pc(&mut self) {
-        self.increment_pc_by(1);
+    pub fn increment_pc(&mut self) -> Result<(), VMError> {
+        self.increment_pc_by(1)
     }
 
     pub fn pc(&self) -> usize {
@@ -143,21 +142,29 @@ impl CallFrame {
     }
 
     /// Jump to the given address, returns false if the jump position wasn't a JUMPDEST
-    pub fn jump(&mut self, jump_address: U256) -> bool {
-        if !self.valid_jump(jump_address) {
-            return false;
+    pub fn jump(&mut self, jump_address: U256) -> Result<bool, VMError> {
+        let jump_address_usize = jump_address
+            .try_into()
+            .map_err(|_err| VMError::VeryLargeNumber)?;
+
+        if !self.valid_jump(jump_address_usize) {
+            return Ok(false);
         }
-        self.pc = jump_address.as_usize();
-        true
+        self.pc = jump_address_usize;
+        Ok(true)
     }
 
-    fn valid_jump(&self, jump_address: U256) -> bool {
-        self.opcode_at(jump_address.as_usize())
+    fn valid_jump(&self, jump_address: usize) -> bool {
+        self.opcode_at(jump_address)
             .map(|opcode| opcode.eq(&Opcode::JUMPDEST))
             .is_some_and(|is_jumpdest| is_jumpdest)
     }
 
     fn opcode_at(&self, offset: usize) -> Option<Opcode> {
-        self.bytecode.get(offset).copied().map(Opcode::from)
+        self.bytecode
+            .get(offset)
+            .copied()
+            .map(Opcode::try_from)?
+            .ok()
     }
 }
