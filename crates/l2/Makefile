@@ -32,17 +32,23 @@ L1_PRIVATE_KEY=0x385c546456b6a603a1cfcaa9ec9494ba4832da08dd6bcf4de9a71e4a01b7492
 
 ETHEREUM_RUST_L2_DEV_LIBMDBX=dev_ethereum_rust_l2
 ETHEREUM_RUST_L1_DEV_LIBMDBX=dev_ethereum_rust_l1
+L1_PORT=8545
+L2_PORT=1729
+L1_AUTH_PORT=8551
+# Used in the .env file. Ensure the same port is used for `ENGINE_API_RPC_URL`.
+L2_AUTH_PORT=8552
 
 # Local L1
 
-init-local-l1: ## 🚀 Initializes an L1 Lambda Ethereum Rust Client with Docker
+init-local-l1: ## 🚀 Initializes an L1 Lambda Ethereum Rust Client with Docker (Used with make init)
 	docker compose -f ${ETHEREUM_RUST_DEV_DOCKER_COMPOSE_PATH} up -d
 	
 init-l1: ## 🚀 Initializes an L1 Lambda Ethereum Rust Client
 	cargo run --release --manifest-path ../../Cargo.toml --bin ethereum_rust --features dev -- \
 	--network ${L1_GENESIS_FILE_PATH} \
-	--http.port 8545 \
+	--http.port ${L1_PORT} \
 	--http.addr 0.0.0.0 \
+	--authrpc.port ${L1_AUTH_PORT} \
 	--datadir ${ETHEREUM_RUST_L1_DEV_LIBMDBX}
 
 down-local-l1: ## 🛑 Shuts down the L1 Lambda Ethereum Rust Client
@@ -70,9 +76,9 @@ deploy-l1: ## 📜 Deploys the L1 contracts
 init-l2: ## 🚀 Initializes an L2 Lambda Ethereum Rust Client
 	cargo run --release --manifest-path ../../Cargo.toml --bin ethereum_rust --features l2 -- \
 	--network ${L2_GENESIS_FILE_PATH} \
-	--http.port 1729 \
+	--http.port ${L2_PORT} \
 	--http.addr 0.0.0.0 \
-	--authrpc.port 8552 \
+	--authrpc.port ${L2_AUTH_PORT} \
 	--datadir ${ETHEREUM_RUST_L2_DEV_LIBMDBX}
 
 down-l2: ## 🛑 Shuts down the L2 Lambda Ethereum Rust Client
