@@ -37,6 +37,12 @@ pub fn run_ef_tests() -> Result<EFTestsReport, Box<dyn Error>> {
             {
                 continue;
             }
+            // Run only test with name RevertOpcodeInInit
+            // if test
+            //     .path()
+            //     .file_name()
+            //     .is_some_and(|name| name == "RevertOpcodeInInit.json")
+            // {
             let test_result = run_ef_test(
                 serde_json::from_reader(std::fs::File::open(test.path())?)?,
                 &mut report,
@@ -44,6 +50,7 @@ pub fn run_ef_tests() -> Result<EFTestsReport, Box<dyn Error>> {
             if test_result.is_err() {
                 continue;
             }
+            // }
         }
         spinner.update_text(report.progress());
     }

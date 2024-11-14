@@ -293,6 +293,10 @@ impl VM {
 
                     self.restore_state(backup_db, backup_substate, backup_refunded_gas);
 
+                    println!(
+                        "Going to return transaction report with error: {:?}",
+                        &error
+                    );
                     return TransactionReport {
                         result: TxResult::Revert(error),
                         new_state: self.cache.accounts.clone(),
@@ -388,32 +392,33 @@ impl VM {
         matches!(self.tx_kind, TxKind::Create)
     }
 
-    fn revert_create(&mut self) -> Result<(), VMError> {
-        // Note: currently working with copies
-        let call_frame = self
-            .call_frames
-            .last()
-            .ok_or(VMError::Internal(
-                InternalError::CouldNotAccessLastCallframe,
-            ))?
-            .clone();
+    // Maybe this function is not necessary.
+    // fn revert_create(&mut self) -> Result<(), VMError> {
+    //     // Note: currently working with copies
+    //     let call_frame = self
+    //         .call_frames
+    //         .last()
+    //         .ok_or(VMError::Internal(
+    //             InternalError::CouldNotAccessLastCallframe,
+    //         ))?
+    //         .clone();
 
-        let sender = call_frame.msg_sender;
-        let mut sender_account = self.get_account(&sender);
+    //     let sender = call_frame.msg_sender;
+    //     let mut sender_account = self.get_account(&sender);
 
-        sender_account.info.nonce -= 1;
+    //     sender_account.info.nonce -= 1;
 
-        let new_contract_address = call_frame.to;
+    //     let new_contract_address = call_frame.to;
 
-        if self.cache.accounts.remove(&new_contract_address).is_none() {
-            return Err(VMError::AddressDoesNotMatchAnAccount); // Should not be this error
-        }
+    //     if self.cache.accounts.remove(&new_contract_address).is_none() {
+    //         return Err(VMError::AddressDoesNotMatchAnAccount); // Should not be this error
+    //     }
 
-        // Should revert this?
-        // sender_account.info.balance -= self.call_frames.first().ok_or(VMError::FatalUnwrap)?.msg_value;
+    //     // Should revert this?
+    //     // sender_account.info.balance -= self.call_frames.first().ok_or(VMError::FatalUnwrap)?.msg_value;
 
-        Ok(())
-    }
+    //     Ok(())
+    // }
 
     pub fn transact(&mut self) -> Result<TransactionReport, VMError> {
         self.validate_transaction()?;
@@ -463,10 +468,13 @@ impl VM {
 
         if self.is_create() {
             // If create should check if transaction failed. If failed should revert (delete created contract, )
-            if let TxResult::Revert(error) = report.result {
-                self.revert_create()?;
-                return Err(error);
-            }
+            // if let TxResult::Revert(error) = report.result {
+            //     self.revert_create()?;
+            //     return Err(error);
+            // }
+            // Revert behavior is actually done at the end of execute, it reverts the cache to the state before execution.
+            // TODO: Think about the behavior when reverting a transaction. What changes to the state? The sender has to lose the gas used (but value is not transferred). Does the coinbase still get the fee? The recipient account won't change at all neither in Create nor in Call transactions.
+
             let contract_code = report.clone().output;
 
             // TODO: Is this the expected behavior?
