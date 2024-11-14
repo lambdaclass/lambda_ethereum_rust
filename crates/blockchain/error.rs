@@ -1,4 +1,4 @@
-use ethereum_rust_core::types::{InvalidBlockHeaderError, BlobsBundleError};
+use ethereum_rust_core::types::{BlobsBundleError, InvalidBlockHeaderError};
 use ethereum_rust_storage::error::StoreError;
 use ethereum_rust_vm::EvmError;
 

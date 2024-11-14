@@ -201,7 +201,7 @@ fn validate_transaction(tx: &Transaction, store: Store) -> Result<(), MempoolErr
     if tx.gas_limit() < transaction_intrinsic_gas(tx, &header, &config)? {
         return Err(MempoolError::TxIntrinsicGasCostAboveLimitError);
     }
-    
+
     // Check that the specified blob gas fee is above the minimum value
     if let Some(fee) = tx.max_fee_per_blob_gas() {
         // Blob tx
@@ -234,7 +234,7 @@ fn validate_transaction(tx: &Transaction, store: Store) -> Result<(), MempoolErr
             return Err(MempoolError::InvalidChainId(config.chain_id));
         }
     }
-     
+
     Ok(())
 }
 
@@ -333,8 +333,7 @@ mod tests {
 
     use super::{transaction_intrinsic_gas, validate_transaction};
     use ethereum_rust_core::types::{
-        BlockHeader, ChainConfig, EIP1559Transaction, EIP4844Transaction, Transaction,
-        TxKind,
+        BlockHeader, ChainConfig, EIP1559Transaction, EIP4844Transaction, Transaction, TxKind,
     };
     use ethereum_rust_core::{Address, Bytes, H256, U256};
     use ethereum_rust_storage::EngineType;
