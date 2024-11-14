@@ -366,7 +366,9 @@ impl<S: AsyncWrite + AsyncRead + std::marker::Unpin> RLPxConnection<S> {
                     // TODO: Check message status is correct.
                 }
                 _msg => {
-                    RLPxError::HandshakeError("Expected a Status message".to_string());
+                    return Err(RLPxError::HandshakeError(
+                        "Expected a Status message".to_string(),
+                    ))
                 }
             }
         }
