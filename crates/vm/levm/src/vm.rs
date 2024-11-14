@@ -564,7 +564,25 @@ impl VM {
     }
 
     pub fn transact(&mut self) -> Result<TransactionReport, VMError> {
-        self.validate_transaction()?;
+        match self.validate_transaction() {
+            Ok(_) => {}
+            Err(error) => {
+                if error.is_internal() {
+                    return Err(error);
+                }
+                else {
+                    return Ok(TransactionReport {
+                        result: TxResult::Revert(error),
+                        new_state: self.cache.accounts.clone(),
+                        gas_used: 0,
+                        gas_refunded: 0,
+                        output: Bytes::new(),
+                        logs: Vec::new(),
+                        created_address: None,
+                    });
+                }
+            }
+        }
 
         let mut current_call_frame = self
             .call_frames
