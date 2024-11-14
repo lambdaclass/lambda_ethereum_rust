@@ -178,8 +178,11 @@ impl VM {
 
         let address = current_call_frame.to;
 
-        let (gas_cost, storage_slot) =
-            gas_cost::sstore(self, address, key, value).map_err(VMError::OutOfGas)?;
+        let is_cached = self.cache.is_slot_cached(&address, key);
+    
+        let storage_slot = self.get_storage_slot(&address, key);    
+
+        let gas_cost = gas_cost::sstore(value, is_cached, &storage_slot).map_err(VMError::OutOfGas)?;
 
         self.increase_consumed_gas(current_call_frame, gas_cost)?;
 

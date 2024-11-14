@@ -2,12 +2,11 @@ use crate::{
     call_frame::CallFrame,
     constants::{COLD_STORAGE_ACCESS_COST, WORD_SIZE},
     errors::OutOfGasError,
-    vm::VM,
     StorageSlot,
 };
 use bytes::Bytes;
 /// Contains the gas costs of the EVM instructions (in wei)
-use ethereum_rust_core::{Address, H256, U256};
+use ethereum_rust_core::U256;
 
 // Opcodes cost
 pub const ADD: U256 = U256([3, 0, 0, 0]);
@@ -288,21 +287,18 @@ pub fn sload(is_cached: bool) -> U256 {
 }
 
 pub fn sstore(
-    vm: &mut VM,
-    address: Address,
-    key: H256,
     value: U256,
-) -> Result<(U256, StorageSlot), OutOfGasError> {
+    is_cached: bool,
+    storage_slot: &StorageSlot,
+) -> Result<U256, OutOfGasError> {
     let mut base_dynamic_gas: U256 = U256::zero();
 
-    if !vm.cache.is_slot_cached(&address, key) {
+    if !is_cached {
         // If slot is cold 2100 is added to base_dynamic_gas
         base_dynamic_gas = base_dynamic_gas
             .checked_add(U256::from(2100))
             .ok_or(OutOfGasError::GasCostOverflow)?;
     };
-
-    let storage_slot = vm.get_storage_slot(&address, key);
 
     let sstore_gas_cost = if value == storage_slot.current_value {
         U256::from(100)
@@ -316,11 +312,9 @@ pub fn sstore(
         U256::from(100)
     };
 
-    base_dynamic_gas = base_dynamic_gas
+    base_dynamic_gas
         .checked_add(sstore_gas_cost)
-        .ok_or(OutOfGasError::GasCostOverflow)?;
-
-    Ok((base_dynamic_gas, storage_slot))
+        .ok_or(OutOfGasError::GasCostOverflow)
 }
 
 pub fn mcopy(
