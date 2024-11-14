@@ -30,20 +30,29 @@ ETHEREUM_RUST_L2_CONTRACTS_PATH=./contracts
 L1_RPC_URL=http://localhost:8545
 L1_PRIVATE_KEY=0x385c546456b6a603a1cfcaa9ec9494ba4832da08dd6bcf4de9a71e4a01b74924
 
+ETHEREUM_RUST_L2_DEV_LIBMDBX=dev_ethereum_rust_l2
+ETHEREUM_RUST_L1_DEV_LIBMDBX=dev_ethereum_rust_l1
+
 # Local L1
 
 init-local-l1: ## 🚀 Initializes an L1 Lambda Ethereum Rust Client with Docker
 	docker compose -f ${ETHEREUM_RUST_DEV_DOCKER_COMPOSE_PATH} up -d
 	
 init-l1: ## 🚀 Initializes an L1 Lambda Ethereum Rust Client
-	cargo run --release --manifest-path ../../Cargo.toml --bin ethereum_rust -- removedb --datadir dev_ethereum_rust_l1 && \
-	cargo run --release --manifest-path ../../Cargo.toml --bin ethereum_rust --features dev -- --network ${L1_GENESIS_FILE_PATH} --http.port 8545 --http.addr 0.0.0.0 --datadir dev_ethereum_rust_l1
+	cargo run --release --manifest-path ../../Cargo.toml --bin ethereum_rust --features dev -- \
+	--network ${L1_GENESIS_FILE_PATH} \
+	--http.port 8545 \
+	--http.addr 0.0.0.0 \
+	--datadir ${ETHEREUM_RUST_L1_DEV_LIBMDBX}
 
 down-local-l1: ## 🛑 Shuts down the L1 Lambda Ethereum Rust Client
 	docker compose -f ${ETHEREUM_RUST_DEV_DOCKER_COMPOSE_PATH} down
 	docker compose -f docker-compose-l2.yaml down
 
 restart-local-l1: down-local-l1 init-local-l1 ## 🔄 Restarts the L1 Lambda Ethereum Rust Client
+
+rm_dev_libmdbx_l1: ## 🛑 Removes the Libmdbx DB used by the L1
+	cargo run --release --manifest-path ../../Cargo.toml --bin ethereum_rust -- removedb --datadir ${ETHEREUM_RUST_L1_DEV_LIBMDBX}
 
 # Contracts
 
@@ -59,7 +68,12 @@ deploy-l1: ## 📜 Deploys the L1 contracts
 # L2
 
 init-l2: ## 🚀 Initializes an L2 Lambda Ethereum Rust Client
-	cargo run --release --manifest-path ../../Cargo.toml --bin ethereum_rust --features l2 -- --network ${L2_GENESIS_FILE_PATH} --http.port 1729 --http.addr 0.0.0.0 --authrpc.port 8552
+	cargo run --release --manifest-path ../../Cargo.toml --bin ethereum_rust --features l2 -- \
+	--network ${L2_GENESIS_FILE_PATH} \
+	--http.port 1729 \
+	--http.addr 0.0.0.0 \
+	--authrpc.port 8552 \
+	--datadir ${ETHEREUM_RUST_L2_DEV_LIBMDBX}
 
 down-l2: ## 🛑 Shuts down the L2 Lambda Ethereum Rust Client
 	pkill -f ethereum_rust || exit 0
@@ -71,6 +85,10 @@ init-l2-prover: ## 🚀 Initializes the Prover
 
 init-l2-prover-gpu: ## 🚀 Initializes the Prover with GPU support
 	cargo run --release --features "build_zkvm,gpu" --manifest-path ../../Cargo.toml --bin ethereum_rust_prover
+
+rm_dev_libmdbx_l2: ## 🛑 Removes the Libmdbx DB used by the L2
+	cargo run --release --manifest-path ../../Cargo.toml --bin ethereum_rust -- removedb --datadir ${ETHEREUM_RUST_L2_DEV_LIBMDBX}
+
 
 # CI Testing
 
