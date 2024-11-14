@@ -15,7 +15,7 @@ pub struct EFTest {
     pub env: EFTestEnv,
     pub post: EFTestPost,
     pub pre: EFTestPre,
-    pub transactions: Vec<EFTestTransaction>,
+    pub transactions: Vec<((usize, usize, usize), EFTestTransaction)>,
 }
 
 impl From<&EFTest> for ethereum_rust_levm::db::Db {

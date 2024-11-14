@@ -153,9 +153,9 @@ impl<'de> Deserialize<'de> for EFTest {
 
         // Note that inthis order of iteration, in an example tx with 2 datas, 2 gasLimit and 2 values, order would be
         // 111, 112, 121, 122, 211, 212, 221, 222
-        for data in raw_tx.data.iter() {
-            for gas_limit in raw_tx.gas_limit.iter() {
-                for value in raw_tx.value.iter() {
+        for (data_id, data) in raw_tx.data.iter().enumerate() {
+            for (gas_limit_id, gas_limit) in raw_tx.gas_limit.iter().enumerate() {
+                for (value_id, value) in raw_tx.value.iter().enumerate() {
                     let tx = EFTestTransaction {
                         data: data.clone(),
                         gas_limit: *gas_limit,
@@ -166,7 +166,7 @@ impl<'de> Deserialize<'de> for EFTest {
                         to: raw_tx.to.clone(),
                         value: *value,
                     };
-                    transactions.push(tx);
+                    transactions.push(((data_id, gas_limit_id, value_id), tx));
                 }
             }
         }
