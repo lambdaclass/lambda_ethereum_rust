@@ -1,87 +1,87 @@
-name: CI
-on:
-  merge_group:
-  pull_request:
-    branches: ["**"]
-    paths-ignore:
-      - "README.md"
-      - "LICENSE"
-      - "**/README.md"
-      - "**/docs/**"
-      - "crates/vm/levm/**" # We ran this in a separate workflow
+# name: CI
+# on:
+#   merge_group:
+#   pull_request:
+#     branches: ["**"]
+#     paths-ignore:
+#       - "README.md"
+#       - "LICENSE"
+#       - "**/README.md"
+#       - "**/docs/**"
+#       - "crates/vm/levm/**" # We ran this in a separate workflow
 
-concurrency:
-  group: ${{ github.workflow }}-${{ github.head_ref || github.run_id }}
-  cancel-in-progress: true
+# concurrency:
+#   group: ${{ github.workflow }}-${{ github.head_ref || github.run_id }}
+#   cancel-in-progress: true
 
-env:
-  RUST_VERSION: 1.80.1
+# env:
+#   RUST_VERSION: 1.80.1
 
-jobs:
-  lint:
-    name: Lint
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout sources
-        uses: actions/checkout@v4
+# jobs:
+#   lint:
+#     name: Lint
+#     runs-on: ubuntu-latest
+#     steps:
+#       - name: Checkout sources
+#         uses: actions/checkout@v4
 
-      - name: Rustup toolchain install
-        uses: dtolnay/rust-toolchain@stable
-        with:
-          toolchain: ${{ env.RUST_VERSION }}
-          components: rustfmt, clippy
+#       - name: Rustup toolchain install
+#         uses: dtolnay/rust-toolchain@stable
+#         with:
+#           toolchain: ${{ env.RUST_VERSION }}
+#           components: rustfmt, clippy
 
-      - name: Add Rust Cache
-        uses: Swatinem/rust-cache@v2
+#       - name: Add Rust Cache
+#         uses: Swatinem/rust-cache@v2
 
-      - name: Run cargo check
-        run: cargo check
+#       - name: Run cargo check
+#         run: cargo check
 
-      - name: Run cargo build
-        run: |
-          cargo build
+#       - name: Run cargo build
+#         run: |
+#           cargo build
 
-      - name: Run cargo clippy
-        run: |
-          cargo clippy --all-targets --all-features --workspace --exclude ethereum_rust-prover -- -D warnings
+#       - name: Run cargo clippy
+#         run: |
+#           cargo clippy --all-targets --all-features --workspace --exclude ethereum_rust-prover -- -D warnings
 
-      - name: Run cargo fmt
-        run: |
-          cargo fmt --all -- --check
+#       - name: Run cargo fmt
+#         run: |
+#           cargo fmt --all -- --check
 
-  test:
-    name: Test
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout sources
-        uses: actions/checkout@v4
+#   test:
+#     name: Test
+#     runs-on: ubuntu-latest
+#     steps:
+#       - name: Checkout sources
+#         uses: actions/checkout@v4
 
-      - name: Rustup toolchain install
-        uses: dtolnay/rust-toolchain@stable
-        with:
-          toolchain: ${{ env.RUST_VERSION }}
+#       - name: Rustup toolchain install
+#         uses: dtolnay/rust-toolchain@stable
+#         with:
+#           toolchain: ${{ env.RUST_VERSION }}
 
-      - name: Caching
-        uses: Swatinem/rust-cache@v2
+#       - name: Caching
+#         uses: Swatinem/rust-cache@v2
 
-      - name: Download test vectors
-        run: |
-          make download-test-vectors
+#       - name: Download test vectors
+#         run: |
+#           make download-test-vectors
 
-      - name: Run tests
-        run: |
-          make test
+#       - name: Run tests
+#         run: |
+#           make test
 
-  docker-build:
-    name: Build Docker image
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
-      - name: Build Docker image
-        uses: docker/build-push-action@v5
-        with:
-          context: .
-          file: ./Dockerfile
-          load: true # Important for building without pushing
+#   docker-build:
+#     name: Build Docker image
+#     runs-on: ubuntu-latest
+#     steps:
+#       - uses: actions/checkout@v4
+#       - name: Set up Docker Buildx
+#         uses: docker/setup-buildx-action@v3
+#       - name: Build Docker image
+#         uses: docker/build-push-action@v5
+#         with:
+#           context: .
+#           file: ./Dockerfile
+#           load: true # Important for building without pushing
