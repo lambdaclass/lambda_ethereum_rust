@@ -110,10 +110,9 @@ async fn main() {
     let tcp_socket_addr =
         parse_socket_addr(tcp_addr, tcp_port).expect("Failed to parse addr and port");
 
-    let data_dir = match matches.get_one::<String>("datadir") {
-        Some(datadir) => set_datadir(datadir),
-        None => set_datadir(DEFAULT_DATADIR),
-    };
+    let data_dir = matches
+        .get_one::<String>("datadir")
+        .map_or(set_datadir(DEFAULT_DATADIR), |datadir| set_datadir(datadir));
 
     let store = Store::new(&data_dir, EngineType::Libmdbx).expect("Failed to create Store");
 
