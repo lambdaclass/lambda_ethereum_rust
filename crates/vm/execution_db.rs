@@ -37,10 +37,10 @@ pub struct ExecutionDB {
     chain_config: ChainConfig,
     /// encoded nodes to reconstruct a state trie, but only including relevant data (pruned).
     /// root node is stored separately from the rest.
-    pruned_state_trie: (NodeRLP, Vec<NodeRLP>),
+    pruned_state_trie: (Option<NodeRLP>, Vec<NodeRLP>),
     /// encoded nodes to reconstruct every storage trie, but only including relevant data (pruned)
     /// root nodes are stored separately from the rest.
-    pruned_storage_tries: HashMap<H160, (NodeRLP, Vec<NodeRLP>)>,
+    pruned_storage_tries: HashMap<H160, (Option<NodeRLP>, Vec<NodeRLP>)>,
 }
 
 impl ExecutionDB {
@@ -104,14 +104,7 @@ impl ExecutionDB {
 
         // Get pruned state trie
         let state_paths: Vec<_> = address_storage_keys.keys().map(hash_address).collect();
-        let (Some(state_trie_root), state_trie_nodes) =
-            state_trie.get_pruned_state(&state_paths)?
-        else {
-            return Err(ExecutionDBError::NewMissingStateTrie(
-                block.header.parent_hash,
-            ));
-        };
-        let pruned_state_trie = (state_trie_root, state_trie_nodes);
+        let pruned_state_trie = state_trie.get_pruned_state(&state_paths)?;
 
         // Get pruned storage tries for every account
         let mut pruned_storage_tries = HashMap::new();
@@ -123,14 +116,9 @@ impl ExecutionDB {
                     address,
                 ))?;
             let storage_paths: Vec<_> = keys.iter().map(hash_key).collect();
-            let (Some(storage_trie_root), storage_trie_nodes) =
-                storage_trie.get_pruned_state(&storage_paths)?
-            else {
-                return Err(ExecutionDBError::NewMissingStorageTrie(
-                    block.header.parent_hash,
-                    address,
-                ));
-            };
+            dbg!(&storage_paths);
+            let (storage_trie_root, storage_trie_nodes) =
+                storage_trie.get_pruned_state(&storage_paths)?;
             pruned_storage_tries.insert(address, (storage_trie_root, storage_trie_nodes));
         }
 
@@ -153,14 +141,14 @@ impl ExecutionDB {
     /// pruned tries from the stored nodes.
     pub fn build_tries(&self) -> Result<(Trie, HashMap<H160, Trie>), ExecutionDBError> {
         let (state_trie_root, state_trie_nodes) = &self.pruned_state_trie;
-        let state_trie = Trie::from_nodes(state_trie_root, state_trie_nodes)?;
+        let state_trie = Trie::from_nodes(state_trie_root.as_ref(), state_trie_nodes)?;
         let mut storage_tries = HashMap::new();
 
         for (revm_address, account) in &self.accounts {
             let address = H160::from_slice(revm_address.as_slice());
 
             // check account is in state trie
-            if !state_trie.get(&hash_address(&address))?.is_some() {
+            if state_trie.get(&hash_address(&address))?.is_none() {
                 return Err(ExecutionDBError::MissingAccountInStateTrie(address));
             }
 
@@ -170,7 +158,7 @@ impl ExecutionDB {
                     .ok_or(ExecutionDBError::MissingStorageTrie(address))?;
 
             // compare account storage root with storage trie root
-            let storage_trie = Trie::from_nodes(storage_trie_root, storage_trie_nodes)?;
+            let storage_trie = Trie::from_nodes(storage_trie_root.as_ref(), storage_trie_nodes)?;
             if storage_trie.hash_no_commit()? != account.storage_root {
                 return Err(ExecutionDBError::InvalidStorageTrieRoot(address));
             }

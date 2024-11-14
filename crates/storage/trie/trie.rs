@@ -203,11 +203,16 @@ impl Trie {
 
     /// Creates a cached Trie (with [NullTrieDB]) from a list of encoded nodes.
     /// Generally used in conjuction with [Trie::get_pruned_state].
-    pub fn from_nodes(root_node: &NodeRLP, other_nodes: &[NodeRLP]) -> Result<Self, TrieError> {
+    pub fn from_nodes(
+        root_node: Option<&NodeRLP>,
+        other_nodes: &[NodeRLP],
+    ) -> Result<Self, TrieError> {
         let mut trie = Trie::new(Box::new(NullTrieDB));
 
-        let root_node = Node::decode_raw(&root_node)?;
-        trie.root = Some(root_node.insert_self(&mut trie.state)?);
+        if let Some(root_node) = root_node {
+            let root_node = Node::decode_raw(root_node)?;
+            trie.root = Some(root_node.insert_self(&mut trie.state)?);
+        }
 
         for node in other_nodes.iter().map(|node| Node::decode_raw(node)) {
             node?.insert_self(&mut trie.state)?;
