@@ -1,4 +1,5 @@
 use std::ops::AddAssign;
+use lazy_static::lazy_static;
 
 use crate::serde_utils;
 use crate::{
@@ -15,6 +16,7 @@ use ethereum_rust_rlp::{
     structs::{Decoder, Encoder},
 };
 use serde::{Deserialize, Serialize};
+use c_kzg::{KzgSettings, KzgCommitment, KzgProof, ethereum_kzg_settings};
 
 use super::BYTES_PER_BLOB;
 
@@ -22,6 +24,10 @@ pub type Bytes48 = [u8; 48];
 pub type Blob = [u8; BYTES_PER_BLOB];
 pub type Commitment = Bytes48;
 pub type Proof = Bytes48;
+
+lazy_static! {
+    static ref KZG_SETTINGS: &'static KzgSettings = ethereum_kzg_settings();
+}
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, Default)]
 #[serde(rename_all = "camelCase")]
@@ -42,6 +48,30 @@ fn kzg_commitment_to_versioned_hash(data: &Commitment) -> H256 {
     versioned_hash.into()
 }
 
+fn blob_to_kzg_commitment_and_proof(blob: Blob) -> Result<(Commitment, Proof), BlobsBundleError> {
+    let blob : c_kzg::Blob = blob.into();
+    
+    let commitment = 
+        KzgCommitment::blob_to_kzg_commitment(&blob, &KZG_SETTINGS).or(Err(BlobsBundleError::BlobToCommitmentAndProofError))?;
+
+    let commitment_bytes = commitment.to_bytes();
+
+    let proof = 
+        KzgProof::compute_blob_kzg_proof(&blob, &commitment_bytes, &KZG_SETTINGS).or(Err(BlobsBundleError::BlobToCommitmentAndProofError))?;
+
+    let proof_bytes = proof.to_bytes();
+
+    Ok((commitment_bytes.into_inner(), proof_bytes.into_inner()))
+}
+
+fn verify_blob_kzg_proof(blob: Blob, commitment: Commitment, proof: Proof) -> Result<bool, BlobsBundleError> {
+    let blob : c_kzg::Blob = blob.into();
+    let commitment : c_kzg::Bytes48 = commitment.into();
+    let proof : c_kzg::Bytes48 = proof.into();
+
+    KzgProof::verify_blob_kzg_proof(&blob, &commitment, &proof, &KZG_SETTINGS).or(Err(BlobsBundleError::BlobToCommitmentAndProofError))
+}
+
 impl BlobsBundle {
     pub fn validate(&self, tx: &EIP4844Transaction) -> Result<(), BlobsBundleError> {
         // return error early if any commitment doesn't match it's blob versioned hash
@@ -51,7 +81,7 @@ impl BlobsBundle {
             .zip(tx.blob_versioned_hashes.iter())
         {
             if *blob_versioned_hash != kzg_commitment_to_versioned_hash(&commitment) {
-                return Err(BlobsBundleError::BlobIncorrectVersionedHashes);
+                return Err(BlobsBundleError::BlobVersionedHashesError);
             }
         }
 
@@ -98,7 +128,9 @@ impl AddAssign for BlobsBundle {
 #[derive(Debug, thiserror::Error)]
 pub enum BlobsBundleError {
     #[error("Blob versioned hashes are incorrect")]
-    BlobIncorrectVersionedHashes,
+    BlobVersionedHashesError,
+    #[error("Blob to commitment and proof generation error")]
+    BlobToCommitmentAndProofError,
 }
 
 #[cfg(test)]
@@ -218,7 +250,7 @@ mod tests {
 
         assert!(matches!(
             blobs_bundle.validate(&tx),
-            Err(BlobsBundleError::BlobIncorrectVersionedHashes)
+            Err(BlobsBundleError::BlobVersionedHashesError)
         ));
     }
 }
