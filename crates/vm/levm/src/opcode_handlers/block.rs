@@ -1,14 +1,14 @@
 use crate::{
     call_frame::CallFrame,
-    constants::{gas_cost, LAST_AVAILABLE_BLOCK_LIMIT},
-    errors::{OpcodeSuccess, VMError},
-    vm::VM,
+    constants::LAST_AVAILABLE_BLOCK_LIMIT,
+    errors::{InternalError, OpcodeSuccess, VMError},
+    gas_cost,
+    vm::{address_to_word, VM},
 };
 use ethereum_rust_core::{
     types::{BLOB_BASE_FEE_UPDATE_FRACTION, MIN_BASE_FEE_PER_BLOB_GAS},
-    Address, H256, U256,
+    H256, U256,
 };
-use std::str::FromStr;
 
 // Block Information (11)
 // Opcodes: BLOCKHASH, COINBASE, TIMESTAMP, NUMBER, PREVRANDAO, GASLIMIT, CHAINID, SELFBALANCE, BASEFEE, BLOBHASH, BLOBBASEFEE
@@ -35,7 +35,9 @@ impl VM {
             return Ok(OpcodeSuccess::Continue);
         }
 
-        let block_number = block_number.as_u64();
+        let block_number: u64 = block_number
+            .try_into()
+            .map_err(|_err| VMError::VeryLargeNumber)?;
 
         if let Some(block_hash) = self.db.get_block_hash(block_number) {
             current_call_frame
@@ -134,9 +136,7 @@ impl VM {
 
         // the current account should have been cached when the contract was called
         let balance = self
-            .cache
-            .get_account(current_call_frame.code_address)
-            .expect("The current account should always be cached")
+            .get_account(&current_call_frame.code_address)
             .info
             .balance;
 
@@ -164,7 +164,11 @@ impl VM {
     ) -> Result<OpcodeSuccess, VMError> {
         self.increase_consumed_gas(current_call_frame, gas_cost::BLOBHASH)?;
 
-        let index = current_call_frame.stack.pop()?.as_usize();
+        let index: usize = current_call_frame
+            .stack
+            .pop()?
+            .try_into()
+            .map_err(|_err| VMError::VeryLargeNumber)?;
 
         let blob_hash: H256 = match &self.env.tx_blob_hashes {
             Some(vec) => match vec.get(index) {
@@ -186,11 +190,13 @@ impl VM {
         Ok(OpcodeSuccess::Continue)
     }
 
-    fn get_blob_gasprice(&mut self) -> U256 {
+    fn get_blob_gasprice(&mut self) -> Result<U256, VMError> {
         fake_exponential(
             MIN_BASE_FEE_PER_BLOB_GAS.into(),
             // Use unwrap because env should have a Some value in excess_blob_gas attribute
-            self.env.block_excess_blob_gas.unwrap(),
+            self.env.block_excess_blob_gas.ok_or(VMError::Internal(
+                InternalError::ExcessBlobGasShouldNotBeNone,
+            ))?,
             BLOB_BASE_FEE_UPDATE_FRACTION.into(),
         )
     }
@@ -202,7 +208,7 @@ impl VM {
     ) -> Result<OpcodeSuccess, VMError> {
         self.increase_consumed_gas(current_call_frame, gas_cost::BLOBBASEFEE)?;
 
-        let blob_base_fee = self.get_blob_gasprice();
+        let blob_base_fee = self.get_blob_gasprice()?;
 
         current_call_frame.stack.push(blob_base_fee)?;
 
@@ -210,20 +216,38 @@ impl VM {
     }
 }
 
-fn address_to_word(address: Address) -> U256 {
-    // This unwrap can't panic, as Address are 20 bytes long and U256 use 32 bytes
-    U256::from_str(&format!("{address:?}")).unwrap()
-}
-
 // Fuction inspired in EIP 4844 helpers. Link: https://eips.ethereum.org/EIPS/eip-4844#helpers
-fn fake_exponential(factor: U256, numerator: U256, denominator: U256) -> U256 {
+fn fake_exponential(factor: U256, numerator: U256, denominator: U256) -> Result<U256, VMError> {
     let mut i = U256::one();
     let mut output = U256::zero();
-    let mut numerator_accum = factor * denominator;
+    let mut numerator_accum = factor.checked_mul(denominator).ok_or(VMError::Internal(
+        InternalError::ArithmeticOperationOverflow,
+    ))?;
     while numerator_accum > U256::zero() {
-        output += numerator_accum;
-        numerator_accum = (numerator_accum * numerator) / (denominator * i);
-        i += U256::one();
+        output = output
+            .checked_add(numerator_accum)
+            .ok_or(VMError::Internal(
+                InternalError::ArithmeticOperationOverflow,
+            ))?;
+        let mult_numerator = numerator_accum
+            .checked_mul(numerator)
+            .ok_or(VMError::Internal(
+                InternalError::ArithmeticOperationOverflow,
+            ))?;
+        let mult_denominator = denominator.checked_mul(i).ok_or(VMError::Internal(
+            InternalError::ArithmeticOperationOverflow,
+        ))?;
+        numerator_accum =
+            (mult_numerator)
+                .checked_div(mult_denominator)
+                .ok_or(VMError::Internal(
+                    InternalError::ArithmeticOperationDividedByZero,
+                ))?; // Neither denominator or i can be zero
+        i = i.checked_add(U256::one()).ok_or(VMError::Internal(
+            InternalError::ArithmeticOperationOverflow,
+        ))?;
     }
-    output / denominator
+    output.checked_div(denominator).ok_or(VMError::Internal(
+        InternalError::ArithmeticOperationDividedByZero,
+    )) // Denominator is a const
 }

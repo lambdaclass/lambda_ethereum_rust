@@ -1,7 +1,7 @@
 use crate::{
     call_frame::CallFrame,
-    constants::gas_cost,
     errors::{OpcodeSuccess, VMError},
+    gas_cost,
     opcodes::Opcode,
     vm::VM,
 };
@@ -17,20 +17,28 @@ impl VM {
         op: Opcode,
     ) -> Result<OpcodeSuccess, VMError> {
         // Calculate the depth based on the opcode
-        let depth = (op as u8) - (Opcode::DUP1 as u8) + 1;
+        let depth = (usize::from(op))
+            .checked_sub(usize::from(Opcode::DUP1))
+            .ok_or(VMError::InvalidOpcode)?
+            .checked_add(1)
+            .ok_or(VMError::InvalidOpcode)?;
 
         // Increase the consumed gas
         self.increase_consumed_gas(current_call_frame, gas_cost::DUPN)?;
 
         // Ensure the stack has enough elements to duplicate
-        if current_call_frame.stack.len() < depth as usize {
+        if current_call_frame.stack.len() < depth {
             return Err(VMError::StackUnderflow);
         }
 
         // Get the value at the specified depth
-        let value_at_depth = current_call_frame
-            .stack
-            .get(current_call_frame.stack.len() - depth as usize)?;
+        let value_at_depth = current_call_frame.stack.get(
+            current_call_frame
+                .stack
+                .len()
+                .checked_sub(depth)
+                .ok_or(VMError::StackUnderflow)?,
+        )?;
 
         // Push the duplicated value onto the stack
         current_call_frame.stack.push(*value_at_depth)?;
