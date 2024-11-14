@@ -32,10 +32,9 @@ async fn main() {
     let matches = cli::cli().get_matches();
 
     if let Some(matches) = matches.subcommand_matches("removedb") {
-        let data_dir = match matches.get_one::<String>("datadir") {
-            Some(datadir) => set_datadir(datadir),
-            None => set_datadir(DEFAULT_DATADIR),
-        };
+        let data_dir = matches
+            .get_one::<String>("datadir")
+            .map_or(set_datadir(DEFAULT_DATADIR), |datadir| set_datadir(datadir));
         let path = Path::new(&data_dir);
         if path.exists() {
             std::fs::remove_dir_all(path).expect("Failed to remove data directory");
