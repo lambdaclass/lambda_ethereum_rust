@@ -14,6 +14,7 @@ Cargo.lock
 *.pdb
 
 cmd/ef_tests/ethereum_rust/vectors
+cmd/ef_tests/levm/vectors
 
 # Repos checked out by make target
 hive/
