@@ -1,14 +1,12 @@
-use std::ops::AddAssign;
 use lazy_static::lazy_static;
+use std::ops::AddAssign;
 
 use crate::serde_utils;
 use crate::{
-    types::{
-        transaction::EIP4844Transaction,
-        constants::VERSIONED_HASH_VERSION_KZG,
-    },
+    types::{constants::VERSIONED_HASH_VERSION_KZG, transaction::EIP4844Transaction},
     H256,
 };
+use c_kzg::{ethereum_kzg_settings, KzgCommitment, KzgProof, KzgSettings};
 use ethereum_rust_rlp::{
     decode::RLPDecode,
     encode::RLPEncode,
@@ -16,7 +14,6 @@ use ethereum_rust_rlp::{
     structs::{Decoder, Encoder},
 };
 use serde::{Deserialize, Serialize};
-use c_kzg::{KzgSettings, KzgCommitment, KzgProof, ethereum_kzg_settings};
 
 use super::BYTES_PER_BLOB;
 
@@ -49,39 +46,54 @@ fn kzg_commitment_to_versioned_hash(data: &Commitment) -> H256 {
 }
 
 fn blob_to_kzg_commitment_and_proof(blob: Blob) -> Result<(Commitment, Proof), BlobsBundleError> {
-    let blob : c_kzg::Blob = blob.into();
-    
-    let commitment = 
-        KzgCommitment::blob_to_kzg_commitment(&blob, &KZG_SETTINGS).or(Err(BlobsBundleError::BlobToCommitmentAndProofError))?;
+    let blob: c_kzg::Blob = blob.into();
+
+    let commitment = KzgCommitment::blob_to_kzg_commitment(&blob, &KZG_SETTINGS)
+        .or(Err(BlobsBundleError::BlobToCommitmentAndProofError))?;
 
     let commitment_bytes = commitment.to_bytes();
 
-    let proof = 
-        KzgProof::compute_blob_kzg_proof(&blob, &commitment_bytes, &KZG_SETTINGS).or(Err(BlobsBundleError::BlobToCommitmentAndProofError))?;
+    let proof = KzgProof::compute_blob_kzg_proof(&blob, &commitment_bytes, &KZG_SETTINGS)
+        .or(Err(BlobsBundleError::BlobToCommitmentAndProofError))?;
 
     let proof_bytes = proof.to_bytes();
 
     Ok((commitment_bytes.into_inner(), proof_bytes.into_inner()))
 }
 
-fn verify_blob_kzg_proof(blob: Blob, commitment: Commitment, proof: Proof) -> Result<bool, BlobsBundleError> {
-    let blob : c_kzg::Blob = blob.into();
-    let commitment : c_kzg::Bytes48 = commitment.into();
-    let proof : c_kzg::Bytes48 = proof.into();
+fn verify_blob_kzg_proof(
+    blob: Blob,
+    commitment: Commitment,
+    proof: Proof,
+) -> Result<bool, BlobsBundleError> {
+    let blob: c_kzg::Blob = blob.into();
+    let commitment: c_kzg::Bytes48 = commitment.into();
+    let proof: c_kzg::Bytes48 = proof.into();
 
-    KzgProof::verify_blob_kzg_proof(&blob, &commitment, &proof, &KZG_SETTINGS).or(Err(BlobsBundleError::BlobToCommitmentAndProofError))
+    KzgProof::verify_blob_kzg_proof(&blob, &commitment, &proof, &KZG_SETTINGS)
+        .or(Err(BlobsBundleError::BlobToCommitmentAndProofError))
 }
 
 impl BlobsBundle {
     pub fn validate(&self, tx: &EIP4844Transaction) -> Result<(), BlobsBundleError> {
         // return error early if any commitment doesn't match it's blob versioned hash
-        for (commitment, blob_versioned_hash) in self
-            .commitments
-            .iter()
-            .zip(tx.blob_versioned_hashes.iter())
+        for (commitment, blob_versioned_hash) in
+            self.commitments.iter().zip(tx.blob_versioned_hashes.iter())
         {
             if *blob_versioned_hash != kzg_commitment_to_versioned_hash(&commitment) {
                 return Err(BlobsBundleError::BlobVersionedHashesError);
+            }
+        }
+
+        // return error early if the proofs don't match the commitments
+        for ((blob, commitment), proof) in self
+            .blobs
+            .iter()
+            .zip(self.commitments.iter())
+            .zip(self.proofs.iter())
+        {
+            if !verify_blob_kzg_proof(*blob, *commitment, *proof)? {
+                return Err(BlobsBundleError::BlobToCommitmentAndProofError);
             }
         }
 
@@ -137,10 +149,7 @@ pub enum BlobsBundleError {
 
 mod tests {
     use super::*;
-    use crate::{
-        types::transaction::EIP4844Transaction,
-        Address, U256, Bytes,
-    };
+    use crate::{types::transaction::EIP4844Transaction, Address, Bytes, U256};
 
     #[test]
     fn transaction_with_correct_blobs_should_pass() {
@@ -254,5 +263,3 @@ mod tests {
         ));
     }
 }
- 
-
