@@ -74,6 +74,10 @@ pub enum VMError {
     ConsumedGasOverflow,
     #[error("Max Gas Limit Exceeded")]
     MaxGasLimitExceeded,
+    #[error("Gas refunds underflow")]
+    GasRefundsUnderflow,
+    #[error("Gas refunds overflow")]
+    GasRefundsOverflow,
     // Internal
     #[error("Internal error: {0}")]
     Internal(#[from] InternalError),
