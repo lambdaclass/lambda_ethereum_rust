@@ -34,6 +34,8 @@ const L2_GAS_COST_MAX_DELTA: U256 = U256([100_000_000_000_000, 0, 0, 0]);
 /// 9. Check balances on L1 and L2
 #[tokio::test]
 async fn testito() {
+    std::thread::sleep(std::time::Duration::from_secs(5));
+
     let eth_client = eth_client();
     let proposer_client = proposer_client();
 
