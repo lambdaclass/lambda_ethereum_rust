@@ -369,16 +369,16 @@ impl VM {
         //      The actual reversion of changes is made in the execute() function.
 
         let offset: usize = current_call_frame
-        .stack
-        .pop()?
-        .try_into()
-        .map_err(|_err| VMError::VeryLargeNumber)?;
+            .stack
+            .pop()?
+            .try_into()
+            .map_err(|_err| VMError::VeryLargeNumber)?;
 
         let size = current_call_frame
-        .stack
-        .pop()?
-        .try_into()
-        .map_err(|_err| VMError::VeryLargeNumber)?;
+            .stack
+            .pop()?
+            .try_into()
+            .map_err(|_err| VMError::VeryLargeNumber)?;
 
         let gas_cost = current_call_frame.memory.expansion_cost(
             offset
