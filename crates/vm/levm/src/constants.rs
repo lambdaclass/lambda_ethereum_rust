@@ -1,4 +1,4 @@
-use ethereum_rust_core::U256;
+use ethereum_rust_core::{H256, U256};
 
 pub const SUCCESS_FOR_CALL: i32 = 1;
 pub const REVERT_FOR_CALL: i32 = 0;

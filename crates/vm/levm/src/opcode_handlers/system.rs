@@ -50,12 +50,7 @@ impl VM {
             self.cache_from_db(&code_address);
         }
 
-        let account_is_empty = self
-            .cache
-            .get_account(code_address)
-            .unwrap()
-            .clone()
-            .is_empty();
+        let account_is_empty = self.get_account(&code_address).clone().is_empty();
 
         let gas_cost = gas_cost::call(
             current_call_frame,
