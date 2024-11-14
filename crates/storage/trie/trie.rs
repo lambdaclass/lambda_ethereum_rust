@@ -140,6 +140,16 @@ impl Trie {
             .unwrap_or(*EMPTY_TRIE_HASH))
     }
 
+    /// Return the hash of the trie's root node.
+    /// Returns keccak(RLP_NULL) if the trie is empty
+    pub fn hash_no_commit(&mut self) -> Result<H256, TrieError> {
+        Ok(self
+            .root
+            .as_ref()
+            .map(|root| root.clone().finalize())
+            .unwrap_or(*EMPTY_TRIE_HASH))
+    }
+
     /// Obtain a merkle proof for the given path.
     /// The proof will contain all the encoded nodes traversed until reaching the node where the path is stored (including this last node).
     /// The proof will still be constructed even if the path is not stored in the trie, proving its absence.
