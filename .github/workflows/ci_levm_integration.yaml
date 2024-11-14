@@ -1,0 +1,71 @@
+name: CI LEVM and L2 Prover Integration
+
+on:
+  merge_group:
+  pull_request:
+    branches: ["**"]
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.head_ref || github.run_id }}
+  cancel-in-progress: true
+
+env:
+  RUST_VERSION: 1.80.1
+
+jobs:
+  run-components:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v2
+
+      - name: Set up Rust
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
+          override: true
+
+      - name: Install Foundry (for cast command)
+        run: |
+          curl -L https://foundry.paradigm.xyz | bash
+          foundryup
+
+      - name: Run Component 1 in the background
+        run: |
+          cd crates/l2
+          rm ~/Library/Application\ Support/ethereum_rust/mdbx.*
+          make restart-local-l1 && make deploy-l1 && make down-l2
+          RUST_LOG=info,ethereum_rust_blockchain::payload=debug cargo run --release --manifest-path ../../Cargo.toml --bin ethereum_rust --features l2,levm -- --network ../../test_data/genesis-l2.json --http.port 1729 &
+          echo $! > component1_pid.txt  # Save Component 1's PID to stop it later
+
+      - name: Wait for Component 1 to initialize
+        run: |
+          for i in {1..30}; do
+            if nc -z localhost 1729; then
+              echo "Component 1 is ready!"
+              break
+            fi
+            echo "Waiting for Component 1 to initialize..."
+            sleep 5
+          done
+
+      - name: Run Component 2 and check for receipt
+        run: |
+          # Run the `cast send` command for Component 2 and capture output
+          receipt=$(cast send --private-key 0x63b8139bbf84a5a65613e544be239f59f884434462598bd8bfe9f2c9045aa336 --value 10 0x0004ad0D0823e3d31C6ECA2A3495373fA76c43aC --rpc-url http://localhost:1729 2>&1)
+
+          # Check if the output contains a successful receipt
+          if echo "$receipt" | grep -q "success"; then
+            echo "Receipt received successfully!"
+            echo "$receipt"
+          else
+            echo "Failed to receive receipt"
+            echo "$receipt"
+            exit 1
+          fi
+
+      - name: Stop Component 1
+        if: always()
+        run: |
+          kill $(cat component1_pid.txt) || true
