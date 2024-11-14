@@ -59,8 +59,6 @@ pub enum VMError {
     BalanceOverflow,
     #[error("Balance Underflow")]
     BalanceUnderflow,
-    #[error("Remaining Gas Underflow")]
-    RemainingGasUnderflow, // When gas used is higher than gas limit, is there already an error for that?
     #[error("Gas refunds underflow")]
     GasRefundsUnderflow,
     #[error("Gas refunds overflow")]

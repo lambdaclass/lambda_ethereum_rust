@@ -675,12 +675,12 @@ impl VM {
         let mut potential_remaining_gas = current_call_frame
             .gas_limit
             .checked_sub(current_call_frame.gas_used)
-            .ok_or(VMError::RemainingGasUnderflow)?;
+            .ok_or(VMError::OutOfGas(OutOfGasError::MaxGasLimitExceeded))?;
         potential_remaining_gas = potential_remaining_gas
             .checked_sub(potential_remaining_gas.checked_div(64.into()).ok_or(
                 VMError::Internal(InternalError::ArithmeticOperationOverflow),
             )?)
-            .ok_or(VMError::RemainingGasUnderflow)?;
+            .ok_or(VMError::OutOfGas(OutOfGasError::MaxGasLimitExceeded))?;
         let gas_limit = std::cmp::min(gas_limit, potential_remaining_gas);
 
         let new_depth = current_call_frame
