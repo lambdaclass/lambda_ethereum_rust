@@ -152,7 +152,10 @@ impl VM {
         // TODO: https://github.com/lambdaclass/lambda_ethereum_rust/issues/1088
     }
 
-    pub fn execute(&mut self, current_call_frame: &mut CallFrame) -> Result<TransactionReport, VMError> {
+    pub fn execute(
+        &mut self,
+        current_call_frame: &mut CallFrame,
+    ) -> Result<TransactionReport, VMError> {
         // Backup of Database, Substate and Gas Refunds if sub-context is reverted
         let (backup_db, backup_substate, backup_refunded_gas) = (
             self.cache.clone(),
@@ -283,6 +286,11 @@ impl VM {
                 }
                 Err(error) => {
                     self.call_frames.push(current_call_frame.clone());
+
+                    // If error is internal then propagate it to the upper layer
+                    if error.is_internal() {
+                        return Err(error);
+                    }
 
                     // Unless error is from Revert opcode, all gas is consumed
                     if error != VMError::RevertOpcode {

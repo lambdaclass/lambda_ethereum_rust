@@ -106,6 +106,12 @@ pub enum InternalError {
     DivisionError,
 }
 
+impl VMError {
+    pub fn is_internal(&self) -> bool {
+        matches!(self, VMError::Internal(_))
+    }
+}
+
 #[derive(Debug, Clone)]
 pub enum OpcodeSuccess {
     Continue,
