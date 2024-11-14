@@ -1,10 +1,13 @@
-use std::{collections::HashMap, time::Duration};
-
 use crate::{
-    proposer::state_diff::{AccountStateDiff, DepositLog, WithdrawalLog},
+    proposer::{
+        errors::CommitterError,
+        state_diff::{AccountStateDiff, DepositLog, StateDiff, WithdrawalLog},
+    },
     utils::{
         config::{committer::CommitterConfig, eth::EthConfig},
-        eth_client::{transaction::blob_from_bytes, EthClient},
+        eth_client::{
+            errors::EthClientError, eth_sender::Overrides, transaction::blob_from_bytes, EthClient,
+        },
         merkle_tree::merkelize,
     },
 };
@@ -25,11 +28,9 @@ use keccak_hash::keccak;
 use secp256k1::SecretKey;
 use sha2::{Digest, Sha256};
 use std::ops::Div;
+use std::{collections::HashMap, time::Duration};
 use tokio::time::sleep;
 use tracing::{error, info, warn};
-
-use super::{errors::CommitterError, state_diff::StateDiff};
-use crate::utils::eth_client::{errors::EthClientError, eth_sender::Overrides};
 
 const COMMIT_FUNCTION_SELECTOR: [u8; 4] = [132, 97, 12, 179];
 
