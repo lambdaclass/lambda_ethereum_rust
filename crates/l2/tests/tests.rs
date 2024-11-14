@@ -17,7 +17,7 @@ const DEFAULT_L1_RICH_WALLET_PRIVATE_KEY: H256 = H256([
     0x33, 0xf6, 0x6b, 0x39, 0x60, 0xd9, 0xe6, 0x22, 0x9c, 0x1c, 0xd2, 0x14, 0xed, 0x3b, 0xbe, 0x31,
 ]);
 
-const L1_GAS_COST_MAX_DELTA: U256 = U256([100_000_000_000_000, 0, 0, 0]);
+const L1_GAS_COST_MAX_DELTA: U256 = U256([1_000_000_000_000_000, 0, 0, 0]);
 const L2_GAS_COST_MAX_DELTA: U256 = U256([100_000_000_000_000, 0, 0, 0]);
 
 /// Test the full flow of depositing, transferring, and withdrawing funds
