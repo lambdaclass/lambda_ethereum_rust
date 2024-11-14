@@ -56,11 +56,16 @@ pub fn run_ef_tests() -> Result<EFTestsReport, Box<dyn Error>> {
 
 pub fn run_ef_test(test: EFTest, report: &mut EFTestsReport) -> Result<(), Box<dyn Error>> {
     for (tx_id, _tx) in test.transactions.iter().enumerate() {
-        let hex_string: String =  _tx.data.iter()
-        .map(|b| format!("{:02x}", b))
-        .collect::<Vec<String>>() 
-        .join("");
-        println!("Running test with tx_id {}, data {:?}, gas_limit {:?} and value {:?}", tx_id, hex_string, _tx.gas_limit, _tx.value);
+        let hex_string: String = _tx
+            .data
+            .iter()
+            .map(|b| format!("{:02x}", b))
+            .collect::<Vec<String>>()
+            .join("");
+        println!(
+            "Running test with tx_id {}, data {:?}, gas_limit {:?} and value {:?}",
+            tx_id, hex_string, _tx.gas_limit, _tx.value
+        );
         let mut evm = prepare_vm_for_tx(tx_id, &test, report)?;
         ensure_pre_state(&evm, &test, report)?;
         let execution_result = evm.transact();
