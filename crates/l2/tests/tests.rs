@@ -1,8 +1,9 @@
-use ethereum_rust_l2::utils::eth_client::EthClient;
+use bytes::Bytes;
+use ethereum_rust_l2::utils::eth_client::{eth_sender::Overrides, EthClient};
 use ethereum_types::{Address, H160, U256};
 use keccak_hash::H256;
 use secp256k1::SecretKey;
-use std::str::FromStr;
+use std::{str::FromStr, time::Duration};
 
 const DEFAULT_ETH_URL: &str = "http://localhost:8545";
 const DEFAULT_PROPOSER_URL: &str = "http://localhost:1729";
@@ -183,7 +184,7 @@ async fn testito() {
     )
     .await
     .unwrap();
-    let _withdraw_tx_receipt =
+    let withdraw_tx_receipt =
         ethereum_rust_l2_sdk::wait_for_transaction_receipt(withdraw_tx, &proposer_client, 30).await;
 
     // 7. Check balances on L1 and L2
@@ -215,6 +216,29 @@ async fn testito() {
     // 8. Claim funds on L1
 
     println!("Claiming funds on L1");
+
+    while u64::from_str_radix(
+        &eth_client
+            .call(
+                Address::from_str(
+                    &std::env::var("ON_CHAIN_PROPOSER_ADDRESS")
+                        .expect("ON_CHAIN_PROPOSER env var not set"),
+                )
+                .unwrap(),
+                // lastVerifiedBlock()
+                Bytes::from_static(&[0x2f, 0xde, 0x80, 0xe5]),
+                Overrides::default(),
+            )
+            .await
+            .unwrap()[2..],
+        16,
+    )
+    .unwrap()
+        < withdraw_tx_receipt.block_info.block_number
+    {
+        println!("Withdrawal is not verified on L1 yet");
+        std::thread::sleep(Duration::from_secs(2));
+    }
 
     let claim_tx = ethereum_rust_l2_sdk::claim_withdraw(
         withdraw_tx,
