@@ -59,10 +59,10 @@ pub fn run_ef_test_tx(
     test: &EFTest,
     report: &mut EFTestsReport,
 ) -> Result<(), Box<dyn Error>> {
-    let mut evm = prepare_vm_for_tx(tx_id, &test)?;
-    ensure_pre_state(&evm, &test)?;
+    let mut evm = prepare_vm_for_tx(tx_id, test)?;
+    ensure_pre_state(&evm, test)?;
     let execution_result = evm.transact();
-    ensure_post_state(execution_result, &evm, &test, report)?;
+    ensure_post_state(execution_result, &evm, test, report)?;
     Ok(())
 }
 
