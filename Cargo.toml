@@ -17,7 +17,7 @@ members = [
     "crates/l2/",
     "crates/l2/prover",
     "crates/l2/contracts",
-    "crates/l2/sdk",
+    "crates/l2/sdk", "crates/networking/snap_sync",
 ]
 resolver = "2"
 
