@@ -28,6 +28,14 @@ pub enum ProverServerError {
     EthClientError(#[from] EthClientError),
     #[error("ProverServer failed to send transaction: {0}")]
     FailedToVerifyProofOnChain(String),
+    #[error("ProverServer failed to write to TcpStream: {0}")]
+    WriteError(String),
+    #[error("ProverServer failed to access Store: {0}")]
+    FailedAccessingStore(#[from] StoreError),
+    #[error("ProverServer failed to get data from Store: {0}")]
+    ItemNotFoundInStore(String),
+    #[error("ProverServer failed to create inputs for the Prover: {0}")]
+    FailedToCreateProverInputs(#[from] EvmError),
 }
 
 #[derive(Debug, thiserror::Error)]

@@ -1,5 +1,5 @@
-use ethereum_rust_storage::Store;
-use ethereum_rust_vm::execution_db::ExecutionDB;
+use ethereum_rust_storage::{error::StoreError, Store};
+use ethereum_rust_vm::{execution_db::ExecutionDB, EvmError};
 use keccak_hash::keccak;
 use secp256k1::SecretKey;
 use serde::{Deserialize, Serialize};
@@ -256,31 +256,8 @@ impl ProverServer {
                 block_number,
                 receipt,
             }) => {
-                // When the prover_server gets the zkProof:
-                // 1. Check the block_number that is going to be submitted to see if it was already committed.
-                //   - The last_committed_block_number has to be greater or equal to the block_number to verify.
-                // 2. Send the `verify()` transaction and wait for it.
-                // 3. Handle the Submit with a SubmitAck.
-                // Note: this may be a bottleneck, the prover_client is idle waiting for the transaction to be validated.
-                // But a SubmitAck may not be representing that we want to advance in the proving process.
-                // Extra logic to save the proof and advance the proof generation process in order to send saved proof incrementally
-                // may help.
-
-                loop {
-                    let last_committed_block = EthClient::get_last_committed_block(
-                        &self.eth_client,
-                        self.on_chain_proposer_address,
-                    )
+                self.handle_proof_submission(block_number, receipt.clone())
                     .await?;
-
-                    if last_committed_block >= block_number {
-                        self.handle_proof_submission(block_number, receipt.clone())
-                            .await?;
-                        break;
-                    } else {
-                        sleep(std::time::Duration::from_secs(1)).await;
-                    }
-                }
 
                 if let Err(e) = self.handle_submit(&mut stream, block_number) {
                     error!("Failed to handle submit_ack: {e}");
@@ -306,16 +283,18 @@ impl ProverServer {
         &self,
         stream: &mut TcpStream,
         block_number: u64,
-    ) -> Result<(), String> {
+    ) -> Result<(), ProverServerError> {
         debug!("Request received");
 
-        let latest_block_number = self
-            .store
-            .get_latest_block_number()
-            .map_err(|e| e.to_string())?
-            .unwrap();
+        let last_committed_block =
+            EthClient::get_last_committed_block(&self.eth_client, self.on_chain_proposer_address)
+                .await?;
 
-        let response = if block_number > latest_block_number {
+        // Send inputs to the prover only if the last_committed_block (that comes from the OnChainProposer contract)
+        // is greater or equal to the next block_number.
+        // Since the block_number passed to the function is the lastVerifiedBlock, we are essentially checking if the
+        // block was committed after starting the proving process.
+        let response = if last_committed_block < block_number {
             let response = ProofData::Response {
                 block_number: None,
                 input: None,
@@ -333,15 +312,21 @@ impl ProverServer {
         };
 
         let writer = BufWriter::new(stream);
-        serde_json::to_writer(writer, &response).map_err(|e| e.to_string())
+        serde_json::to_writer(writer, &response)
+            .map_err(|e| ProverServerError::WriteError(format!("handle_request: {e}")))
     }
 
-    fn handle_submit(&self, stream: &mut TcpStream, block_number: u64) -> Result<(), String> {
+    fn handle_submit(
+        &self,
+        stream: &mut TcpStream,
+        block_number: u64,
+    ) -> Result<(), ProverServerError> {
         debug!("Submit received for BlockNumber: {block_number}");
 
         let response = ProofData::SubmitAck { block_number };
         let writer = BufWriter::new(stream);
-        serde_json::to_writer(writer, &response).map_err(|e| e.to_string())
+        serde_json::to_writer(writer, &response)
+            .map_err(|e| ProverServerError::WriteError(format!("handle_submit: {e}")))
     }
 
     async fn handle_proof_submission(
@@ -396,6 +381,8 @@ impl ProverServer {
                 Err(e) => {
                     warn!("Failed to send proof to block {block_number:#x}. Error: {e}");
                     let eth_client_error = format!("{e}");
+                    // We should never get this error message, it's being handled
+                    // by the line that checks: last_committed_block < block_number
                     if eth_client_error.contains("block not committed") {
                         attempts += 1;
                         if attempts < max_retries {
@@ -416,27 +403,33 @@ impl ProverServer {
         Ok(())
     }
 
-    fn create_prover_input(&self, block_number: u64) -> Result<ProverInputData, String> {
+    fn create_prover_input(&self, block_number: u64) -> Result<ProverInputData, ProverServerError> {
         let header = self
             .store
             .get_block_header(block_number)
-            .map_err(|err| err.to_string())?
-            .ok_or("block header not found")?;
+            .map_err(StoreError::from)?
+            .ok_or(ProverServerError::ItemNotFoundInStore(format!(
+                "block header not found for {block_number}"
+            )))?;
         let body = self
             .store
             .get_block_body(block_number)
-            .map_err(|err| err.to_string())?
-            .ok_or("block body not found")?;
+            .map_err(StoreError::from)?
+            .ok_or(ProverServerError::ItemNotFoundInStore(format!(
+                "block body not found for {block_number}"
+            )))?;
 
         let block = Block::new(header, body);
 
-        let db = ExecutionDB::from_exec(&block, &self.store).map_err(|err| err.to_string())?;
+        let db = ExecutionDB::from_exec(&block, &self.store).map_err(EvmError::from)?;
 
         let parent_header = self
             .store
             .get_block_header_by_hash(block.header.parent_hash)
-            .map_err(|err| err.to_string())?
-            .ok_or("missing parent header".to_string())?;
+            .map_err(StoreError::from)?
+            .ok_or(ProverServerError::ItemNotFoundInStore(format!(
+                "missing parent header for {block_number}"
+            )))?;
 
         debug!("Created prover input for block {block_number}");
 
