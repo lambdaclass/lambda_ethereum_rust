@@ -1,20 +1,15 @@
-use crate::{
-    deserialize::{
-        deserialize_ef_post_value_indexes, deserialize_hex_bytes, deserialize_hex_bytes_vec,
-        deserialize_u256_optional_safe, deserialize_u256_safe,
-        deserialize_u256_valued_hashmap_safe, deserialize_u256_vec_safe,
-    },
-    utils,
+use crate::deserialize::{
+    deserialize_ef_post_value_indexes, deserialize_hex_bytes, deserialize_hex_bytes_vec,
+    deserialize_u256_optional_safe, deserialize_u256_safe, deserialize_u256_valued_hashmap_safe,
+    deserialize_u256_vec_safe,
 };
 use bytes::Bytes;
 use ethereum_rust_core::{
     types::{Genesis, GenesisAccount, TxKind},
     Address, H256, U256,
 };
-use ethereum_rust_levm::{db::Cache, errors::VMError, vm::VM, Environment};
-use ethereum_rust_vm::db::StoreWrapper;
 use serde::Deserialize;
-use std::{collections::HashMap, sync::Arc};
+use std::collections::HashMap;
 
 #[derive(Debug)]
 pub struct EFTest {
@@ -23,42 +18,7 @@ pub struct EFTest {
     pub env: EFTestEnv,
     pub post: EFTestPost,
     pub pre: EFTestPre,
-    pub transaction: EFTestTransaction,
-}
-
-impl TryFrom<&EFTest> for VM {
-    type Error = VMError;
-
-    fn try_from(test: &EFTest) -> Result<Self, Self::Error> {
-        let (initial_state, block_hash) = utils::load_initial_state(test);
-        let db = Arc::new(StoreWrapper {
-            store: initial_state.database().unwrap().clone(),
-            block_hash,
-        });
-        Self::new(
-            test.transaction.to.clone(),
-            Environment {
-                origin: test.transaction.sender,
-                consumed_gas: U256::default(),
-                refunded_gas: U256::default(),
-                gas_limit: test.env.current_gas_limit,
-                block_number: test.env.current_number,
-                coinbase: test.env.current_coinbase,
-                timestamp: test.env.current_timestamp,
-                prev_randao: Some(test.env.current_random),
-                chain_id: U256::from(1729),
-                base_fee_per_gas: test.env.current_base_fee,
-                gas_price: test.transaction.gas_price.unwrap_or_default(), // or max_fee_per_gas?
-                block_excess_blob_gas: Some(test.env.current_excess_blob_gas),
-                block_blob_gas_used: None,
-                tx_blob_hashes: None,
-            },
-            *test.transaction.value.first().unwrap(),
-            test.transaction.data.first().unwrap().clone(),
-            db,
-            Cache::default(),
-        )
-    }
+    pub transactions: Vec<((usize, usize, usize), EFTestTransaction)>,
 }
 
 impl From<&EFTest> for Genesis {
@@ -187,7 +147,7 @@ impl From<&EFTestPreValue> for GenesisAccount {
 
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
-pub struct EFTestTransaction {
+pub struct EFTestRawTransaction {
     #[serde(deserialize_with = "deserialize_hex_bytes_vec")]
     pub data: Vec<Bytes>,
     #[serde(deserialize_with = "deserialize_u256_vec_safe")]
@@ -201,4 +161,19 @@ pub struct EFTestTransaction {
     pub to: TxKind,
     #[serde(deserialize_with = "deserialize_u256_vec_safe")]
     pub value: Vec<U256>,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct EFTestTransaction {
+    pub data: Bytes,
+    pub gas_limit: U256,
+    #[serde(default, deserialize_with = "deserialize_u256_optional_safe")]
+    pub gas_price: Option<U256>,
+    #[serde(deserialize_with = "deserialize_u256_safe")]
+    pub nonce: U256,
+    pub secret_key: H256,
+    pub sender: Address,
+    pub to: TxKind,
+    pub value: U256,
 }
