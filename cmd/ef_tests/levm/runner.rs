@@ -19,7 +19,7 @@ pub fn run_ef_tests() -> Result<EFTestsReport, Box<dyn Error>> {
     let mut report = EFTestsReport::default();
     let cargo_manifest_dir = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"));
     let ef_general_state_tests_path = cargo_manifest_dir.join("vectors/GeneralStateTests");
-    let mut spinner = Spinner::new(Dots, report.to_string(), Color::Cyan);
+    let mut spinner = Spinner::new(Dots, report.progress(), Color::Cyan);
     for test_dir in std::fs::read_dir(ef_general_state_tests_path)?.flatten() {
         for test in std::fs::read_dir(test_dir.path())?
             .flatten()
