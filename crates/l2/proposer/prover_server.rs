@@ -43,7 +43,7 @@ pub async fn start_prover_server(store: Store) {
     let mut prover_server =
         ProverServer::new_from_config(server_config.clone(), &proposer_config, eth_config, store)
             .await
-            .unwrap(); // Using an unwrap, if we can't initialize the prover_server any error_handling is pointless, we may want to retry inside the initialization.
+            .expect("ProverServer::new_from_config()");
 
     let (tx, rx) = mpsc::channel();
 
