@@ -1,4 +1,3 @@
-use bytes::Bytes;
 use ethereum_rust_storage::Store;
 use ethereum_rust_vm::execution_db::ExecutionDB;
 use keccak_hash::keccak;
