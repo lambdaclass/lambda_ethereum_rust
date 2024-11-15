@@ -12,7 +12,7 @@ use ethereum_rust_l2::utils::config::prover_client::ProverClientConfig;
 
 pub struct Prover<'a> {
     elf: &'a [u8],
-    id: [u32; 8],
+    pub id: [u32; 8],
     pub stdout: Vec<u8>,
 }
 

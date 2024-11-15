@@ -1,3 +1,4 @@
+#![allow(clippy::indexing_slicing)]
 #![allow(clippy::unwrap_used)]
 
 use bytes::Bytes;
@@ -7,6 +8,7 @@ use ethereum_rust_levm::{
     constants::*,
     db::{Cache, Db},
     errors::{TxResult, VMError},
+    gas_cost,
     operations::Operation,
     utils::{new_vm_with_ops, new_vm_with_ops_addr_bal_db, new_vm_with_ops_db, ops_to_bytecode},
     vm::{word_to_address, Storage, VM},
@@ -3794,7 +3796,7 @@ fn create_happy_path() {
     let call_frame = vm.current_call_frame_mut().unwrap();
     let returned_address = call_frame.stack.pop().unwrap();
 
-    let expected_address = VM::calculate_create_address(sender_addr, sender_nonce + 1);
+    let expected_address = VM::calculate_create_address(sender_addr, sender_nonce + 1).unwrap();
     assert_eq!(word_to_address(returned_address), expected_address);
 
     // check the created account is correct
@@ -4030,7 +4032,7 @@ fn create2_happy_path() {
     // Code that returns the value 0xffffffff putting it in memory
     let initialization_code = hex::decode("63FFFFFFFF6000526004601CF3").unwrap();
     let expected_address = VM::calculate_create2_address(
-        sender_addr,
+        Address::from_low_u64_be(42), // this is the addr initializated in new_vm_with_ops_addr_bal_db
         &Bytes::from(initialization_code.clone()),
         U256::from(salt),
     )
