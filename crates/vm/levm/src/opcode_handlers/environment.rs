@@ -342,7 +342,6 @@ impl VM {
                         InternalError::ArithmeticOperationOverflow,
                     ))?)
                     .unwrap_or(&0u8);
-                dbg!(memory_byte);
             }
         }
 
