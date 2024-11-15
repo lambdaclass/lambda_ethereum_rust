@@ -11,7 +11,7 @@ pub async fn start_block_producer(
     head_block_hash: H256,
     max_tries: u32,
     block_production_interval_ms: u64,
-    l2: bool,
+    coinbase_address: Address,
 ) -> Result<(), EngineClientError> {
     let engine_client = EngineClient::new(&execution_client_auth_url, jwt_secret);
 
@@ -25,17 +25,9 @@ pub async fn start_block_producer(
             finalized_block_hash: head_block_hash,
         };
 
-        let suggested_fee_recipient = if l2 {
-            // Setting the COINBASE address / fee_recipient.
-            // TODO: revise it, maybe we would like to have this set with an envar
-            Address::from_slice(&hex::decode("0007a881CD95B1484fca47615B64803dad620C8d").unwrap())
-        } else {
-            Address::default()
-        };
-
         let payload_attributes = PayloadAttributesV3 {
             timestamp: SystemTime::now().duration_since(UNIX_EPOCH)?.as_secs(),
-            suggested_fee_recipient,
+            suggested_fee_recipient: coinbase_address,
             ..Default::default()
         };
         let fork_choice_response = match engine_client

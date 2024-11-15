@@ -2,7 +2,7 @@ use crate::utils::config::{proposer::ProposerConfig, read_env_file};
 use errors::ProposerError;
 use ethereum_rust_dev::utils::engine_client::{config::EngineApiConfig, errors::EngineClientError};
 use ethereum_rust_storage::Store;
-use ethereum_types::H256;
+use ethereum_types::{Address, H256};
 use tracing::{info, warn};
 
 pub mod l1_committer;
@@ -15,6 +15,7 @@ pub mod errors;
 pub struct Proposer {
     engine_config: EngineApiConfig,
     block_production_interval: u64,
+    coinbase_address: Address,
 }
 
 pub async fn start_proposer(store: Store) {
@@ -58,6 +59,7 @@ impl Proposer {
         Ok(Self {
             engine_config,
             block_production_interval: proposer_config.interval_ms,
+            coinbase_address: proposer_config.coinbase_address,
         })
     }
 
@@ -68,7 +70,7 @@ impl Proposer {
             head_block_hash,
             10,
             self.block_production_interval,
-            true,
+            self.coinbase_address,
         )
         .await
         .map_err(EngineClientError::into)
