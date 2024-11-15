@@ -19,7 +19,6 @@ pub struct EFTestReport {
     passed: u64,
     failed: u64,
     run: u64,
-    // passed_tests: Vec<String>,
     failed_tests: Vec<((usize, usize, usize), String)>,
 }
 
@@ -29,7 +28,6 @@ impl EFTestsReport {
 
         let report = self.test_reports.entry(test_name.to_string()).or_default();
         report.passed += 1;
-        //report.passed_tests.push(tx_indexes);
         report.run += 1;
     }
 
