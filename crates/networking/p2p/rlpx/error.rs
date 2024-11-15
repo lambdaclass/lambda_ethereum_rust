@@ -4,6 +4,8 @@ use ethereum_rust_trie::TrieError;
 use thiserror::Error;
 use tokio::sync::broadcast::error::RecvError;
 
+use super::message::Message;
+
 // TODO improve errors
 #[derive(Debug, Error)]
 pub(crate) enum RLPxError {
@@ -41,6 +43,8 @@ pub(crate) enum RLPxError {
     BroadcastError(String),
     #[error(transparent)]
     RecvError(#[from] RecvError),
+    #[error(transparent)]
+    Send(#[from] tokio::sync::mpsc::error::SendError<Message>),
 }
 
 // Grouping all cryptographic related errors in a single CryptographicError variant

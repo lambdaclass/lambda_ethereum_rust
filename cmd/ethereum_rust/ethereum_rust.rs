@@ -227,6 +227,7 @@ async fn main() {
                 bootnodes,
                 signer,
                 store,
+                is_snap_sync
             )
             .into_future();
             tracker.spawn(networking);
