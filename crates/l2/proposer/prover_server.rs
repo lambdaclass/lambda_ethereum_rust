@@ -31,7 +31,7 @@ pub struct ProverInputData {
 
 use crate::utils::{
     config::{committer::CommitterConfig, eth::EthConfig, prover_server::ProverServerConfig},
-    eth_client::{eth_sender::Overrides, EthClient},
+    eth_client::{errors::EthClientError, eth_sender::Overrides, EthClient},
 };
 
 use super::errors::ProverServerError;
@@ -41,7 +41,9 @@ pub async fn start_prover_server(store: Store) {
     let eth_config = EthConfig::from_env().expect("EthConfig::from_env()");
     let proposer_config = CommitterConfig::from_env().expect("CommitterConfig::from_env()");
     let mut prover_server =
-        ProverServer::new_from_config(server_config.clone(), &proposer_config, eth_config, store);
+        ProverServer::new_from_config(server_config.clone(), &proposer_config, eth_config, store)
+            .await
+            .unwrap(); // Using an unwrap, if we can't initialize the prover_server any error_handling is pointless, we may want to retry inside the initialization.
 
     let (tx, rx) = mpsc::channel();
 
@@ -95,26 +97,38 @@ struct ProverServer {
     on_chain_proposer_address: Address,
     verifier_address: Address,
     verifier_private_key: SecretKey,
-    latest_proven_block: u64,
+    last_verified_block: u64,
 }
 
 impl ProverServer {
-    pub fn new_from_config(
+    pub async fn new_from_config(
         config: ProverServerConfig,
         committer_config: &CommitterConfig,
         eth_config: EthConfig,
         store: Store,
-    ) -> Self {
-        Self {
+    ) -> Result<Self, EthClientError> {
+        let eth_client = EthClient::new(&eth_config.rpc_url);
+        let on_chain_proposer_address = committer_config.on_chain_proposer_address;
+
+        let last_verified_block =
+            EthClient::get_last_verified_block(&eth_client, on_chain_proposer_address).await?;
+
+        let last_verified_block = if last_verified_block == u64::MAX {
+            0
+        } else {
+            last_verified_block
+        };
+
+        Ok(Self {
             ip: config.listen_ip,
             port: config.listen_port,
             store,
-            eth_client: EthClient::new(&eth_config.rpc_url),
-            on_chain_proposer_address: committer_config.on_chain_proposer_address,
+            eth_client,
+            on_chain_proposer_address,
             verifier_address: config.verifier_address,
             verifier_private_key: config.verifier_private_key,
-            latest_proven_block: 0,
-        }
+            last_verified_block,
+        })
     }
 
     async fn handle_sigint(tx: mpsc::Sender<()>, config: ProverServerConfig) {
@@ -150,7 +164,7 @@ impl ProverServer {
         match data {
             Ok(ProofData::Request) => {
                 if let Err(e) = self
-                    .handle_request(&mut stream, self.latest_proven_block + 1)
+                    .handle_request(&mut stream, self.last_verified_block + 1)
                     .await
                 {
                     warn!("Failed to handle request: {e}");
@@ -167,8 +181,8 @@ impl ProverServer {
                 // Seems to be stopping the prover_server <--> prover_client
                 self.handle_proof_submission(block_number, receipt).await?;
 
-                assert!(block_number == (self.latest_proven_block + 1), "Prover Client submitted an invalid block_number: {block_number}. The last_proved_block is: {}", self.latest_proven_block);
-                self.latest_proven_block = block_number;
+                assert!(block_number == (self.last_verified_block + 1), "Prover Client submitted an invalid block_number: {block_number}. The last_proved_block is: {}", self.last_verified_block);
+                self.last_verified_block = block_number;
             }
             Err(e) => {
                 warn!("Failed to parse request: {e}");
@@ -255,8 +269,9 @@ impl ProverServer {
 
         let journal_digest = Digestible::digest(&receipt.0.journal);
 
-        // Retry proof verification, the transaction may fail if the blobs commited were not included.
-        // The error message is `address already reserved`. Retrying 100 times, if there is another error it panics.
+        // Retry proof verification, the transaction will fail if the block wasn't committed.
+        // It's being caused by the prover_server advancing faster than the block_generation_time + commitment_tx_approval_time
+        // The error message is `block not committed`. Retrying 100 times, if there is another error it panics.
         let mut attempts = 0;
         let max_retries = 100;
         let retry_secs = std::time::Duration::from_secs(5);
