@@ -38,7 +38,10 @@ use k256::{
 use sha3::{Digest, Keccak256};
 use tokio::{
     io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt},
-    sync::broadcast::{self, error::RecvError},
+    sync::{
+        broadcast::{self, error::RecvError},
+        Mutex,
+    },
     task,
     time::{sleep, Instant},
 };
@@ -139,7 +142,48 @@ impl<S: AsyncWrite + AsyncRead + std::marker::Unpin> RLPxConnection<S> {
         ))
     }
 
-    pub async fn handshake(&mut self) -> Result<(), RLPxError> {
+    pub async fn start_peer(&mut self, table: Arc<Mutex<crate::kademlia::KademliaTable>>) {
+        // Perform handshake
+        if let Err(e) = self.handshake().await {
+            self.peer_conn_failed("Handshake failed", e, table).await;
+        } else {
+            // Handshake OK: handle connection
+            if let Err(e) = self.handle_peer_conn().await {
+                self.peer_conn_failed("Error during RLPx connection", e, table)
+                    .await;
+            }
+        }
+    }
+
+    async fn peer_conn_failed(
+        &mut self,
+        error_text: &str,
+        error: RLPxError,
+        table: Arc<Mutex<crate::kademlia::KademliaTable>>,
+    ) {
+        self.send(Message::Disconnect(DisconnectMessage {
+            reason: self.match_reason(&error),
+        }))
+        .await
+        .unwrap_or_else(|e| info!("Could not send Disconnect message: ({e})"));
+        if let Ok(node_id) = self.get_remote_node_id() {
+            // Discard peer from kademlia table
+            info!("{error_text}: ({error}), discarding peer {node_id}");
+            table.lock().await.replace_peer(node_id);
+        } else {
+            info!("{error_text}: ({error}), unknown peer")
+        }
+    }
+
+    fn match_reason(&self, error: &RLPxError) -> Option<u8> {
+        match error {
+            RLPxError::RLPDecodeError(_) => Some(2_u8),
+            // TODO build a proper matching between error types and disconnection reasons
+            _ => None,
+        }
+    }
+
+    async fn handshake(&mut self) -> Result<(), RLPxError> {
         match &self.state {
             RLPxConnectionState::Initiator(_) => {
                 self.send_auth().await?;
@@ -351,11 +395,11 @@ impl<S: AsyncWrite + AsyncRead + std::marker::Unpin> RLPxConnection<S> {
         // Sending eth Status if peer supports it
         if self.capabilities.contains(&CAP_ETH) {
             let status = backend::get_status(&self.storage)?;
-            // info!("Sending status");
-            // self.send(Message::Status(status)).await?;
-            info!("Sending Disconnect");
-            self.send(Message::Disconnect(DisconnectMessage { reason: Some(1u8) }))
-                .await?;
+            info!("Sending status");
+            self.send(Message::Status(status)).await?;
+            // info!("Sending Disconnect");
+            // self.send(Message::Disconnect(DisconnectMessage { reason: Some(1u8) }))
+            //    .await?;
             // The next immediate message in the ETH protocol is the
             // status, reference here:
             // https://github.com/ethereum/devp2p/blob/master/caps/eth.md#status-0x00
