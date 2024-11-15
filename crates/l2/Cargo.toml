@@ -12,7 +12,6 @@ tokio-util.workspace = true
 tracing.workspace = true
 serde.workspace = true
 serde_json.workspace = true
-c-kzg.workspace = true
 ethereum-types.workspace = true
 ethereum_rust-core.workspace = true
 ethereum_rust-rlp.workspace = true
