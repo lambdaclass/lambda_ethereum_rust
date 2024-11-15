@@ -1,21 +1,18 @@
 use crate::utils::engine_client::EngineClient;
 use bytes::Bytes;
 use ethereum_rust_rpc::types::fork_choice::{ForkChoiceState, PayloadAttributesV3};
-use ethereum_types::H256;
+use ethereum_types::{Address, H256};
 use sha2::{Digest, Sha256};
-use std::{
-    net::SocketAddr,
-    time::{SystemTime, UNIX_EPOCH},
-};
+use std::time::{SystemTime, UNIX_EPOCH};
 
 pub async fn start_block_producer(
-    execution_client_auth_url: SocketAddr,
+    execution_client_auth_url: String,
     jwt_secret: Bytes,
     head_block_hash: H256,
     max_tries: u32,
+    l2: bool,
 ) {
-    let engine_client =
-        EngineClient::new(&format!("http://{execution_client_auth_url}"), jwt_secret);
+    let engine_client = EngineClient::new(&execution_client_auth_url, jwt_secret);
 
     let mut head_block_hash: H256 = head_block_hash;
     let mut tries = 0;
@@ -26,11 +23,21 @@ pub async fn start_block_producer(
             safe_block_hash: head_block_hash,
             finalized_block_hash: head_block_hash,
         };
+
+        let suggested_fee_recipient = if l2 {
+            // Setting the COINBASE address / fee_recipient.
+            // TODO: revise it, maybe we would like to have this set with an envar
+            Address::from_slice(&hex::decode("0007a881CD95B1484fca47615B64803dad620C8d").unwrap())
+        } else {
+            Address::default()
+        };
+
         let payload_attributes = PayloadAttributesV3 {
             timestamp: SystemTime::now()
                 .duration_since(UNIX_EPOCH)
                 .expect("Failed to produce block: error getting current timestamp")
                 .as_secs(),
+            suggested_fee_recipient,
             ..Default::default()
         };
         let fork_choice_response = match engine_client
