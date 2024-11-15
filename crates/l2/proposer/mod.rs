@@ -1,10 +1,8 @@
 use crate::utils::config::{proposer::ProposerConfig, read_env_file};
 use errors::ProposerError;
-use ethereum_rust_dev::utils::engine_client::config::EngineApiConfig;
+use ethereum_rust_dev::utils::engine_client::{config::EngineApiConfig, errors::EngineClientError};
 use ethereum_rust_storage::Store;
 use ethereum_types::H256;
-use std::time::Duration;
-use tokio::time::sleep;
 use tracing::{info, warn};
 
 pub mod l1_committer;
@@ -16,7 +14,7 @@ pub mod errors;
 
 pub struct Proposer {
     engine_config: EngineApiConfig,
-    block_production_interval: Duration,
+    block_production_interval: u64,
 }
 
 pub async fn start_proposer(store: Store) {
@@ -59,21 +57,20 @@ impl Proposer {
     ) -> Result<Self, ProposerError> {
         Ok(Self {
             engine_config,
-            block_production_interval: Duration::from_millis(proposer_config.interval_ms),
+            block_production_interval: proposer_config.interval_ms,
         })
     }
 
     pub async fn start(&self, head_block_hash: H256) -> Result<(), ProposerError> {
-        loop {
-            ethereum_rust_dev::block_producer::start_block_producer(
-                self.engine_config.rpc_url.clone(),
-                std::fs::read(&self.engine_config.jwt_path).unwrap().into(),
-                head_block_hash,
-                10,
-                true,
-            )
-            .await;
-            sleep(self.block_production_interval).await;
-        }
+        ethereum_rust_dev::block_producer::start_block_producer(
+            self.engine_config.rpc_url.clone(),
+            std::fs::read(&self.engine_config.jwt_path).unwrap().into(),
+            head_block_hash,
+            10,
+            self.block_production_interval,
+            true,
+        )
+        .await
+        .map_err(EngineClientError::into)
     }
 }
