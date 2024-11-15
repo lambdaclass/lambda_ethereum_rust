@@ -2,6 +2,7 @@ use ethereum_rust_rlp::error::{RLPDecodeError, RLPEncodeError};
 use ethereum_rust_storage::error::StoreError;
 use ethereum_rust_trie::TrieError;
 use thiserror::Error;
+use tokio::sync::broadcast::error::RecvError;
 
 // TODO improve errors
 #[derive(Debug, Error)]
@@ -12,6 +13,8 @@ pub(crate) enum RLPxError {
     ConnectionError(String),
     #[error("Invalid connection state")]
     InvalidState(),
+    #[error("Disconnect received")]
+    Disconnect(),
     #[error("Not Found: {0}")]
     NotFound(String),
     #[error("Invalid peer id")]
@@ -36,6 +39,8 @@ pub(crate) enum RLPxError {
     Trie(#[from] TrieError),
     #[error("Failed to broadcast msg: {0}")]
     BroadcastError(String),
+    #[error(transparent)]
+    RecvError(#[from] RecvError),
 }
 
 // Grouping all cryptographic related errors in a single CryptographicError variant
