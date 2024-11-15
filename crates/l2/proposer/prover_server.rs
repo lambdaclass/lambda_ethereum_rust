@@ -256,12 +256,36 @@ impl ProverServer {
                 block_number,
                 receipt,
             }) => {
+                // When the prover_server gets the zkProof:
+                // 1. Check the block_number that is going to be submitted to see if it was already committed.
+                //   - The last_committed_block_number has to be greater or equal to the block_number to verify.
+                // 2. Send the `verify()` transaction and wait for it.
+                // 3. Handle the Submit with a SubmitAck.
+                // Note: this may be a bottleneck, the prover_client is idle waiting for the transaction to be validated.
+                // But a SubmitAck may not be representing that we want to advance in the proving process.
+                // Extra logic to save the proof and advance the proof generation process in order to send saved proof incrementally
+                // may help.
+
+                loop {
+                    let last_committed_block = EthClient::get_last_committed_block(
+                        &self.eth_client,
+                        self.on_chain_proposer_address,
+                    )
+                    .await?;
+
+                    if last_committed_block >= block_number {
+                        self.handle_proof_submission(block_number, receipt.clone())
+                            .await?;
+                        break;
+                    } else {
+                        sleep(std::time::Duration::from_secs(1)).await;
+                    }
+                }
+
                 if let Err(e) = self.handle_submit(&mut stream, block_number) {
                     error!("Failed to handle submit_ack: {e}");
                     panic!("Failed to handle submit_ack: {e}");
                 }
-                // Seems to be stopping the prover_server <--> prover_client
-                self.handle_proof_submission(block_number, receipt).await?;
 
                 assert!(block_number == (self.last_verified_block + 1), "Prover Client submitted an invalid block_number: {block_number}. The last_proved_block is: {}", self.last_verified_block);
                 self.last_verified_block = block_number;
