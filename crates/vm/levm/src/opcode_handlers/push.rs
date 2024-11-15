@@ -25,7 +25,10 @@ impl VM {
             .checked_add(1)
             .ok_or(VMError::InvalidOpcode)?;
 
-        let mut readed_n_bytes: Vec<u8> = current_call_frame.bytecode[current_call_frame.pc..]
+        let mut readed_n_bytes: Vec<u8> = current_call_frame
+            .bytecode
+            .get(current_call_frame.pc()..)
+            .ok_or(VMError::InvalidBytecode)?
             .iter()
             .take(n_bytes)
             .cloned()
@@ -33,7 +36,13 @@ impl VM {
 
         // If I have fewer bytes to read than I need, I add as many leading 0s as necessary
         if readed_n_bytes.len() < n_bytes {
-            let padding = vec![0; n_bytes - readed_n_bytes.len()];
+            let gap_to_fill =
+                n_bytes
+                    .checked_sub(readed_n_bytes.len())
+                    .ok_or(VMError::Internal(
+                        InternalError::ArithmeticOperationUnderflow,
+                    ))?;
+            let padding = vec![0; gap_to_fill];
             readed_n_bytes.splice(0..0, padding);
         }
 
