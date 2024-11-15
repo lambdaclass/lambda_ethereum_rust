@@ -13,6 +13,6 @@ pub fn load_initial_state(test: &EFTest) -> (EvmState, H256) {
 
     (
         evm_state(storage.clone(), parent_hash),
-        genesis.get_block().header.parent_hash,
+        genesis.get_block().header.compute_block_hash(),
     )
 }

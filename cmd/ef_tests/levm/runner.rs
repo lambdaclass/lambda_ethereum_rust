@@ -210,7 +210,7 @@ pub fn ensure_post_state(
 }
 
 pub fn post_state_root(execution_report: TransactionReport, test: &EFTest) -> H256 {
-    let (initial_state, parent_hash) = utils::load_initial_state(test);
+    let (initial_state, block_hash) = utils::load_initial_state(test);
 
     let mut account_updates: Vec<AccountUpdate> = vec![];
     for (address, account) in execution_report.new_state {
@@ -244,7 +244,7 @@ pub fn post_state_root(execution_report: TransactionReport, test: &EFTest) -> H2
     initial_state
         .database()
         .unwrap()
-        .apply_account_updates(parent_hash, &account_updates)
+        .apply_account_updates(block_hash, &account_updates)
         .unwrap()
         .unwrap()
 }

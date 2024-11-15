@@ -30,10 +30,10 @@ impl TryFrom<&EFTest> for VM {
     type Error = VMError;
 
     fn try_from(test: &EFTest) -> Result<Self, Self::Error> {
-        let (initial_state, parent_hash) = utils::load_initial_state(test);
+        let (initial_state, block_hash) = utils::load_initial_state(test);
         let db = Arc::new(StoreWrapper {
             store: initial_state.database().unwrap().clone(),
-            block_hash: parent_hash,
+            block_hash,
         });
         Self::new(
             test.transaction.to.clone(),
