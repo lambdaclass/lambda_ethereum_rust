@@ -2,6 +2,7 @@ use crate::{
     account::{Account, AccountInfo},
     db::{Cache, Db},
     environment::Environment,
+    errors::{InternalError, VMError},
     operations::Operation,
     vm::VM,
 };
@@ -9,14 +10,18 @@ use bytes::Bytes;
 use ethereum_rust_core::{types::TxKind, Address, U256};
 use std::{collections::HashMap, sync::Arc};
 
-pub fn ops_to_bytecode(operations: &[Operation]) -> Bytes {
-    operations
-        .iter()
-        .flat_map(Operation::to_bytecode)
-        .collect::<Bytes>()
+pub fn ops_to_bytecode(operations: &[Operation]) -> Result<Bytes, VMError> {
+    let mut bytecode = Vec::new();
+    for op in operations {
+        bytecode.extend_from_slice(
+            &op.to_bytecode()
+                .map_err(|_| VMError::Internal(InternalError::UtilsError))?,
+        ); // for now it is just a utils error...
+    }
+    Ok(bytecode.into())
 }
 
-pub fn new_vm_with_bytecode(bytecode: Bytes) -> VM {
+pub fn new_vm_with_bytecode(bytecode: Bytes) -> Result<VM, VMError> {
     new_vm_with_ops_addr_bal_db(
         bytecode,
         Address::from_low_u64_be(100),
@@ -26,8 +31,8 @@ pub fn new_vm_with_bytecode(bytecode: Bytes) -> VM {
     )
 }
 
-pub fn new_vm_with_ops(operations: &[Operation]) -> VM {
-    let bytecode = ops_to_bytecode(operations);
+pub fn new_vm_with_ops(operations: &[Operation]) -> Result<VM, VMError> {
+    let bytecode = ops_to_bytecode(operations)?;
     new_vm_with_ops_addr_bal_db(
         bytecode,
         Address::from_low_u64_be(100),
@@ -37,8 +42,8 @@ pub fn new_vm_with_ops(operations: &[Operation]) -> VM {
     )
 }
 
-pub fn new_vm_with_ops_db(operations: &[Operation], db: Db) -> VM {
-    let bytecode = ops_to_bytecode(operations);
+pub fn new_vm_with_ops_db(operations: &[Operation], db: Db) -> Result<VM, VMError> {
+    let bytecode = ops_to_bytecode(operations)?;
     new_vm_with_ops_addr_bal_db(
         bytecode,
         Address::from_low_u64_be(100),
@@ -55,7 +60,7 @@ pub fn new_vm_with_ops_addr_bal_db(
     sender_balance: U256,
     mut db: Db,
     mut cache: Cache,
-) -> VM {
+) -> Result<VM, VMError> {
     let accounts = [
         // This is the contract account that is going to be executed
         (

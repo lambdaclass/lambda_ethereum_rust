@@ -1,10 +1,11 @@
-use std::{collections::HashMap, str::FromStr};
-
+use crate::{
+    constants::EMPTY_CODE_HASH,
+    errors::{InternalError, VMError},
+};
 use bytes::Bytes;
 use ethereum_rust_core::{H256, U256};
 use keccak_hash::keccak;
-
-use crate::constants::EMPTY_CODE_HASH_STR;
+use std::collections::HashMap;
 
 #[derive(Clone, Default, Debug, PartialEq, Eq)]
 pub struct AccountInfo {
@@ -31,6 +32,15 @@ pub struct StorageSlot {
     pub current_value: U256,
 }
 
+impl From<AccountInfo> for Account {
+    fn from(info: AccountInfo) -> Self {
+        Self {
+            info,
+            storage: HashMap::new(),
+        }
+    }
+}
+
 impl Account {
     pub fn new(
         balance: U256,
@@ -48,9 +58,8 @@ impl Account {
         }
     }
 
-    pub fn has_code(&self) -> bool {
-        !(self.info.bytecode.is_empty()
-            || self.bytecode_hash() == H256::from_str(EMPTY_CODE_HASH_STR).unwrap())
+    pub fn has_code(&self) -> Result<bool, VMError> {
+        Ok(!(self.info.bytecode.is_empty() || self.bytecode_hash() == EMPTY_CODE_HASH))
     }
 
     pub fn bytecode_hash(&self) -> H256 {
@@ -81,7 +90,13 @@ impl Account {
         self
     }
 
-    pub fn increment_nonce(&mut self) {
-        self.info.nonce += 1;
+    // TODO: Replace nonce increments with this or cache's analog (currently does not have senders)
+    pub fn increment_nonce(&mut self) -> Result<(), VMError> {
+        self.info.nonce = self
+            .info
+            .nonce
+            .checked_add(1)
+            .ok_or(VMError::Internal(InternalError::NonceOverflowed))?;
+        Ok(())
     }
 }
