@@ -162,7 +162,7 @@ impl<S: AsyncWrite + AsyncRead + std::marker::Unpin> RLPxConnection<S> {
         table: Arc<Mutex<crate::kademlia::KademliaTable>>,
     ) {
         self.send(Message::Disconnect(DisconnectMessage {
-            reason: self.match_reason(&error),
+            reason: self.match_disconnect_reason(&error),
         }))
         .await
         .unwrap_or_else(|e| info!("Could not send Disconnect message: ({e})"));
@@ -175,7 +175,7 @@ impl<S: AsyncWrite + AsyncRead + std::marker::Unpin> RLPxConnection<S> {
         }
     }
 
-    fn match_reason(&self, error: &RLPxError) -> Option<u8> {
+    fn match_disconnect_reason(&self, error: &RLPxError) -> Option<u8> {
         match error {
             RLPxError::RLPDecodeError(_) => Some(2_u8),
             // TODO build a proper matching between error types and disconnection reasons
@@ -205,7 +205,7 @@ impl<S: AsyncWrite + AsyncRead + std::marker::Unpin> RLPxConnection<S> {
         Ok(())
     }
 
-    pub async fn exchange_hello_messages(&mut self) -> Result<(), RLPxError> {
+    async fn exchange_hello_messages(&mut self) -> Result<(), RLPxError> {
         let hello_msg = Message::Hello(p2p::HelloMessage::new(
             SUPPORTED_CAPABILITIES.to_vec(),
             PublicKey::from(self.signer.verifying_key()),
@@ -235,7 +235,7 @@ impl<S: AsyncWrite + AsyncRead + std::marker::Unpin> RLPxConnection<S> {
         }
     }
 
-    pub async fn handle_peer_conn(&mut self) -> Result<(), RLPxError> {
+    async fn handle_peer_conn(&mut self) -> Result<(), RLPxError> {
         if let RLPxConnectionState::Established(_) = &self.state {
             self.init_peer_conn().await?;
             info!("Started peer main loop");
@@ -288,7 +288,7 @@ impl<S: AsyncWrite + AsyncRead + std::marker::Unpin> RLPxConnection<S> {
         }
     }
 
-    pub fn get_remote_node_id(&self) -> Result<H512, RLPxError> {
+    fn get_remote_node_id(&self) -> Result<H512, RLPxError> {
         if let RLPxConnectionState::Established(state) = &self.state {
             Ok(state.remote_node_id)
         } else {
@@ -397,15 +397,9 @@ impl<S: AsyncWrite + AsyncRead + std::marker::Unpin> RLPxConnection<S> {
             let status = backend::get_status(&self.storage)?;
             info!("Sending status");
             self.send(Message::Status(status)).await?;
-            // info!("Sending Disconnect");
-            // self.send(Message::Disconnect(DisconnectMessage { reason: Some(1u8) }))
-            //    .await?;
             // The next immediate message in the ETH protocol is the
             // status, reference here:
             // https://github.com/ethereum/devp2p/blob/master/caps/eth.md#status-0x00
-            // let Ok(Message::Status(_)) = self.receive().await else {
-            //     self.capabilities.iter_mut().position(|cap| cap == &CAP_ETH).map(|indx| self.capabilities.remove(indx));
-            // }
             match self.receive().await? {
                 Message::Status(_) => {
                     // TODO: Check message status is correct.
@@ -417,7 +411,6 @@ impl<S: AsyncWrite + AsyncRead + std::marker::Unpin> RLPxConnection<S> {
                 }
             }
         }
-        // TODO: add new capabilities startup when required (eg. snap)
         Ok(())
     }
 
