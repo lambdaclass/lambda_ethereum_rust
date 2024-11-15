@@ -1,10 +1,10 @@
-use crate::ef::test::EFTest;
+use crate::types::EFTest;
 use bytes::Bytes;
 use ethereum_rust_core::U256;
 use serde::Deserialize;
 use std::{collections::HashMap, str::FromStr};
 
-use super::test::{EFTestRawTransaction, EFTestTransaction};
+use crate::types::{EFTestRawTransaction, EFTestTransaction};
 
 pub fn deserialize_ef_post_value_indexes<'de, D>(
     deserializer: D,
