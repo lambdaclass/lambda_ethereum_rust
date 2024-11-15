@@ -197,6 +197,7 @@ impl<S: AsyncWrite + AsyncRead + std::marker::Unpin> RLPxConnection<S> {
     pub async fn handle_peer_conn(
         &mut self,
         backend_send: mpsc::Sender<rlpx::Message>,
+        mut backend_receive: mpsc::Receiver<rlpx::Message>,
     ) -> Result<(), RLPxError> {
         if let RLPxConnectionState::Established(_) = &self.state {
             self.init_peer_conn().await?;
@@ -228,6 +229,9 @@ impl<S: AsyncWrite + AsyncRead + std::marker::Unpin> RLPxConnection<S> {
                     // ignore the returned value.
                     Some(broadcasted_msg) = Self::maybe_wait_for_broadcaster(&mut broadcaster_receive) => {
                         self.handle_broadcast(broadcasted_msg?).await?
+                    }
+                    Some(message) = backend_receive.recv() => {
+                        self.send(message).await?;
                     }
                     _ = sleep(PERIODIC_TASKS_CHECK_INTERVAL) => {
                         // no progress on other tasks, yield control to check

@@ -839,7 +839,20 @@ async fn handle_peer(
         peer_conn_failed("Handshake failed", e, conn, table).await;
     } else {
         // Handshake OK: handle connection
-        if let Err(e) = conn.handle_peer_conn(backend_send).await {
+        // Create channel to communicate directly to the peer
+        let (sender, backend_receive) =
+            tokio::sync::mpsc::channel::<RLPxMessage>(MAX_MESSAGES_TO_BROADCAST);
+        let Ok(node_id) = conn.get_remote_node_id() else {
+            return peer_conn_failed(
+                "Error during RLPx connection",
+                RLPxError::InvalidState(),
+                conn,
+                table,
+            )
+            .await;
+        };
+        table.lock().await.set_sender(node_id, sender);
+        if let Err(e) = conn.handle_peer_conn(backend_send, backend_receive).await {
             peer_conn_failed("Error during RLPx connection", e, conn, table).await;
         }
     }
