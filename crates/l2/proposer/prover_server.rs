@@ -119,7 +119,7 @@ pub async fn start_prover_server(store: Store) {
                 .unwrap();
 
             while eth_client
-                .get_transaction_receipt(tx_hash.clone())
+                .get_transaction_receipt(tx_hash)
                 .await
                 .unwrap()
                 .is_none()
