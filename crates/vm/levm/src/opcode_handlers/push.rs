@@ -25,20 +25,21 @@ impl VM {
             .checked_add(1)
             .ok_or(VMError::InvalidOpcode)?;
 
-        let next_n_bytes = current_call_frame
-            .bytecode
-            .get(
-                current_call_frame.pc()
-                    ..current_call_frame
-                        .pc()
-                        .checked_add(n_bytes)
-                        .ok_or(VMError::Internal(InternalError::PCOverflowed))?,
-            )
-            .ok_or(VMError::InvalidBytecode)?; // This shouldn't happen during execution
+        let mut readed_n_bytes: Vec<u8> = current_call_frame.bytecode[current_call_frame.pc..]
+            .iter()
+            .take(n_bytes)
+            .cloned()
+            .collect();
 
-        let value_to_push = U256::from(next_n_bytes);
+        // If I have fewer bytes to read than I need, I add as many leading 0s as necessary
+        if readed_n_bytes.len() < n_bytes {
+            let padding = vec![0; n_bytes - readed_n_bytes.len()];
+            readed_n_bytes.splice(0..0, padding);
+        }
 
-        current_call_frame.stack.push(value_to_push)?;
+        let bytes_push: &[u8] = &readed_n_bytes;
+
+        current_call_frame.stack.push(U256::from(bytes_push))?;
 
         current_call_frame.increment_pc_by(n_bytes)?;
 
