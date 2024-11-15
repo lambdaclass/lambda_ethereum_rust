@@ -1,3 +1,4 @@
+use bytes::Bytes;
 use ethereum_rust_storage::Store;
 use ethereum_rust_vm::execution_db::ExecutionDB;
 use keccak_hash::keccak;
@@ -7,6 +8,7 @@ use std::{
     io::{BufReader, BufWriter},
     net::{IpAddr, Shutdown, TcpListener, TcpStream},
     sync::mpsc::{self, Receiver},
+    thread,
     time::Duration,
 };
 use tokio::{
@@ -40,23 +42,104 @@ pub async fn start_prover_server(store: Store) {
     let server_config = ProverServerConfig::from_env().expect("ProverServerConfig::from_env()");
     let eth_config = EthConfig::from_env().expect("EthConfig::from_env()");
     let proposer_config = CommitterConfig::from_env().expect("CommitterConfig::from_env()");
-    let mut prover_server =
-        ProverServer::new_from_config(server_config.clone(), &proposer_config, eth_config, store)
+
+    if server_config.dev_mode {
+        let eth_client = EthClient::new_from_config(eth_config);
+        loop {
+            thread::sleep(Duration::from_millis(proposer_config.interval_ms));
+
+            let last_committed_block = EthClient::get_last_committed_block(
+                &eth_client,
+                proposer_config.on_chain_proposer_address,
+            )
             .await
-            .expect("ProverServer::new_from_config()");
+            .expect("dev_mode::get_last_committed_block()");
 
-    let (tx, rx) = mpsc::channel();
-
-    let server = tokio::spawn(async move {
-        prover_server
-            .start(rx)
+            let last_verified_block = EthClient::get_last_verified_block(
+                &eth_client,
+                proposer_config.on_chain_proposer_address,
+            )
             .await
-            .expect("prover_server.start()")
-    });
+            .expect("dev_mode::get_last_verified_block()");
 
-    ProverServer::handle_sigint(tx, server_config).await;
+            if last_committed_block == u64::MAX {
+                debug!("No blocks commited yet");
+                continue;
+            }
 
-    tokio::try_join!(server).expect("tokio::try_join!()");
+            if last_committed_block == last_verified_block {
+                debug!("No new blocks to prove");
+                continue;
+            }
+
+            info!("Last committed: {last_committed_block} - Last verified: {last_verified_block}");
+
+            // IOnChainProposer
+            // function verify(uint256,bytes,bytes32,bytes32)
+            // blockNumber, seal, imageId, journalDigest
+            // From crates/l2/contracts/l1/interfaces/IOnChainProposer.sol
+            let mut calldata = keccak(b"verify(uint256,bytes,bytes32,bytes32)")
+                .as_bytes()
+                .get(..4)
+                .expect("Failed to get initialize selector")
+                .to_vec();
+            calldata.extend(H256::from_low_u64_be(last_verified_block + 1).as_bytes());
+            calldata.extend(H256::from_low_u64_be(128).as_bytes());
+            calldata.extend(H256::zero().as_bytes());
+            calldata.extend(H256::zero().as_bytes());
+            calldata.extend(H256::zero().as_bytes());
+            calldata.extend(H256::zero().as_bytes());
+            let verify_tx = eth_client
+                .build_eip1559_transaction(
+                    proposer_config.on_chain_proposer_address,
+                    calldata.into(),
+                    Overrides {
+                        from: Some(server_config.verifier_address),
+                        ..Default::default()
+                    },
+                )
+                .await
+                .unwrap();
+
+            let tx_hash = eth_client
+                .send_eip1559_transaction(verify_tx, &server_config.verifier_private_key)
+                .await
+                .unwrap();
+
+            while eth_client
+                .get_transaction_receipt(tx_hash)
+                .await
+                .unwrap()
+                .is_none()
+            {
+                thread::sleep(Duration::from_secs(1));
+            }
+
+            info!("Mocked verify transaction sent");
+        }
+    } else {
+        let mut prover_server = ProverServer::new_from_config(
+            server_config.clone(),
+            &proposer_config,
+            eth_config,
+            store,
+        )
+        .await
+        .expect("ProverServer::new_from_config");
+
+        let (tx, rx) = mpsc::channel();
+
+        let server = tokio::spawn(async move {
+            prover_server
+                .start(rx)
+                .await
+                .expect("prover_server.start()")
+        });
+
+        ProverServer::handle_sigint(tx, server_config).await;
+
+        tokio::try_join!(server).expect("tokio::try_join!()");
+    }
 }
 
 /// Enum for the ProverServer <--> ProverClient Communication Protocol.
