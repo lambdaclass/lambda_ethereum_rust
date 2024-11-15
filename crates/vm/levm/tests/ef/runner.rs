@@ -67,14 +67,21 @@ pub fn run_ef_test_tx(
 }
 
 pub fn run_ef_test(test: EFTest, report: &mut EFTestsReport) -> Result<(), Box<dyn Error>> {
+    let mut failed = false;
     for (tx_id, (tx_indexes, _tx)) in test.transactions.iter().enumerate() {
         match run_ef_test_tx(tx_id, &test, report) {
             Ok(_) => {}
             Err(e) => {
+                failed = true;
                 let error_message: &str = &e.to_string();
                 report.register_fail(tx_indexes.to_owned(), &test.name, error_message);
             }
         }
+    }
+    if failed {
+        report.register_group_fail();
+    } else {
+        report.register_group_pass();
     }
     Ok(())
 }

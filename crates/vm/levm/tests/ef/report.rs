@@ -7,9 +7,9 @@ use std::{collections::HashMap, fmt};
 
 #[derive(Debug, Default)]
 pub struct EFTestsReport {
-    total_passed: u64,
-    total_failed: u64,
-    total_run: u64,
+    group_passed: u64,
+    group_failed: u64,
+    group_run: u64,
     test_reports: HashMap<String, EFTestReport>,
     passed_tests: Vec<String>,
     failed_tests: Vec<(String, (usize, usize, usize), String)>,
@@ -26,9 +26,7 @@ pub struct EFTestReport {
 
 impl EFTestsReport {
     pub fn register_pass(&mut self, test_name: &str) {
-        self.total_passed += 1;
         self.passed_tests.push(test_name.to_string());
-        self.total_run += 1;
 
         let report = self.test_reports.entry(test_name.to_string()).or_default();
         report.passed += 1;
@@ -42,10 +40,8 @@ impl EFTestsReport {
         test_name: &str,
         reason: &str,
     ) {
-        self.total_failed += 1;
         self.failed_tests
             .push((test_name.to_owned(), tx_indexes, reason.to_owned()));
-        self.total_run += 1;
 
         let report = self.test_reports.entry(test_name.to_string()).or_default();
         report.failed += 1;
@@ -53,13 +49,23 @@ impl EFTestsReport {
         report.run += 1;
     }
 
+    pub fn register_group_pass(&mut self) {
+        self.group_passed += 1;
+        self.group_run += 1;
+    }
+
+    pub fn register_group_fail(&mut self) {
+        self.group_failed += 1;
+        self.group_run += 1;
+    }
+
     pub fn progress(&self) -> String {
         format!(
             "{}: {} {} {}",
             "Ethereum Foundation Tests Run".bold(),
-            format!("{} passed", self.total_passed).green().bold(),
-            format!("{} failed", self.total_failed).red().bold(),
-            format!("{} total run", self.total_run).blue().bold(),
+            format!("{} passed", self.group_passed).green().bold(),
+            format!("{} failed", self.group_failed).red().bold(),
+            format!("{} total run", self.group_run).blue().bold(),
         )
     }
 }
