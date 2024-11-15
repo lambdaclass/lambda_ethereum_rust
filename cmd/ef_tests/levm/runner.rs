@@ -35,7 +35,6 @@ pub fn run_ef_tests() -> Result<EFTestsReport, Box<dyn Error>> {
             {
                 continue;
             }
-            dbg!(test.path());
             let test_result = run_ef_test(
                 serde_json::from_reader(std::fs::File::open(test.path())?)?,
                 &mut report,
