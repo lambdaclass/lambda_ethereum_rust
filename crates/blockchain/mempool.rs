@@ -23,10 +23,7 @@ pub fn add_blob_transaction(
     blobs_bundle: BlobsBundle,
     store: Store,
 ) -> Result<H256, MempoolError> {
-    // Validate blob transaction
-    validate_blob_transaction(&transaction, &blobs_bundle)?;
-
-    // validate blobs bundle
+    // Validate blobs bundle
     blobs_bundle.validate(&transaction)?;
 
     // Validate transaction
@@ -70,7 +67,7 @@ pub fn filter_transactions(
 ) -> Result<HashMap<Address, Vec<MempoolTransaction>>, StoreError> {
     let filter_tx = |tx: &Transaction| -> bool {
         // Filter by tx type
-        let is_blob_tx = is_blob_transaction(tx);
+        let is_blob_tx = matches!(tx, Transaction::EIP4844Transaction(_));
         if filter.only_plain_txs && is_blob_tx || filter.only_blob_txs && !is_blob_tx {
             return false;
         }
@@ -204,7 +201,7 @@ fn validate_transaction(tx: &Transaction, store: Store) -> Result<(), MempoolErr
 
     // Check that the specified blob gas fee is above the minimum value
     if let Some(fee) = tx.max_fee_per_blob_gas() {
-        // Blob tx
+        // Blob tx fee checks
         if fee < MIN_BASE_FEE_PER_BLOB_GAS.into() {
             return Err(MempoolError::TxBlobBaseFeeTooLowError);
         }
@@ -234,30 +231,6 @@ fn validate_transaction(tx: &Transaction, store: Store) -> Result<(), MempoolErr
             return Err(MempoolError::InvalidChainId(config.chain_id));
         }
     }
-
-    Ok(())
-}
-
-fn is_blob_transaction(tx: &Transaction) -> bool {
-    matches!(tx, Transaction::EIP4844Transaction(_))
-}
-
-fn validate_blob_transaction(
-    tx: &EIP4844Transaction,
-    blobs_bundle: &BlobsBundle,
-) -> Result<(), MempoolError> {
-    let tx_blob_count = tx.blob_versioned_hashes.len();
-
-    if tx_blob_count == 0 {
-        return Err(MempoolError::BlobTxNoBlobsBundle);
-    }
-
-    if tx_blob_count != blobs_bundle.blobs.len()
-        || tx_blob_count != blobs_bundle.commitments.len()
-        || tx_blob_count != blobs_bundle.proofs.len()
-    {
-        return Err(MempoolError::BlobsBundleWrongLen);
-    };
 
     Ok(())
 }

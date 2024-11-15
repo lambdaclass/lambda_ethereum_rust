@@ -4,7 +4,7 @@ use std::ops::AddAssign;
 use crate::serde_utils;
 use crate::{
     types::{constants::VERSIONED_HASH_VERSION_KZG, transaction::EIP4844Transaction},
-    H256,
+    Bytes, H256,
 };
 use c_kzg::{ethereum_kzg_settings, KzgCommitment, KzgProof, KzgSettings};
 use ethereum_rust_rlp::{
@@ -38,6 +38,26 @@ pub struct BlobsBundle {
     pub proofs: Vec<Proof>,
 }
 
+pub fn blob_from_bytes(bytes: Bytes) -> Result<Blob, BlobsBundleError> {
+    // This functions moved from `l2/utils/eth_client/transaction.rs`
+    // We set the first byte of every 32-bytes chunk to 0x00
+    // so it's always under the field module.
+    if bytes.len() > BYTES_PER_BLOB * 31 / 32 {
+        return Err(BlobsBundleError::BlobDataInvalidBytesLength);
+    }
+
+    let mut buf = [0u8; BYTES_PER_BLOB];
+    buf[..(bytes.len() * 32).div_ceil(31)].copy_from_slice(
+        &bytes
+            .chunks(31)
+            .map(|x| [&[0x00], x].concat())
+            .collect::<Vec<_>>()
+            .concat(),
+    );
+
+    Ok(buf)
+}
+
 fn kzg_commitment_to_versioned_hash(data: &Commitment) -> H256 {
     use k256::sha2::Digest;
     let mut versioned_hash: [u8; 32] = k256::sha2::Sha256::digest(data).into();
@@ -45,8 +65,8 @@ fn kzg_commitment_to_versioned_hash(data: &Commitment) -> H256 {
     versioned_hash.into()
 }
 
-fn blob_to_kzg_commitment_and_proof(blob: Blob) -> Result<(Commitment, Proof), BlobsBundleError> {
-    let blob: c_kzg::Blob = blob.into();
+fn blob_to_kzg_commitment_and_proof(blob: &Blob) -> Result<(Commitment, Proof), BlobsBundleError> {
+    let blob: c_kzg::Blob = blob.clone().into();
 
     let commitment = KzgCommitment::blob_to_kzg_commitment(&blob, &KZG_SETTINGS)
         .or(Err(BlobsBundleError::BlobToCommitmentAndProofError))?;
@@ -75,8 +95,49 @@ fn verify_blob_kzg_proof(
 }
 
 impl BlobsBundle {
+    // In the future we might want to provide a new method that calculates the commitments and proofs using the following.
+    pub fn create_from_blobs(blobs: &Vec<Blob>) -> Result<Self, BlobsBundleError> {
+        let mut commitments = Vec::new();
+        let mut proofs = Vec::new();
+
+        // Populate the commitments and proofs
+        for blob in blobs {
+            let (commitment, proof) = blob_to_kzg_commitment_and_proof(blob)?;
+            commitments.push(commitment);
+            proofs.push(proof);
+        }
+
+        Ok(Self {
+            blobs: blobs.clone(),
+            commitments,
+            proofs,
+        })
+    }
+
+    pub fn generate_versioned_hashes(&self) -> Vec<H256> {
+        self.commitments
+            .iter()
+            .map(|commitment| kzg_commitment_to_versioned_hash(&commitment))
+            .collect()
+    }
+
     pub fn validate(&self, tx: &EIP4844Transaction) -> Result<(), BlobsBundleError> {
-        // return error early if any commitment doesn't match it's blob versioned hash
+        let blob_count = self.blobs.len();
+
+        // Check if the blob bundle is empty
+        if blob_count == 0 {
+            return Err(BlobsBundleError::BlobBundleEmptyError);
+        }
+
+        // Check if the blob versioned hashes and blobs bundle content length mismatch
+        if blob_count != self.commitments.len()
+            || blob_count != self.proofs.len()
+            || blob_count != tx.blob_versioned_hashes.len()
+        {
+            return Err(BlobsBundleError::BlobsBundleWrongLen);
+        };
+
+        // Check versioned hashes match the tx
         for (commitment, blob_versioned_hash) in
             self.commitments.iter().zip(tx.blob_versioned_hashes.iter())
         {
@@ -85,7 +146,7 @@ impl BlobsBundle {
             }
         }
 
-        // return error early if the proofs don't match the commitments
+        // Validate the blobs with the commitments and proofs
         for ((blob, commitment), proof) in self
             .blobs
             .iter()
@@ -139,6 +200,12 @@ impl AddAssign for BlobsBundle {
 
 #[derive(Debug, thiserror::Error)]
 pub enum BlobsBundleError {
+    #[error("Blob data has an invalid length")]
+    BlobDataInvalidBytesLength,
+    #[error("Blob bundle is empty")]
+    BlobBundleEmptyError,
+    #[error("Blob versioned hashes and blobs bundle content length mismatch")]
+    BlobsBundleWrongLen,
     #[error("Blob versioned hashes are incorrect")]
     BlobVersionedHashesError,
     #[error("Blob to commitment and proof generation error")]
@@ -149,35 +216,66 @@ pub enum BlobsBundleError {
 
 mod tests {
     use super::*;
-    use crate::{types::transaction::EIP4844Transaction, Address, Bytes, U256};
-
-    #[test]
-    fn transaction_with_correct_blobs_should_pass() {
-        let convert_str_to_bytes48 = |s| {
+    use crate::{
+        types::{blobs_bundle, transaction::EIP4844Transaction},
+        Address, Bytes, U256,
+    };
+    mod shared {
+        pub fn convert_str_to_bytes48(s: &str) -> [u8; 48] {
             let bytes = hex::decode(s).expect("Invalid hex string");
             let mut array = [0u8; 48];
             array.copy_from_slice(&bytes[..48]);
             array
+        }
+    }
+
+    #[test]
+    fn transaction_with_valid_blobs_should_pass() {
+        let blobs = vec!["Hello, world!".as_bytes(), "Goodbye, world!".as_bytes()]
+            .into_iter()
+            .map(|data| blobs_bundle::blob_from_bytes(data.into()).expect("Failed to create blob"))
+            .collect();
+
+        let blobs_bundle =
+            BlobsBundle::create_from_blobs(&blobs).expect("Failed to create blobs bundle");
+
+        let blob_versioned_hashes = blobs_bundle.generate_versioned_hashes();
+
+        let tx = EIP4844Transaction {
+            nonce: 3,
+            max_priority_fee_per_gas: 0,
+            max_fee_per_gas: 0,
+            max_fee_per_blob_gas: 0.into(),
+            gas: 15_000_000,
+            to: Address::from_low_u64_be(1), // Normal tx
+            value: U256::zero(),             // Value zero
+            data: Bytes::default(),          // No data
+            access_list: Default::default(), // No access list
+            blob_versioned_hashes: blob_versioned_hashes,
+            ..Default::default()
         };
 
-        // blob data taken from: https://etherscan.io/tx/0x02a623925c05c540a7633ffa4eb78474df826497faa81035c4168695656801a2#blobs
-
+        assert!(matches!(blobs_bundle.validate(&tx), Ok(())));
+    }
+    #[test]
+    fn transaction_with_invalid_proofs_should_fail() {
+        // blob data taken from: https://etherscan.io/tx/0x02a623925c05c540a7633ffa4eb78474df826497faa81035c4168695656801a2#blobs, but with 0 size blobs
         let blobs_bundle = BlobsBundle {
             blobs: vec![[0; BYTES_PER_BLOB], [0; BYTES_PER_BLOB]],
             commitments: vec!["b90289aabe0fcfb8db20a76b863ba90912d1d4d040cb7a156427d1c8cd5825b4d95eaeb221124782cc216960a3d01ec5",
                               "91189a03ce1fe1225fc5de41d502c3911c2b19596f9011ea5fca4bf311424e5f853c9c46fe026038036c766197af96a0"]
                               .into_iter()
                               .map(|s| {
-                                  convert_str_to_bytes48(s)
+                                  shared::convert_str_to_bytes48(s)
                               })
                               .collect(),
             proofs: vec!["b502263fc5e75b3587f4fb418e61c5d0f0c18980b4e00179326a65d082539a50c063507a0b028e2db10c55814acbe4e9",
                          "a29c43f6d05b7f15ab6f3e5004bd5f6b190165dc17e3d51fd06179b1e42c7aef50c145750d7c1cd1cd28357593bc7658"]
-                         .into_iter()
-                              .map(|s| {
-                                  convert_str_to_bytes48(s)
-                              })
-                              .collect()
+                            .into_iter()
+                            .map(|s| {
+                                shared::convert_str_to_bytes48(s)
+                            })
+                            .collect()
         };
 
         let tx = EIP4844Transaction {
@@ -203,18 +301,14 @@ mod tests {
             ..Default::default()
         };
 
-        assert!(matches!(blobs_bundle.validate(&tx), Ok(())));
+        assert!(matches!(
+            blobs_bundle.validate(&tx),
+            Err(BlobsBundleError::BlobToCommitmentAndProofError)
+        ));
     }
 
     #[test]
     fn transaction_with_incorrect_blobs_should_fail() {
-        let convert_str_to_bytes48 = |s| {
-            let bytes = hex::decode(s).expect("Invalid hex string");
-            let mut array = [0u8; 48];
-            array.copy_from_slice(&bytes[..48]);
-            array
-        };
-
         // blob data taken from: https://etherscan.io/tx/0x02a623925c05c540a7633ffa4eb78474df826497faa81035c4168695656801a2#blobs
         let blobs_bundle = BlobsBundle {
             blobs: vec![[0; BYTES_PER_BLOB], [0; BYTES_PER_BLOB]],
@@ -222,14 +316,14 @@ mod tests {
                               "91189a03ce1fe1225fc5de41d502c3911c2b19596f9011ea5fca4bf311424e5f853c9c46fe026038036c766197af96a0"]
                               .into_iter()
                               .map(|s| {
-                                  convert_str_to_bytes48(s)
+                                shared::convert_str_to_bytes48(s)
                               })
                               .collect(),
             proofs: vec!["b502263fc5e75b3587f4fb418e61c5d0f0c18980b4e00179326a65d082539a50c063507a0b028e2db10c55814acbe4e9",
                          "a29c43f6d05b7f15ab6f3e5004bd5f6b190165dc17e3d51fd06179b1e42c7aef50c145750d7c1cd1cd28357593bc7658"]
                          .into_iter()
                               .map(|s| {
-                                  convert_str_to_bytes48(s)
+                                shared::convert_str_to_bytes48(s)
                               })
                               .collect()
         };

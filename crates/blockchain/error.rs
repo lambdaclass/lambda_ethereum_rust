@@ -58,8 +58,6 @@ pub enum MempoolError {
     TxBlobBaseFeeTooLowError,
     #[error("Blob transaction submited without blobs bundle")]
     BlobTxNoBlobsBundle,
-    #[error("Mismatch between blob versioned hashes and blobs bundle content length")]
-    BlobsBundleWrongLen,
     #[error("Nonce for account too low")]
     InvalidNonce,
     #[error("Transaction chain id mismatch, expected chain id: {0}")]
