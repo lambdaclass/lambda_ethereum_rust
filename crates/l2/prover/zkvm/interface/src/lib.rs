@@ -67,3 +67,53 @@ pub mod io {
         }
     }
 }
+
+pub mod trie {
+    use std::collections::HashMap;
+
+    use ethereum_rust_core::{types::AccountState, H160};
+    use ethereum_rust_rlp::{decode::RLPDecode, encode::RLPEncode};
+    use ethereum_rust_storage::{hash_address, hash_key, AccountUpdate};
+    use ethereum_rust_trie::{Trie, TrieError};
+
+    pub fn update_tries(
+        state_trie: &mut Trie,
+        storage_tries: &mut HashMap<H160, Trie>,
+        account_updates: &[AccountUpdate],
+    ) -> Result<(), TrieError> {
+        for update in account_updates.iter() {
+            let hashed_address = hash_address(&update.address);
+            if update.removed {
+                // Remove account from trie
+                state_trie.remove(hashed_address)?;
+            } else {
+                // Add or update AccountState in the trie
+                // Fetch current state or create a new state to be inserted
+                let mut account_state = match state_trie.get(&hashed_address)? {
+                    Some(encoded_state) => AccountState::decode(&encoded_state)?,
+                    None => AccountState::default(),
+                };
+                if let Some(info) = &update.info {
+                    account_state.nonce = info.nonce;
+                    account_state.balance = info.balance;
+                    account_state.code_hash = info.code_hash;
+                }
+                // Store the added storage in the account's storage trie and compute its new root
+                if !update.added_storage.is_empty() {
+                    let storage_trie = storage_tries.get_mut(&update.address).unwrap(); // TODO: add err
+                    for (storage_key, storage_value) in &update.added_storage {
+                        let hashed_key = hash_key(storage_key);
+                        if storage_value.is_zero() {
+                            storage_trie.remove(hashed_key)?;
+                        } else {
+                            storage_trie.insert(hashed_key, storage_value.encode_to_vec())?;
+                        }
+                    }
+                    account_state.storage_root = storage_trie.hash_no_commit();
+                }
+                state_trie.insert(hashed_address, account_state.encode_to_vec())?;
+            }
+        }
+        Ok(())
+    }
+}

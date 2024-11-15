@@ -158,7 +158,7 @@ impl ExecutionDB {
 
             // compare account storage root with storage trie root
             let storage_trie = Trie::from_nodes(storage_trie_root.as_ref(), storage_trie_nodes)?;
-            if storage_trie.hash_no_commit()? != account.storage_root {
+            if storage_trie.hash_no_commit() != account.storage_root {
                 return Err(ExecutionDBError::InvalidStorageTrieRoot(address));
             }
 

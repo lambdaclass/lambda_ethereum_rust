@@ -142,12 +142,11 @@ impl Trie {
 
     /// Return the hash of the trie's root node.
     /// Returns keccak(RLP_NULL) if the trie is empty
-    pub fn hash_no_commit(&self) -> Result<H256, TrieError> {
-        Ok(self
-            .root
+    pub fn hash_no_commit(&self) -> H256 {
+        self.root
             .as_ref()
             .map(|root| root.clone().finalize())
-            .unwrap_or(*EMPTY_TRIE_HASH))
+            .unwrap_or(*EMPTY_TRIE_HASH)
     }
 
     /// Obtain a merkle proof for the given path.
