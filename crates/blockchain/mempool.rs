@@ -95,7 +95,6 @@ pub fn filter_transactions(
         }
         true
     };
-
     store.filter_pool_transactions(&filter_tx)
 }
 

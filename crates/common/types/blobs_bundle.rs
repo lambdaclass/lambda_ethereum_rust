@@ -66,7 +66,7 @@ fn kzg_commitment_to_versioned_hash(data: &Commitment) -> H256 {
 }
 
 fn blob_to_kzg_commitment_and_proof(blob: &Blob) -> Result<(Commitment, Proof), BlobsBundleError> {
-    let blob: c_kzg::Blob = blob.clone().into();
+    let blob: c_kzg::Blob = (*blob).into();
 
     let commitment = KzgCommitment::blob_to_kzg_commitment(&blob, &KZG_SETTINGS)
         .or(Err(BlobsBundleError::BlobToCommitmentAndProofError))?;
@@ -117,7 +117,7 @@ impl BlobsBundle {
     pub fn generate_versioned_hashes(&self) -> Vec<H256> {
         self.commitments
             .iter()
-            .map(|commitment| kzg_commitment_to_versioned_hash(&commitment))
+            .map(kzg_commitment_to_versioned_hash)
             .collect()
     }
 
@@ -141,7 +141,7 @@ impl BlobsBundle {
         for (commitment, blob_versioned_hash) in
             self.commitments.iter().zip(tx.blob_versioned_hashes.iter())
         {
-            if *blob_versioned_hash != kzg_commitment_to_versioned_hash(&commitment) {
+            if *blob_versioned_hash != kzg_commitment_to_versioned_hash(commitment) {
                 return Err(BlobsBundleError::BlobVersionedHashesError);
             }
         }
@@ -251,7 +251,7 @@ mod tests {
             value: U256::zero(),             // Value zero
             data: Bytes::default(),          // No data
             access_list: Default::default(), // No access list
-            blob_versioned_hashes: blob_versioned_hashes,
+            blob_versioned_hashes,
             ..Default::default()
         };
 

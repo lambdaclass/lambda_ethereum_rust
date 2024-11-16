@@ -309,7 +309,7 @@ impl Committer {
         hasher.update(
             blobs_bundle
                 .commitments
-                .get(0)
+                .first()
                 .expect("At least one commitment should be present"),
         );
         let mut blob_versioned_hash = hasher.finalize();
