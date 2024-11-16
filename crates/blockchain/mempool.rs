@@ -141,16 +141,16 @@ Stateless validations
 3. Transaction's encoded size is smaller than maximum allowed
     -> I think that this is not in the spec, but it may be a good idea
 4. Make sure the transaction is signed properly
-5. Ensure a Blob Transaction comes with its sidecar (Done!):
-  1. Validate number of BlobHashes is positive
+5. Ensure a Blob Transaction comes with its sidecar (Done! - All blob validations have been moved to `common/types/blobs_bundle.rs`):
+  1. Validate number of BlobHashes is positive (Done!)
   2. Validate number of BlobHashes is less than the maximum allowed per block,
      which may be computed as `maxBlobGasPerBlock / blobTxBlobGasPerBlob`
   3. Ensure number of BlobHashes is equal to:
     - The number of blobs (Done!)
     - The number of commitments (Done!)
     - The number of proofs (Done!)
-  4. Validate that the hashes matches with the commitments, performing a `kzg4844` hash.
-  5. Verify the blob proofs with the `kzg4844`
+  4. Validate that the hashes matches with the commitments, performing a `kzg4844` hash. (Done!)
+  5. Verify the blob proofs with the `kzg4844` (Done!)
 Stateful validations
 1. Ensure transaction nonce is higher than the `from` address stored nonce
 2. Certain pools do not allow for nonce gaps. Ensure a gap is not produced (that is, the transaction nonce is exactly the following of the stored one)
