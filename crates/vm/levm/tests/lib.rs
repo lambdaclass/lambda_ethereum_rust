@@ -1,2 +1,2 @@
-pub mod ef;
-pub mod tests;
+mod edge_case_tests;
+mod tests;

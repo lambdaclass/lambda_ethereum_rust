@@ -1,22 +1,25 @@
-#![allow(clippy::unwrap_used)]
-
-use crate::ef::{report::EFTestsReport, test::EFTest};
-use ethereum_rust_core::{H256, U256};
+use crate::{report::EFTestsReport, types::EFTest, utils};
+use ethereum_rust_core::{
+    types::{code_hash, AccountInfo},
+    H256, U256,
+};
 use ethereum_rust_levm::{
-    db::{Cache, Db},
+    db::Cache,
     errors::{TransactionReport, VMError},
     vm::VM,
     Environment,
 };
+use ethereum_rust_storage::AccountUpdate;
+use ethereum_rust_vm::db::StoreWrapper;
 use keccak_hash::keccak;
 use spinoff::{spinners::Dots, Color, Spinner};
-use std::{error::Error, sync::Arc};
+use std::{collections::HashMap, error::Error, sync::Arc};
 
 pub fn run_ef_tests() -> Result<EFTestsReport, Box<dyn Error>> {
     let mut report = EFTestsReport::default();
     let cargo_manifest_dir = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"));
-    let ef_general_state_tests_path = cargo_manifest_dir.join("tests/ef/tests/GeneralStateTests");
-    let mut spinner = Spinner::new(Dots, report.to_string(), Color::Cyan);
+    let ef_general_state_tests_path = cargo_manifest_dir.join("vectors/GeneralStateTests");
+    let mut spinner = Spinner::new(Dots, report.progress(), Color::Cyan);
     for test_dir in std::fs::read_dir(ef_general_state_tests_path)?.flatten() {
         for test in std::fs::read_dir(test_dir.path())?
             .flatten()
@@ -53,20 +56,48 @@ pub fn run_ef_tests() -> Result<EFTestsReport, Box<dyn Error>> {
     Ok(report)
 }
 
-pub fn run_ef_test(test: EFTest, report: &mut EFTestsReport) -> Result<(), Box<dyn Error>> {
-    dbg!(&test.name);
-    let mut evm = prepare_vm(&test, report)?;
-    ensure_pre_state(&evm, &test, report)?;
+pub fn run_ef_test_tx(
+    tx_id: usize,
+    test: &EFTest,
+    report: &mut EFTestsReport,
+) -> Result<(), Box<dyn Error>> {
+    let mut evm = prepare_vm_for_tx(tx_id, test)?;
+    ensure_pre_state(&evm, test)?;
     let execution_result = evm.transact();
-    ensure_post_state(execution_result, &evm, &test, report)?;
+    ensure_post_state(execution_result, test, report)?;
     Ok(())
 }
 
-pub fn prepare_vm(test: &EFTest, report: &mut EFTestsReport) -> Result<VM, Box<dyn Error>> {
+pub fn run_ef_test(test: EFTest, report: &mut EFTestsReport) -> Result<(), Box<dyn Error>> {
+    let mut failed = false;
+    for (tx_id, (tx_indexes, _tx)) in test.transactions.iter().enumerate() {
+        match run_ef_test_tx(tx_id, &test, report) {
+            Ok(_) => {}
+            Err(e) => {
+                failed = true;
+                let error_message: &str = &e.to_string();
+                report.register_fail(tx_indexes.to_owned(), &test.name, error_message);
+            }
+        }
+    }
+    if failed {
+        report.register_group_fail();
+    } else {
+        report.register_group_pass();
+    }
+    Ok(())
+}
+
+pub fn prepare_vm_for_tx(tx_id: usize, test: &EFTest) -> Result<VM, Box<dyn Error>> {
+    let (initial_state, block_hash) = utils::load_initial_state(test);
+    let db = Arc::new(StoreWrapper {
+        store: initial_state.database().unwrap().clone(),
+        block_hash,
+    });
     let vm_result = VM::new(
-        test.transaction.to.clone(),
+        test.transactions.get(tx_id).unwrap().1.to.clone(),
         Environment {
-            origin: test.transaction.sender,
+            origin: test.transactions.get(tx_id).unwrap().1.sender,
             consumed_gas: U256::default(),
             refunded_gas: U256::default(),
             gas_limit: test.env.current_gas_limit,
@@ -76,14 +107,20 @@ pub fn prepare_vm(test: &EFTest, report: &mut EFTestsReport) -> Result<VM, Box<d
             prev_randao: Some(test.env.current_random),
             chain_id: U256::from(1729),
             base_fee_per_gas: test.env.current_base_fee,
-            gas_price: test.transaction.gas_price.unwrap_or_default(), // or max_fee_per_gas?
+            gas_price: test
+                .transactions
+                .get(tx_id)
+                .unwrap()
+                .1
+                .gas_price
+                .unwrap_or_default(), // or max_fee_per_gas?
             block_excess_blob_gas: Some(test.env.current_excess_blob_gas),
             block_blob_gas_used: None,
             tx_blob_hashes: None,
         },
-        *test.transaction.value.first().unwrap(),
-        test.transaction.data.first().unwrap().clone(),
-        Arc::new(Db::from(test)),
+        test.transactions.get(tx_id).unwrap().1.value,
+        test.transactions.get(tx_id).unwrap().1.data.clone(),
+        db,
         Cache::default(),
     );
 
@@ -91,17 +128,12 @@ pub fn prepare_vm(test: &EFTest, report: &mut EFTestsReport) -> Result<VM, Box<d
         Ok(vm) => Ok(vm),
         Err(err) => {
             let error_reason = format!("VM initialization failed: {err:?}");
-            report.register_fail(&test.name, &error_reason);
             Err(error_reason.into())
         }
     }
 }
 
-pub fn ensure_pre_state(
-    evm: &VM,
-    test: &EFTest,
-    report: &mut EFTestsReport,
-) -> Result<(), Box<dyn Error>> {
+pub fn ensure_pre_state(evm: &VM, test: &EFTest) -> Result<(), Box<dyn Error>> {
     let world_state = &evm.db;
     for (address, pre_value) in &test.pre.0 {
         let account = world_state.get_account_info(*address);
@@ -111,8 +143,6 @@ pub fn ensure_pre_state(
                 "Nonce mismatch for account {:#x}: expected {}, got {}",
                 address, pre_value.nonce, account.nonce
             ),
-            test,
-            report,
         )?;
         ensure_pre_state_condition(
             account.balance == pre_value.balance,
@@ -120,8 +150,6 @@ pub fn ensure_pre_state(
                 "Balance mismatch for account {:#x}: expected {}, got {}",
                 address, pre_value.balance, account.balance
             ),
-            test,
-            report,
         )?;
         for (k, v) in &pre_value.storage {
             let mut key_bytes = [0u8; 32];
@@ -133,8 +161,6 @@ pub fn ensure_pre_state(
                     "Storage slot mismatch for account {:#x} at key {:?}: expected {}, got {}",
                     address, k, v, storage_slot
                 ),
-                test,
-                report,
             )?;
         }
         ensure_pre_state_condition(
@@ -145,22 +171,14 @@ pub fn ensure_pre_state(
                 keccak(pre_value.code.as_ref()),
                 keccak(account.bytecode)
             ),
-            test,
-            report,
         )?;
     }
     Ok(())
 }
 
-fn ensure_pre_state_condition(
-    condition: bool,
-    error_reason: String,
-    test: &EFTest,
-    report: &mut EFTestsReport,
-) -> Result<(), Box<dyn Error>> {
+fn ensure_pre_state_condition(condition: bool, error_reason: String) -> Result<(), Box<dyn Error>> {
     if !condition {
         let error_reason = format!("Pre-state condition failed: {error_reason}");
-        report.register_fail(&test.name, &error_reason);
         return Err(error_reason.into());
     }
     Ok(())
@@ -168,12 +186,11 @@ fn ensure_pre_state_condition(
 
 pub fn ensure_post_state(
     execution_result: Result<TransactionReport, VMError>,
-    _evm: &VM,
     test: &EFTest,
     report: &mut EFTestsReport,
 ) -> Result<(), Box<dyn Error>> {
     match execution_result {
-        Ok(_execution_report) => {
+        Ok(execution_report) => {
             match test
                 .post
                 .clone()
@@ -184,12 +201,28 @@ pub fn ensure_post_state(
                 // Execution result was successful but an exception was expected.
                 Some(Some(expected_exception)) => {
                     let error_reason = format!("Expected exception: {expected_exception}");
-                    report.register_fail(&test.name, &error_reason);
                     return Err(format!("Post-state condition failed: {error_reason}").into());
                 }
                 // Execution result was successful and no exception was expected.
                 // TODO: Check that the post-state matches the expected post-state.
-                None | Some(None) => {}
+                None | Some(None) => {
+                    let pos_state_root = post_state_root(execution_report, test);
+                    let expected_post_state_value = test.post.iter().next().cloned();
+                    if let Some(expected_post_state_root_hash) = expected_post_state_value {
+                        let expected_post_state_root_hash = expected_post_state_root_hash.hash;
+                        if expected_post_state_root_hash != pos_state_root {
+                            let error_reason = format!(
+                                "Post-state root mismatch: expected {expected_post_state_root_hash:#x}, got {pos_state_root:#x}",
+                            );
+                            return Err(
+                                format!("Post-state condition failed: {error_reason}").into()
+                            );
+                        }
+                    } else {
+                        let error_reason = "No post-state root hash provided";
+                        return Err(format!("Post-state condition failed: {error_reason}").into());
+                    }
+                }
             }
         }
         Err(err) => {
@@ -206,7 +239,6 @@ pub fn ensure_post_state(
                 // Execution result was unsuccessful but no exception was expected.
                 None | Some(None) => {
                     let error_reason = format!("Unexpected exception: {err:?}");
-                    report.register_fail(&test.name, &error_reason);
                     return Err(format!("Post-state condition failed: {error_reason}").into());
                 }
             }
@@ -214,4 +246,44 @@ pub fn ensure_post_state(
     };
     report.register_pass(&test.name);
     Ok(())
+}
+
+pub fn post_state_root(execution_report: TransactionReport, test: &EFTest) -> H256 {
+    let (initial_state, block_hash) = utils::load_initial_state(test);
+
+    let mut account_updates: Vec<AccountUpdate> = vec![];
+    for (address, account) in execution_report.new_state {
+        let mut added_storage = HashMap::new();
+
+        for (key, value) in account.storage {
+            added_storage.insert(key, value.current_value);
+        }
+
+        let code = if account.info.bytecode.is_empty() {
+            None
+        } else {
+            Some(account.info.bytecode.clone())
+        };
+
+        let account_update = AccountUpdate {
+            address,
+            removed: false,
+            info: Some(AccountInfo {
+                code_hash: code_hash(&account.info.bytecode),
+                balance: account.info.balance,
+                nonce: account.info.nonce,
+            }),
+            code,
+            added_storage,
+        };
+
+        account_updates.push(account_update);
+    }
+
+    initial_state
+        .database()
+        .unwrap()
+        .apply_account_updates(block_hash, &account_updates)
+        .unwrap()
+        .unwrap()
 }

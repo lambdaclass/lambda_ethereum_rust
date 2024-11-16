@@ -1,10 +1,13 @@
-use crate::ef::deserialize::{
+use crate::deserialize::{
     deserialize_ef_post_value_indexes, deserialize_hex_bytes, deserialize_hex_bytes_vec,
     deserialize_u256_optional_safe, deserialize_u256_safe, deserialize_u256_valued_hashmap_safe,
     deserialize_u256_vec_safe,
 };
 use bytes::Bytes;
-use ethereum_rust_core::{types::TxKind, Address, H256, U256};
+use ethereum_rust_core::{
+    types::{Genesis, GenesisAccount, TxKind},
+    Address, H256, U256,
+};
 use serde::Deserialize;
 use std::collections::HashMap;
 
@@ -15,38 +18,28 @@ pub struct EFTest {
     pub env: EFTestEnv,
     pub post: EFTestPost,
     pub pre: EFTestPre,
-    pub transaction: EFTestTransaction,
+    pub transactions: Vec<((usize, usize, usize), EFTestTransaction)>,
 }
 
-impl From<&EFTest> for ethereum_rust_levm::db::Db {
+impl From<&EFTest> for Genesis {
     fn from(test: &EFTest) -> Self {
-        let mut db = Self::default();
-        let mut accounts = Vec::new();
-        for (address, pre_value) in &test.pre.0 {
-            let storage = pre_value
-                .storage
-                .clone()
-                .into_iter()
-                .map(|(k, v)| {
-                    let mut key_bytes = [0u8; 32];
-                    k.to_big_endian(&mut key_bytes);
-                    let storage_slot = ethereum_rust_levm::StorageSlot {
-                        original_value: v,
-                        current_value: v,
-                    };
-                    (H256::from_slice(&key_bytes), storage_slot)
-                })
-                .collect();
-            let account = ethereum_rust_levm::Account::new(
-                pre_value.balance,
-                pre_value.code.clone(),
-                pre_value.nonce.as_u64(),
-                storage,
-            );
-            accounts.push((*address, account));
+        Genesis {
+            alloc: {
+                let mut alloc = HashMap::new();
+                for (account, ef_test_pre_value) in test.pre.0.iter() {
+                    alloc.insert(*account, ef_test_pre_value.into());
+                }
+                alloc
+            },
+            coinbase: test.env.current_coinbase,
+            difficulty: test.env.current_difficulty,
+            gas_limit: test.env.current_gas_limit.as_u64(),
+            mix_hash: test.env.current_random,
+            timestamp: test.env.current_timestamp.as_u64(),
+            base_fee_per_gas: Some(test.env.current_base_fee.as_u64()),
+            excess_blob_gas: Some(test.env.current_excess_blob_gas.as_u64()),
+            ..Default::default()
         }
-        db.add_accounts(accounts);
-        db
     }
 }
 
@@ -98,6 +91,12 @@ impl EFTestPost {
             EFTestPost::Cancun(v) => v,
         }
     }
+
+    pub fn iter(&self) -> impl Iterator<Item = &EFTestPostValue> {
+        match self {
+            EFTestPost::Cancun(v) => v.iter(),
+        }
+    }
 }
 
 #[derive(Debug, Deserialize, Clone)]
@@ -127,9 +126,28 @@ pub struct EFTestPreValue {
     pub storage: HashMap<U256, U256>,
 }
 
+impl From<&EFTestPreValue> for GenesisAccount {
+    fn from(value: &EFTestPreValue) -> Self {
+        Self {
+            code: value.code.clone(),
+            storage: value
+                .storage
+                .iter()
+                .map(|(k, v)| {
+                    let mut key_bytes = [0u8; 32];
+                    k.to_big_endian(&mut key_bytes);
+                    (H256::from_slice(&key_bytes), *v)
+                })
+                .collect(),
+            balance: value.balance,
+            nonce: value.nonce.as_u64(),
+        }
+    }
+}
+
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
-pub struct EFTestTransaction {
+pub struct EFTestRawTransaction {
     #[serde(deserialize_with = "deserialize_hex_bytes_vec")]
     pub data: Vec<Bytes>,
     #[serde(deserialize_with = "deserialize_u256_vec_safe")]
@@ -143,4 +161,19 @@ pub struct EFTestTransaction {
     pub to: TxKind,
     #[serde(deserialize_with = "deserialize_u256_vec_safe")]
     pub value: Vec<U256>,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct EFTestTransaction {
+    pub data: Bytes,
+    pub gas_limit: U256,
+    #[serde(default, deserialize_with = "deserialize_u256_optional_safe")]
+    pub gas_price: Option<U256>,
+    #[serde(deserialize_with = "deserialize_u256_safe")]
+    pub nonce: U256,
+    pub secret_key: H256,
+    pub sender: Address,
+    pub to: TxKind,
+    pub value: U256,
 }

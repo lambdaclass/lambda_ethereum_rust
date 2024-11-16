@@ -1,29 +1,29 @@
 [package]
-name = "ef_tests"
+name = "ef_tests-levm"
 version.workspace = true
 edition.workspace = true
 
 [dependencies]
-ethereum_rust-blockchain.workspace = true
+ethereum_rust-blockchain = { workspace = true, features = ["levm"] }
 ethereum_rust-core.workspace = true
 ethereum_rust-storage.workspace = true
 ethereum_rust-rlp.workspace = true
+ethereum_rust-vm = { workspace = true, features = ["levm"] }
+ethereum_rust-levm = { path = "../../../crates/vm/levm" }
 serde.workspace = true
 serde_json.workspace = true
 bytes.workspace = true
 hex.workspace = true
-lazy_static.workspace = true
+keccak-hash = "0.11.0"
+colored = "2.1.0"
+spinoff = "0.8.0"
 
 [dev-dependencies]
-datatest-stable = "0.2.9"
+hex = "0.4.3"
 
 [lib]
 path = "./ef_tests.rs"
 
 [[test]]
-name = "cancun"
-harness = false
-
-[[test]]
-name = "shanghai"
+name = "test"
 harness = false
