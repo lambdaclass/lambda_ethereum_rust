@@ -259,12 +259,10 @@ fn read_chain_file(chain_rlp_path: &str) -> Vec<Block> {
 }
 
 fn read_block_file(block_file_path: &str) -> Block {
-    let encoded_block = std::fs::read(block_file_path).expect(&format!(
-        "Failed to read block file with path {}",
-        block_file_path
-    ));
+    let encoded_block = std::fs::read(block_file_path)
+        .unwrap_or_else(|_| panic!("Failed to read block file with path {}", block_file_path));
     Block::decode(&encoded_block)
-        .expect(&format!("Failed to decode block file {}", block_file_path))
+        .unwrap_or_else(|_| panic!("Failed to decode block file {}", block_file_path))
 }
 
 fn read_genesis_file(genesis_file_path: &str) -> Genesis {
@@ -292,7 +290,7 @@ fn set_datadir(datadir: &str) -> String {
         .to_owned()
 }
 
-fn import_blocks(store: &Store, blocks: &Vec<Block>) -> () {
+fn import_blocks(store: &Store, blocks: &Vec<Block>) {
     let size = blocks.len();
     for block in blocks {
         let hash = block.hash();
@@ -300,7 +298,7 @@ fn import_blocks(store: &Store, blocks: &Vec<Block>) -> () {
             "Adding block {} with hash {:#x}.",
             block.header.number, hash
         );
-        let result = add_block(block, &store);
+        let result = add_block(block, store);
         if let Some(error) = result.err() {
             warn!(
                 "Failed to add block {} with hash {:#x}: {}.",
@@ -327,7 +325,7 @@ fn import_blocks(store: &Store, blocks: &Vec<Block>) -> () {
     }
     if let Some(last_block) = blocks.last() {
         let hash = last_block.hash();
-        apply_fork_choice(&store, hash, hash, hash).unwrap();
+        apply_fork_choice(store, hash, hash, hash).unwrap();
     }
     info!("Added {} blocks to blockchain", size);
 }
