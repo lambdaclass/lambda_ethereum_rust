@@ -24,6 +24,9 @@ fn main() {
         .expect("failed to build state and storage tries");
 
     let initial_state_hash = state_trie.hash_no_commit();
+    if initial_state_hash != parent_block_header.state_root {
+        panic!("invalid initial state trie");
+    }
 
     let receipts = execute_block(&block, &mut state).expect("failed to execute block");
     validate_gas_used(&receipts, &block.header).expect("invalid gas used");
@@ -39,8 +42,13 @@ fn main() {
     let account_updates = get_state_transitions(&mut state);
 
     // Update tries and calculate final state root hash
-    update_tries(&mut state_trie, &mut storage_tries, &account_updates);
+    update_tries(&mut state_trie, &mut storage_tries, &account_updates)
+        .expect("failed to update state and storage tries");
     let final_state_hash = state_trie.hash_no_commit();
+
+    if final_state_hash != block.header.state_root {
+        panic!("invalid final state trie");
+    }
 
     env::commit(&ProgramOutput {
         initial_state_hash,
