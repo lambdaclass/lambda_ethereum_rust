@@ -360,18 +360,18 @@ impl ProverServer {
 
         let journal_digest = Digestible::digest(&receipt.0.journal);
 
-        // The verify function in the OnChainProposer contract has two requires:
+        // The `verify` function in the `OnChainProposer` contract has two `require` checks:
         //      "OnChainProposer: block not committed"
         //      "OnChainProposer: block already verified"
         //
-        // We should never get `block not committed`, it's being handled
-        // by the line that checks: last_committed_block < block_number.
+        // We should never encounter the "block not committed" error, as it's handled
+        // by the check: `last_committed_block < block_number`.
         //
-        // If we get `block already verified`, it means that we are sending a block_number that is
-        // smaller than the `lastVerfiedBlock` from the contract, which is being tracked by ProverServer::last_verified_block.
-        // We shouldn't get this error neither.
+        // If we get the "block already verified" error, it means we are submitting a `block_number`
+        // smaller than the `lastVerifiedBlock` tracked by the contract, which is stored in `ProverServer::last_verified_block`.
+        // We shouldn't encounter this error either.
         //
-        // Both errors are taken into account, in conjunction with any error derived from sending the transactions.
+        // Both errors will trigger a panic, along with any errors resulting from sending the transactions.
         match self
             .send_proof(block_number, &seal, image_id, journal_digest)
             .await
