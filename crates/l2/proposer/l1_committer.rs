@@ -304,8 +304,7 @@ impl Committer {
         // We only actually support one versioned hash on the onChainProposer for now,
         // but eventually this should work if we start sending multiple blobs per commit operation.
         for blob_versioned_hash in blob_versioned_hashes {
-            let mut blob_versioned_hash_bytes = blob_versioned_hash.to_fixed_bytes();
-            blob_versioned_hash_bytes[0] = 0x01; // EIP-4844 versioning
+            let blob_versioned_hash_bytes = blob_versioned_hash.to_fixed_bytes();
             calldata.extend(blob_versioned_hash_bytes);
         }
         calldata.extend(withdrawal_logs_merkle_root.0);
