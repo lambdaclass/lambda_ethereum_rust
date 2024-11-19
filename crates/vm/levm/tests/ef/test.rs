@@ -145,4 +145,8 @@ pub struct EFTestTransaction {
     pub value: Vec<U256>,
     #[serde(default, deserialize_with = "deserialize_u256_optional_safe")]
     pub max_fee_per_gas: Option<U256>,
+    #[serde(default, deserialize_with = "deserialize_u256_optional_safe")]
+    pub max_priority_fee_per_gas: Option<U256>,
+    #[serde(default, deserialize_with = "deserialize_u256_optional_safe")]
+    pub max_fee_per_blob_gas: Option<U256>,
 }

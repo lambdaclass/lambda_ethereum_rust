@@ -97,7 +97,7 @@ impl VM {
                     calldata.clone(),
                     false,
                     env.gas_limit.min(MAX_BLOCK_GAS_LIMIT),
-                    TX_BASE_COST,
+                    U256::zero(),
                     0,
                 );
 
@@ -135,7 +135,7 @@ impl VM {
                     calldata.clone(),
                     false,
                     env.gas_limit.min(MAX_BLOCK_GAS_LIMIT),
-                    TX_BASE_COST,
+                    U256::zero(),
                     0,
                 );
 
@@ -432,7 +432,7 @@ impl VM {
         // if gas limit is less than intrinsic gas, return error
         // Intrinsic gas is gas used by the callframe before execution of opcodes
         let intrinsic_gas = initial_call_frame.gas_used;
-        if self.env.gas_limit < intrinsic_gas {
+        if self.env.gas_limit <= intrinsic_gas {
             return Err(VMError::IntrinsicGasTooLow);
         }
 
@@ -619,8 +619,7 @@ impl VM {
         intrinsic_gas += calldata_cost;
 
         // Base Cost
-        // TODO: TX_BASE_COST is set as initial cost for the transaction. It should be 0 and added here. Uncomment this when it's fixed.
-        // intrinsic_gas += TX_BASE_COST;
+        intrinsic_gas += TX_BASE_COST;
 
         // Create Cost
         if self.is_create() {

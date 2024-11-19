@@ -37,19 +37,19 @@ pub fn run_ef_tests() -> Result<EFTestsReport, Box<dyn Error>> {
             {
                 continue;
             }
-            // if test
-            //     .path()
-            //     .file_name()
-            //     .is_some_and(|name| name == "basefeeExample.json")
-            // {
-            let test_result = run_ef_test(
-                serde_json::from_reader(std::fs::File::open(test.path())?)?,
-                &mut report,
-            );
-            if test_result.is_err() {
-                continue;
+            if test
+                .path()
+                .file_name()
+                .is_some_and(|name| name == "intrinsic.json")
+            {
+                let test_result = run_ef_test(
+                    serde_json::from_reader(std::fs::File::open(test.path())?)?,
+                    &mut report,
+                );
+                if test_result.is_err() {
+                    continue;
+                }
             }
-            // }
         }
         spinner.update_text(report.progress());
     }
@@ -87,9 +87,9 @@ pub fn prepare_vm(test: &EFTest, report: &mut EFTestsReport) -> Result<VM, Box<d
             block_blob_gas_used: None,
             tx_blob_hashes: None,
             block_gas_limit: test.env.current_gas_limit,
-            tx_max_priority_fee_per_gas: None, //TODO: This shouldn't be none
+            tx_max_priority_fee_per_gas: test.transaction.max_priority_fee_per_gas,
             tx_max_fee_per_gas: test.transaction.max_fee_per_gas,
-            tx_max_fee_per_blob_gas: None, //TODO: This shouldn't be none
+            tx_max_fee_per_blob_gas: test.transaction.max_fee_per_blob_gas,
         },
         *test.transaction.value.first().unwrap(),
         test.transaction.data.first().unwrap().clone(),
