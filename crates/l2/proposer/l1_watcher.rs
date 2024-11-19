@@ -21,7 +21,7 @@ use tracing::{debug, info, warn};
 pub async fn start_l1_watcher(store: Store) {
     let eth_config = EthConfig::from_env().expect("EthConfig::from_env()");
     let watcher_config = L1WatcherConfig::from_env().expect("L1WatcherConfig::from_env()");
-    let sleep_duration = Duration::from_millis(watcher_config.check_interval_ms.clone());
+    let sleep_duration = Duration::from_millis(watcher_config.check_interval_ms);
     let mut l1_watcher = L1Watcher::new_from_config(watcher_config, eth_config);
     loop {
         sleep(sleep_duration).await;
@@ -58,7 +58,6 @@ pub struct L1Watcher {
     max_block_step: U256,
     last_block_fetched: U256,
     l2_proposer_pk: SecretKey,
-    l2_proposer_address: Address,
 }
 
 impl L1Watcher {
@@ -70,7 +69,6 @@ impl L1Watcher {
             max_block_step: watcher_config.max_block_step,
             last_block_fetched: U256::zero(),
             l2_proposer_pk: watcher_config.l2_proposer_private_key,
-            l2_proposer_address: watcher_config.l2_proposer_address,
         }
     }
 
@@ -87,13 +85,11 @@ impl L1Watcher {
         )
         .map_err(|_| L1WatcherError::FailedToDeserializeLog("Not a valid hex string".to_string()))?
         .chunks(32)
-        .map(|chunk| H256::from_slice(chunk))
+        .map(H256::from_slice)
         .collect::<Vec<H256>>()
         .split_at(2) // Two first words are index and length abi encode
         .1
-        .iter()
-        .map(|x| *x)
-        .collect())
+        .to_vec())
     }
 
     pub async fn get_logs(&mut self) -> Result<Vec<RpcLog>, L1WatcherError> {
@@ -138,7 +134,7 @@ impl L1Watcher {
     pub async fn process_logs(
         &self,
         logs: Vec<RpcLog>,
-        l1_deposit_logs: &Vec<H256>,
+        l1_deposit_logs: &[H256],
         store: &Store,
     ) -> Result<Vec<H256>, L1WatcherError> {
         let mut deposit_txs = Vec::new();
