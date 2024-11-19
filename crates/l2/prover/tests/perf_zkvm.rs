@@ -1,4 +1,3 @@
-use risc0_zkvm::serde::from_slice;
 use std::path::Path;
 use tracing::info;
 

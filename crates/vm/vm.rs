@@ -502,13 +502,13 @@ pub fn get_state_transitions(state: &mut EvmState) -> Vec<AccountUpdate> {
         EvmState::Execution(db) => {
             // Update accounts
             let mut account_updates = Vec::new();
-            for (address, account) in &db.accounts {
+            for (revm_address, account) in &db.accounts {
                 if account.account_state == AccountState::None {
-                    // EVM didn't interacted with this account
+                    // EVM didn't interact with this account
                     continue;
                 }
 
-                let address = Address::from_slice(address.0.as_slice());
+                let address = Address::from_slice(revm_address.0.as_slice());
                 // Remove account from DB if destroyed
                 if account.account_state == AccountState::NotExisting {
                     account_updates.push(AccountUpdate::removed(address));
@@ -525,15 +525,21 @@ pub fn get_state_transitions(state: &mut EvmState) -> Vec<AccountUpdate> {
                 // Update account info in DB
                 if let Some(new_acc_info) = account.info() {
                     let code_hash = H256::from_slice(new_acc_info.code_hash.as_slice());
+
+                    // If code changed, update
+                    if matches!(db.db.accounts.get(revm_address), Some(account) if account.code_hash != code_hash)
+                    {
+                        account_update.code = new_acc_info
+                            .code
+                            .map(|code| bytes::Bytes::copy_from_slice(code.bytes_slice()));
+                    }
+
                     let account_info = AccountInfo {
                         code_hash,
                         balance: U256::from_little_endian(new_acc_info.balance.as_le_slice()),
                         nonce: new_acc_info.nonce,
                     };
                     account_update.info = Some(account_info);
-
-                    // TODO: check if code changed, apply accordingly
-                    account_update.code = None;
                 }
                 // Update account storage in DB
                 for (key, slot) in account.storage.iter() {
