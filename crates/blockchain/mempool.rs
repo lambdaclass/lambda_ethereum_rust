@@ -24,6 +24,7 @@ pub fn add_blob_transaction(
     store: Store,
 ) -> Result<H256, MempoolError> {
     // Validate blobs bundle
+    #[cfg(feature = "c-kzg")]
     blobs_bundle.validate(&transaction)?;
 
     // Validate transaction
