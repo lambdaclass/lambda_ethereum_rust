@@ -40,7 +40,7 @@ pub fn run_ef_tests() -> Result<EFTestsReport, Box<dyn Error>> {
             // if test
             //     .path()
             //     .file_name()
-            //     .is_some_and(|name| name == "senderBalance.json")
+            //     .is_some_and(|name| name == "basefeeExample.json")
             // {
             let test_result = run_ef_test(
                 serde_json::from_reader(std::fs::File::open(test.path())?)?,
@@ -75,7 +75,7 @@ pub fn prepare_vm(test: &EFTest, report: &mut EFTestsReport) -> Result<VM, Box<d
             origin: test.transaction.sender,
             consumed_gas: U256::default(),
             refunded_gas: U256::default(),
-            gas_limit: test.env.current_gas_limit,
+            gas_limit: test.transaction.gas_limit[0], // Gas limit of Tx
             block_number: test.env.current_number,
             coinbase: test.env.current_coinbase,
             timestamp: test.env.current_timestamp,
@@ -88,8 +88,8 @@ pub fn prepare_vm(test: &EFTest, report: &mut EFTestsReport) -> Result<VM, Box<d
             tx_blob_hashes: None,
             block_gas_limit: test.env.current_gas_limit,
             tx_max_priority_fee_per_gas: None, //TODO: This shouldn't be none
-            tx_max_fee_per_gas: None,          //TODO: This shouldn't be none
-            tx_max_fee_per_blob_gas: None,     //TODO: This shouldn't be none
+            tx_max_fee_per_gas: test.transaction.max_fee_per_gas,
+            tx_max_fee_per_blob_gas: None, //TODO: This shouldn't be none
         },
         *test.transaction.value.first().unwrap(),
         test.transaction.data.first().unwrap().clone(),

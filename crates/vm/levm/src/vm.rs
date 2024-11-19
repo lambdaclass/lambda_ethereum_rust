@@ -348,16 +348,8 @@ impl VM {
     /// the block’s base fee;
     /// (8) For type 2 transactions, max priority fee per fas, must be no larger
     /// than max fee per fas.
-    fn validate_transaction(&mut self) -> Result<(), VMError> {
+    fn validate_transaction(&mut self, initial_call_frame: &CallFrame) -> Result<(), VMError> {
         // Validations (1), (2), (3), (5), and (8) are assumed done in upper layers.
-
-        let call_frame = self
-            .call_frames
-            .last()
-            .ok_or(VMError::Internal(
-                InternalError::CouldNotAccessLastCallframe,
-            ))?
-            .clone();
 
         //TODO: This should revert the transaction, not throw an error.
         // if self.is_create() {
@@ -402,13 +394,20 @@ impl VM {
         // (6)
         // GASLIMIT_PRICE_PRODUCT_OVERFLOW
         let gaslimit_price_product = self
-            .env
-            .tx_max_fee_per_gas
-            .unwrap_or(self.env.gas_limit)
-            .checked_mul(self.env.gas_price)
+            .gas_price_or_max_fee_per_gas()
+            .checked_mul(self.env.gas_limit)
             .ok_or(VMError::GasLimitPriceProductOverflow)?;
 
-        let up_front_cost = gaslimit_price_product + call_frame.msg_value;
+        let up_front_cost = gaslimit_price_product + initial_call_frame.msg_value;
+        // println!("Max fee per gas: {:?}", self.env.tx_max_fee_per_gas);
+        // println!("Gas limit: {:?}", self.env.gas_limit);
+        // println!("gas_price: {:?}", self.env.gas_price);
+        // println!("msg value: {:?}", initial_call_frame.msg_value);
+        // println!("up_front_cost: {:?}", up_front_cost);
+        // println!(
+        //     "sender_account.info.balance: {:?}",
+        //     sender_account.info.balance
+        // );
 
         // INSUFFICIENT_ACCOUNT_FUNDS
         if sender_account.info.balance < up_front_cost {
@@ -418,13 +417,13 @@ impl VM {
         self.cache.add_account(&origin, &sender_account);
 
         // (7)
-        if self.env.gas_price < self.env.base_fee_per_gas {
+        if self.gas_price_or_max_fee_per_gas() < self.env.base_fee_per_gas {
             return Err(VMError::GasPriceIsLowerThanBaseFee);
         }
 
         if self.is_create() {
             // INITCODE_SIZE_EXCEEDED
-            if call_frame.calldata.len() > INIT_CODE_MAX_SIZE {
+            if initial_call_frame.calldata.len() > INIT_CODE_MAX_SIZE {
                 return Err(VMError::InitcodeSizeExceeded);
             }
         }
@@ -432,7 +431,7 @@ impl VM {
         // INTRINSIC_GAS_TOO_LOW
         // if gas limit is less than intrinsic gas, return error
         // Intrinsic gas is gas used by the callframe before execution of opcodes
-        let intrinsic_gas = call_frame.gas_used;
+        let intrinsic_gas = initial_call_frame.gas_used;
         if self.env.gas_limit < intrinsic_gas {
             return Err(VMError::IntrinsicGasTooLow);
         }
@@ -523,12 +522,9 @@ impl VM {
             if contract_code.len() > MAX_CODE_SIZE {
                 return Err(VMError::ContractOutputTooBig);
             }
-            // Supposing contract code has contents
-            if *contract_code
-                .first()
-                .ok_or(VMError::Internal(InternalError::TriedToIndexEmptyCode))?
-                == INVALID_CONTRACT_PREFIX
-            {
+
+            // If contract code is not empty then the first byte should not be 0xef
+            if *contract_code.first().unwrap_or(&0) == INVALID_CONTRACT_PREFIX {
                 return Err(VMError::InvalidInitialByte);
             }
 
@@ -590,7 +586,7 @@ impl VM {
         self.cache.add_account(&receiver_address, &receiver_account);
 
         // Send coinbase fee
-        let priority_fee_per_gas = self.env.gas_price - self.env.base_fee_per_gas;
+        let priority_fee_per_gas = self.gas_price_or_max_fee_per_gas() - self.env.base_fee_per_gas;
         let coinbase_fee = (U256::from(report.gas_used)) * priority_fee_per_gas;
 
         let mut coinbase_account = self.get_account(&coinbase_address);
@@ -656,7 +652,7 @@ impl VM {
 
         self.add_intrinsic_gas(&mut current_call_frame)?;
 
-        self.validate_transaction()?; // Fail without consuming gas
+        self.validate_transaction(&current_call_frame)?; // Fail without consuming gas
 
         let mut report = self.execute(&mut current_call_frame)?;
 
@@ -680,6 +676,10 @@ impl VM {
         self.call_frames.last_mut().ok_or(VMError::Internal(
             InternalError::CouldNotAccessLastCallframe,
         ))
+    }
+
+    pub fn gas_price_or_max_fee_per_gas(&self) -> U256 {
+        self.env.tx_max_fee_per_gas.unwrap_or(self.env.gas_price)
     }
 
     // TODO: Improve and test REVERT behavior for XCALL opcodes. Issue: https://github.com/lambdaclass/lambda_ethereum_rust/issues/1061
