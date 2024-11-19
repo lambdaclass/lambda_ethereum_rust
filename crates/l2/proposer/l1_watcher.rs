@@ -12,6 +12,7 @@ use ethereum_rust_core::types::{Signable, Transaction};
 use ethereum_rust_rpc::types::receipt::RpcLog;
 use ethereum_rust_storage::Store;
 use ethereum_types::{Address, BigEndianHash, H256, U256};
+use keccak_hash::keccak;
 use secp256k1::SecretKey;
 use std::{cmp::min, ops::Mul, time::Duration};
 use tokio::time::sleep;
@@ -25,9 +26,10 @@ pub async fn start_l1_watcher(store: Store) {
     loop {
         sleep(sleep_duration).await;
 
+        let l1_deposits_logs = l1_watcher.get_l1_deposit_logs().await.unwrap();
         let logs = l1_watcher.get_logs().await.expect("l1_watcher.get_logs()");
         let _deposit_txs = l1_watcher
-            .process_logs(logs, &store)
+            .process_logs(logs, &l1_deposits_logs, &store)
             .await
             .expect("l1_watcher.process_logs()");
     }
@@ -54,6 +56,28 @@ impl L1Watcher {
             l2_proposer_pk: watcher_config.l2_proposer_private_key,
             l2_proposer_address: watcher_config.l2_proposer_address,
         }
+    }
+
+    pub async fn get_l1_deposit_logs(&self) -> Result<Vec<H256>, L1WatcherError> {
+        Ok(hex::decode(
+            &self
+                .eth_client
+                .call(
+                    self.address,
+                    Bytes::copy_from_slice(&[0x35, 0x6d, 0xa2, 0x49]),
+                    Overrides::default(),
+                )
+                .await?[2..],
+        )
+        .expect("Not a valid hex string")
+        .chunks(32)
+        .map(|chunk| H256::from_slice(chunk))
+        .collect::<Vec<H256>>()
+        .split_at(2) // Two first words are index and length abi encode
+        .1
+        .iter()
+        .map(|x| *x)
+        .collect())
     }
 
     pub async fn get_logs(&mut self) -> Result<Vec<RpcLog>, L1WatcherError> {
@@ -98,6 +122,7 @@ impl L1Watcher {
     pub async fn process_logs(
         &self,
         logs: Vec<RpcLog>,
+        l1_deposit_logs: &Vec<H256>,
         store: &Store,
     ) -> Result<Vec<H256>, L1WatcherError> {
         if logs.is_empty() {
@@ -129,6 +154,13 @@ impl L1Watcher {
                         "Failed to parse beneficiary from log: {e:#?}"
                     ))
                 })?;
+
+            let mut value_bytes = [0u8; 32];
+            mint_value.to_big_endian(&mut value_bytes);
+            if !l1_deposit_logs.contains(&keccak([beneficiary.as_bytes(), &value_bytes].concat())) {
+                warn!("Deposit already processed (to: {beneficiary:#x}, value: {mint_value}), skipping.");
+                continue;
+            }
 
             info!("Initiating mint transaction for {beneficiary:#x} with value {mint_value:#x}",);
 
