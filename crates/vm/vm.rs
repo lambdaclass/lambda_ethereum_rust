@@ -179,6 +179,10 @@ cfg_if::cfg_if! {
                 block_excess_blob_gas: block_header.excess_blob_gas.map(U256::from),
                 block_blob_gas_used: block_header.blob_gas_used.map(U256::from),
                 tx_blob_hashes: None,
+                block_gas_limit: block_header.gas_limit.into(),
+                max_priority_fee_per_gas: tx.max_priority_fee_per_gas().map(U256::from),
+                max_fee_per_gas: tx.max_fee_per_gas().map(U256::from),
+                max_fee_per_blob_gas: tx.max_fee_per_blob_gas().map(U256::from),
             };
 
             let mut vm = VM::new(
