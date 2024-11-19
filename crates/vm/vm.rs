@@ -164,6 +164,8 @@ cfg_if::cfg_if! {
         ) -> Result<TransactionReport, VMError> {
             let gas_price : U256 = tx.effective_gas_price(block_header.base_fee_per_gas).ok_or(VMError::InvalidTransaction)?.into();
 
+            let tx_type = tx.tx_type();
+
             let env = Environment {
                 origin: tx.sender(),
                 consumed_gas: U256::from(21000), // Base gas cost for a transaction
@@ -180,9 +182,9 @@ cfg_if::cfg_if! {
                 block_blob_gas_used: block_header.blob_gas_used.map(U256::from),
                 tx_blob_hashes: None,
                 block_gas_limit: block_header.gas_limit.into(),
-                max_priority_fee_per_gas: tx.max_priority_fee_per_gas().map(U256::from),
-                max_fee_per_gas: tx.max_fee_per_gas().map(U256::from),
-                max_fee_per_blob_gas: tx.max_fee_per_blob_gas().map(U256::from),
+                tx_max_priority_fee_per_gas: tx.max_priority_fee_per_gas().map(U256::from),
+                tx_max_fee_per_gas: tx.max_fee_per_gas().map(U256::from),
+                tx_max_fee_per_blob_gas: tx.max_fee_per_blob_gas().map(U256::from),
             };
 
             let mut vm = VM::new(

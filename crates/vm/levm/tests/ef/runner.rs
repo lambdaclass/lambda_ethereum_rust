@@ -42,13 +42,13 @@ pub fn run_ef_tests() -> Result<EFTestsReport, Box<dyn Error>> {
             //     .file_name()
             //     .is_some_and(|name| name == "senderBalance.json")
             // {
-                let test_result = run_ef_test(
-                    serde_json::from_reader(std::fs::File::open(test.path())?)?,
-                    &mut report,
-                );
-                if test_result.is_err() {
-                    continue;
-                }
+            let test_result = run_ef_test(
+                serde_json::from_reader(std::fs::File::open(test.path())?)?,
+                &mut report,
+            );
+            if test_result.is_err() {
+                continue;
+            }
             // }
         }
         spinner.update_text(report.progress());
@@ -86,6 +86,10 @@ pub fn prepare_vm(test: &EFTest, report: &mut EFTestsReport) -> Result<VM, Box<d
             block_excess_blob_gas: Some(test.env.current_excess_blob_gas),
             block_blob_gas_used: None,
             tx_blob_hashes: None,
+            block_gas_limit: test.env.current_gas_limit,
+            tx_max_priority_fee_per_gas: None, //TODO: This shouldn't be none
+            tx_max_fee_per_gas: None,          //TODO: This shouldn't be none
+            tx_max_fee_per_blob_gas: None,     //TODO: This shouldn't be none
         },
         *test.transaction.value.first().unwrap(),
         test.transaction.data.first().unwrap().clone(),

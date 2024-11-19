@@ -380,31 +380,35 @@ impl VM {
             .ok_or(VMError::NonceIsMax)?;
 
         // PRIORITY_GREATER_THAN_MAX_FEE_PER_GAS
-        // TODO: Implement maxPriorityFeePerGas and maxFeePerGas in transaction environment.
-        // if self.env.max_priority_fee_per_gas > self.env.max_fee_per_gas {
-        //     return Err(VMError::PriorityGreaterThanMaxFeePerGas);
-        // }
+        if let (Some(tx_max_priority_fee), Some(tx_max_fee_per_gas)) = (
+            self.env.tx_max_priority_fee_per_gas,
+            self.env.tx_max_fee_per_gas,
+        ) {
+            if tx_max_priority_fee > tx_max_fee_per_gas {
+                return Err(VMError::PriorityGreaterThanMaxFeePerGas);
+            }
+        }
 
         // GAS_ALLOWANCE_EXCEEDED
-        // TODO: See where to get block gas limit from...
-        // if self.env.gas_limit > self.env.block_gas_limit {
-        //     return Err(VMError::GasAllowanceExceeded);
-        // }
+        if self.env.gas_limit > self.env.block_gas_limit {
+            return Err(VMError::GasAllowanceExceeded);
+        }
 
-        // (4)
+        // SENDER_NOT_EOA
         if sender_account.has_code() {
             return Err(VMError::SenderNotEOA);
         }
+
         // (6)
         // GASLIMIT_PRICE_PRODUCT_OVERFLOW
-        let gaslimit_price = self
+        let gaslimit_price_product = self
             .env
-            .gas_limit
+            .tx_max_fee_per_gas
+            .unwrap_or(self.env.gas_limit)
             .checked_mul(self.env.gas_price)
             .ok_or(VMError::GasLimitPriceProductOverflow)?;
 
-        //TODO: Calculation of up_front_cost depends on transaction type, because type 2 transaction uses max fee per gas instead of gas price.
-        let up_front_cost = gaslimit_price + call_frame.msg_value;
+        let up_front_cost = gaslimit_price_product + call_frame.msg_value;
 
         // INSUFFICIENT_ACCOUNT_FUNDS
         if sender_account.info.balance < up_front_cost {
@@ -431,6 +435,22 @@ impl VM {
         let intrinsic_gas = call_frame.gas_used;
         if self.env.gas_limit < intrinsic_gas {
             return Err(VMError::IntrinsicGasTooLow);
+        }
+
+        // INSUFFICIENT_MAX_FEE_PER_GAS
+        // tx_max_fee_per_gas less than base_fee_per_gas
+        if let Some(tx_max_fee_per_gas) = self.env.tx_max_fee_per_gas {
+            if tx_max_fee_per_gas < self.env.base_fee_per_gas {
+                return Err(VMError::InsufficientMaxFeePerGas);
+            }
+        }
+
+        // INSUFFICIENT_MAX_FEE_PER_BLOB_GAS
+        // tx_max_fee_per_blob_gas less than base_fee_per_gas
+        if let Some(tx_max_fee_per_blob_gas) = self.env.tx_max_fee_per_blob_gas {
+            if tx_max_fee_per_blob_gas < self.env.base_fee_per_gas {
+                return Err(VMError::InsufficientMaxFeePerGas);
+            }
         }
 
         Ok(())

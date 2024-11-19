@@ -83,6 +83,12 @@ pub enum VMError {
     PriorityGreaterThanMaxFeePerGas,
     #[error("Intrinsic gas too low")]
     IntrinsicGasTooLow,
+    #[error("Gas allowance exceeded")]
+    GasAllowanceExceeded,
+    #[error("Insufficient max fee per gas")]
+    InsufficientMaxFeePerGas,
+    #[error("Insufficient max fee per blob gas")]
+    InsufficientMaxFeePerBlobGas,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, thiserror::Error)]
