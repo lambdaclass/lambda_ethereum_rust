@@ -403,7 +403,7 @@ impl VM {
             .checked_mul(self.env.gas_price)
             .ok_or(VMError::GasLimitPriceProductOverflow)?;
 
-        //TODO: Calculation of up_front_cost depends on transaction type, because type 2 transaction use max fee per gas instead of gas price.
+        //TODO: Calculation of up_front_cost depends on transaction type, because type 2 transaction uses max fee per gas instead of gas price.
         let up_front_cost = gaslimit_price + call_frame.msg_value;
 
         // INSUFFICIENT_ACCOUNT_FUNDS
@@ -423,6 +423,14 @@ impl VM {
             if call_frame.calldata.len() > INIT_CODE_MAX_SIZE {
                 return Err(VMError::InitcodeSizeExceeded);
             }
+        }
+
+        // INTRINSIC_GAS_TOO_LOW
+        // if gas limit is less than intrinsic gas, return error
+        // Intrinsic gas is gas used by the callframe before execution of opcodes
+        let intrinsic_gas = call_frame.gas_used;
+        if self.env.gas_limit < intrinsic_gas {
+            return Err(VMError::IntrinsicGasTooLow);
         }
 
         Ok(())
@@ -621,14 +629,14 @@ impl VM {
     }
 
     pub fn transact(&mut self) -> Result<TransactionReport, VMError> {
-        self.validate_transaction()?; // Fail without consuming gas
-
         let mut current_call_frame = self
             .call_frames
             .pop()
             .ok_or(VMError::Internal(InternalError::CouldNotPopCallframe))?;
 
         self.add_intrinsic_gas(&mut current_call_frame)?;
+
+        self.validate_transaction()?; // Fail without consuming gas
 
         let mut report = self.execute(&mut current_call_frame)?;
 

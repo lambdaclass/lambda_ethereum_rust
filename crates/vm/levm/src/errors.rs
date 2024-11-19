@@ -81,6 +81,8 @@ pub enum VMError {
     InitcodeSizeExceeded,
     #[error("Priority fee greater than max fee per gas")]
     PriorityGreaterThanMaxFeePerGas,
+    #[error("Intrinsic gas too low")]
+    IntrinsicGasTooLow,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, thiserror::Error)]
