@@ -20,8 +20,11 @@ use tracing::{debug, info, warn};
 pub async fn start_l1_watcher(store: Store) {
     let eth_config = EthConfig::from_env().expect("EthConfig::from_env()");
     let watcher_config = L1WatcherConfig::from_env().expect("L1WatcherConfig::from_env()");
+    let sleep_duration = Duration::from_millis(watcher_config.check_interval_ms.clone());
     let mut l1_watcher = L1Watcher::new_from_config(watcher_config, eth_config);
     loop {
+        sleep(sleep_duration).await;
+
         let logs = l1_watcher.get_logs().await.expect("l1_watcher.get_logs()");
         let _deposit_txs = l1_watcher
             .process_logs(logs, &store)
@@ -34,7 +37,6 @@ pub struct L1Watcher {
     eth_client: EthClient,
     address: Address,
     topics: Vec<H256>,
-    check_interval: Duration,
     max_block_step: U256,
     last_block_fetched: U256,
     l2_proposer_pk: SecretKey,
@@ -47,7 +49,6 @@ impl L1Watcher {
             eth_client: EthClient::new_from_config(eth_config),
             address: watcher_config.bridge_address,
             topics: watcher_config.topics,
-            check_interval: Duration::from_millis(watcher_config.check_interval_ms),
             max_block_step: watcher_config.max_block_step,
             last_block_fetched: U256::zero(),
             l2_proposer_pk: watcher_config.l2_proposer_private_key,
@@ -91,8 +92,6 @@ impl L1Watcher {
 
         self.last_block_fetched = new_last_block;
 
-        sleep(self.check_interval).await;
-
         Ok(logs)
     }
 
@@ -108,8 +107,8 @@ impl L1Watcher {
         let mut deposit_txs = Vec::new();
         let mut operator_nonce = store
             .get_account_info(
-                self.eth_client.get_block_number().await?.as_u64(),
-                self.l2_proposer_address,
+                store.get_latest_block_number().unwrap().unwrap(),
+                Address::zero(),
             )
             .map_err(|e| L1WatcherError::FailedToRetrieveDepositorAccountInfo(e.to_string()))?
             .map(|info| info.nonce)
