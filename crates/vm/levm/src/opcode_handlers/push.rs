@@ -29,7 +29,7 @@ impl VM {
         let read_n_bytes: Vec<u8> = current_call_frame
             .bytecode
             .get(current_call_frame.pc()..)
-            .ok_or(VMError::InvalidBytecode)?
+            .unwrap_or_default()
             .iter()
             .take(n_bytes)
             .cloned()
@@ -43,13 +43,13 @@ impl VM {
         value_to_push
             .get_mut(
                 start_index
-                    ..start_index.checked_add(read_n_bytes.len()).ok_or(VMError::Internal(
-                        InternalError::ArithmeticOperationOverflow,
-                    ))?,
+                    ..start_index
+                        .checked_add(read_n_bytes.len())
+                        .ok_or(VMError::Internal(
+                            InternalError::ArithmeticOperationOverflow,
+                        ))?,
             )
-            .ok_or(VMError::Internal(
-                InternalError::ArithmeticOperationOverflow, // Not sure about this error
-            ))?
+            .unwrap_or_default()
             .copy_from_slice(&read_n_bytes);
 
         let bytes_push: &[u8] = &value_to_push;
