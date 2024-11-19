@@ -1,4 +1,4 @@
-# ethrex
+# Ethrex
 
 [![Telegram Chat][tg-badge]][tg-url]
 [![license](https://img.shields.io/github/license/lambdaclass/ethereum_rust)](/LICENSE)
