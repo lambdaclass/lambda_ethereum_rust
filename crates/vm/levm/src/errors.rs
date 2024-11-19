@@ -1,7 +1,6 @@
 use crate::account::Account;
 use bytes::Bytes;
 use ethereum_rust_core::{types::Log, Address};
-use ethereum_rust_rlp::error;
 use std::collections::HashMap;
 
 /// Errors that halt the program

@@ -3,7 +3,7 @@ use ethereum_rust_core::{H256, U256};
 use keccak_hash::keccak;
 use std::collections::HashMap;
 
-use crate::{constants::EMPTY_CODE_HASH, errors::VMError};
+use crate::constants::EMPTY_CODE_HASH;
 
 #[derive(Clone, Default, Debug, PartialEq, Eq)]
 pub struct AccountInfo {

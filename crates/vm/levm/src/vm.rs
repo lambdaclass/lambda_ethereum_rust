@@ -432,7 +432,9 @@ impl VM {
         // if gas limit is less than intrinsic gas, return error
         // Intrinsic gas is gas used by the callframe before execution of opcodes
         let intrinsic_gas = initial_call_frame.gas_used;
-        if self.env.gas_limit <= intrinsic_gas {
+        // println!("Intrinsic gas: {:?}", intrinsic_gas);
+        // println!("Gas limit: {:?}", self.env.gas_limit);
+        if self.env.gas_limit < intrinsic_gas {
             return Err(VMError::IntrinsicGasTooLow);
         }
 
