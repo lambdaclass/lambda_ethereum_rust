@@ -26,10 +26,22 @@ pub async fn start_l1_watcher(store: Store) {
     loop {
         sleep(sleep_duration).await;
 
-        let l1_deposits_logs = l1_watcher.get_l1_deposit_logs().await.unwrap();
-        let logs = l1_watcher.get_logs().await.expect("l1_watcher.get_logs()");
+        let pending_deposits_logs = match l1_watcher.get_pending_deposit_logs().await {
+            Ok(logs) => logs,
+            Err(error) => {
+                warn!("Error when getting L1 pending deposit logs: {}", error);
+                continue;
+            }
+        };
+        let logs = match l1_watcher.get_logs().await {
+            Ok(logs) => logs,
+            Err(error) => {
+                warn!("Error when getting logs from L1: {}", error);
+                continue;
+            }
+        };
         let _deposit_txs = l1_watcher
-            .process_logs(logs, &l1_deposits_logs, &store)
+            .process_logs(logs, &pending_deposits_logs, &store)
             .await
             .expect("l1_watcher.process_logs()");
     }
@@ -58,7 +70,7 @@ impl L1Watcher {
         }
     }
 
-    pub async fn get_l1_deposit_logs(&self) -> Result<Vec<H256>, L1WatcherError> {
+    pub async fn get_pending_deposit_logs(&self) -> Result<Vec<H256>, L1WatcherError> {
         Ok(hex::decode(
             &self
                 .eth_client
@@ -69,7 +81,7 @@ impl L1Watcher {
                 )
                 .await?[2..],
         )
-        .expect("Not a valid hex string")
+        .map_err(|_| L1WatcherError::FailedToDeserializeLog("Not a valid hex string".to_string()))?
         .chunks(32)
         .map(|chunk| H256::from_slice(chunk))
         .collect::<Vec<H256>>()
@@ -132,7 +144,12 @@ impl L1Watcher {
         let mut deposit_txs = Vec::new();
         let mut operator_nonce = store
             .get_account_info(
-                store.get_latest_block_number().unwrap().unwrap(),
+                store
+                    .get_latest_block_number()
+                    .map_err(|e| L1WatcherError::FailedToRetrieveChainConfig(e.to_string()))?
+                    .ok_or(L1WatcherError::FailedToRetrieveChainConfig(
+                        "Last block is None".to_string(),
+                    ))?,
                 Address::zero(),
             )
             .map_err(|e| L1WatcherError::FailedToRetrieveDepositorAccountInfo(e.to_string()))?
