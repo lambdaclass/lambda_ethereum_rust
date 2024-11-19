@@ -17,7 +17,7 @@ use ethereum_rust_blockchain::constants::TX_GAS_COST;
 use ethereum_rust_core::{
     types::{
         BlobsBundle, Block, EIP1559Transaction, GenericTransaction, PrivilegedL2Transaction,
-        PrivilegedTxType, Transaction, TxKind, BYTES_PER_BLOB,
+        PrivilegedTxType, Transaction, TxKind, BLOB_BASE_FEE_UPDATE_FRACTION, BYTES_PER_BLOB,
     },
     Address, H256, U256,
 };
@@ -27,11 +27,13 @@ use ethereum_rust_vm::{evm_state, execute_block, get_state_transitions};
 use keccak_hash::keccak;
 use secp256k1::SecretKey;
 use sha2::{Digest, Sha256};
-use std::ops::Div;
 use std::{collections::HashMap, time::Duration};
+use std::{f64::consts::E, ops::Div};
 use tokio::time::sleep;
 use tracing::{error, info, warn};
 
+// 5 Gwei
+const ARBRITRARY_BASE_BLOB_GAS_PRICE: u64 = 5_000_000_000;
 const COMMIT_FUNCTION_SELECTOR: [u8; 4] = [132, 97, 12, 179];
 
 pub struct Committer {
@@ -470,4 +472,37 @@ async fn wrapped_eip4844_transaction_handler(
     Err(CommitterError::FailedToSendCommitment(
         "Error handling eip4844".to_owned(),
     ))
+}
+
+async fn estimate_blob_gas(
+    eth_client: &EthClient,
+    current_block: Block,
+    headroom: f64,
+) -> Result<u64, CommitterError> {
+    let parent_block = eth_client
+        .get_block_by_hash(current_block.header.parent_hash)
+        .await?;
+
+    let blob_gas_used = parent_block.header.blob_gas_used.unwrap_or(0);
+    let excess_blob_gas = parent_block.header.excess_blob_gas.unwrap_or(0);
+
+    // Using the formula form the EIP-4844
+    // https://eips.ethereum.org/EIPS/eip-4844
+    // def get_base_fee_per_blob_gas(header: Header) -> int:
+    // return fake_exponential(
+    //     MIN_BASE_FEE_PER_BLOB_GAS,
+    //     header.excess_blob_gas,
+    //     BLOB_BASE_FEE_UPDATE_FRACTION
+    // )
+    //
+    // factor * e ** (numerator / denominator)
+    // def fake_exponential(factor: int, numerator: int, denominator: int) -> int:
+
+    // Check overflow and throw error
+    // Check if we should use a limit to avoid wasting gas
+
+    let blob_gas = ARBRITRARY_BASE_BLOB_GAS_PRICE as f64
+        * E.powf(((excess_blob_gas + blob_gas_used) / BLOB_BASE_FEE_UPDATE_FRACTION) as f64);
+
+    Ok((blob_gas * headroom) as u64)
 }
