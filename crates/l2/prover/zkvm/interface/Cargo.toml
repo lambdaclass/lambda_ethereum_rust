@@ -6,6 +6,7 @@ edition = "2021"
 [dependencies]
 serde = { version = "1.0.203", features = ["derive"] }
 serde_with = "3.11.0"
+thiserror = "1.0.61"
 
 ethereum_rust-core = { path = "../../../../common/", default-features = false }
 ethereum_rust-vm = { path = "../../../../vm", default-features = false }

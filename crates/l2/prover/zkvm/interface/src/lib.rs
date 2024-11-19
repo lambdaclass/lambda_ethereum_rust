@@ -75,12 +75,21 @@ pub mod trie {
     use ethereum_rust_rlp::{decode::RLPDecode, encode::RLPEncode};
     use ethereum_rust_storage::{hash_address, hash_key, AccountUpdate};
     use ethereum_rust_trie::{Trie, TrieError};
+    use thiserror::Error;
+
+    #[derive(Debug, Error)]
+    pub enum Error {
+        #[error(transparent)]
+        TrieError(#[from] TrieError),
+        #[error("Missing storage trie for address {0}")]
+        StorageNotFound(H160),
+    }
 
     pub fn update_tries(
         state_trie: &mut Trie,
         storage_tries: &mut HashMap<H160, Trie>,
         account_updates: &[AccountUpdate],
-    ) -> Result<(), TrieError> {
+    ) -> Result<(), Error> {
         for update in account_updates.iter() {
             let hashed_address = hash_address(&update.address);
             if update.removed {
@@ -100,7 +109,9 @@ pub mod trie {
                 }
                 // Store the added storage in the account's storage trie and compute its new root
                 if !update.added_storage.is_empty() {
-                    let storage_trie = storage_tries.get_mut(&update.address).unwrap(); // TODO: add err
+                    let storage_trie = storage_tries
+                        .get_mut(&update.address)
+                        .ok_or(Error::StorageNotFound(update.address))?;
                     for (storage_key, storage_value) in &update.added_storage {
                         let hashed_key = hash_key(storage_key);
                         if storage_value.is_zero() {
