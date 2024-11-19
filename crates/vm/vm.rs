@@ -164,11 +164,9 @@ cfg_if::cfg_if! {
         ) -> Result<TransactionReport, VMError> {
             let gas_price : U256 = tx.effective_gas_price(block_header.base_fee_per_gas).ok_or(VMError::InvalidTransaction)?.into();
 
-            let tx_type = tx.tx_type();
-
             let env = Environment {
                 origin: tx.sender(),
-                consumed_gas: U256::from(21000), // Base gas cost for a transaction
+                consumed_gas: U256::zero(),
                 refunded_gas: U256::zero(),
                 gas_limit: tx.gas_limit().into(),
                 block_number: block_header.number.into(),
