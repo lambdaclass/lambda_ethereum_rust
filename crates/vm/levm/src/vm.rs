@@ -467,10 +467,11 @@ impl VM {
 
             let contract_code = report.clone().output;
 
-            // TODO: Is this the expected behavior?
-            if contract_code.is_empty() {
-                return Err(VMError::InvalidBytecode);
-            }
+            // // TODO: Is this the expected behavior?
+            // if contract_code.is_empty() {
+            //     return Err(VMError::InvalidBytecode);
+            // }
+            // I think you are able to create a contract without bytecode.
 
             // (6)
             if contract_code.len() > MAX_CODE_SIZE {
@@ -564,25 +565,7 @@ impl VM {
     }
 
     pub fn transact(&mut self) -> Result<TransactionReport, VMError> {
-        match self.validate_transaction() {
-            Ok(_) => {}
-            Err(error) => {
-                if error.is_internal() {
-                    return Err(error);
-                }
-                else {
-                    return Ok(TransactionReport {
-                        result: TxResult::Revert(error),
-                        new_state: self.cache.accounts.clone(),
-                        gas_used: 0,
-                        gas_refunded: 0,
-                        output: Bytes::new(),
-                        logs: Vec::new(),
-                        created_address: None,
-                    });
-                }
-            }
-        }
+        self.validate_transaction()?; // Fail without consuming gas
 
         let mut current_call_frame = self
             .call_frames
