@@ -72,7 +72,7 @@ pub mod trie {
     use std::collections::HashMap;
 
     use ethereum_rust_core::{types::AccountState, H160};
-    use ethereum_rust_rlp::{decode::RLPDecode, encode::RLPEncode};
+    use ethereum_rust_rlp::{decode::RLPDecode, encode::RLPEncode, error::RLPDecodeError};
     use ethereum_rust_storage::{hash_address, hash_key, AccountUpdate};
     use ethereum_rust_trie::{Trie, TrieError};
     use thiserror::Error;
@@ -81,6 +81,8 @@ pub mod trie {
     pub enum Error {
         #[error(transparent)]
         TrieError(#[from] TrieError),
+        #[error(transparent)]
+        RLPDecode(#[from] RLPDecodeError),
         #[error("Missing storage trie for address {0}")]
         StorageNotFound(H160),
     }
