@@ -13,7 +13,7 @@ use ethereum_rust_storage::AccountUpdate;
 use ethereum_rust_vm::db::StoreWrapper;
 use keccak_hash::keccak;
 use spinoff::{spinners::Dots, Color, Spinner};
-use std::{collections::HashMap, error::Error, sync::Arc};
+use std::{collections::HashMap, error::Error, fs::DirEntry, sync::Arc};
 
 pub fn run_ef_tests() -> Result<EFTestsReport, Box<dyn Error>> {
     let mut report = EFTestsReport::default();
@@ -21,39 +21,57 @@ pub fn run_ef_tests() -> Result<EFTestsReport, Box<dyn Error>> {
     let ef_general_state_tests_path = cargo_manifest_dir.join("vectors/GeneralStateTests");
     let mut spinner = Spinner::new(Dots, report.progress(), Color::Cyan);
     for test_dir in std::fs::read_dir(ef_general_state_tests_path)?.flatten() {
-        for test in std::fs::read_dir(test_dir.path())?
-            .flatten()
-            .filter(|entry| {
-                entry
-                    .path()
-                    .extension()
-                    .map(|ext| ext == "json")
-                    .unwrap_or(false)
-            })
-        {
-            // TODO: Figure out what to do with overflowed value: 0x10000000000000000000000000000000000000000000000000000000000000001.
-            // Deserialization fails because the value is too big for U256.
-            if test
-                .path()
-                .file_name()
-                .is_some_and(|name| name == "ValueOverflowParis.json")
-            {
-                continue;
-            }
-            let test_result = run_ef_test(
-                serde_json::from_reader(std::fs::File::open(test.path())?)?,
-                &mut report,
-            );
-            if test_result.is_err() {
-                continue;
-            }
-        }
-        spinner.update_text(report.progress());
+        run_ef_test_dir(test_dir, &mut report, &mut spinner)?;
     }
     spinner.success(&report.progress());
     let mut spinner = Spinner::new(Dots, "Loading report...".to_owned(), Color::Cyan);
     spinner.success(&report.to_string());
     Ok(report)
+}
+
+fn run_ef_test_dir(
+    test_dir: DirEntry,
+    report: &mut EFTestsReport,
+    spinner: &mut Spinner,
+) -> Result<(), Box<dyn Error>> {
+    if test_dir
+        .path()
+        .file_name()
+        .is_some_and(|name| name == "VMTests")
+    {
+        for sub_test_dir in std::fs::read_dir(test_dir.path())?.flatten() {
+            run_ef_test_dir(sub_test_dir, report, spinner)?;
+        }
+    }
+    for test in std::fs::read_dir(test_dir.path())?
+        .flatten()
+        .filter(|entry| {
+            entry
+                .path()
+                .extension()
+                .map(|ext| ext == "json")
+                .unwrap_or(false)
+        })
+    {
+        // TODO: Figure out what to do with overflowed value: 0x10000000000000000000000000000000000000000000000000000000000000001.
+        // Deserialization fails because the value is too big for U256.
+        if test
+            .path()
+            .file_name()
+                .is_some_and(|name| name == "ValueOverflowParis.json")
+        {
+            continue;
+        }
+        let test_result = run_ef_test(
+            serde_json::from_reader(std::fs::File::open(test.path())?)?,
+            report,
+        );
+        if test_result.is_err() {
+            continue;
+        }
+    }
+    spinner.update_text(report.progress());
+    Ok(())
 }
 
 pub fn run_ef_test_tx(
