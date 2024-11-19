@@ -122,6 +122,11 @@ contract OnChainProposer is IOnChainProposer, ReentrancyGuard {
     }
 
     /// @inheritdoc IOnChainProposer
+    /// @notice The first `require` checks that the block number is the subsequent block.
+    /// @notice The second `require` checks if the block has been committed.
+    /// @notice The order of these `require` statements is important.
+    /// After the verification process, we delete the `blockCommitments` for `blockNumber - 1`. This means that when checking the block,
+    /// we might get an error indicating that the block hasn’t been committed, even though it was committed but deleted. Therefore, it has already been verified.
     function verify(
         uint256 blockNumber,
         bytes calldata blockProof,
@@ -129,12 +134,12 @@ contract OnChainProposer is IOnChainProposer, ReentrancyGuard {
         bytes32 journalDigest
     ) external override {
         require(
-            blockCommitments[blockNumber].commitmentHash != bytes32(0),
-            "OnChainProposer: block not committed"
-        );
-        require(
             blockNumber == lastVerifiedBlock + 1,
             "OnChainProposer: block already verified"
+        );
+        require(
+            blockCommitments[blockNumber].commitmentHash != bytes32(0),
+            "OnChainProposer: block not committed"
         );
 
         if (R0VERIFIER != DEV_MODE) {

@@ -293,7 +293,7 @@ impl ProverServer {
         // Send inputs to the prover only if the last_committed_block (that comes from the OnChainProposer contract)
         // is greater or equal to the next block_number.
         // Since the block_number passed to the function is the lastVerifiedBlock, we are essentially checking if the
-        // block was committed after starting the proving process.
+        // block was committed before starting the proving process.
         let response = if last_committed_block < block_number {
             let response = ProofData::Response {
                 block_number: None,
@@ -360,43 +360,29 @@ impl ProverServer {
 
         let journal_digest = Digestible::digest(&receipt.0.journal);
 
-        // Retry proof verification, the transaction will fail if the block wasn't committed.
-        // It's being caused by the prover_server advancing faster than the block_generation_time + commitment_tx_approval_time
-        // The error message is `block not committed`. Retrying 100 times, if there is another error it panics.
-        let mut attempts = 0;
-        let max_retries = 100;
-        let retry_secs = std::time::Duration::from_secs(5);
-        while attempts < max_retries {
-            match self
-                .send_proof(block_number, &seal, image_id, journal_digest)
-                .await
-            {
-                Ok(tx_hash) => {
-                    info!(
-                        "Sent proof for block {block_number}, with transaction hash {tx_hash:#x}"
-                    );
-                    break; // Exit the while loop
-                }
+        // The verify function in the OnChainProposer contract has two requires:
+        //      "OnChainProposer: block not committed"
+        //      "OnChainProposer: block already verified"
+        //
+        // We should never get `block not committed`, it's being handled
+        // by the line that checks: last_committed_block < block_number.
+        //
+        // If we get `block already verified`, it means that we are sending a block_number that is
+        // smaller than the `lastVerfiedBlock` from the contract, which is being tracked by ProverServer::last_verified_block.
+        // We shouldn't get this error neither.
+        //
+        // Both errors are taken into account, in conjunction with any error derived from sending the transactions.
+        match self
+            .send_proof(block_number, &seal, image_id, journal_digest)
+            .await
+        {
+            Ok(tx_hash) => {
+                info!("Sent proof for block {block_number}, with transaction hash {tx_hash:#x}");
+            }
 
-                Err(e) => {
-                    warn!("Failed to send proof to block {block_number:#x}. Error: {e}");
-                    let eth_client_error = format!("{e}");
-                    // We should never get this error message, it's being handled
-                    // by the line that checks: last_committed_block < block_number
-                    if eth_client_error.contains("block not committed") {
-                        attempts += 1;
-                        if attempts < max_retries {
-                            warn!("Retrying... Attempt {}/{}", attempts, max_retries);
-                            sleep(retry_secs).await; // Wait before retrying
-                        } else {
-                            error!("Max retries reached. Giving up on sending proof for block {block_number:#x}.");
-                            panic!("Failed to send proof after {} attempts.", max_retries);
-                        }
-                    } else {
-                        error!("Failed to send proof to block {block_number:#x}. Manual intervention required: {e}");
-                        panic!("Failed to send proof to block {block_number:#x}. Manual intervention required: {e}");
-                    }
-                }
+            Err(e) => {
+                error!("Failed to send proof to block {block_number:#x}. Manual intervention required: {e}");
+                panic!("Failed to send proof to block {block_number:#x}. Manual intervention required: {e}");
             }
         }
 
