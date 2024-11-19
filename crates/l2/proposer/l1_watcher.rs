@@ -26,17 +26,21 @@ pub async fn start_l1_watcher(store: Store) {
     loop {
         sleep(sleep_duration).await;
 
-        let pending_deposits_logs = match l1_watcher.get_pending_deposit_logs().await {
-            Ok(logs) => logs,
-            Err(error) => {
-                warn!("Error when getting L1 pending deposit logs: {}", error);
-                continue;
-            }
-        };
         let logs = match l1_watcher.get_logs().await {
             Ok(logs) => logs,
             Err(error) => {
                 warn!("Error when getting logs from L1: {}", error);
+                continue;
+            }
+        };
+        if logs.is_empty() {
+            continue;
+        }
+
+        let pending_deposits_logs = match l1_watcher.get_pending_deposit_logs().await {
+            Ok(logs) => logs,
+            Err(error) => {
+                warn!("Error when getting L1 pending deposit logs: {}", error);
                 continue;
             }
         };
@@ -137,10 +141,6 @@ impl L1Watcher {
         l1_deposit_logs: &Vec<H256>,
         store: &Store,
     ) -> Result<Vec<H256>, L1WatcherError> {
-        if logs.is_empty() {
-            return Ok(Vec::new());
-        }
-
         let mut deposit_txs = Vec::new();
         let mut operator_nonce = store
             .get_account_info(
