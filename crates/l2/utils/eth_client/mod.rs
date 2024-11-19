@@ -20,6 +20,7 @@ use ethereum_rust_rpc::{
     utils::{RpcErrorResponse, RpcRequest, RpcRequestId, RpcSuccessResponse},
 };
 use ethereum_types::{Address, H256, U256};
+use keccak_hash::keccak;
 use reqwest::Client;
 use secp256k1::SecretKey;
 use serde::{Deserialize, Serialize};
@@ -28,7 +29,6 @@ use sha2::{Digest, Sha256};
 
 pub mod errors;
 pub mod eth_sender;
-pub mod transaction;
 
 #[derive(Deserialize, Debug)]
 #[serde(untagged)]
@@ -405,7 +405,7 @@ impl EthClient {
                 self.get_chain_id().await?.as_u64()
             },
             nonce: self.get_nonce_from_overrides(&overrides).await?,
-            max_priority_fee_per_gas: if let Some(gas_price) = overrides.priority_gas_price {
+            max_priority_fee_per_gas: if let Some(gas_price) = overrides.gas_price {
                 gas_price
             } else {
                 self.get_gas_price().await?.as_u64()
@@ -466,7 +466,7 @@ impl EthClient {
                 self.get_chain_id().await?.as_u64()
             },
             nonce: self.get_nonce_from_overrides(&overrides).await?,
-            max_priority_fee_per_gas: if let Some(gas_price) = overrides.priority_gas_price {
+            max_priority_fee_per_gas: if let Some(gas_price) = overrides.gas_price {
                 gas_price
             } else {
                 self.get_gas_price().await?.as_u64()
@@ -518,7 +518,7 @@ impl EthClient {
                 self.get_chain_id().await?.as_u64()
             },
             nonce: self.get_nonce_from_overrides(&overrides).await?,
-            max_priority_fee_per_gas: if let Some(gas_price) = overrides.priority_gas_price {
+            max_priority_fee_per_gas: if let Some(gas_price) = overrides.gas_price {
                 gas_price
             } else {
                 self.get_gas_price().await?.as_u64()
@@ -554,6 +554,75 @@ impl EthClient {
 
         let address = overrides.from.ok_or(EthClientError::UnrecheableNonce)?;
         self.get_nonce(address).await
+    }
+
+    pub async fn get_last_committed_block(
+        eth_client: &EthClient,
+        on_chain_proposer_address: Address,
+    ) -> Result<u64, EthClientError> {
+        Self::_call_block_variable(
+            eth_client,
+            b"lastCommittedBlock()",
+            on_chain_proposer_address,
+        )
+        .await
+    }
+
+    pub async fn get_last_verified_block(
+        eth_client: &EthClient,
+        on_chain_proposer_address: Address,
+    ) -> Result<u64, EthClientError> {
+        Self::_call_block_variable(
+            eth_client,
+            b"lastVerifiedBlock()",
+            on_chain_proposer_address,
+        )
+        .await
+    }
+
+    async fn _call_block_variable(
+        eth_client: &EthClient,
+        selector: &[u8],
+        on_chain_proposer_address: Address,
+    ) -> Result<u64, EthClientError> {
+        let selector = keccak(selector)
+            .as_bytes()
+            .get(..4)
+            .expect("Failed to get initialize selector")
+            .to_vec();
+
+        let mut calldata = Vec::new();
+        calldata.extend_from_slice(&selector);
+
+        let leading_zeros = 32 - ((calldata.len() - 4) % 32);
+        calldata.extend(vec![0; leading_zeros]);
+
+        let hex_string = eth_client
+            .call(
+                on_chain_proposer_address,
+                calldata.into(),
+                Overrides::default(),
+            )
+            .await?;
+
+        let hex_string = hex_string
+            .strip_prefix("0x")
+            .expect("Couldn't strip prefix from last_committed_block.");
+
+        // TODO return error
+        if hex_string.is_empty() {
+            panic!("Failed to fetch last_committed_block. Manual intervention required");
+        }
+
+        let value = U256::from_str_radix(hex_string, 16)
+            .map_err(|_| {
+                EthClientError::Custom(
+                    "Failed to parse after call, U256::from_str_radix failed.".to_owned(),
+                )
+            })?
+            .as_u64();
+
+        Ok(value)
     }
 }
 
