@@ -80,3 +80,47 @@ pub fn validate_status(msg_data: StatusMessage, storage: &Store) -> Result<(), R
 
     Ok(())
 }
+
+#[cfg(test)]
+mod tests {
+    use super::validate_status;
+    use crate::rlpx::eth::status::StatusMessage;
+    use ethereum_rust_core::{
+        types::{ForkId, Genesis},
+        H256, U256,
+    };
+    use ethereum_rust_storage::{EngineType, Store};
+    use std::{fs::File, io::BufReader};
+
+    #[test]
+    // TODO add tests for failing validations
+    fn test_validate_status() {
+        // Setup
+        // TODO we should have this setup exported to some test_utils module and use from there
+        let storage =
+            Store::new("temp.db", EngineType::InMemory).expect("Failed to create test DB");
+        let file = File::open("../../../test_data/genesis-execution-api.json")
+            .expect("Failed to open genesis file");
+        let reader = BufReader::new(file);
+        let genesis: Genesis =
+            serde_json::from_reader(reader).expect("Failed to deserialize genesis file");
+        storage
+            .add_initial_state(genesis.clone())
+            .expect("Failed to add genesis block to DB");
+        let config = genesis.config;
+        let total_difficulty = U256::from(config.terminal_total_difficulty.unwrap_or_default());
+        let genesis_hash = genesis.get_block().hash();
+        let fork_id = ForkId::new(config, genesis_hash, 2707305664, 123);
+
+        let message = StatusMessage {
+            eth_version: 68u32,
+            network_id: 3503995874084926,
+            total_difficulty,
+            block_hash: H256::random(),
+            genesis: genesis_hash,
+            fork_id,
+        };
+        let result = validate_status(message, &storage);
+        assert!(result.is_ok());
+    }
+}
