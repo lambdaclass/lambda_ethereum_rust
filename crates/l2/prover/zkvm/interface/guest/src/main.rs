@@ -31,14 +31,6 @@ fn main() {
     let receipts = execute_block(&block, &mut state).expect("failed to execute block");
     validate_gas_used(&receipts, &block.header).expect("invalid gas used");
 
-    // Output cumulative_gas_used to stdout
-    env::write(
-        &receipts
-            .last()
-            .expect("no receipts found")
-            .cumulative_gas_used,
-    );
-
     let account_updates = get_state_transitions(&mut state);
 
     // Update tries and calculate final state root hash

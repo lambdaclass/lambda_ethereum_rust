@@ -65,11 +65,4 @@ async fn test_performance_zkvm() {
     prover.verify(&receipt).unwrap();
 
     let _program_output = Prover::get_commitment(&receipt).unwrap();
-    let cumulative_gas_used: u64 = from_slice(&prover.stdout).unwrap();
-
-    info!("Cumulative Gas Used {cumulative_gas_used}");
-
-    let gas_per_second = cumulative_gas_used as f64 / duration.as_secs_f64();
-
-    info!("Gas per Second: {}", gas_per_second);
 }
