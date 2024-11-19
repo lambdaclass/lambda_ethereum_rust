@@ -148,7 +148,7 @@ pub struct TransactionReport {
 }
 
 impl TransactionReport {
-    /// Function to add gas to report, if it exceeds max gas limit it should return OutOfGas error
+    /// Function to add gas to report, if it exceeds max gas limit it should return OutOfGas error. Only used for adding gas after execution.
     pub fn add_gas_with_max(&mut self, gas: u64, max: u64) -> Result<(), VMError> {
         self.gas_used = self
             .gas_used

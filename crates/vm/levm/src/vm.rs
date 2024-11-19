@@ -152,6 +152,10 @@ impl VM {
         // TODO: https://github.com/lambdaclass/lambda_ethereum_rust/issues/1088
     }
 
+    /// Executes opcodes in callframe
+    /// Returns a TransactionReport with the result of the transaction
+    /// and the new state of the accounts.
+    /// It only returns an error if the error was internal, otherwise it will be a TransactionReport with revert status.
     pub fn execute(
         &mut self,
         current_call_frame: &mut CallFrame,
@@ -301,10 +305,6 @@ impl VM {
 
                     self.restore_state(backup_db, backup_substate, backup_refunded_gas);
 
-                    // println!(
-                    //     "Going to return transaction report with error: {:?}",
-                    //     &error
-                    // );
                     return Ok(TransactionReport {
                         result: TxResult::Revert(error),
                         new_state: self.cache.accounts.clone(),
@@ -442,20 +442,6 @@ impl VM {
 
         let sender = initial_call_frame.msg_sender;
 
-        // This cost applies both for call and create
-        // 4 gas for each zero byte in the transaction data 16 gas for each non-zero byte in the transaction.
-        let mut calldata_cost = 0;
-        for byte in &initial_call_frame.calldata {
-            if *byte != 0 {
-                calldata_cost += 16;
-            } else {
-                calldata_cost += 4;
-            }
-        }
-
-        let max_gas = self.env.gas_limit.low_u64();
-        report.add_gas_with_max(calldata_cost, max_gas)?;
-
         if self.is_create() {
             // If create should check if transaction failed. If failed should revert (delete created contract, )
             // if let TxResult::Revert(error) = report.result {
@@ -486,25 +472,18 @@ impl VM {
                 return Err(VMError::InvalidInitialByte);
             }
 
+            let max_gas = self.env.gas_limit.low_u64();
+
             // If the initialization code completes successfully, a final contract-creation cost is paid,
             // the code-deposit cost, c, proportional to the size of the created contract’s code
             let code_length: u64 = contract_code
                 .len()
                 .try_into()
                 .map_err(|_| VMError::Internal(InternalError::ConversionError))?;
-            let mut creation_cost = 200 * code_length;
-            creation_cost += 32000;
-            report.add_gas_with_max(creation_cost, max_gas)?;
-            // Charge 22100 gas for each storage variable set
+            let code_deposit_cost = 200 * code_length;
 
-            // GInitCodeword * number_of_words rounded up. GinitCodeWord = 2
-            let number_of_words: u64 = initial_call_frame
-                .calldata
-                .chunks(WORD_SIZE)
-                .len()
-                .try_into()
-                .map_err(|_| VMError::Internal(InternalError::ConversionError))?;
-            report.add_gas_with_max(number_of_words * 2, max_gas)?;
+            report.add_gas_with_max(code_deposit_cost, max_gas)?;
+            // Charge 22100 gas for each storage variable set
 
             let contract_address = initial_call_frame.to;
             let mut created_contract = self.get_account(&contract_address);
@@ -564,6 +543,51 @@ impl VM {
         Ok(())
     }
 
+    pub fn add_intrinsic_gas(&mut self, initial_call_frame: &mut CallFrame) -> Result<(), VMError> {
+        // Intrinsic gas is the gas consumed by the transaction before the execution of the opcodes. Section 6.2 in the Yellow Paper.
+
+        // Intrinsic Gas = Calldata cost + Create cost + Base cost + Access list cost
+        let mut intrinsic_gas: U256 = U256::zero();
+
+        // Calldata Cost
+        // 4 gas for each zero byte in the transaction data 16 gas for each non-zero byte in the transaction.
+        let mut calldata_cost: U256 = U256::zero();
+        for byte in &initial_call_frame.calldata {
+            if *byte != 0 {
+                calldata_cost += U256::from(16);
+            } else {
+                calldata_cost += U256::from(4);
+            }
+        }
+
+        intrinsic_gas += calldata_cost;
+
+        // Base Cost
+        // TODO: TX_BASE_COST is set as initial cost for the transaction. It should be 0 and added here. Uncomment this when it's fixed.
+        // intrinsic_gas += TX_BASE_COST;
+
+        // Create Cost
+        if self.is_create() {
+            intrinsic_gas += CREATE_BASE_COST;
+
+            let number_of_words: u64 = initial_call_frame
+                .calldata
+                .chunks(WORD_SIZE)
+                .len()
+                .try_into()
+                .map_err(|_| VMError::Internal(InternalError::ConversionError))?;
+
+            intrinsic_gas += U256::from(2) * U256::from(number_of_words);
+        }
+
+        // Access List Cost
+        // TODO: Implement access list cost.
+
+        self.increase_consumed_gas(initial_call_frame, intrinsic_gas)?;
+
+        Ok(())
+    }
+
     pub fn transact(&mut self) -> Result<TransactionReport, VMError> {
         self.validate_transaction()?; // Fail without consuming gas
 
@@ -571,6 +595,8 @@ impl VM {
             .call_frames
             .pop()
             .ok_or(VMError::Internal(InternalError::CouldNotPopCallframe))?;
+
+        self.add_intrinsic_gas(&mut current_call_frame)?;
 
         let mut report = self.execute(&mut current_call_frame)?;
 
