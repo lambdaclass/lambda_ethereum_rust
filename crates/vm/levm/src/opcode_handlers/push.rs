@@ -35,22 +35,21 @@ impl VM {
             .cloned()
             .collect();
 
-        let mut value_to_push = [0; WORD_SIZE];
+        let mut value_to_push = [0u8; WORD_SIZE];
 
         let start_index = WORD_SIZE.checked_sub(n_bytes).ok_or(VMError::Internal(
             InternalError::ArithmeticOperationUnderflow,
         ))?;
-        value_to_push
-            .get_mut(
-                start_index
-                    ..start_index
-                        .checked_add(read_n_bytes.len())
-                        .ok_or(VMError::Internal(
-                            InternalError::ArithmeticOperationOverflow,
-                        ))?,
-            )
-            .unwrap_or_default()
-            .copy_from_slice(&read_n_bytes);
+
+        // Rellenamos el array `value_to_push` con los bytes leídos
+        for (i, byte) in read_n_bytes.iter().enumerate() {
+            let index = start_index.checked_add(i).ok_or(VMError::Internal(
+                InternalError::ArithmeticOperationOverflow,
+            ))?;
+            if let Some(data_byte) = value_to_push.get_mut(index) {
+                *data_byte = *byte;
+            }
+        }
 
         let bytes_push: &[u8] = &value_to_push;
         current_call_frame.stack.push(U256::from(bytes_push))?;
