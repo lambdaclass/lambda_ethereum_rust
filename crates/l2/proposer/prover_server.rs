@@ -1,4 +1,4 @@
-use ethereum_rust_storage::{error::StoreError, Store};
+use ethereum_rust_storage::Store;
 use ethereum_rust_vm::{execution_db::ExecutionDB, EvmError};
 use keccak_hash::keccak;
 use secp256k1::SecretKey;
@@ -390,20 +390,16 @@ impl ProverServer {
     }
 
     fn create_prover_input(&self, block_number: u64) -> Result<ProverInputData, ProverServerError> {
-        let header = self
-            .store
-            .get_block_header(block_number)
-            .map_err(StoreError::from)?
-            .ok_or(ProverServerError::ItemNotFoundInStore(format!(
+        let header = self.store.get_block_header(block_number)?.ok_or(
+            ProverServerError::ItemNotFoundInStore(format!(
                 "block header not found for {block_number}"
-            )))?;
-        let body = self
-            .store
-            .get_block_body(block_number)
-            .map_err(StoreError::from)?
-            .ok_or(ProverServerError::ItemNotFoundInStore(format!(
+            )),
+        )?;
+        let body = self.store.get_block_body(block_number)?.ok_or(
+            ProverServerError::ItemNotFoundInStore(format!(
                 "block body not found for {block_number}"
-            )))?;
+            )),
+        )?;
 
         let block = Block::new(header, body);
 
@@ -411,8 +407,7 @@ impl ProverServer {
 
         let parent_header = self
             .store
-            .get_block_header_by_hash(block.header.parent_hash)
-            .map_err(StoreError::from)?
+            .get_block_header_by_hash(block.header.parent_hash)?
             .ok_or(ProverServerError::ItemNotFoundInStore(format!(
                 "missing parent header for {block_number}"
             )))?;
