@@ -454,7 +454,7 @@ impl VM {
         }
 
         let max_gas = self.env.gas_limit.low_u64();
-        report.add_gas_with_max(calldata_cost, max_gas);
+        report.add_gas_with_max(calldata_cost, max_gas)?;
 
         if self.is_create() {
             // If create should check if transaction failed. If failed should revert (delete created contract, )
@@ -494,7 +494,7 @@ impl VM {
                 .map_err(|_| VMError::Internal(InternalError::ConversionError))?;
             let mut creation_cost = 200 * code_length;
             creation_cost += 32000;
-            report.add_gas_with_max(creation_cost, max_gas);
+            report.add_gas_with_max(creation_cost, max_gas)?;
             // Charge 22100 gas for each storage variable set
 
             // GInitCodeword * number_of_words rounded up. GinitCodeWord = 2
@@ -504,7 +504,7 @@ impl VM {
                 .len()
                 .try_into()
                 .map_err(|_| VMError::Internal(InternalError::ConversionError))?;
-            report.add_gas_with_max(number_of_words * 2, max_gas);
+            report.add_gas_with_max(number_of_words * 2, max_gas)?;
 
             let contract_address = initial_call_frame.to;
             let mut created_contract = self.get_account(&contract_address);
@@ -579,8 +579,7 @@ impl VM {
             Err(error) => {
                 if error.is_internal() {
                     return Err(error);
-                }
-                else {
+                } else {
                     if report.result == TxResult::Success {
                         report.result = TxResult::Revert(error);
                     }
