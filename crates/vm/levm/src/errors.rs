@@ -1,6 +1,7 @@
 use crate::account::Account;
 use bytes::Bytes;
 use ethereum_rust_core::{types::Log, Address};
+use ethereum_rust_rlp::error;
 use std::collections::HashMap;
 
 /// Errors that halt the program
@@ -41,9 +42,9 @@ pub enum VMError {
     #[error("Address does not match an account")]
     AddressDoesNotMatchAnAccount,
     #[error("Sender account should not have bytecode")]
-    SenderAccountShouldNotHaveBytecode,
+    SenderNotEOA,
     #[error("Sender balance should contain transfer value")]
-    SenderBalanceShouldContainTransferValue,
+    InsufficientAccountFunds,
     #[error("Gas price is lower than base fee")]
     GasPriceIsLowerThanBaseFee,
     #[error("Address already occupied")]
@@ -52,8 +53,8 @@ pub enum VMError {
     ContractOutputTooBig,
     #[error("Invalid initial byte")]
     InvalidInitialByte,
-    #[error("Nonce overflow")]
-    NonceOverflow,
+    #[error("Nonce is max (overflow)")]
+    NonceIsMax,
     #[error("Memory load out of bounds")]
     MemoryLoadOutOfBounds,
     #[error("Memory store out of bounds")]
@@ -76,6 +77,10 @@ pub enum VMError {
     GasRefundsUnderflow,
     #[error("Gas refunds overflow")]
     GasRefundsOverflow,
+    #[error("Initcode size exceeded")]
+    InitcodeSizeExceeded,
+    #[error("Priority fee greater than max fee per gas")]
+    PriorityGreaterThanMaxFeePerGas,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, thiserror::Error)]

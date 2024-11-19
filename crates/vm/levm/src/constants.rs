@@ -118,6 +118,7 @@ pub const MEMORY_EXPANSION_QUOTIENT: usize = 512;
 pub const TX_BASE_COST: U256 = U256([21000, 0, 0, 0]);
 
 pub const MAX_CODE_SIZE: usize = 0x6000;
+pub const INIT_CODE_MAX_SIZE: usize = 49152;
 pub const MAX_CREATE_CODE_SIZE: usize = 2 * MAX_CODE_SIZE;
 
 pub const INVALID_CONTRACT_PREFIX: u8 = 0xef;

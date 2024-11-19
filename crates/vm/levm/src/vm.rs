@@ -359,32 +359,56 @@ impl VM {
             ))?
             .clone();
 
-        if self.is_create() {
-            // If address is already in db, there's an error
-            let new_address_acc = self.db.get_account_info(call_frame.to);
-            if !new_address_acc.is_empty() {
-                return Err(VMError::AddressAlreadyOccupied);
-            }
-        }
+        //TODO: This should revert the transaction, not throw an error.
+        // if self.is_create() {
+        //     // If address is already in db, there's an error
+        //     let new_address_acc = self.db.get_account_info(call_frame.to);
+        //     if !new_address_acc.is_empty() {
+        //         return Err(VMError::AddressAlreadyOccupied);
+        //     }
+        // }
 
         let origin = self.env.origin;
 
         let mut sender_account = self.get_account(&origin);
 
-        // See if it's raised in upper layers
+        // NONCE_IS_MAX
         sender_account.info.nonce = sender_account
             .info
             .nonce
             .checked_add(1)
-            .ok_or(VMError::NonceOverflow)?;
+            .ok_or(VMError::NonceIsMax)?;
+
+        // PRIORITY_GREATER_THAN_MAX_FEE_PER_GAS
+        // TODO: Implement maxPriorityFeePerGas and maxFeePerGas in transaction environment.
+        // if self.env.max_priority_fee_per_gas > self.env.max_fee_per_gas {
+        //     return Err(VMError::PriorityGreaterThanMaxFeePerGas);
+        // }
+
+        // GAS_ALLOWANCE_EXCEEDED
+        // TODO: See where to get block gas limit from...
+        // if self.env.gas_limit > self.env.block_gas_limit {
+        //     return Err(VMError::GasAllowanceExceeded);
+        // }
 
         // (4)
-        if sender_account.has_code()? {
-            return Err(VMError::SenderAccountShouldNotHaveBytecode);
+        if sender_account.has_code() {
+            return Err(VMError::SenderNotEOA);
         }
         // (6)
-        if sender_account.info.balance < call_frame.msg_value {
-            return Err(VMError::SenderBalanceShouldContainTransferValue);
+        // GASLIMIT_PRICE_PRODUCT_OVERFLOW
+        let gaslimit_price = self
+            .env
+            .gas_limit
+            .checked_mul(self.env.gas_price)
+            .ok_or(VMError::GasLimitPriceProductOverflow)?;
+
+        //TODO: Calculation of up_front_cost depends on transaction type, because type 2 transaction use max fee per gas instead of gas price.
+        let up_front_cost = gaslimit_price + call_frame.msg_value;
+
+        // INSUFFICIENT_ACCOUNT_FUNDS
+        if sender_account.info.balance < up_front_cost {
+            return Err(VMError::InsufficientAccountFunds);
         }
 
         self.cache.add_account(&origin, &sender_account);
@@ -393,6 +417,14 @@ impl VM {
         if self.env.gas_price < self.env.base_fee_per_gas {
             return Err(VMError::GasPriceIsLowerThanBaseFee);
         }
+
+        if self.is_create() {
+            // INITCODE_SIZE_EXCEEDED
+            if call_frame.calldata.len() > INIT_CODE_MAX_SIZE {
+                return Err(VMError::InitcodeSizeExceeded);
+            }
+        }
+
         Ok(())
     }
 
