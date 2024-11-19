@@ -449,7 +449,7 @@ impl VM {
             //     return Err(error);
             // }
             // Revert behavior is actually done at the end of execute, it reverts the cache to the state before execution.
-            // TODO: Think about the behavior when reverting a transaction. What changes to the state? The sender has to lose the gas used (but value is not transferred). Does the coinbase still get the fee? The recipient account won't change at all neither in Create nor in Call transactions.
+            // TODO: Think about the behavior when reverting a transaction. What changes to the state? The sender has to lose the gas used and coinbase gets the priority fee, nothing else has to change.
 
             let contract_code = report.clone().output;
 
@@ -502,7 +502,7 @@ impl VM {
             .checked_sub(
                 U256::from(report.gas_used)
                     .checked_mul(self.env.gas_price)
-                    .ok_or(VMError::GasLimitPriceProductOverflow)?,
+                    .ok_or(VMError::GasLimitPriceProductOverflow)?, // TODO: Wrong error GasLimitPriceProductOverflow
             )
             .ok_or(VMError::OutOfGas)?;
 
@@ -515,12 +515,12 @@ impl VM {
                 .info
                 .balance
                 .checked_sub(initial_call_frame.msg_value)
-                .ok_or(VMError::OutOfGas)?; // This error shouldn't be OutOfGas
+                .ok_or(VMError::OutOfGas)?; // TODO: Wrong error OutOfGas
             receiver_account.info.balance = receiver_account
                 .info
                 .balance
                 .checked_add(initial_call_frame.msg_value)
-                .ok_or(VMError::OutOfGas)?; // This error shouldn't be OutOfGas
+                .ok_or(VMError::OutOfGas)?; // TODO: Wrong error OutOfGas
         }
 
         // Note: This is commented because it's used for debugging purposes in development.
