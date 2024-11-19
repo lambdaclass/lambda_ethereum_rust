@@ -1,5 +1,6 @@
 use crate::{
     call_frame::CallFrame,
+    constants::WORD_SIZE,
     errors::{InternalError, OpcodeSuccess, VMError},
     gas_cost,
     opcodes::Opcode,
@@ -25,7 +26,7 @@ impl VM {
             .checked_add(1)
             .ok_or(VMError::InvalidOpcode)?;
 
-        let mut readed_n_bytes: Vec<u8> = current_call_frame
+        let read_n_bytes: Vec<u8> = current_call_frame
             .bytecode
             .get(current_call_frame.pc()..)
             .ok_or(VMError::InvalidBytecode)?
@@ -34,20 +35,24 @@ impl VM {
             .cloned()
             .collect();
 
-        // If I have fewer bytes to read than I need, I add as many leading 0s as necessary
-        if readed_n_bytes.len() < n_bytes {
-            let gap_to_fill =
-                n_bytes
-                    .checked_sub(readed_n_bytes.len())
-                    .ok_or(VMError::Internal(
-                        InternalError::ArithmeticOperationUnderflow,
-                    ))?;
-            let padding = vec![0; gap_to_fill];
-            readed_n_bytes.splice(0..0, padding);
-        }
+        let mut value_to_push = [0; WORD_SIZE];
 
-        let bytes_push: &[u8] = &readed_n_bytes;
+        let start_index = WORD_SIZE.checked_sub(n_bytes).ok_or(VMError::Internal(
+            InternalError::ArithmeticOperationUnderflow,
+        ))?;
+        value_to_push
+            .get_mut(
+                start_index
+                    ..start_index.checked_add(read_n_bytes.len()).ok_or(VMError::Internal(
+                        InternalError::ArithmeticOperationOverflow,
+                    ))?,
+            )
+            .ok_or(VMError::Internal(
+                InternalError::ArithmeticOperationOverflow, // Not sure about this error
+            ))?
+            .copy_from_slice(&read_n_bytes);
 
+        let bytes_push: &[u8] = &value_to_push;
         current_call_frame.stack.push(U256::from(bytes_push))?;
 
         current_call_frame.increment_pc_by(n_bytes)?;
