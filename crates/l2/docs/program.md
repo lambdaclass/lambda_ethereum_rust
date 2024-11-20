@@ -2,12 +2,12 @@
 
 The zkVM block execution program will:
 1. Take as input:
-  - the block to verify and its parent's header
-  - the L2 initial state, stored in a `ExecutionDB` struct, including the nodes for state and storage [pruned tries](#pruned-tries)
+    - the block to verify and its parent's header
+    - the L2 initial state, stored in a `ExecutionDB` struct, including the nodes for state and storage [pruned tries](#pruned-tries)
 1. Build the initial state tries. This includes:
-  - verifying that the initial state values stored in the `ExecutionDB` are included in the tries.
-  - checking that the state trie root hash is the same as the one in the parent's header
-  - building the trie structures
+    - verifying that the initial state values stored in the `ExecutionDB` are included in the tries.
+    - checking that the state trie root hash is the same as the one in the parent's header
+    - building the trie structures
 1. Execute the block
 1. Perform validations before and after execution
 1. Apply account updates to the tries and compute the new state root
