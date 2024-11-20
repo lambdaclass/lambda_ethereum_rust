@@ -386,24 +386,11 @@ async fn wrapped_eip4844_transaction_handler(
                 }
             }
 
-            // If receipt was not found, send the same tx(same nonce) but with more gas.
-            // Sometimes the penalty is a 100%
             warn!("Transaction not confirmed, resending with 110% more gas...");
-            // Increase max fee per gas by 110% (set it to 210% of the original)
-            wrapped_tx.tx.max_fee_per_gas =
-                (wrapped_tx.tx.max_fee_per_gas as f64 * 2.1).round() as u64;
-            wrapped_tx.tx.max_priority_fee_per_gas =
-                (wrapped_tx.tx.max_priority_fee_per_gas as f64 * 2.1).round() as u64;
-            wrapped_tx.tx.max_fee_per_blob_gas = wrapped_tx
-                .tx
-                .max_fee_per_blob_gas
-                .saturating_mul(U256::from(20))
-                .div(10);
 
             commit_tx_hash = eth_client
-                .send_eip4844_transaction(wrapped_tx.clone(), l1_private_key)
-                .await
-                .map_err(CommitterError::from)?;
+                .bump_and_resend_eip4844(&mut wrapped_tx, l1_private_key)
+                .await?;
 
             retries += 1;
         }

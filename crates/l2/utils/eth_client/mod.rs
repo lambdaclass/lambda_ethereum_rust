@@ -26,6 +26,7 @@ use secp256k1::SecretKey;
 use serde::{Deserialize, Serialize};
 use serde_json::json;
 use sha2::{Digest, Sha256};
+use std::ops::Div;
 
 pub mod errors;
 pub mod eth_sender;
@@ -117,6 +118,41 @@ impl EthClient {
         encoded_tx.insert(0, TxType::EIP4844 as u8);
 
         self.send_raw_transaction(encoded_tx.as_slice()).await
+    }
+
+    pub async fn bump_and_resend_eip1559(
+        &self,
+        tx: &mut EIP1559Transaction,
+        private_key: &SecretKey,
+    ) -> Result<H256, EthClientError> {
+        // If receipt was not found, send the same tx(same nonce) but with more gas.
+        // Sometimes the penalty is a 100%
+        // Increase max fee per gas by 110% (set it to 210% of the original)
+        tx.max_fee_per_gas = (tx.max_fee_per_gas as f64 * 2.1).round() as u64;
+        tx.max_priority_fee_per_gas += (tx.max_priority_fee_per_gas as f64 * 2.1).round() as u64;
+
+        self.send_eip1559_transaction(tx.clone(), private_key).await
+    }
+
+    pub async fn bump_and_resend_eip4844(
+        &self,
+        wrapped_tx: &mut WrappedEIP4844Transaction,
+        private_key: &SecretKey,
+    ) -> Result<H256, EthClientError> {
+        // If receipt was not found, send the same tx(same nonce) but with more gas.
+        // Sometimes the penalty is a 100%
+        // Increase max fee per gas by 110% (set it to 210% of the original)
+        wrapped_tx.tx.max_fee_per_gas = (wrapped_tx.tx.max_fee_per_gas as f64 * 2.1).round() as u64;
+        wrapped_tx.tx.max_priority_fee_per_gas =
+            (wrapped_tx.tx.max_priority_fee_per_gas as f64 * 2.1).round() as u64;
+        wrapped_tx.tx.max_fee_per_blob_gas = wrapped_tx
+            .tx
+            .max_fee_per_blob_gas
+            .saturating_mul(U256::from(20))
+            .div(10);
+
+        self.send_eip4844_transaction(wrapped_tx.clone(), private_key)
+            .await
     }
 
     pub async fn send_privileged_l2_transaction(
