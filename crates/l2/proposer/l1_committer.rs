@@ -6,7 +6,8 @@ use crate::{
     utils::{
         config::{committer::CommitterConfig, eth::EthConfig},
         eth_client::{
-            errors::EthClientError, eth_sender::Overrides, transaction::blob_from_bytes, EthClient,
+            errors::EthClientError, eth_sender::Overrides, transaction::blob_from_bytes,
+            BlockByNumber, EthClient,
         },
         merkle_tree::merkelize,
     },
@@ -529,7 +530,9 @@ async fn estimate_blob_gas(
     max_blob_gas_price: u64,
     headroom: f64,
 ) -> Result<u64, CommitterError> {
-    let latest_block = eth_client.get_block_by_hash(None).await?;
+    let latest_block = eth_client
+        .get_block_by_number(BlockByNumber::Latest)
+        .await?;
 
     let blob_gas_used = latest_block.header.blob_gas_used.unwrap_or(0);
     let excess_blob_gas = latest_block.header.excess_blob_gas.unwrap_or(0);

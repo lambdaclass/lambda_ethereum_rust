@@ -212,7 +212,7 @@ async fn get_withdraw_merkle_proof(
         .ok_or_eyre("Transaction receipt not found")?;
 
     let block = client
-        .get_block_by_hash(Some(tx_receipt.block_info.block_hash))
+        .get_block_by_hash(tx_receipt.block_info.block_hash)
         .await?;
 
     let transactions = match block.body {
