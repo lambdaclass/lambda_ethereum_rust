@@ -1,4 +1,4 @@
-use crate::{config::EthereumRustL2Config, utils::config::confirm};
+use crate::{config::EthrexL2Config, utils::config::confirm};
 use clap::Subcommand;
 use eyre::ContextCompat;
 use secp256k1::SecretKey;
@@ -68,7 +68,7 @@ pub(crate) enum Command {
 }
 
 impl Command {
-    pub async fn run(self, cfg: EthereumRustL2Config) -> eyre::Result<()> {
+    pub async fn run(self, cfg: EthrexL2Config) -> eyre::Result<()> {
         let root = std::path::Path::new(CARGO_MANIFEST_DIR)
             .parent()
             .map(std::path::Path::parent)

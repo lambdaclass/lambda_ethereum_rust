@@ -1,4 +1,4 @@
-use crate::config::EthereumRustL2Config;
+use crate::config::ethrexL2Config;
 use bytes::Bytes;
 use clap::Subcommand;
 use ethereum_types::{Address, H160, H256, U256};
@@ -67,7 +67,7 @@ async fn transfer_from(
     value: U256,
     iterations: u64,
     verbose: bool,
-    cfg: EthereumRustL2Config,
+    cfg: ethrexL2Config,
 ) -> u64 {
     let client = EthClient::new(&cfg.network.l2_rpc_url);
     let private_key = SecretKey::from_slice(pk.parse::<H256>().unwrap().as_bytes()).unwrap();
@@ -117,7 +117,7 @@ async fn transfer_from(
 }
 
 impl Command {
-    pub async fn run(self, cfg: EthereumRustL2Config) -> eyre::Result<()> {
+    pub async fn run(self, cfg: ethrexL2Config) -> eyre::Result<()> {
         match self {
             Command::Load {
                 path,
