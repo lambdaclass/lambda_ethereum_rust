@@ -1,9 +1,11 @@
-use ethrex_rlp::{decode::RLPDecode, encode::RLPEncode, error::RLPDecodeError};
 use risc0_zkvm::guest::env;
 
 use ethrex_blockchain::{validate_block, validate_gas_used};
-use ethrex_core::types::{Block, BlockHeader};
-use ethrex_vm::{execute_block, execution_db::ExecutionDB, get_state_transitions, EvmState};
+use ethrex_vm::{execute_block, get_state_transitions, EvmState};
+use zkvm_interface::{
+    io::{ProgramInput, ProgramOutput},
+    trie::update_tries,
+};
 
 fn main() {
     let ProgramInput {
