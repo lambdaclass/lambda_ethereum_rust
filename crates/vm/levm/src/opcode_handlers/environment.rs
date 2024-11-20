@@ -320,6 +320,7 @@ impl VM {
 
         let bytecode = self.get_account(&address).info.bytecode;
 
+        // TODO: Should be an OutOfGas (a very large offset involves a very large cost)
         let new_memory_size = dest_offset.checked_add(size).ok_or(VMError::Internal(
             InternalError::ArithmeticOperationOverflow,
         ))?;
@@ -337,11 +338,11 @@ impl VM {
                         InternalError::ArithmeticOperationOverflow,
                     ))?)
             {
-                *memory_byte = *bytecode
-                    .get(offset.checked_add(i).ok_or(VMError::Internal(
-                        InternalError::ArithmeticOperationOverflow,
-                    ))?)
-                    .unwrap_or(&0u8);
+                *memory_byte = if let Some(new_offset) = offset.checked_add(i) {
+                    *bytecode.get(new_offset).unwrap_or(&0u8)
+                } else {
+                    0u8
+                };
             }
         }
 
