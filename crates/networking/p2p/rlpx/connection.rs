@@ -142,6 +142,8 @@ impl<S: AsyncWrite + AsyncRead + std::marker::Unpin> RLPxConnection<S> {
         ))
     }
 
+    /// Starts a handshake and runs the peer connection.
+    /// It runs in it's own task and blocks until the connection is dropped
     pub async fn start_peer(&mut self, table: Arc<Mutex<crate::kademlia::KademliaTable>>) {
         // Perform handshake
         if let Err(e) = self.handshake().await {
