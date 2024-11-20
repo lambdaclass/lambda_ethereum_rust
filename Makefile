@@ -46,7 +46,7 @@ download-test-vectors: $(SPECTEST_VECTORS_DIR) ## 📥 Download test vectors
 clean-vectors: ## 🗑️  Clean test vectors
 	rm -rf $(SPECTEST_VECTORS_DIR)
 
-ETHEREUM_PACKAGE_REVISION := c7952d75d72159d03aec423b46797df2ded11f99
+ETHEREUM_PACKAGE_REVISION := 5b49d02ee556232a73ea1e28000ec5b3fca1073f
 # Shallow clones can't specify a single revision, but at least we avoid working
 # the whole history by making it shallow since a given date (one day before our
 # target revision).
