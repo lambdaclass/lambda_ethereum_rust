@@ -1,9 +1,9 @@
 use clap::{Arg, ArgAction, Command};
-use ethereum_rust_net::bootnode::BootNode;
+use ethrex_net::bootnode::BootNode;
 use tracing::Level;
 
 pub fn cli() -> Command {
-    Command::new("ethereum_rust")
+    Command::new("ethrex")
         .about("ethrex Execution client")
         .author("Lambdaclass")
         .arg(
@@ -103,6 +103,12 @@ pub fn cli() -> Command {
                 .long("import")
                 .required(false)
                 .value_name("CHAIN_RLP_PATH"),
+        )
+        .arg(
+            Arg::new("import_dir")
+                .long("import_dir")
+                .required(false)
+                .value_name("BLOCKS_DIR_PATH"),
         )
         .subcommand(
             Command::new("removedb").about("Remove the database").arg(
