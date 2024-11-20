@@ -70,7 +70,7 @@ pub fn run_ef_test_tx(
     let mut evm = prepare_vm_for_tx(tx_id, test)?;
     ensure_pre_state(&evm, test)?;
     let execution_result = evm.transact();
-    ensure_post_state(execution_result, test, report)?;
+    ensure_post_state(execution_result, test, report, tx_id)?;
     Ok(())
 }
 
@@ -204,6 +204,7 @@ pub fn ensure_post_state(
     execution_result: Result<TransactionReport, VMError>,
     test: &EFTest,
     report: &mut EFTestsReport,
+    tx_id: usize,
 ) -> Result<(), Box<dyn Error>> {
     match execution_result {
         Ok(execution_report) => {
@@ -211,7 +212,7 @@ pub fn ensure_post_state(
                 .post
                 .clone()
                 .values()
-                .first()
+                .get(tx_id)
                 .map(|v| v.clone().expect_exception)
             {
                 // Execution result was successful but an exception was expected.
@@ -223,8 +224,9 @@ pub fn ensure_post_state(
                 // TODO: Check that the post-state matches the expected post-state.
                 None | Some(None) => {
                     let pos_state_root = post_state_root(execution_report, test);
-                    let expected_post_state_value = test.post.iter().next().cloned();
-                    if let Some(expected_post_state_root_hash) = expected_post_state_value {
+                    if let Some(expected_post_state_root_hash) =
+                        test.post.clone().values().get(tx_id)
+                    {
                         let expected_post_state_root_hash = expected_post_state_root_hash.hash;
                         if expected_post_state_root_hash != pos_state_root {
                             let error_reason = format!(
@@ -246,7 +248,7 @@ pub fn ensure_post_state(
                 .post
                 .clone()
                 .values()
-                .first()
+                .get(tx_id)
                 .map(|v| v.clone().expect_exception)
             {
                 // Execution result was unsuccessful and an exception was expected.
