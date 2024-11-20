@@ -1,18 +1,17 @@
 use std::path::Path;
 use tracing::info;
 
-use zkvm_interface::io::ProgramInput;
 use ethrex_blockchain::add_block;
-use ethrex_l2::proposer::prover_server::ProverInputData;
 use ethrex_prover_lib::prover::Prover;
 use ethrex_storage::{EngineType, Store};
 use ethrex_vm::execution_db::ExecutionDB;
+use zkvm_interface::io::ProgramInput;
 
 #[tokio::test]
 async fn test_performance_zkvm() {
     tracing_subscriber::fmt::init();
 
-    let mut path = Path::new(concat!(env!("CARGO_MANIFEST_DIR"), "/../../../test_data"));
+    let path = Path::new(concat!(env!("CARGO_MANIFEST_DIR"), "/../../../test_data"));
 
     // Another use is genesis-execution-api.json in conjunction with chain.rlp(20 blocks not too loaded).
     let genesis_file_path = path.join("genesis-l2-old.json");
