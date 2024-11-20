@@ -254,12 +254,21 @@ impl EthClient {
         }
     }
 
-    pub async fn get_block_by_hash(&self, block_hash: H256) -> Result<RpcBlock, EthClientError> {
+    /// Fetches a block from the Ethereum blockchain by its hash or the latest block if no hash is provided.
+    /// `block_hash`: An optional `H256` representing the block's hash. If `None`, the latest block is fetched.
+    pub async fn get_block_by_hash(
+        &self,
+        block_hash: Option<H256>,
+    ) -> Result<RpcBlock, EthClientError> {
+        let r = match block_hash {
+            Some(hash) => format!("{hash:#x}"),
+            None => "latest".to_owned(),
+        };
         let request = RpcRequest {
             id: RpcRequestId::Number(1),
             jsonrpc: "2.0".to_string(),
             method: "eth_getBlockByHash".to_string(),
-            params: Some(vec![json!(format!("{block_hash:#x}")), json!(true)]),
+            params: Some(vec![json!(r), json!(true)]),
         };
 
         match self.send_request(request).await {
