@@ -296,7 +296,8 @@ impl EthClient {
             id: RpcRequestId::Number(1),
             jsonrpc: "2.0".to_string(),
             method: "eth_getBlockByNumber".to_string(),
-            params: Some(vec![json!(r), json!(true)]),
+            // With false it just returns the hash of the transactions.
+            params: Some(vec![json!(r), json!(false)]),
         };
 
         match self.send_request(request).await {
