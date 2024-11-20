@@ -11,7 +11,7 @@ use secp256k1::SecretKey;
 use serde::{Deserialize, Serialize};
 
 #[derive(Deserialize, Serialize, Clone)]
-pub struct ethrexL2Config {
+pub struct EthrexL2Config {
     pub network: NetworkConfig,
     pub wallet: WalletConfig,
     pub contracts: ContractsConfig,
@@ -42,7 +42,7 @@ pub struct ContractsConfig {
     pub common_bridge: Address,
 }
 
-pub async fn try_load_selected_config() -> eyre::Result<Option<ethrexL2Config>> {
+pub async fn try_load_selected_config() -> eyre::Result<Option<EthrexL2Config>> {
     let config_path = selected_config_path()?;
     if !config_path.exists() {
         return Ok(None);
@@ -53,7 +53,7 @@ pub async fn try_load_selected_config() -> eyre::Result<Option<ethrexL2Config>> 
         .map(Some)
 }
 
-pub async fn load_selected_config() -> eyre::Result<ethrexL2Config> {
+pub async fn load_selected_config() -> eyre::Result<EthrexL2Config> {
     let config_path = selected_config_path()?;
     if !config_path.exists() {
         println!("No config set, please select a config to set");

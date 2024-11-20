@@ -1,4 +1,4 @@
-use crate::cli::ethrexL2CLI;
+use crate::cli::EthrexL2CLI;
 use clap::{CommandFactory, Subcommand, ValueEnum};
 use clap_complete::{aot::Shell, generate};
 use std::fs::{File, OpenOptions};
@@ -58,7 +58,7 @@ fn generate_bash_script(shell_arg: Option<Shell>) -> eyre::Result<()> {
     let shell = get_shell(shell_arg)?;
     generate(
         shell,
-        &mut ethrexL2CLI::command(),
+        &mut EthrexL2CLI::command(),
         "ethrex_l2",
         &mut io::stdout(),
     );
@@ -92,7 +92,7 @@ fn install_bash_script(shell_arg: Option<Shell>) -> eyre::Result<()> {
         .ok_or(eyre::eyre!("Cannot find home directory."))?
         .join(".ethrex-l2-completion");
     let mut file = File::create(file_path)?;
-    generate(shell, &mut ethrexL2CLI::command(), "ethrex_l2", &mut file);
+    generate(shell, &mut EthrexL2CLI::command(), "ethrex_l2", &mut file);
     file.flush()?;
 
     let shellrc_path = dirs::home_dir()
