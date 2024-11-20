@@ -85,11 +85,11 @@ pub fn validate_status(msg_data: StatusMessage, storage: &Store) -> Result<(), R
 mod tests {
     use super::validate_status;
     use crate::rlpx::eth::status::StatusMessage;
-    use ethereum_rust_core::{
+    use ethrex_core::{
         types::{ForkId, Genesis},
         H256, U256,
     };
-    use ethereum_rust_storage::{EngineType, Store};
+    use ethrex_storage::{EngineType, Store};
     use std::{fs::File, io::BufReader};
 
     #[test]
