@@ -1,6 +1,6 @@
 use crate::{
     commands::{self, config::EditConfigOpts},
-    config::{EthrexL2Config, ContractsConfig, NetworkConfig, WalletConfig},
+    config::{ContractsConfig, EthrexL2Config, NetworkConfig, WalletConfig},
     utils::messages::{
         ADDRESS_PROMPT_MSG, CONFIG_CREATE_PROMPT_MSG, CONFIG_EDIT_PROMPT_MSG,
         L1_CHAIN_ID_PROMPT_MSG, L1_EXPLORER_URL_PROMPT_MSG, L1_RPC_URL_PROMPT_MSG,
