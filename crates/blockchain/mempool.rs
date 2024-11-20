@@ -18,6 +18,7 @@ use ethrex_core::{
 use ethrex_storage::{error::StoreError, Store};
 
 /// Add a blob transaction and its blobs bundle to the mempool
+#[cfg(feature = "c-kzg")]
 pub fn add_blob_transaction(
     transaction: EIP4844Transaction,
     blobs_bundle: BlobsBundle,
