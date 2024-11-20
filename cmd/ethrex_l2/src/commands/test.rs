@@ -1,9 +1,9 @@
 use crate::config::EthereumRustL2Config;
 use bytes::Bytes;
 use clap::Subcommand;
-use ethereum_rust_blockchain::constants::TX_GAS_COST;
-use ethereum_rust_l2::utils::eth_client::{eth_sender::Overrides, EthClient};
 use ethereum_types::{Address, H160, H256, U256};
+use ethrex_blockchain::constants::TX_GAS_COST;
+use ethrex_l2::utils::eth_client::{eth_sender::Overrides, EthClient};
 use keccak_hash::keccak;
 use secp256k1::SecretKey;
 use std::{

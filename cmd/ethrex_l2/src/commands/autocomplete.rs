@@ -59,7 +59,7 @@ fn generate_bash_script(shell_arg: Option<Shell>) -> eyre::Result<()> {
     generate(
         shell,
         &mut EthereumRustL2CLI::command(),
-        "ethereum_rust_l2",
+        "ethrex_l2",
         &mut io::stdout(),
     );
     Ok(())
@@ -95,7 +95,7 @@ fn install_bash_script(shell_arg: Option<Shell>) -> eyre::Result<()> {
     generate(
         shell,
         &mut EthereumRustL2CLI::command(),
-        "ethereum_rust_l2",
+        "ethrex_l2",
         &mut file,
     );
     file.flush()?;

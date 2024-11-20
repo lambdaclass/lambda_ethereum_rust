@@ -8,15 +8,15 @@ build: ## 🔨 Build the client
 	cargo build --workspace
 
 lint: ## 🧹 Linter check
-	cargo clippy --all-targets --all-features --workspace --exclude ethereum_rust-prover -- -D warnings
+	cargo clippy --all-targets --all-features --workspace --exclude ethrex-prover -- -D warnings
 
 SPECTEST_VERSION := v3.0.0
 SPECTEST_ARTIFACT := tests_$(SPECTEST_VERSION).tar.gz
-SPECTEST_VECTORS_DIR := cmd/ef_tests/ethereum_rust/vectors
+SPECTEST_VECTORS_DIR := cmd/ef_tests/ethrex/vectors
 
 CRATE ?= *
 test: $(SPECTEST_VECTORS_DIR) ## 🧪 Run each crate's tests
-	cargo test -p '$(CRATE)' --workspace --exclude ethereum_rust-prover --exclude ethereum_rust-levm --exclude ef_tests-levm -- --skip test_contract_compilation --skip testito
+	cargo test -p '$(CRATE)' --workspace --exclude ethrex-prover --exclude ethrex-levm --exclude ef_tests-levm -- --skip test_contract_compilation --skip testito
 
 clean: clean-vectors ## 🧹 Remove build artifacts
 	cargo clean
@@ -24,13 +24,13 @@ clean: clean-vectors ## 🧹 Remove build artifacts
 
 STAMP_FILE := .docker_build_stamp
 $(STAMP_FILE): $(shell find crates cmd -type f -name '*.rs') Cargo.toml Dockerfile
-	docker build -t ethereum_rust .
+	docker build -t ethrex .
 	touch $(STAMP_FILE)
 
 build-image: $(STAMP_FILE) ## 🐳 Build the Docker image
 
 run-image: build-image ## 🏃 Run the Docker image
-	docker run --rm -p 127.0.0.1:8545:8545 ethereum_rust --http.addr 0.0.0.0
+	docker run --rm -p 127.0.0.1:8545:8545 ethrex --http.addr 0.0.0.0
 
 $(SPECTEST_ARTIFACT):
 	rm -f tests_*.tar.gz # Delete older versions
@@ -60,7 +60,7 @@ checkout-ethereum-package: ethereum-package ## 📦 Checkout specific Ethereum p
 
 localnet: stop-localnet-silent build-image checkout-ethereum-package ## 🌐 Start local network
 	kurtosis run --enclave lambdanet ethereum-package --args-file test_data/network_params.yaml
-	docker logs -f $$(docker ps -q --filter ancestor=ethereum_rust)
+	docker logs -f $$(docker ps -q --filter ancestor=ethrex)
 
 stop-localnet: ## 🛑 Stop local network
 	kurtosis enclave stop lambdanet

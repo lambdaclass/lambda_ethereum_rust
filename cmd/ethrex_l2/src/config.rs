@@ -31,8 +31,8 @@ pub struct NetworkConfig {
 pub struct WalletConfig {
     pub address: Address,
     #[serde(
-        serialize_with = "ethereum_rust_l2::utils::secret_key_serializer",
-        deserialize_with = "ethereum_rust_l2::utils::secret_key_deserializer"
+        serialize_with = "ethrex_l2::utils::secret_key_serializer",
+        deserialize_with = "ethrex_l2::utils::secret_key_deserializer"
     )]
     pub private_key: SecretKey,
 }

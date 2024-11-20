@@ -1,13 +1,13 @@
 use crate::{commands::utils::encode_calldata, config::EthereumRustL2Config};
 use bytes::Bytes;
 use clap::Subcommand;
-use ethereum_rust_core::types::{PrivilegedTxType, Transaction};
-use ethereum_rust_l2::utils::{
+use ethereum_types::{Address, H256, U256};
+use ethrex_core::types::{PrivilegedTxType, Transaction};
+use ethrex_l2::utils::{
     eth_client::{eth_sender::Overrides, EthClient},
     merkle_tree::merkle_proof,
 };
-use ethereum_rust_rpc::types::block::BlockBodyWrapper;
-use ethereum_types::{Address, H256, U256};
+use ethrex_rpc::types::block::BlockBodyWrapper;
 use eyre::OptionExt;
 use hex::FromHexError;
 use itertools::Itertools;

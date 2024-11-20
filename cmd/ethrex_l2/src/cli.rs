@@ -7,7 +7,7 @@ use clap::{Parser, Subcommand};
 pub const VERSION_STRING: &str = env!("CARGO_PKG_VERSION");
 
 #[derive(Parser)]
-#[command(name="ethereum_rust_l2_cli", author, version=VERSION_STRING, about, long_about = None)]
+#[command(name="ethrex_l2_cli", author, version=VERSION_STRING, about, long_about = None)]
 pub struct EthereumRustL2CLI {
     #[command(subcommand)]
     command: EthereumRustL2Command,

@@ -1,4 +1,4 @@
-use ethereum_rust_rlp::{
+use ethrex_rlp::{
     decode::RLPDecode,
     encode::RLPEncode,
     error::RLPDecodeError,
