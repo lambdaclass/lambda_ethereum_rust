@@ -111,7 +111,7 @@ impl RpcHandler for NewPayloadV3Request {
             .flat_map(|tx| tx.blob_versioned_hashes())
             .collect();
         if self.expected_blob_versioned_hashes != blob_versioned_hashes {
-            let result = PayloadStatus::invalid_with(latest_hash, "Invalid blob_versioned_hashes".to_string());
+            let result = PayloadStatus::invalid_with_err("Invalid blob_versioned_hashes");
             return serde_json::to_value(result)
                 .map_err(|error| RpcErr::Internal(error.to_string()));
         }
