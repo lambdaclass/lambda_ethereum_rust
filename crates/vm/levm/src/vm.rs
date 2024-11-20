@@ -382,15 +382,9 @@ impl VM {
         }
 
         // (3) INSUFFICIENT_MAX_FEE_PER_GAS
-        // TODO: See which of both versions is the right one. The second one includes the first one.
-        if let Some(tx_max_fee_per_gas) = self.env.tx_max_fee_per_gas {
-            if tx_max_fee_per_gas < self.env.base_fee_per_gas {
-                return Err(VMError::InsufficientMaxFeePerGas);
-            }
+        if self.gas_price_or_max_fee_per_gas() < self.env.base_fee_per_gas {
+            return Err(VMError::InsufficientMaxFeePerGas);
         }
-        // if self.gas_price_or_max_fee_per_gas() < self.env.base_fee_per_gas {
-        //     return Err(VMError::InsufficientMaxFeePerGas);
-        // }
 
         // (4) INITCODE_SIZE_EXCEEDED
         if self.is_create() {
