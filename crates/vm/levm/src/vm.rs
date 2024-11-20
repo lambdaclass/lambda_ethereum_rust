@@ -374,7 +374,9 @@ impl VM {
             .ok_or(VMError::GasLimitPriceProductOverflow)?;
 
         // Up front cost is the maximum amount of wei that a user is willing to pay for.
-        let up_front_cost = gaslimit_price_product.checked_add(initial_call_frame.msg_value).ok_or(VMError::InsufficientAccountFunds)?;
+        let up_front_cost = gaslimit_price_product
+            .checked_add(initial_call_frame.msg_value)
+            .ok_or(VMError::InsufficientAccountFunds)?;
 
         // (2) INSUFFICIENT_ACCOUNT_FUNDS
         if sender_account.info.balance < up_front_cost {
@@ -528,7 +530,9 @@ impl VM {
                 .len()
                 .try_into()
                 .map_err(|_| VMError::Internal(InternalError::ConversionError))?;
-            let code_deposit_cost = code_length.checked_mul(200).ok_or(VMError::Internal(InternalError::OperationOverflow))?;
+            let code_deposit_cost = code_length
+                .checked_mul(200)
+                .ok_or(VMError::Internal(InternalError::OperationOverflow))?;
 
             report.add_gas_with_max(code_deposit_cost, max_gas)?;
             // Charge 22100 gas for each storage variable set
@@ -613,20 +617,30 @@ impl VM {
         let mut calldata_cost: U256 = U256::zero();
         for byte in &initial_call_frame.calldata {
             if *byte != 0 {
-                calldata_cost += U256::from(16);
+                calldata_cost = calldata_cost
+                    .checked_add(U256::from(16))
+                    .ok_or(VMError::OutOfGas(OutOfGasError::ConsumedGasOverflow))?;
             } else {
-                calldata_cost += U256::from(4);
+                calldata_cost = calldata_cost
+                    .checked_add(U256::from(4))
+                    .ok_or(VMError::OutOfGas(OutOfGasError::ConsumedGasOverflow))?;
             }
         }
 
-        intrinsic_gas += calldata_cost;
+        intrinsic_gas = intrinsic_gas
+            .checked_add(calldata_cost)
+            .ok_or(VMError::OutOfGas(OutOfGasError::ConsumedGasOverflow))?;
 
         // Base Cost
-        intrinsic_gas += TX_BASE_COST;
+        intrinsic_gas = intrinsic_gas
+            .checked_add(TX_BASE_COST)
+            .ok_or(VMError::OutOfGas(OutOfGasError::ConsumedGasOverflow))?;
 
         // Create Cost
         if self.is_create() {
-            intrinsic_gas += CREATE_BASE_COST;
+            intrinsic_gas = intrinsic_gas
+                .checked_add(CREATE_BASE_COST)
+                .ok_or(VMError::OutOfGas(OutOfGasError::ConsumedGasOverflow))?;
 
             let number_of_words: u64 = initial_call_frame
                 .calldata
@@ -635,7 +649,13 @@ impl VM {
                 .try_into()
                 .map_err(|_| VMError::Internal(InternalError::ConversionError))?;
 
-            intrinsic_gas += U256::from(2) * U256::from(number_of_words);
+            intrinsic_gas = intrinsic_gas
+                .checked_add(
+                    U256::from(number_of_words)
+                        .checked_mul(U256::from(2))
+                        .ok_or(VMError::OutOfGas(OutOfGasError::ConsumedGasOverflow))?,
+                )
+                .ok_or(VMError::OutOfGas(OutOfGasError::ConsumedGasOverflow))?;
         }
 
         // Access List Cost
