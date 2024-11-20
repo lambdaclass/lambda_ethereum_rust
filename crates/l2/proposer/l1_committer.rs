@@ -5,20 +5,17 @@ use crate::{
     },
     utils::{
         config::{committer::CommitterConfig, eth::EthConfig},
-        eth_client::{
-            errors::EthClientError, eth_sender::Overrides, transaction::blob_from_bytes,
-            BlockByNumber, EthClient,
-        },
+        eth_client::{errors::EthClientError, eth_sender::Overrides, BlockByNumber, EthClient},
         merkle_tree::merkelize,
     },
 };
 use bytes::Bytes;
-use c_kzg::{Bytes48, KzgSettings};
 use ethereum_rust_blockchain::constants::TX_GAS_COST;
 use ethereum_rust_core::{
     types::{
-        BlobsBundle, Block, EIP1559Transaction, GenericTransaction, PrivilegedL2Transaction,
-        PrivilegedTxType, Transaction, TxKind, BLOB_BASE_FEE_UPDATE_FRACTION, BYTES_PER_BLOB,
+        blobs_bundle, BlobsBundle, Block, EIP1559Transaction, GenericTransaction,
+        PrivilegedL2Transaction, PrivilegedTxType, Transaction, TxKind,
+        BLOB_BASE_FEE_UPDATE_FRACTION,
     },
     Address, H256, U256,
 };
@@ -44,7 +41,6 @@ pub struct Committer {
     l1_address: Address,
     l1_private_key: SecretKey,
     interval_ms: u64,
-    kzg_settings: &'static KzgSettings,
     arbitrary_base_blob_gas_price: u64,
     max_blob_gas_price: u64,
 }
@@ -69,7 +65,6 @@ impl Committer {
             l1_address: committer_config.l1_address,
             l1_private_key: committer_config.l1_private_key,
             interval_ms: committer_config.interval_ms,
-            kzg_settings: c_kzg::ethereum_kzg_settings(),
             arbitrary_base_blob_gas_price: committer_config.arbitrary_base_blob_gas_price,
             max_blob_gas_price: committer_config.max_blob_gas_price,
         }
@@ -130,8 +125,7 @@ impl Committer {
                     deposits,
                 )?;
 
-                let (blob_commitment, blob_proof) =
-                    self.prepare_blob_commitment(state_diff.clone())?;
+                let blobs_bundle = self.generate_blobs_bundle(state_diff.clone())?;
 
                 let head_block_hash = block_to_commit.hash();
                 match self
@@ -139,9 +133,7 @@ impl Committer {
                         block_to_commit.header.number,
                         withdrawal_logs_merkle_root,
                         deposit_logs_hash,
-                        blob_commitment,
-                        blob_proof,
-                        state_diff.encode()?,
+                        blobs_bundle,
                     )
                     .await
                 {
@@ -289,30 +281,16 @@ impl Committer {
         Ok(state_diff)
     }
 
-    /// Generate the KZG commitment and proof for the blob. This commitment can then be used
-    /// to calculate the blob versioned hash, necessary for the EIP-4844 transaction.
-    pub fn prepare_blob_commitment(
+    /// Generate the blob bundle necessary for the EIP-4844 transaction.
+    pub fn generate_blobs_bundle(
         &self,
         state_diff: StateDiff,
-    ) -> Result<([u8; 48], [u8; 48]), CommitterError> {
+    ) -> Result<BlobsBundle, CommitterError> {
         let blob_data = state_diff.encode().map_err(CommitterError::from)?;
 
-        let blob = blob_from_bytes(blob_data).map_err(CommitterError::from)?;
+        let blob = blobs_bundle::blob_from_bytes(blob_data).map_err(CommitterError::from)?;
 
-        let commitment = c_kzg::KzgCommitment::blob_to_kzg_commitment(&blob, self.kzg_settings)
-            .map_err(CommitterError::from)?;
-        let commitment_bytes =
-            Bytes48::from_bytes(commitment.as_slice()).map_err(CommitterError::from)?;
-        let proof =
-            c_kzg::KzgProof::compute_blob_kzg_proof(&blob, &commitment_bytes, self.kzg_settings)
-                .map_err(CommitterError::from)?;
-
-        let mut commitment_bytes = [0u8; 48];
-        commitment_bytes.copy_from_slice(commitment.as_slice());
-        let mut proof_bytes = [0u8; 48];
-        proof_bytes.copy_from_slice(proof.as_slice());
-
-        Ok((commitment_bytes, proof_bytes))
+        BlobsBundle::create_from_blobs(&vec![blob]).map_err(CommitterError::from)
     }
 
     pub async fn send_commitment(
@@ -320,14 +298,19 @@ impl Committer {
         block_number: u64,
         withdrawal_logs_merkle_root: H256,
         deposit_logs_hash: H256,
-        commitment: [u8; 48],
-        proof: [u8; 48],
-        blob_data: Bytes,
+        blobs_bundle: BlobsBundle,
     ) -> Result<H256, CommitterError> {
         info!("Sending commitment for block {block_number}");
 
+        // TODO: This could be done using BlobsBundle.generate_versioned_hashes but we use different hashing crates
+        // in l1 and l2, we might need to consider unification later, for now the implementation here still works
         let mut hasher = Sha256::new();
-        hasher.update(commitment);
+        hasher.update(
+            blobs_bundle
+                .commitments
+                .first()
+                .expect("At least one commitment should be present"),
+        );
         let mut blob_versioned_hash = hasher.finalize();
         blob_versioned_hash[0] = 0x01; // EIP-4844 versioning
 
@@ -339,20 +322,6 @@ impl Committer {
         calldata.extend(blob_versioned_hash);
         calldata.extend(withdrawal_logs_merkle_root.0);
         calldata.extend(deposit_logs_hash.0);
-
-        let mut buf = [0u8; BYTES_PER_BLOB];
-        buf.copy_from_slice(
-            blob_from_bytes(blob_data)
-                .map_err(CommitterError::from)?
-                .iter()
-                .as_slice(),
-        );
-
-        let blobs_bundle = BlobsBundle {
-            blobs: vec![buf],
-            commitments: vec![commitment],
-            proofs: vec![proof],
-        };
 
         let le_bytes;
         let mut attempts = 100;
