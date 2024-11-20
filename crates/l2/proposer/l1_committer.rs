@@ -136,6 +136,16 @@ impl Committer {
                 );
                     }
                     Err(error) => {
+                        // TODO: Check if there is a better way to identify transactions that are being processed.
+                        let committer_error = format!("{error}");
+                        if committer_error.contains("replacement transaction underpriced") {
+                            warn!("If the node was restarted, a commitment transaction may be under process.");
+                            sleep(Duration::from_secs(1)).await;
+                            continue;
+                        } else if committer_error.contains("already known") {
+                            warn!("If the node was restarted, the l1_committer may have sent the same commitment transaction.");
+                            sleep(Duration::from_secs(1)).await;
+                        }
                         error!("Failed to send commitment to block {head_block_hash:#x}. Manual intervention required: {error}");
                         panic!("Failed to send commitment to block {head_block_hash:#x}. Manual intervention required: {error}");
                     }

@@ -381,6 +381,14 @@ impl ProverServer {
                             error!("Max retries reached. Giving up on sending proof for block {block_number:#x}.");
                             panic!("Failed to send proof after {} attempts.", max_retries);
                         }
+                    } else if eth_client_error.contains("replacement transaction underpriced") {
+                        // TODO: Check if there is a better way to identify transactions that are being processed.
+                        warn!("If the node was restarted, a proof_submission transaction may be under process.");
+                        sleep(Duration::from_secs(1)).await;
+                    } else if eth_client_error.contains("already known") {
+                        // TODO: Check if there is a better way to identify transactions that are being processed.
+                        warn!("If the node was restarted, the prover_server may have sent the same proof_submission.");
+                        sleep(Duration::from_secs(1)).await;
                     } else {
                         error!("Failed to send proof to block {block_number:#x}. Manual intervention required: {e}");
                         panic!("Failed to send proof to block {block_number:#x}. Manual intervention required: {e}");
