@@ -1,37 +1,30 @@
-use std::path::PathBuf;
+use std::path::Path;
 use tracing::info;
 
-use ethereum_rust_blockchain::add_block;
-use ethereum_rust_l2::proposer::prover_server::ProverInputData;
-use ethereum_rust_prover_lib::prover::Prover;
-use ethereum_rust_storage::{EngineType, Store};
-use ethereum_rust_vm::execution_db::ExecutionDB;
+use ethrex_blockchain::add_block;
+use ethrex_l2::proposer::prover_server::ProverInputData;
+use ethrex_prover_lib::prover::Prover;
+use ethrex_storage::{EngineType, Store};
+use ethrex_vm::execution_db::ExecutionDB;
 
 #[tokio::test]
 async fn test_performance_zkvm() {
     tracing_subscriber::fmt::init();
 
-    let mut path = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
-    // Go back 3 levels (Go to the root of the project)
-    for _ in 0..3 {
-        path.pop();
-    }
-    path.push("test_data");
+    let mut path = Path::new(concat!(env!("CARGO_MANIFEST_DIR"), "/../../../test_data"));
 
     // Another use is genesis-execution-api.json in conjunction with chain.rlp(20 blocks not too loaded).
-    let genesis_file_path = path.join("genesis-l2.json");
+    let genesis_file_path = path.join("genesis-l2-old.json");
     // l2-loadtest.rlp has blocks with many txs.
     let chain_file_path = path.join("l2-loadtest.rlp");
 
     let store = Store::new("memory", EngineType::InMemory).expect("Failed to create Store");
 
-    let genesis = ethereum_rust_l2::utils::test_data_io::read_genesis_file(
-        genesis_file_path.to_str().unwrap(),
-    );
+    let genesis =
+        ethrex_l2::utils::test_data_io::read_genesis_file(genesis_file_path.to_str().unwrap());
     store.add_initial_state(genesis.clone()).unwrap();
 
-    let blocks =
-        ethereum_rust_l2::utils::test_data_io::read_chain_file(chain_file_path.to_str().unwrap());
+    let blocks = ethrex_l2::utils::test_data_io::read_chain_file(chain_file_path.to_str().unwrap());
     info!("Number of blocks to insert: {}", blocks.len());
 
     for block in &blocks {
