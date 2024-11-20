@@ -15,6 +15,7 @@ mod trie_iter;
 mod verify_range;
 use ethereum_types::H256;
 use ethrex_rlp::constants::RLP_NULL;
+use ethrex_rlp::encode::RLPEncode;
 use nibbles::Nibbles;
 use node::Node;
 use node_hash::NodeHash;
@@ -176,29 +177,29 @@ impl Trie {
         &self,
         paths: &[PathRLP],
     ) -> Result<(Option<NodeRLP>, Vec<NodeRLP>), TrieError> {
-        // Will store all the encoded nodes traversed until reaching the node containing the path
-        let mut node_path = Vec::new();
-        let Some(root) = &self.root else {
-            return Ok((None, node_path));
+        let Some(root_node) = self
+            .root
+            .as_ref()
+            .map(|root| self.state.get_node(root.clone()))
+            .transpose()?
+            .flatten()
+        else {
+            return Ok((None, Vec::new()));
         };
-        // If the root is inlined, add it to the node_path
-        if let NodeHash::Inline(node) = root {
-            node_path.push(node.to_vec());
-        }
-        if let Some(root_node) = self.state.get_node(root.clone())? {
-            for path in paths {
-                root_node.get_path(&self.state, Nibbles::from_bytes(path), &mut node_path)?;
-            }
-        }
 
-        let root_node = node_path.swap_remove(0);
+        let mut node_path = Vec::new();
+        for path in paths {
+            let mut nodes = self.get_proof(path)?;
+            nodes.swap_remove(0);
+            node_path.extend(nodes); // skip root node
+        }
 
         // dedup
         // TODO: really inefficient, by making the traversing smarter we can avoid having
         // duplicates
         let node_path: HashSet<_> = node_path.drain(..).collect();
         let node_path = Vec::from_iter(node_path);
-        Ok((Some(root_node), node_path))
+        Ok((Some(root_node.encode_to_vec()), node_path))
     }
 
     /// Creates a cached Trie (with [NullTrieDB]) from a list of encoded nodes.
