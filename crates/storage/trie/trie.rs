@@ -199,7 +199,7 @@ impl Trie {
         // duplicates
         let node_path: HashSet<_> = node_path.drain(..).collect();
         let node_path = Vec::from_iter(node_path);
-        Ok((Some(root_node.encode_to_vec()), node_path))
+        Ok((Some(root_node.encode_raw()), node_path))
     }
 
     /// Creates a cached Trie (with [NullTrieDB]) from a list of encoded nodes.
