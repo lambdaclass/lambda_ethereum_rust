@@ -1,13 +1,13 @@
 use std::collections::HashMap;
 
-use ethereum_rust_core::{
+use ethereum_types::H160;
+use ethrex_core::{
     types::{AccountState, Block, ChainConfig},
     H256,
 };
-use ethereum_rust_rlp::encode::RLPEncode;
-use ethereum_rust_storage::{hash_address, hash_key, Store};
-use ethereum_rust_trie::{NodeRLP, Trie};
-use ethereum_types::H160;
+use ethrex_rlp::encode::RLPEncode;
+use ethrex_storage::{hash_address, hash_key, Store};
+use ethrex_trie::{NodeRLP, Trie};
 use revm::{
     primitives::{
         AccountInfo as RevmAccountInfo, Address as RevmAddress, Bytecode as RevmBytecode,

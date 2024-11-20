@@ -8,7 +8,7 @@ use zkvm_interface::{
 
 use risc0_zkvm::{default_prover, ExecutorEnv, ProverOpts};
 
-use ethereum_rust_l2::utils::config::prover_client::ProverClientConfig;
+use ethrex_l2::utils::config::prover_client::ProverClientConfig;
 
 pub struct Prover<'a> {
     elf: &'a [u8],

@@ -8,11 +8,18 @@ serde = { version = "1.0.203", features = ["derive"] }
 serde_with = "3.11.0"
 thiserror = "1.0.61"
 
-ethereum_rust-core = { path = "../../../../common/", default-features = false }
-ethereum_rust-vm = { path = "../../../../vm", default-features = false }
-ethereum_rust-rlp = { path = "../../../../common/rlp", default-features = false }
-ethereum_rust-storage = { path = "../../../../storage/store", default-features = false }
-ethereum_rust-trie = { path = "../../../../storage/trie", default-features = false }
+ethrex-core = { path = "../../../../common/", default-features = false }
+ethrex-vm = { path = "../../../../vm", default-features = false }
+ethrex-rlp = { path = "../../../../common/rlp", default-features = false }
+ethrex-storage = { path = "../../../../storage/store", default-features = false }
+ethrex-trie = { path = "../../../../storage/trie", default-features = false }
+
+# revm
+revm = { version = "14.0.3", features = [
+  "std",
+  "serde",
+  "kzg-rs",
+], default-features = false }
 
 [build-dependencies]
 risc0-build = { version = "1.1.2" }

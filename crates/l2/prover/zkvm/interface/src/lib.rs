@@ -9,12 +9,12 @@ pub mod methods {
 }
 
 pub mod io {
-    use ethereum_rust_core::{
+    use ethrex_core::{
         types::{Block, BlockHeader},
         H256,
     };
-    use ethereum_rust_rlp::{decode::RLPDecode, encode::RLPEncode};
-    use ethereum_rust_vm::execution_db::ExecutionDB;
+    use ethrex_rlp::{decode::RLPDecode, encode::RLPEncode};
+    use ethrex_vm::execution_db::ExecutionDB;
     use serde::{Deserialize, Serialize};
     use serde_with::{serde_as, DeserializeAs, SerializeAs};
 
@@ -42,7 +42,7 @@ pub mod io {
     }
 
     /// Used with [serde_with] to encode a Block into RLP before serializing its bytes. This is
-    /// necessary because the [ethereum_rust_core::types::Transaction] type doesn't serializes into any
+    /// necessary because the [ethrex_core::types::Transaction] type doesn't serializes into any
     /// format other than JSON.
     pub struct RLPBlock;
 
@@ -71,10 +71,10 @@ pub mod io {
 pub mod trie {
     use std::collections::HashMap;
 
-    use ethereum_rust_core::{types::AccountState, H160};
-    use ethereum_rust_rlp::{decode::RLPDecode, encode::RLPEncode, error::RLPDecodeError};
-    use ethereum_rust_storage::{hash_address, hash_key, AccountUpdate};
-    use ethereum_rust_trie::{Trie, TrieError};
+    use ethrex_core::{types::AccountState, H160};
+    use ethrex_rlp::{decode::RLPDecode, encode::RLPEncode, error::RLPDecodeError};
+    use ethrex_storage::{hash_address, hash_key, AccountUpdate};
+    use ethrex_trie::{Trie, TrieError};
     use thiserror::Error;
 
     #[derive(Debug, Error)]

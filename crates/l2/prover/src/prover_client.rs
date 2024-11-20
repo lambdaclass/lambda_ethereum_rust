@@ -9,7 +9,7 @@ use tracing::{debug, error, info, warn};
 
 use zkvm_interface::io::ProgramInput;
 
-use ethereum_rust_l2::{
+use ethrex_l2::{
     proposer::prover_server::ProofData, utils::config::prover_client::ProverClientConfig,
 };
 
