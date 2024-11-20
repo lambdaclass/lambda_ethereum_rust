@@ -1,5 +1,5 @@
 use ethrex_storage::Store;
-use ethrex_vm::execution_db::ExecutionDB;
+use ethrex_vm::{execution_db::ExecutionDB, EvmError};
 use keccak_hash::keccak;
 use secp256k1::SecretKey;
 use serde::{Deserialize, Serialize};
