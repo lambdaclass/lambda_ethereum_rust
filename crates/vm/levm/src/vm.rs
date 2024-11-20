@@ -336,28 +336,27 @@ impl VM {
         self.env.refunded_gas = backup_refunded_gas;
     }
 
-    // let account = self.db.accounts.get(&self.env.origin).ok_or(VMError::FatalUnwrap)?;
-    /// Based on Ethereum yellow paper's initial tests of intrinsic validity (Section 6). The last version is
-    /// Shanghai, so there are probably missing Cancun validations. The intrinsic validations are:
-    ///
-    /// (1) The transaction is well-formed RLP, with no additional trailing bytes;
-    /// (2) The transaction signature is valid;
-    /// (3) The transaction nonce is valid (equivalent to the sender account's
-    /// current nonce);
-    /// (4) The sender account has no contract code deployed (see EIP-3607).
-    /// (5) The gas limit is no smaller than the intrinsic gas, used by the
-    /// transaction;
-    /// (6) The sender account balance contains at least the cost, required in
-    /// up-front payment;
-    /// (7) The max fee per gas, in the case of type 2 transactions, or gasPrice,
-    /// in the case of type 0 and type 1 transactions, is greater than or equal to
-    /// the block’s base fee;
-    /// (8) For type 2 transactions, max priority fee per fas, must be no larger
-    /// than max fee per fas.
+    /// ## Description
+    /// This method performs validations and returns an error if any of the validations fail.
+    /// The **only** change it makes to the state is incrementing the nonce of the sender by 1.
+    /// ## The validations are:
+    /// 1. **GASLIMIT_PRICE_PRODUCT_OVERFLOW** -> The product of gas limit and gas price is too high.
+    /// 2. **INSUFFICIENT_ACCOUNT_FUNDS** -> Sender does not have enough funds to pay for the gas.
+    /// 3. **INSUFFICIENT_MAX_FEE_PER_GAS** -> The max fee per gas is lower than the base fee per gas.
+    /// 4. **INITCODE_SIZE_EXCEEDED** -> The size of the initcode is too big.
+    /// 5. **INTRINSIC_GAS_TOO_LOW** -> The gas limit is lower than the intrinsic gas.
+    /// 6. **NONCE_IS_MAX** -> The nonce of the sender is at its maximum value.
+    /// 7. **PRIORITY_GREATER_THAN_MAX_FEE_PER_GAS** -> The priority fee is greater than the max fee per gas.
+    /// 8. **SENDER_NOT_EOA** -> The sender is not an EOA (it has code).
+    /// 9. **GAS_ALLOWANCE_EXCEEDED** -> The gas limit is higher than the block gas limit.
+    /// 10. **INSUFFICIENT_MAX_FEE_PER_BLOB_GAS** -> The max fee per blob gas is lower than the base fee per gas.
+    /// 11. **TYPE_3_TX_ZERO_BLOBS** -> The transaction has zero blobs.
+    /// 12. **TYPE_3_TX_INVALID_BLOB_VERSIONED_HASH** -> The blob versioned hash is invalid.
+    /// 13. **TYPE_3_TX_PRE_FORK** -> The transaction is a pre-cancun transaction.
+    /// 14. **TYPE_3_TX_BLOB_COUNT_EXCEEDED** -> The blob count is higher than the max allowed.
+    /// 15. **TYPE_3_TX_CONTRACT_CREATION** -> The type 3 transaction is a contract creation.
     fn validate_transaction(&mut self, initial_call_frame: &CallFrame) -> Result<(), VMError> {
-        // Validations (1), (2), (3), (5), and (8) are assumed done in upper layers.
-
-        //TODO: This should revert the transaction, not throw an error.
+        //TODO: This should revert the transaction, not throw an error. And I don't know if it should be done here...
         // if self.is_create() {
         //     // If address is already in db, there's an error
         //     let new_address_acc = self.db.get_account_info(call_frame.to);
@@ -365,19 +364,60 @@ impl VM {
         //         return Err(VMError::AddressAlreadyOccupied);
         //     }
         // }
+        let sender_address = self.env.origin;
+        let mut sender_account = self.get_account(&sender_address);
 
-        let origin = self.env.origin;
+        // (1) GASLIMIT_PRICE_PRODUCT_OVERFLOW
+        let gaslimit_price_product = self
+            .gas_price_or_max_fee_per_gas()
+            .checked_mul(self.env.gas_limit)
+            .ok_or(VMError::GasLimitPriceProductOverflow)?;
 
-        let mut sender_account = self.get_account(&origin);
+        // Up front cost is the maximum amount of wei that a user is willing to pay for.
+        let up_front_cost = gaslimit_price_product + initial_call_frame.msg_value;
 
-        // NONCE_IS_MAX
+        // (2) INSUFFICIENT_ACCOUNT_FUNDS
+        if sender_account.info.balance < up_front_cost {
+            return Err(VMError::InsufficientAccountFunds);
+        }
+
+        // (3) INSUFFICIENT_MAX_FEE_PER_GAS
+        // TODO: See which of both versions is the right one. The second one includes the first one.
+        if let Some(tx_max_fee_per_gas) = self.env.tx_max_fee_per_gas {
+            if tx_max_fee_per_gas < self.env.base_fee_per_gas {
+                return Err(VMError::InsufficientMaxFeePerGas);
+            }
+        }
+        // if self.gas_price_or_max_fee_per_gas() < self.env.base_fee_per_gas {
+        //     return Err(VMError::InsufficientMaxFeePerGas);
+        // }
+
+        // (4) INITCODE_SIZE_EXCEEDED
+        if self.is_create() {
+            // INITCODE_SIZE_EXCEEDED
+            if initial_call_frame.calldata.len() > INIT_CODE_MAX_SIZE {
+                return Err(VMError::InitcodeSizeExceeded);
+            }
+        }
+
+        // (5) INTRINSIC_GAS_TOO_LOW
+        // Intrinsic gas is gas used by the callframe before execution of opcodes
+        let intrinsic_gas = initial_call_frame.gas_used;
+        if self.env.gas_limit < intrinsic_gas {
+            return Err(VMError::IntrinsicGasTooLow);
+        }
+
+        // (6) NONCE_IS_MAX
         sender_account.info.nonce = sender_account
             .info
             .nonce
             .checked_add(1)
             .ok_or(VMError::NonceIsMax)?;
 
-        // PRIORITY_GREATER_THAN_MAX_FEE_PER_GAS
+        // Update cache with account with incremented nonce
+        self.cache.add_account(&sender_address, &sender_account);
+
+        // (7) PRIORITY_GREATER_THAN_MAX_FEE_PER_GAS
         if let (Some(tx_max_priority_fee), Some(tx_max_fee_per_gas)) = (
             self.env.tx_max_priority_fee_per_gas,
             self.env.tx_max_fee_per_gas,
@@ -387,78 +427,24 @@ impl VM {
             }
         }
 
-        // GAS_ALLOWANCE_EXCEEDED
-        if self.env.gas_limit > self.env.block_gas_limit {
-            return Err(VMError::GasAllowanceExceeded);
-        }
-
-        // SENDER_NOT_EOA
+        // (8) SENDER_NOT_EOA
         if sender_account.has_code() {
             return Err(VMError::SenderNotEOA);
         }
 
-        // (6)
-        // GASLIMIT_PRICE_PRODUCT_OVERFLOW
-        let gaslimit_price_product = self
-            .gas_price_or_max_fee_per_gas()
-            .checked_mul(self.env.gas_limit)
-            .ok_or(VMError::GasLimitPriceProductOverflow)?;
-
-        let up_front_cost = gaslimit_price_product + initial_call_frame.msg_value;
-        // println!("Max fee per gas: {:?}", self.env.tx_max_fee_per_gas);
-        // println!("Gas limit: {:?}", self.env.gas_limit);
-        // println!("gas_price: {:?}", self.env.gas_price);
-        // println!("msg value: {:?}", initial_call_frame.msg_value);
-        // println!("up_front_cost: {:?}", up_front_cost);
-        // println!(
-        //     "sender_account.info.balance: {:?}",
-        //     sender_account.info.balance
-        // );
-
-        // INSUFFICIENT_ACCOUNT_FUNDS
-        if sender_account.info.balance < up_front_cost {
-            return Err(VMError::InsufficientAccountFunds);
+        // (9) GAS_ALLOWANCE_EXCEEDED
+        if self.env.gas_limit > self.env.block_gas_limit {
+            return Err(VMError::GasAllowanceExceeded);
         }
 
-        self.cache.add_account(&origin, &sender_account);
-
-        // (7)
-        if self.gas_price_or_max_fee_per_gas() < self.env.base_fee_per_gas {
-            return Err(VMError::GasPriceIsLowerThanBaseFee);
-        }
-
-        if self.is_create() {
-            // INITCODE_SIZE_EXCEEDED
-            if initial_call_frame.calldata.len() > INIT_CODE_MAX_SIZE {
-                return Err(VMError::InitcodeSizeExceeded);
-            }
-        }
-
-        // INTRINSIC_GAS_TOO_LOW
-        // if gas limit is less than intrinsic gas, return error
-        // Intrinsic gas is gas used by the callframe before execution of opcodes
-        let intrinsic_gas = initial_call_frame.gas_used;
-        // println!("Intrinsic gas: {:?}", intrinsic_gas);
-        // println!("Gas limit: {:?}", self.env.gas_limit);
-        if self.env.gas_limit < intrinsic_gas {
-            return Err(VMError::IntrinsicGasTooLow);
-        }
-
-        // INSUFFICIENT_MAX_FEE_PER_GAS
-        // tx_max_fee_per_gas less than base_fee_per_gas
-        if let Some(tx_max_fee_per_gas) = self.env.tx_max_fee_per_gas {
-            if tx_max_fee_per_gas < self.env.base_fee_per_gas {
-                return Err(VMError::InsufficientMaxFeePerGas);
-            }
-        }
-
-        // INSUFFICIENT_MAX_FEE_PER_BLOB_GAS
-        // tx_max_fee_per_blob_gas less than base_fee_per_gas
+        // (10) INSUFFICIENT_MAX_FEE_PER_BLOB_GAS
         if let Some(tx_max_fee_per_blob_gas) = self.env.tx_max_fee_per_blob_gas {
             if tx_max_fee_per_blob_gas < self.env.base_fee_per_gas {
                 return Err(VMError::InsufficientMaxFeePerGas);
             }
         }
+
+        //TODO: Implement the rest of the validations (TYPE_3)
 
         Ok(())
     }
