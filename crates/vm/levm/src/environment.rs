@@ -1,4 +1,5 @@
-use ethereum_rust_core::{Address, H256, U256};
+use crate::constants::TX_BASE_COST;
+use ethrex_core::{Address, H256, U256};
 
 #[derive(Debug, Default, Clone)]
 pub struct Environment {
