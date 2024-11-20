@@ -174,7 +174,7 @@ impl VM {
 
             // Note: This is commented because it's used for debugging purposes in development.
             // dbg!(&current_call_frame.gas_used);
-            dbg!(&opcode);
+            // dbg!(&opcode);
             let op_result: Result<OpcodeSuccess, VMError> = match opcode {
                 Opcode::STOP => Ok(OpcodeSuccess::Result(ResultReason::Stop)),
                 Opcode::ADD => self.op_add(current_call_frame),

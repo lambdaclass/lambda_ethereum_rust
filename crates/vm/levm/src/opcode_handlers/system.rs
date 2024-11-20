@@ -173,8 +173,6 @@ impl VM {
             .try_into()
             .map_err(|_| VMError::VeryLargeNumber)?;
 
-        println!("offset: {}, size: {}", offset, size);
-
         let gas_cost = current_call_frame.memory.expansion_cost(
             offset
                 .checked_add(size)

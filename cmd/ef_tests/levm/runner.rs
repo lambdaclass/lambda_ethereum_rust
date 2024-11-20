@@ -44,19 +44,19 @@ pub fn run_ef_tests() -> Result<EFTestsReport, Box<dyn Error>> {
             {
                 continue;
             }
-            if test
-                .path()
-                .file_name()
-                .is_some_and(|name| name == "buffer.json")
-            {
-                let test_result = run_ef_test(
-                    serde_json::from_reader(std::fs::File::open(test.path())?)?,
-                    &mut report,
-                );
-                if test_result.is_err() {
-                    continue;
-                }
+            // if test
+            //     .path()
+            //     .file_name()
+            //     .is_some_and(|name| name == "buffer.json")
+            // {
+            let test_result = run_ef_test(
+                serde_json::from_reader(std::fs::File::open(test.path())?)?,
+                &mut report,
+            );
+            if test_result.is_err() {
+                continue;
             }
+            // }
         }
         spinner.update_text(report.progress());
     }
@@ -82,9 +82,9 @@ pub fn run_ef_test(test: EFTest, report: &mut EFTestsReport) -> Result<(), Box<d
     println!("Running test: {}", &test.name);
     let mut failed = false;
     for (tx_id, (tx_indexes, _tx)) in test.transactions.iter().enumerate() {
-        if *tx_indexes != (346, 0, 0) {
-            continue;
-        }
+        // if *tx_indexes != (346, 0, 0) {
+        //     continue;
+        // }
         match run_ef_test_tx(tx_id, &test, report) {
             Ok(_) => {}
             Err(e) => {
