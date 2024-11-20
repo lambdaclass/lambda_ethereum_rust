@@ -3,11 +3,12 @@
 .PHONY: help init down clean init-local-l1 down-local-l1 clean-local-l1 init-l2 down-l2 deploy-l1 deploy-block-executor deploy-inbox setup-prover test
 
 L2_GENESIS_FILE_PATH=../../test_data/genesis-l2.json
+L1_GENESIS_FILE_PATH=../../test_data/genesis-l1.json
 
 help: ## 📚 Show help for each of the Makefile recipes
 	@grep -E '^[a-zA-Z0-9_-]+:.*?## .*$$' $(MAKEFILE_LIST) | sort | awk 'BEGIN {FS = ":.*?## "}; {printf "\033[36m%-30s\033[0m %s\n", $$1, $$2}'
 
-init: init-local-l1 deploy-l1 init-l2 ## 🚀 Initializes a localnet with Lambda Ethereum Rust client as both L1 and L2
+init: init-local-l1 deploy-l1 init-l2 ## 🚀 Initializes a localnet with Lambda ethrex client as both L1 and L2
 
 down: down-local-l1 down-l2 ## 🛑 Shuts down the localnet
 
@@ -15,7 +16,7 @@ clean: clean-contract-deps ## 🧹 Cleans the localnet
 
 restart: restart-local-l1 deploy-l1 restart-l2 ## 🔄 Restarts the localnet
 
-cli: ## 🛠️ Installs the L2 Lambda Ethereum Rust CLI
+cli: ## 🛠️ Installs the L2 Lambda ethrex CLI
 	cargo install --path ${ETHEREUM_RUST_PATH}/cmd/ethereum_rust_l2/ --force
 
 # Variables
@@ -29,16 +30,35 @@ ETHEREUM_RUST_L2_CONTRACTS_PATH=./contracts
 L1_RPC_URL=http://localhost:8545
 L1_PRIVATE_KEY=0x385c546456b6a603a1cfcaa9ec9494ba4832da08dd6bcf4de9a71e4a01b74924
 
+ETHEREUM_RUST_L2_DEV_LIBMDBX=dev_ethereum_rust_l2
+ETHEREUM_RUST_L1_DEV_LIBMDBX=dev_ethereum_rust_l1
+L1_PORT=8545
+L2_PORT=1729
+L1_AUTH_PORT=8551
+# Used in the .env file. Ensure the same port is used for `ENGINE_API_RPC_URL`.
+L2_AUTH_PORT=8552
+
 # Local L1
 
-init-local-l1: ## 🚀 Initializes an L1 Lambda Ethereum Rust Client
+init-local-l1: ## 🚀 Initializes an L1 Lambda ethrex Client with Docker (Used with make init)
 	docker compose -f ${ETHEREUM_RUST_DEV_DOCKER_COMPOSE_PATH} up -d
+	
+init-l1: ## 🚀 Initializes an L1 Lambda ethrex Client
+	cargo run --release --manifest-path ../../Cargo.toml --bin ethereum_rust --features dev -- \
+	--network ${L1_GENESIS_FILE_PATH} \
+	--http.port ${L1_PORT} \
+	--http.addr 0.0.0.0 \
+	--authrpc.port ${L1_AUTH_PORT} \
+	--datadir ${ETHEREUM_RUST_L1_DEV_LIBMDBX}
 
-down-local-l1: ## 🛑 Shuts down the L1 Lambda Ethereum Rust Client
+down-local-l1: ## 🛑 Shuts down the L1 Lambda ethrex Client
 	docker compose -f ${ETHEREUM_RUST_DEV_DOCKER_COMPOSE_PATH} down
 	docker compose -f docker-compose-l2.yaml down
 
-restart-local-l1: down-local-l1 init-local-l1 ## 🔄 Restarts the L1 Lambda Ethereum Rust Client
+restart-local-l1: down-local-l1 init-local-l1 ## 🔄 Restarts the L1 Lambda ethrex Client
+
+rm_dev_libmdbx_l1: ## 🛑 Removes the Libmdbx DB used by the L1
+	cargo run --release --manifest-path ../../Cargo.toml --bin ethereum_rust -- removedb --datadir ${ETHEREUM_RUST_L1_DEV_LIBMDBX}
 
 # Contracts
 
@@ -53,24 +73,33 @@ deploy-l1: ## 📜 Deploys the L1 contracts
 
 # L2
 
-init-l2: ## 🚀 Initializes an L2 Lambda Ethereum Rust Client
-	cargo run --release --manifest-path ../../Cargo.toml --bin ethereum_rust --features l2 -- --network ${L2_GENESIS_FILE_PATH} --http.port 1729 
+init-l2: ## 🚀 Initializes an L2 Lambda ethrex Client
+	cargo run --release --manifest-path ../../Cargo.toml --bin ethereum_rust --features l2 -- \
+	--network ${L2_GENESIS_FILE_PATH} \
+	--http.port ${L2_PORT} \
+	--http.addr 0.0.0.0 \
+	--authrpc.port ${L2_AUTH_PORT} \
+	--datadir ${ETHEREUM_RUST_L2_DEV_LIBMDBX}
 
-down-l2: ## 🛑 Shuts down the L2 Lambda Ethereum Rust Client
+down-l2: ## 🛑 Shuts down the L2 Lambda ethrex Client
 	pkill -f ethereum_rust || exit 0
 
-restart-l2: down-l2 init-l2 ## 🔄 Restarts the L2 Lambda Ethereum Rust Client
+restart-l2: down-l2 init-l2 ## 🔄 Restarts the L2 Lambda ethrex Client
 
 init-l2-prover: ## 🚀 Initializes the Prover
 	cargo run --release --features build_zkvm --manifest-path ../../Cargo.toml --bin ethereum_rust_prover
 
 init-l2-prover-gpu: ## 🚀 Initializes the Prover with GPU support
-	cargo run --release --features "build_zkvm,cuda" --manifest-path ../../Cargo.toml --bin ethereum_rust_prover
+	cargo run --release --features "build_zkvm,gpu" --manifest-path ../../Cargo.toml --bin ethereum_rust_prover
+
+rm_dev_libmdbx_l2: ## 🛑 Removes the Libmdbx DB used by the L2
+	cargo run --release --manifest-path ../../Cargo.toml --bin ethereum_rust -- removedb --datadir ${ETHEREUM_RUST_L2_DEV_LIBMDBX}
+
 
 # CI Testing
 
 test:
 	docker compose -f ${ETHEREUM_RUST_L2_DOCKER_COMPOSE_PATH} down
-	docker compose -f ${ETHEREUM_RUST_L2_DOCKER_COMPOSE_PATH} up -d
-	cargo test --release testito -- --nocapture
+	docker compose -f ${ETHEREUM_RUST_L2_DOCKER_COMPOSE_PATH} up -d --build
+	BRIDGE_ADDRESS=$$(grep 'L1_WATCHER_BRIDGE_ADDRESS' .env | cut -d= -f2) ON_CHAIN_PROPOSER_ADDRESS=$$(grep 'COMMITTER_ON_CHAIN_PROPOSER_ADDRESS' .env | cut -d= -f2) cargo test --release testito -- --nocapture
 	docker compose -f ${ETHEREUM_RUST_L2_DOCKER_COMPOSE_PATH} down

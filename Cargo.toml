@@ -10,7 +10,8 @@ members = [
     "crates/storage/trie",
     "crates/common/rlp",
     "cmd/ethereum_rust",
-    "cmd/ef_tests",
+    "cmd/ef_tests/ethereum_rust",
+    "cmd/ef_tests/levm",
     "cmd/ethereum_rust_l2",
     "crates/vm/levm",
     "crates/vm/levm/bench/revm_comparison",
@@ -64,6 +65,7 @@ rand = "0.8.5"
 cfg-if = "1.0.0"
 reqwest = { version = "0.12.7", features = ["json"] }
 snap = "1.1.1"
+k256 = { version = "0.13.3", features = ["ecdh"] }
 secp256k1 = { version = "0.29", default-features = false, features = [
     "global-context",
     "recovery",

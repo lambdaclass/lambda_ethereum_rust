@@ -2,43 +2,40 @@ use crate::account::Account;
 use bytes::Bytes;
 use ethereum_rust_core::{types::Log, Address};
 use std::collections::HashMap;
+use thiserror;
 
 /// Errors that halt the program
 #[derive(Debug, Clone, PartialEq, Eq, thiserror::Error)]
 pub enum VMError {
-    #[error("Stack underflow")]
+    #[error("Stack Underflow")]
     StackUnderflow,
-    #[error("Stack overflow")]
+    #[error("Stack Overflow")]
     StackOverflow,
-    #[error("Invalid jump")]
+    #[error("Invalid Jump")]
     InvalidJump,
-    #[error("Opcode not allowed in static context")]
+    #[error("Opcode Not Allowed In Static Context")]
     OpcodeNotAllowedInStaticContext,
-    #[error("Opcode not found")]
+    #[error("Opcode Not Found")]
     OpcodeNotFound,
-    #[error("Invalid bytecode")]
+    #[error("Invalid Bytecode")]
     InvalidBytecode,
-    #[error("Out of gas")]
-    OutOfGas,
-    #[error("Very large number")]
+    #[error("Very Large Number")]
     VeryLargeNumber,
-    #[error("Overflow in arithmetic operation")]
-    OverflowInArithmeticOp,
-    #[error("Fatal error")]
+    #[error("Fatal Error")]
     FatalError,
-    #[error("Invalid transaction")]
+    #[error("Invalid Transaction")]
     InvalidTransaction,
-    #[error("Revert opcode")]
+    #[error("Revert Opcode")]
     RevertOpcode,
-    #[error("Invalid opcode")]
+    #[error("Invalid Opcode")]
     InvalidOpcode,
-    #[error("Missing blob hashes")]
+    #[error("Missing Blob Hashes")]
     MissingBlobHashes,
-    #[error("Blob hash index out of bounds")]
+    #[error("Blob Hash Index Out Of Bounds")]
     BlobHashIndexOutOfBounds,
-    #[error("Sender account does not exist")]
+    #[error("Sender Account Does Not Exist")]
     SenderAccountDoesNotExist,
-    #[error("Address does not match an account")]
+    #[error("Address Does Not Match An Account")]
     AddressDoesNotMatchAnAccount,
     #[error("Sender account should not have bytecode")]
     SenderNotEOA,
@@ -46,32 +43,24 @@ pub enum VMError {
     InsufficientAccountFunds,
     #[error("Gas price is lower than base fee")]
     GasPriceIsLowerThanBaseFee,
-    #[error("Address already occupied")]
+    #[error("Address Already Occupied")]
     AddressAlreadyOccupied,
-    #[error("Contract output too big")]
+    #[error("Contract Output Too Big")]
     ContractOutputTooBig,
-    #[error("Invalid initial byte")]
+    #[error("Invalid Initial Byte")]
     InvalidInitialByte,
     #[error("Nonce is max (overflow)")]
     NonceIsMax,
     #[error("Memory load out of bounds")]
     MemoryLoadOutOfBounds,
-    #[error("Memory store out of bounds")]
+    #[error("Memory Store Out Of Bounds")]
     MemoryStoreOutOfBounds,
     #[error("Gas limit price product overflow")]
     GasLimitPriceProductOverflow,
-    #[error("Internal error: {0}")]
-    Internal(#[from] InternalError),
-    #[error("Data size overflow")]
-    DataSizeOverflow,
-    #[error("Gas cost overflow")]
-    GasCostOverflow,
-    #[error("Offset overflow")]
-    OffsetOverflow,
-    #[error("Creation cost is too high")]
-    CreationCostIsTooHigh,
-    #[error("Max gas limit exceeded")]
-    MaxGasLimitExceeded,
+    #[error("Balance Overflow")]
+    BalanceOverflow,
+    #[error("Balance Underflow")]
+    BalanceUnderflow,
     #[error("Gas refunds underflow")]
     GasRefundsUnderflow,
     #[error("Gas refunds overflow")]
@@ -88,10 +77,54 @@ pub enum VMError {
     InsufficientMaxFeePerGas,
     #[error("Insufficient max fee per blob gas")]
     InsufficientMaxFeePerBlobGas,
+    #[error("Memory size overflows")]
+    MemorySizeOverflow,
+    // OutOfGas
+    #[error("Out Of Gas")]
+    OutOfGas(#[from] OutOfGasError),
+    // Internal
+    #[error("Internal error: {0}")]
+    Internal(#[from] InternalError),
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash, thiserror::Error)]
+pub enum OutOfGasError {
+    #[error("Gas Cost Overflow")]
+    GasCostOverflow,
+    #[error("Gas Used Overflow")]
+    GasUsedOverflow,
+    #[error("Creation Cost Is Too High")]
+    CreationCostIsTooHigh,
+    #[error("Consumed Gas Overflow")]
+    ConsumedGasOverflow,
+    #[error("Max Gas Limit Exceeded")]
+    MaxGasLimitExceeded,
+    #[error("Arithmetic operation divided by zero in gas calculation")]
+    ArithmeticOperationDividedByZero,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, thiserror::Error)]
 pub enum InternalError {
+    #[error("Overflowed when incrementing nonce")]
+    NonceOverflowed,
+    #[error("Underflowed when incrementing nonce")]
+    NonceUnderflowed,
+    #[error("Overflowed when incrementing program counter")]
+    PCOverflowed,
+    #[error("Underflowed when decrementing program counter")]
+    PCUnderflowed,
+    #[error("Arithmetic operation overflowed")]
+    ArithmeticOperationOverflow,
+    #[error("Arithmetic operation underflowed")]
+    ArithmeticOperationUnderflow,
+    #[error("Arithmetic operation divided by zero")]
+    ArithmeticOperationDividedByZero,
+    #[error("Accound should have been cached")]
+    AccountShouldHaveBeenCached,
+    #[error("Tried to convert one type to another")]
+    ConversionError,
+    #[error("Division error")]
+    DivisionError,
     #[error("Tried to access last call frame but found none")]
     CouldNotAccessLastCallframe, // Last callframe before execution is the same as the first, but after execution the last callframe is actually the initial CF
     #[error("Tried to read from empty code")]
@@ -110,12 +143,6 @@ pub enum InternalError {
     ExcessBlobGasShouldNotBeNone,
     #[error("Error in utils file")]
     UtilsError,
-    #[error("Accound should have been cached")]
-    AccountShouldHaveBeenCached,
-    #[error("Tried to convert one type to another")]
-    ConversionError,
-    #[error("Division error")]
-    DivisionError,
     #[error("Overflow error")]
     OperationOverflow,
 }
@@ -167,7 +194,7 @@ impl TransactionReport {
             .checked_add(gas)
             .ok_or(VMError::Internal(InternalError::OperationOverflow))?;
         if self.gas_used > max {
-            Err(VMError::OutOfGas)
+            Err(VMError::OutOfGas(OutOfGasError::MaxGasLimitExceeded))
         } else {
             Ok(())
         }

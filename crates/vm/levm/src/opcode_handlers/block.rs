@@ -1,7 +1,8 @@
 use crate::{
     call_frame::CallFrame,
-    constants::{gas_cost, LAST_AVAILABLE_BLOCK_LIMIT},
+    constants::LAST_AVAILABLE_BLOCK_LIMIT,
     errors::{InternalError, OpcodeSuccess, VMError},
+    gas_cost,
     vm::{address_to_word, VM},
 };
 use ethereum_rust_core::{
@@ -34,7 +35,9 @@ impl VM {
             return Ok(OpcodeSuccess::Continue);
         }
 
-        let block_number = block_number.as_u64();
+        let block_number: u64 = block_number
+            .try_into()
+            .map_err(|_err| VMError::VeryLargeNumber)?;
 
         if let Some(block_hash) = self.db.get_block_hash(block_number) {
             current_call_frame
@@ -161,7 +164,11 @@ impl VM {
     ) -> Result<OpcodeSuccess, VMError> {
         self.increase_consumed_gas(current_call_frame, gas_cost::BLOBHASH)?;
 
-        let index = current_call_frame.stack.pop()?.as_usize();
+        let index: usize = current_call_frame
+            .stack
+            .pop()?
+            .try_into()
+            .map_err(|_err| VMError::VeryLargeNumber)?;
 
         let blob_hash: H256 = match &self.env.tx_blob_hashes {
             Some(vec) => match vec.get(index) {
@@ -184,14 +191,14 @@ impl VM {
     }
 
     fn get_blob_gasprice(&mut self) -> Result<U256, VMError> {
-        Ok(fake_exponential(
+        fake_exponential(
             MIN_BASE_FEE_PER_BLOB_GAS.into(),
             // Use unwrap because env should have a Some value in excess_blob_gas attribute
             self.env.block_excess_blob_gas.ok_or(VMError::Internal(
                 InternalError::ExcessBlobGasShouldNotBeNone,
             ))?,
             BLOB_BASE_FEE_UPDATE_FRACTION.into(),
-        ))
+        )
     }
 
     // BLOBBASEFEE operation
@@ -210,14 +217,37 @@ impl VM {
 }
 
 // Fuction inspired in EIP 4844 helpers. Link: https://eips.ethereum.org/EIPS/eip-4844#helpers
-fn fake_exponential(factor: U256, numerator: U256, denominator: U256) -> U256 {
+fn fake_exponential(factor: U256, numerator: U256, denominator: U256) -> Result<U256, VMError> {
     let mut i = U256::one();
     let mut output = U256::zero();
-    let mut numerator_accum = factor * denominator;
+    let mut numerator_accum = factor.checked_mul(denominator).ok_or(VMError::Internal(
+        InternalError::ArithmeticOperationOverflow,
+    ))?;
     while numerator_accum > U256::zero() {
-        output += numerator_accum;
-        numerator_accum = (numerator_accum * numerator) / (denominator * i);
-        i += U256::one();
+        output = output
+            .checked_add(numerator_accum)
+            .ok_or(VMError::Internal(
+                InternalError::ArithmeticOperationOverflow,
+            ))?;
+        let mult_numerator = numerator_accum
+            .checked_mul(numerator)
+            .ok_or(VMError::Internal(
+                InternalError::ArithmeticOperationOverflow,
+            ))?;
+        let mult_denominator = denominator.checked_mul(i).ok_or(VMError::Internal(
+            InternalError::ArithmeticOperationOverflow,
+        ))?;
+        numerator_accum =
+            (mult_numerator)
+                .checked_div(mult_denominator)
+                .ok_or(VMError::Internal(
+                    InternalError::ArithmeticOperationDividedByZero,
+                ))?; // Neither denominator or i can be zero
+        i = i.checked_add(U256::one()).ok_or(VMError::Internal(
+            InternalError::ArithmeticOperationOverflow,
+        ))?;
     }
-    output / denominator
+    output.checked_div(denominator).ok_or(VMError::Internal(
+        InternalError::ArithmeticOperationDividedByZero,
+    )) // Denominator is a const
 }

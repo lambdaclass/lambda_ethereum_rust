@@ -4,15 +4,17 @@ use crate::{
     constants::*,
     db::{Cache, Database},
     environment::Environment,
-    errors::{InternalError, OpcodeSuccess, ResultReason, TransactionReport, TxResult, VMError},
+    errors::{
+        InternalError, OpcodeSuccess, OutOfGasError, ResultReason, TransactionReport, TxResult,
+        VMError,
+    },
+    gas_cost::{self, CREATE_BASE_COST},
     opcodes::Opcode,
 };
 use bytes::Bytes;
-use create_opcode::{CODE_DEPOSIT_COST, CREATE_BASE_COST, INIT_CODE_WORD_COST};
 use ethereum_rust_core::{types::TxKind, Address, H256, U256};
 use ethereum_rust_rlp;
 use ethereum_rust_rlp::encode::RLPEncode;
-use gas_cost::KECCAK25_DYNAMIC_BASE;
 use keccak_hash::keccak;
 use sha3::{Digest, Keccak256};
 use std::{
@@ -56,7 +58,7 @@ pub fn address_to_word(address: Address) -> U256 {
 }
 
 pub fn word_to_address(word: U256) -> Address {
-    let mut bytes = [0u8; 32];
+    let mut bytes = [0u8; WORD_SIZE];
     word.to_big_endian(&mut bytes);
     Address::from_slice(&bytes[12..])
 }
@@ -168,7 +170,8 @@ impl VM {
         );
 
         loop {
-            let opcode = current_call_frame.next_opcode().unwrap_or(Opcode::STOP);
+            let opcode = current_call_frame.next_opcode()?.unwrap_or(Opcode::STOP); // This will execute opcode stop if there are no more opcodes, there are other ways of solving this but this is the simplest and doesn't change VM behavior.
+
             // Note: This is commented because it's used for debugging purposes in development.
             // dbg!(&current_call_frame.gas_used);
             // dbg!(&opcode);
@@ -298,9 +301,12 @@ impl VM {
 
                     // Unless error is from Revert opcode, all gas is consumed
                     if error != VMError::RevertOpcode {
-                        let left_gas = current_call_frame.gas_limit - current_call_frame.gas_used;
-                        current_call_frame.gas_used += left_gas;
-                        self.env.consumed_gas += left_gas;
+                        let left_gas = current_call_frame
+                            .gas_limit
+                            .saturating_sub(current_call_frame.gas_used);
+                        current_call_frame.gas_used =
+                            current_call_frame.gas_used.saturating_add(left_gas);
+                        self.env.consumed_gas = self.env.consumed_gas.saturating_add(left_gas);
                     }
 
                     self.restore_state(backup_db, backup_substate, backup_refunded_gas);
@@ -475,7 +481,11 @@ impl VM {
     //     let sender = call_frame.msg_sender;
     //     let mut sender_account = self.get_account(&sender);
 
-    //     sender_account.info.nonce -= 1;
+    //     sender_account.info.nonce = sender_account
+    //         .info
+    //         .nonce
+    //         .checked_sub(1)
+    //         .ok_or(VMError::Internal(InternalError::NonceUnderflowed))?;
 
     //     let new_contract_address = call_frame.to;
 
@@ -544,6 +554,7 @@ impl VM {
             // Charge 22100 gas for each storage variable set
 
             let contract_address = initial_call_frame.to;
+
             let mut created_contract = self.get_account(&contract_address);
 
             created_contract.info.bytecode = contract_code;
@@ -562,7 +573,7 @@ impl VM {
                     .checked_mul(self.env.gas_price)
                     .ok_or(VMError::GasLimitPriceProductOverflow)?, // TODO: Wrong error GasLimitPriceProductOverflow
             )
-            .ok_or(VMError::OutOfGas)?;
+            .ok_or(VMError::BalanceUnderflow)?;
 
         let receiver_address = initial_call_frame.to;
         let mut receiver_account = self.get_account(&receiver_address);
@@ -573,12 +584,12 @@ impl VM {
                 .info
                 .balance
                 .checked_sub(initial_call_frame.msg_value)
-                .ok_or(VMError::OutOfGas)?; // TODO: Wrong error OutOfGas
+                .ok_or(VMError::BalanceUnderflow)?;
             receiver_account.info.balance = receiver_account
                 .info
                 .balance
                 .checked_add(initial_call_frame.msg_value)
-                .ok_or(VMError::OutOfGas)?; // TODO: Wrong error OutOfGas
+                .ok_or(VMError::BalanceUnderflow)?;
         }
 
         // Note: This is commented because it's used for debugging purposes in development.
@@ -588,11 +599,21 @@ impl VM {
         self.cache.add_account(&receiver_address, &receiver_account);
 
         // Send coinbase fee
-        let priority_fee_per_gas = self.gas_price_or_max_fee_per_gas() - self.env.base_fee_per_gas;
-        let coinbase_fee = (U256::from(report.gas_used)) * priority_fee_per_gas;
+        let priority_fee_per_gas = self
+            .env
+            .gas_price
+            .checked_sub(self.env.base_fee_per_gas)
+            .ok_or(VMError::GasPriceIsLowerThanBaseFee)?;
+        let coinbase_fee = (U256::from(report.gas_used))
+            .checked_mul(priority_fee_per_gas)
+            .ok_or(VMError::BalanceOverflow)?;
 
         let mut coinbase_account = self.get_account(&coinbase_address);
-        coinbase_account.info.balance += coinbase_fee;
+        coinbase_account.info.balance = coinbase_account
+            .info
+            .balance
+            .checked_add(coinbase_fee)
+            .ok_or(VMError::BalanceOverflow)?;
 
         self.cache.add_account(&coinbase_address, &coinbase_account);
 
@@ -710,8 +731,16 @@ impl VM {
         let mut recipient_account = self.get_account(&to);
 
         // transfer value
-        sender_account.info.balance -= value;
-        recipient_account.info.balance += value;
+        sender_account.info.balance = sender_account
+            .info
+            .balance
+            .checked_sub(value)
+            .ok_or(VMError::BalanceUnderflow)?;
+        recipient_account.info.balance = recipient_account
+            .info
+            .balance
+            .checked_add(value)
+            .ok_or(VMError::BalanceOverflow)?;
 
         let code_address_bytecode = self.get_account(&code_address).info.bytecode;
 
@@ -730,10 +759,21 @@ impl VM {
             .into();
 
         // I don't know if this gas limit should be calculated before or after consuming gas
-        let gas_limit = std::cmp::min(gas_limit, {
-            let remaining_gas = current_call_frame.gas_limit - current_call_frame.gas_used;
-            remaining_gas - remaining_gas / 64
-        });
+        let mut potential_remaining_gas = current_call_frame
+            .gas_limit
+            .checked_sub(current_call_frame.gas_used)
+            .ok_or(VMError::OutOfGas(OutOfGasError::MaxGasLimitExceeded))?;
+        potential_remaining_gas = potential_remaining_gas
+            .checked_sub(potential_remaining_gas.checked_div(64.into()).ok_or(
+                VMError::Internal(InternalError::ArithmeticOperationOverflow),
+            )?)
+            .ok_or(VMError::OutOfGas(OutOfGasError::MaxGasLimitExceeded))?;
+        let gas_limit = std::cmp::min(gas_limit, potential_remaining_gas);
+
+        let new_depth = current_call_frame
+            .depth
+            .checked_add(1)
+            .ok_or(VMError::StackOverflow)?; // Maybe could be depthOverflow but in concept is quite similar
 
         let mut new_call_frame = CallFrame::new(
             msg_sender,
@@ -745,14 +785,14 @@ impl VM {
             is_static,
             gas_limit,
             U256::zero(),
-            current_call_frame.depth + 1,
+            new_depth,
         );
 
         // TODO: Increase this to 1024
         if new_call_frame.depth > 10 {
             current_call_frame.stack.push(U256::from(REVERT_FOR_CALL))?;
             // return Ok(OpcodeSuccess::Result(ResultReason::Revert));
-            return Err(VMError::OutOfGas); // This is wrong but it is for testing purposes.
+            return Err(VMError::StackOverflow); // This is wrong but it is for testing purposes.
         }
 
         current_call_frame.sub_return_data_offset = ret_offset;
@@ -766,7 +806,11 @@ impl VM {
         // self.call_frames.push(new_call_frame.clone());
         let tx_report = self.execute(&mut new_call_frame)?;
 
-        current_call_frame.gas_used += tx_report.gas_used.into(); // Add gas used by the sub-context to the current one after it's execution.
+        // Add gas used by the sub-context to the current one after it's execution.
+        current_call_frame.gas_used = current_call_frame
+            .gas_used
+            .checked_add(tx_report.gas_used.into())
+            .ok_or(VMError::OutOfGas(OutOfGasError::ConsumedGasOverflow))?;
         current_call_frame.logs.extend(tx_report.logs);
         current_call_frame
             .memory
@@ -839,54 +883,6 @@ impl VM {
         Ok(generated_address)
     }
 
-    fn compute_gas_create(
-        &mut self,
-        current_call_frame: &mut CallFrame,
-        code_offset_in_memory: U256,
-        code_size_in_memory: U256,
-        is_create_2: bool,
-    ) -> Result<U256, VMError> {
-        let minimum_word_size = (code_size_in_memory
-            .checked_add(U256::from(31))
-            .ok_or(VMError::DataSizeOverflow)?)
-        .checked_div(U256::from(32))
-        .ok_or(VMError::Internal(InternalError::DivisionError))?; // '32' will never be zero
-
-        let init_code_cost = minimum_word_size
-            .checked_mul(INIT_CODE_WORD_COST)
-            .ok_or(VMError::GasCostOverflow)?;
-
-        let code_deposit_cost = code_size_in_memory
-            .checked_mul(CODE_DEPOSIT_COST)
-            .ok_or(VMError::GasCostOverflow)?;
-
-        let memory_expansion_cost = current_call_frame.memory.expansion_cost(
-            code_size_in_memory
-                .checked_add(code_offset_in_memory)
-                .ok_or(VMError::OffsetOverflow)?
-                .try_into()
-                .map_err(|_err| VMError::OffsetOverflow)?,
-        )?;
-
-        let hash_cost = if is_create_2 {
-            minimum_word_size
-                .checked_mul(KECCAK25_DYNAMIC_BASE)
-                .ok_or(VMError::GasCostOverflow)?
-        } else {
-            U256::zero()
-        };
-
-        init_code_cost
-            .checked_add(memory_expansion_cost)
-            .ok_or(VMError::CreationCostIsTooHigh)?
-            .checked_add(code_deposit_cost)
-            .ok_or(VMError::CreationCostIsTooHigh)?
-            .checked_add(CREATE_BASE_COST)
-            .ok_or(VMError::CreationCostIsTooHigh)?
-            .checked_add(hash_cost)
-            .ok_or(VMError::CreationCostIsTooHigh)
-    }
-
     /// Common behavior for CREATE and CREATE2 opcodes
     ///
     /// Could be used for CREATE type transactions
@@ -899,15 +895,6 @@ impl VM {
         salt: Option<U256>,
         current_call_frame: &mut CallFrame,
     ) -> Result<OpcodeSuccess, VMError> {
-        let gas_cost = self.compute_gas_create(
-            current_call_frame,
-            code_offset_in_memory,
-            code_size_in_memory,
-            false,
-        )?;
-
-        self.increase_consumed_gas(current_call_frame, gas_cost)?;
-
         let code_size_in_memory = code_size_in_memory
             .try_into()
             .map_err(|_err| VMError::VeryLargeNumber)?;
@@ -1011,11 +998,21 @@ impl VM {
         current_call_frame: &mut CallFrame,
         gas: U256,
     ) -> Result<(), VMError> {
-        if current_call_frame.gas_used + gas > current_call_frame.gas_limit {
-            return Err(VMError::OutOfGas);
+        let potential_consumed_gas = current_call_frame
+            .gas_used
+            .checked_add(gas)
+            .ok_or(VMError::OutOfGas(OutOfGasError::ConsumedGasOverflow))?;
+        if potential_consumed_gas > current_call_frame.gas_limit {
+            return Err(VMError::OutOfGas(OutOfGasError::MaxGasLimitExceeded));
         }
-        current_call_frame.gas_used += gas;
-        self.env.consumed_gas += gas;
+
+        current_call_frame.gas_used = potential_consumed_gas;
+        self.env.consumed_gas = self
+            .env
+            .consumed_gas
+            .checked_add(gas)
+            .ok_or(VMError::OutOfGas(OutOfGasError::ConsumedGasOverflow))?;
+
         Ok(())
     }
 
