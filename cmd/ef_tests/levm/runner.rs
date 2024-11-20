@@ -82,7 +82,7 @@ pub fn run_ef_test(test: EFTest, report: &mut EFTestsReport) -> Result<(), Box<d
     println!("Running test: {}", &test.name);
     let mut failed = false;
     for (tx_id, (tx_indexes, _tx)) in test.transactions.iter().enumerate() {
-        if *tx_indexes != (331, 0, 0) {
+        if *tx_indexes != (346, 0, 0) {
             continue;
         }
         match run_ef_test_tx(tx_id, &test, report) {

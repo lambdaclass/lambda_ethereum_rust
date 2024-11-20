@@ -409,12 +409,12 @@ impl VM {
             .try_into()
             .map_err(|_err| VMError::VeryLargeNumber)?;
 
-        let gas_cost =
-            current_call_frame
-                .memory
-                .expansion_cost(offset.checked_add(size).ok_or(VMError::Internal(
-                    InternalError::ArithmeticOperationOverflow,
-                ))?)?;
+        let gas_cost = current_call_frame.memory.expansion_cost(
+            offset
+                .checked_add(size)
+                .ok_or(VMError::OutOfGas(OutOfGasError::GasCostOverflow))?,
+        )?;
+        //TODO: See what error to return if offset + size overflows. Check for right behavior.
 
         self.increase_consumed_gas(current_call_frame, gas_cost)?;
 
