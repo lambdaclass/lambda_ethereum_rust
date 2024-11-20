@@ -104,7 +104,7 @@ impl ExecutionDB {
 
         // Get pruned state trie
         let state_paths: Vec<_> = address_storage_keys.keys().map(hash_address).collect();
-        let pruned_state_trie = state_trie.get_pruned_state(&state_paths)?;
+        let pruned_state_trie = state_trie.get_proofs(&state_paths)?;
 
         // Get pruned storage tries for every account
         let mut pruned_storage_tries = HashMap::new();
@@ -117,7 +117,7 @@ impl ExecutionDB {
                 ))?;
             let storage_paths: Vec<_> = keys.iter().map(hash_key).collect();
             let (storage_trie_root, storage_trie_nodes) =
-                storage_trie.get_pruned_state(&storage_paths)?;
+                storage_trie.get_proofs(&storage_paths)?;
             pruned_storage_tries.insert(address, (storage_trie_root, storage_trie_nodes));
         }
 

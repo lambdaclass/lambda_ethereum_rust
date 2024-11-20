@@ -173,7 +173,7 @@ impl Trie {
     /// Obtains all encoded nodes traversed until reaching the node where every path is stored.
     /// The list doesn't include the root node, this is returned separately.
     /// Will still be constructed even if some path is not stored in the trie.
-    pub fn get_pruned_state(
+    pub fn get_proofs(
         &self,
         paths: &[PathRLP],
     ) -> Result<(Option<NodeRLP>, Vec<NodeRLP>), TrieError> {
@@ -203,7 +203,7 @@ impl Trie {
     }
 
     /// Creates a cached Trie (with [NullTrieDB]) from a list of encoded nodes.
-    /// Generally used in conjuction with [Trie::get_pruned_state].
+    /// Generally used in conjuction with [Trie::get_proofs].
     pub fn from_nodes(
         root_node: Option<&NodeRLP>,
         other_nodes: &[NodeRLP],
