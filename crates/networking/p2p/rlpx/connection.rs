@@ -28,9 +28,9 @@ use super::{
     utils::{ecdh_xchng, pubkey2id},
 };
 use aes::cipher::KeyIvInit;
-use ethereum_rust_core::{H256, H512};
-use ethereum_rust_rlp::decode::RLPDecode;
-use ethereum_rust_storage::Store;
+use ethrex_core::{H256, H512};
+use ethrex_rlp::decode::RLPDecode;
+use ethrex_storage::Store;
 use k256::{
     ecdsa::{RecoveryId, Signature, SigningKey, VerifyingKey},
     PublicKey, SecretKey,
@@ -323,7 +323,7 @@ impl<S: AsyncWrite + AsyncRead + std::marker::Unpin> RLPxConnection<S> {
             Message::Pong(_) => {
                 // We ignore received Pong messages
             }
-            Message::Status(msg_data) => {
+            Message::Status(msg_data) if !peer_supports_eth => {
                 info!("Received Status");
                 backend::validate_status(msg_data, &self.storage)?
             }
@@ -403,8 +403,10 @@ impl<S: AsyncWrite + AsyncRead + std::marker::Unpin> RLPxConnection<S> {
             // status, reference here:
             // https://github.com/ethereum/devp2p/blob/master/caps/eth.md#status-0x00
             match self.receive().await? {
-                Message::Status(_) => {
+                Message::Status(msg_data) => {
                     // TODO: Check message status is correct.
+                    info!("Received Status");
+                    backend::validate_status(msg_data, &self.storage)?
                 }
                 _msg => {
                     return Err(RLPxError::HandshakeError(
