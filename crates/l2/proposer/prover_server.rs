@@ -371,18 +371,26 @@ impl ProverServer {
         // smaller than the `lastVerifiedBlock` tracked by the contract, which is stored in `ProverServer::last_verified_block`.
         // We shouldn't encounter this error either.
         //
-        // Both errors will trigger a panic, along with any errors resulting from sending the transactions.
-        match self
-            .send_proof(block_number, &seal, image_id, journal_digest)
-            .await
-        {
-            Ok(tx_hash) => {
-                info!("Sent proof for block {block_number}, with transaction hash {tx_hash:#x}");
-            }
+        // Both errors will trigger a error, along with any errors resulting from sending the transactions.
+        let mut retries = 0;
+        let max_retries: u32 = 100;
+        while retries < max_retries {
+            match self
+                .send_proof(block_number, &seal, image_id, journal_digest)
+                .await
+            {
+                Ok(tx_hash) => {
+                    info!(
+                        "Sent proof for block {block_number}, with transaction hash {tx_hash:#x}"
+                    );
+                    break;
+                }
 
-            Err(e) => {
-                error!("Failed to send proof to block {block_number:#x}. Manual intervention required: {e}");
-                panic!("Failed to send proof to block {block_number:#x}. Manual intervention required: {e}");
+                Err(e) => {
+                    error!("Failed to send proof to block {block_number:#x}. Retrying [{retries}/{max_retries}]. Error: {e}");
+                    retries += 1;
+                    sleep(Duration::from_secs(2)).await;
+                }
             }
         }
 

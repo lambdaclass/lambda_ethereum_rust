@@ -5,16 +5,15 @@ use crate::{
     },
     utils::{
         config::{committer::CommitterConfig, eth::EthConfig},
-        eth_client::{errors::EthClientError, eth_sender::Overrides, EthClient},
+        eth_client::{eth_sender::Overrides, EthClient},
         merkle_tree::merkelize,
     },
 };
 use bytes::Bytes;
-use ethrex_blockchain::constants::TX_GAS_COST;
 use ethrex_core::{
     types::{
-        blobs_bundle, BlobsBundle, Block, EIP1559Transaction, GenericTransaction,
-        PrivilegedL2Transaction, PrivilegedTxType, Transaction, TxKind,
+        blobs_bundle, BlobsBundle, Block, PrivilegedL2Transaction, PrivilegedTxType, Transaction,
+        TxKind,
     },
     Address, H256, U256,
 };
@@ -121,23 +120,27 @@ impl Committer {
                 let blobs_bundle = self.generate_blobs_bundle(state_diff.clone())?;
 
                 let head_block_hash = block_to_commit.hash();
-                match self
-                    .send_commitment(
-                        block_to_commit.header.number,
-                        withdrawal_logs_merkle_root,
-                        deposit_logs_hash,
-                        blobs_bundle,
-                    )
-                    .await
-                {
-                    Ok(commit_tx_hash) => {
-                        info!(
-                    "Sent commitment to block {head_block_hash:#x}, with transaction hash {commit_tx_hash:#x}"
-                );
-                    }
-                    Err(error) => {
-                        error!("Failed to send commitment to block {head_block_hash:#x}. Manual intervention required: {error}");
-                        panic!("Failed to send commitment to block {head_block_hash:#x}. Manual intervention required: {error}");
+                let mut retries = 0;
+                let max_retries: u32 = 100;
+                while retries < max_retries {
+                    match self
+                        .send_commitment(
+                            block_to_commit.header.number,
+                            withdrawal_logs_merkle_root,
+                            deposit_logs_hash,
+                            &blobs_bundle,
+                        )
+                        .await
+                    {
+                        Ok(commit_tx_hash) => {
+                            info!("Sent commitment to block {head_block_hash:#x}, with transaction hash {commit_tx_hash:#x}");
+                            break;
+                        }
+                        Err(error) => {
+                            error!("Failed to send commitment to block {head_block_hash:#x}. Manual intervention required: {error}");
+                            retries += 1;
+                            sleep(Duration::from_secs(2)).await;
+                        }
                     }
                 }
             }
@@ -291,7 +294,7 @@ impl Committer {
         block_number: u64,
         withdrawal_logs_merkle_root: H256,
         deposit_logs_hash: H256,
-        blobs_bundle: BlobsBundle,
+        blobs_bundle: &BlobsBundle,
     ) -> Result<H256, CommitterError> {
         info!("Sending commitment for block {block_number}");
 
@@ -326,7 +329,7 @@ impl Committer {
                     gas_price_per_blob: Some(U256::from_dec_str("100000000000").unwrap()),
                     ..Default::default()
                 },
-                blobs_bundle,
+                blobs_bundle.clone(),
             )
             .await
             .map_err(CommitterError::from)?;
@@ -350,38 +353,6 @@ impl Committer {
 
         Ok(commit_tx_hash)
     }
-}
-
-pub async fn send_transaction_with_calldata(
-    eth_client: &EthClient,
-    l1_address: Address,
-    l1_private_key: SecretKey,
-    to: Address,
-    nonce: Option<u64>,
-    calldata: Bytes,
-) -> Result<H256, EthClientError> {
-    let mut tx = EIP1559Transaction {
-        to: TxKind::Call(to),
-        data: calldata,
-        max_fee_per_gas: eth_client.get_gas_price().await?.as_u64() * 2,
-        nonce: nonce.unwrap_or(eth_client.get_nonce(l1_address).await?),
-        chain_id: eth_client.get_chain_id().await?.as_u64(),
-        // Should the max_priority_fee_per_gas be dynamic?
-        max_priority_fee_per_gas: 10u64,
-        ..Default::default()
-    };
-
-    let mut generic_tx = GenericTransaction::from(tx.clone());
-    generic_tx.from = l1_address;
-
-    tx.gas_limit = eth_client
-        .estimate_gas(generic_tx)
-        .await?
-        .saturating_add(TX_GAS_COST);
-
-    eth_client
-        .send_eip1559_transaction(tx, &l1_private_key)
-        .await
 }
 
 async fn wrapped_eip4844_transaction_handler(
