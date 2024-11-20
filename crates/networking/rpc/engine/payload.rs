@@ -58,6 +58,16 @@ impl RpcHandler for NewPayloadV3Request {
 
     fn handle(&self, context: RpcApiContext) -> Result<Value, RpcErr> {
         let storage = &context.storage;
+
+        // We need to get the latest block number, then the header and finally compute the hash
+        let latest_hash =  match storage.get_latest_block_number() {
+            Ok(Some(block_number)) => match storage.get_block_header(block_number) {
+                Ok(Some(block_header)) => Some(block_header.compute_block_hash()),
+                _ => None
+            },
+            _ => None
+        };
+
         let block_hash = self.payload.block_hash;
         info!("Received new payload with block hash: {block_hash:#x}");
 
@@ -101,7 +111,7 @@ impl RpcHandler for NewPayloadV3Request {
             .flat_map(|tx| tx.blob_versioned_hashes())
             .collect();
         if self.expected_blob_versioned_hashes != blob_versioned_hashes {
-            let result = PayloadStatus::invalid_with_err("Invalid blob_versioned_hashes");
+            let result = PayloadStatus::invalid_with(latest_hash, "Invalid blob_versioned_hashes".to_string());
             return serde_json::to_value(result)
                 .map_err(|error| RpcErr::Internal(error.to_string()));
         }
@@ -130,13 +140,13 @@ impl RpcHandler for NewPayloadV3Request {
                 warn!("Error adding block: {error}");
                 // TODO(#982): this is only valid for the cases where the parent was found, but fully invalid ones may also happen.
                 Ok(PayloadStatus::invalid_with(
-                    block.header.parent_hash,
+                    Some(block.header.parent_hash),
                     error.to_string(),
                 ))
             }
             Err(ChainError::EvmError(error)) => {
                 warn!("Error executing block: {error}");
-                Ok(PayloadStatus::invalid_with_err(&error.to_string()))
+                Ok(PayloadStatus::invalid_with(latest_hash, error.to_string()))
             }
             Err(ChainError::StoreError(error)) => {
                 warn!("Error storing block: {error}");
