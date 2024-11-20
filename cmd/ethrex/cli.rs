@@ -1,10 +1,10 @@
 use clap::{Arg, ArgAction, Command};
-use ethereum_rust_net::bootnode::BootNode;
+use ethrex_net::bootnode::BootNode;
 use tracing::Level;
 
 pub fn cli() -> Command {
-    Command::new("ethereum_rust")
-        .about("Ethereum Rust Execution client")
+    Command::new("ethrex")
+        .about("ethrex Execution client")
         .author("Lambdaclass")
         .arg(
             Arg::new("http.addr")
