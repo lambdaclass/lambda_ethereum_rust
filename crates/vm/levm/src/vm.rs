@@ -8,7 +8,7 @@ use crate::{
         InternalError, OpcodeSuccess, OutOfGasError, ResultReason, TransactionReport, TxResult,
         VMError,
     },
-    gas_cost::{self, CREATE_BASE_COST},
+    gas_cost::CREATE_BASE_COST,
     opcodes::Opcode,
 };
 use bytes::Bytes;
@@ -374,7 +374,7 @@ impl VM {
             .ok_or(VMError::GasLimitPriceProductOverflow)?;
 
         // Up front cost is the maximum amount of wei that a user is willing to pay for.
-        let up_front_cost = gaslimit_price_product + initial_call_frame.msg_value;
+        let up_front_cost = gaslimit_price_product.checked_add(initial_call_frame.msg_value).ok_or(VMError::InsufficientAccountFunds)?;
 
         // (2) INSUFFICIENT_ACCOUNT_FUNDS
         if sender_account.info.balance < up_front_cost {
@@ -528,7 +528,7 @@ impl VM {
                 .len()
                 .try_into()
                 .map_err(|_| VMError::Internal(InternalError::ConversionError))?;
-            let code_deposit_cost = 200 * code_length;
+            let code_deposit_cost = code_length.checked_mul(200).ok_or(VMError::Internal(InternalError::OperationOverflow))?;
 
             report.add_gas_with_max(code_deposit_cost, max_gas)?;
             // Charge 22100 gas for each storage variable set
@@ -663,10 +663,8 @@ impl VM {
             Err(error) => {
                 if error.is_internal() {
                     return Err(error);
-                } else {
-                    if report.result == TxResult::Success {
-                        report.result = TxResult::Revert(error);
-                    }
+                } else if report.result == TxResult::Success {
+                    report.result = TxResult::Revert(error);
                 }
             }
         }
