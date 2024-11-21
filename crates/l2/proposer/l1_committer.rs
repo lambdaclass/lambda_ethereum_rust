@@ -5,16 +5,15 @@ use crate::{
     },
     utils::{
         config::{committer::CommitterConfig, eth::EthConfig},
-        eth_client::{errors::EthClientError, eth_sender::Overrides, EthClient},
+        eth_client::{eth_sender::Overrides, EthClient},
         merkle_tree::merkelize,
     },
 };
 use bytes::Bytes;
-use ethrex_blockchain::constants::TX_GAS_COST;
 use ethrex_core::{
     types::{
-        blobs_bundle, BlobsBundle, Block, EIP1559Transaction, GenericTransaction,
-        PrivilegedL2Transaction, PrivilegedTxType, Transaction, TxKind,
+        blobs_bundle, BlobsBundle, Block, PrivilegedL2Transaction, PrivilegedTxType, Transaction,
+        TxKind,
     },
     Address, H256, U256,
 };
@@ -43,7 +42,7 @@ pub async fn start_l1_commiter(store: Store) {
     let eth_config = EthConfig::from_env().expect("EthConfig::from_env()");
     let committer_config = CommitterConfig::from_env().expect("CommitterConfig::from_env");
     let committer = Committer::new_from_config(&committer_config, eth_config, store);
-    committer.start().await.expect("committer.start()");
+    committer.run().await;
 }
 
 impl Committer {
@@ -62,87 +61,108 @@ impl Committer {
         }
     }
 
-    pub async fn start(&self) -> Result<(), CommitterError> {
+    pub async fn run(&self) {
         loop {
-            let last_committed_block = EthClient::get_last_committed_block(
-                &self.eth_client,
-                self.on_chain_proposer_address,
-            )
-            .await?;
-
-            let block_number_to_fetch = if last_committed_block == u64::MAX {
-                0
-            } else {
-                last_committed_block + 1
-            };
-
-            if let Some(block_to_commit_body) = self
-                .store
-                .get_block_body(block_number_to_fetch)
-                .map_err(CommitterError::from)?
-            {
-                let block_to_commit_header = self
-                    .store
-                    .get_block_header(block_number_to_fetch)
-                    .map_err(CommitterError::from)?
-                    .ok_or(CommitterError::FailedToGetInformationFromStorage(
-                        "Failed to get_block_header() after get_block_body()".to_owned(),
-                    ))?;
-
-                let block_to_commit = Block::new(block_to_commit_header, block_to_commit_body);
-
-                let withdrawals = self.get_block_withdrawals(&block_to_commit)?;
-                let deposits = self.get_block_deposits(&block_to_commit)?;
-
-                let withdrawal_logs_merkle_root = self.get_withdrawals_merkle_root(
-                    withdrawals
-                        .iter()
-                        .map(|(_hash, tx)| {
-                            tx.get_withdrawal_hash()
-                                .expect("Not a withdrawal transaction")
-                        })
-                        .collect(),
-                );
-                let deposit_logs_hash = self.get_deposit_hash(
-                    deposits
-                        .iter()
-                        .filter_map(|tx| tx.get_deposit_hash())
-                        .collect(),
-                );
-
-                let state_diff = self.prepare_state_diff(
-                    &block_to_commit,
-                    self.store.clone(),
-                    withdrawals,
-                    deposits,
-                )?;
-
-                let blobs_bundle = self.generate_blobs_bundle(state_diff.clone())?;
-
-                let head_block_hash = block_to_commit.hash();
-                match self
-                    .send_commitment(
-                        block_to_commit.header.number,
-                        withdrawal_logs_merkle_root,
-                        deposit_logs_hash,
-                        blobs_bundle,
-                    )
-                    .await
-                {
-                    Ok(commit_tx_hash) => {
-                        info!(
-                    "Sent commitment to block {head_block_hash:#x}, with transaction hash {commit_tx_hash:#x}"
-                );
-                    }
-                    Err(error) => {
-                        error!("Failed to send commitment to block {head_block_hash:#x}. Manual intervention required: {error}");
-                        panic!("Failed to send commitment to block {head_block_hash:#x}. Manual intervention required: {error}");
-                    }
-                }
+            if let Err(err) = self.main_logic().await {
+                error!("L1 Committer Error: {}", err);
             }
 
             sleep(Duration::from_millis(self.interval_ms)).await;
         }
+    }
+
+    // Get next block to commit
+    // Try to commit to it by sending the tx. Two possibilities
+    // - If nonce already known, just error out normally and it'll be fine, the loop will start again, you'll get the new commited block, you're fine
+    // - If tx gas fee too low, increase the fee. This should be handled normally by the function that sends transactions.
+    //
+    // To sum up, the function to send transactions will have a built in feature to retry after a while with a bumped gas price.
+    //
+    // The main logic is simple:
+    // - Fetch the latest committed block from the contract
+    // - Get the state diff to commit to and send the blob transaction
+    // - When sending it just use the function that bumps gas.
+    //
+    // If something errors out, we are back at the beginning, which covers the two cases.
+
+    pub async fn main_logic(&self) -> Result<(), CommitterError> {
+        let last_committed_block =
+            EthClient::get_last_committed_block(&self.eth_client, self.on_chain_proposer_address)
+                .await?;
+
+        let block_number_to_fetch = if last_committed_block == u64::MAX {
+            0
+        } else {
+            last_committed_block + 1
+        };
+
+        if let Some(block_to_commit_body) = self
+            .store
+            .get_block_body(block_number_to_fetch)
+            .map_err(CommitterError::from)?
+        {
+            let block_to_commit_header = self
+                .store
+                .get_block_header(block_number_to_fetch)
+                .map_err(CommitterError::from)?
+                .ok_or(CommitterError::FailedToGetInformationFromStorage(
+                    "Failed to get_block_header() after get_block_body()".to_owned(),
+                ))?;
+
+            let block_to_commit = Block::new(block_to_commit_header, block_to_commit_body);
+
+            let withdrawals = self.get_block_withdrawals(&block_to_commit)?;
+            let deposits = self.get_block_deposits(&block_to_commit);
+
+            let mut withdrawal_hashes = vec![];
+
+            for (_, tx) in &withdrawals {
+                let hash = tx
+                    .get_withdrawal_hash()
+                    .ok_or(CommitterError::InvalidWithdrawalTransaction)?;
+                withdrawal_hashes.push(hash);
+            }
+
+            let withdrawal_logs_merkle_root = self.get_withdrawals_merkle_root(withdrawal_hashes);
+            let deposit_logs_hash = self.get_deposit_hash(
+                deposits
+                    .iter()
+                    .filter_map(|tx| tx.get_deposit_hash())
+                    .collect(),
+            );
+
+            let state_diff = self.prepare_state_diff(
+                &block_to_commit,
+                self.store.clone(),
+                withdrawals,
+                deposits,
+            )?;
+
+            let blobs_bundle = self.generate_blobs_bundle(state_diff.clone())?;
+
+            let head_block_hash = block_to_commit.hash();
+            match self
+                .send_commitment(
+                    block_to_commit.header.number,
+                    withdrawal_logs_merkle_root,
+                    deposit_logs_hash,
+                    blobs_bundle,
+                )
+                .await
+            {
+                Ok(commit_tx_hash) => {
+                    info!(
+                "Sent commitment to block {head_block_hash:#x}, with transaction hash {commit_tx_hash:#x}"
+            );
+                }
+                Err(error) => {
+                    error!("Failed to send commitment to block {head_block_hash:#x}. Manual intervention required: {error}");
+                    return Err(CommitterError::FailedToSendCommitment(format!("Failed to send commitment to block {head_block_hash:#x}. Manual intervention required: {error}")));
+                }
+            }
+        }
+
+        Ok(())
     }
 
     pub fn get_block_withdrawals(
@@ -174,10 +194,7 @@ impl Committer {
         }
     }
 
-    pub fn get_block_deposits(
-        &self,
-        block: &Block,
-    ) -> Result<Vec<PrivilegedL2Transaction>, CommitterError> {
+    pub fn get_block_deposits(&self, block: &Block) -> Vec<PrivilegedL2Transaction> {
         let deposits = block
             .body
             .transactions
@@ -192,7 +209,7 @@ impl Committer {
             })
             .collect();
 
-        Ok(deposits)
+        deposits
     }
 
     pub fn get_deposit_hash(&self, deposit_hashes: Vec<H256>) -> H256 {
@@ -344,38 +361,6 @@ impl Committer {
 
         Ok(commit_tx_hash)
     }
-}
-
-pub async fn send_transaction_with_calldata(
-    eth_client: &EthClient,
-    l1_address: Address,
-    l1_private_key: SecretKey,
-    to: Address,
-    nonce: Option<u64>,
-    calldata: Bytes,
-) -> Result<H256, EthClientError> {
-    let mut tx = EIP1559Transaction {
-        to: TxKind::Call(to),
-        data: calldata,
-        max_fee_per_gas: eth_client.get_gas_price().await?.as_u64() * 2,
-        nonce: nonce.unwrap_or(eth_client.get_nonce(l1_address).await?),
-        chain_id: eth_client.get_chain_id().await?.as_u64(),
-        // Should the max_priority_fee_per_gas be dynamic?
-        max_priority_fee_per_gas: 10u64,
-        ..Default::default()
-    };
-
-    let mut generic_tx = GenericTransaction::from(tx.clone());
-    generic_tx.from = l1_address;
-
-    tx.gas_limit = eth_client
-        .estimate_gas(generic_tx)
-        .await?
-        .saturating_add(TX_GAS_COST);
-
-    eth_client
-        .send_eip1559_transaction(tx, &l1_private_key)
-        .await
 }
 
 async fn wrapped_eip4844_transaction_handler(
