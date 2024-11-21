@@ -452,11 +452,11 @@ impl VM {
         // (12) TYPE_3_TX_INVALID_BLOB_VERSIONED_HASH
         if let Some(tx_blob_hashes) = &self.env.tx_blob_hashes {
             for blob_hash in tx_blob_hashes {
-                // convert H256 to bytes
                 let blob_hash = blob_hash.as_bytes();
-                // blob hash is invalid if it doesn't start with 0x01
-                if blob_hash.get(0) != Some(&0x01) {
-                    return Err(VMError::Type3TxInvalidBlobVersionedHash);
+                if let Some(first_byte) = blob_hash.first() {
+                    if !VALID_BLOB_PREFIXES.contains(first_byte) {
+                        return Err(VMError::Type3TxInvalidBlobVersionedHash);
+                    }
                 }
             }
         }

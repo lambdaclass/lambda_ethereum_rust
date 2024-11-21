@@ -43,6 +43,7 @@ pub const TARGET_BLOB_GAS_PER_BLOCK: U256 = U256([393216, 0, 0, 0]); // TARGET_B
 pub const MIN_BASE_FEE_PER_BLOB_GAS: U256 = U256([1, 0, 0, 0]);
 pub const BLOB_BASE_FEE_UPDATE_FRACTION: U256 = U256([3338477, 0, 0, 0]);
 pub const MAX_BLOB_COUNT: usize = 6;
+pub const VALID_BLOB_PREFIXES: [u8; 2] = [0x01, 0x02];
 // Storage constants
 pub const COLD_STORAGE_ACCESS_COST: U256 = U256([2100, 0, 0, 0]);
 pub const WARM_ADDRESS_ACCESS_COST: U256 = U256([100, 0, 0, 0]);
