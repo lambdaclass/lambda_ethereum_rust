@@ -575,13 +575,13 @@ impl VM {
             .env
             .gas_price
             .checked_mul(U256::from(refundable_gas))
-            .ok_or(VMError::Internal(InternalError::UndefinedState))?;
+            .ok_or(VMError::Internal(InternalError::UndefinedState(1)))?;
 
         sender_account.info.balance = sender_account
             .info
             .balance
             .checked_add(refund_amount)
-            .ok_or(VMError::Internal(InternalError::UndefinedState))?;
+            .ok_or(VMError::Internal(InternalError::UndefinedState(2)))?;
 
         // 2. Transfer value to recipient or return value to sender depending on execution result.
         let recipient_address = initial_call_frame.to;
@@ -593,14 +593,14 @@ impl VM {
                 .info
                 .balance
                 .checked_add(initial_call_frame.msg_value)
-                .ok_or(VMError::Internal(InternalError::UndefinedState))?;
+                .ok_or(VMError::Internal(InternalError::UndefinedState(3)))?;
         } else {
             // return value to sender
             sender_account.info.balance = sender_account
                 .info
                 .balance
                 .checked_add(initial_call_frame.msg_value)
-                .ok_or(VMError::Internal(InternalError::UndefinedState))?;
+                .ok_or(VMError::Internal(InternalError::UndefinedState(4)))?;
         }
 
         self.cache.add_account(&sender_address, &sender_account);
@@ -613,10 +613,10 @@ impl VM {
             .env
             .gas_price
             .checked_sub(self.env.base_fee_per_gas)
-            .ok_or(VMError::Internal(InternalError::UndefinedState))?;
+            .ok_or(VMError::Internal(InternalError::UndefinedState(5)))?;
         let coinbase_fee = (U256::from(consumed_gas))
             .checked_mul(priority_fee_per_gas)
-            .ok_or(VMError::Internal(InternalError::UndefinedState))?;
+            .ok_or(VMError::Internal(InternalError::UndefinedState(6)))?;
 
         let mut coinbase_account = self.get_account(&coinbase_address);
 
@@ -624,7 +624,7 @@ impl VM {
             .info
             .balance
             .checked_add(coinbase_fee)
-            .ok_or(VMError::Internal(InternalError::UndefinedState))?;
+            .ok_or(VMError::Internal(InternalError::UndefinedState(7)))?;
 
         self.cache.add_account(&coinbase_address, &coinbase_account);
 

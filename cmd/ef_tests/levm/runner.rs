@@ -46,19 +46,19 @@ pub fn run_ef_tests() -> Result<EFTestsReport, Box<dyn Error>> {
                 continue;
             }
             // 'If' for running a specific test when necessary.
-            // if test
-            //     .path()
-            //     .file_name()
-            //     .is_some_and(|name| name == "buffer.json")
-            // {
-            let test_result = run_ef_test(
-                serde_json::from_reader(std::fs::File::open(test.path())?)?,
-                &mut report,
-            );
-            if test_result.is_err() {
-                continue;
+            if test
+                .path()
+                .file_name()
+                .is_some_and(|name| name == "valCausesOOF.json")
+            {
+                let test_result = run_ef_test(
+                    serde_json::from_reader(std::fs::File::open(test.path())?)?,
+                    &mut report,
+                );
+                if test_result.is_err() {
+                    continue;
+                }
             }
-            // }
         }
         spinner.update_text(report.progress());
     }
@@ -76,7 +76,7 @@ pub fn run_ef_test_tx(
     let mut evm = prepare_vm_for_tx(tx_id, test)?;
     ensure_pre_state(&evm, test)?;
     let execution_result = evm.transact();
-    // ensure_post_state(execution_result, test, report, tx_id)?;
+    ensure_post_state(execution_result, test, report, tx_id)?;
     Ok(())
 }
 

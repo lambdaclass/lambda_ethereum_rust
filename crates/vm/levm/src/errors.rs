@@ -156,7 +156,7 @@ pub enum InternalError {
     #[error("Overflow error")]
     OperationOverflow,
     #[error("Undefined state")]
-    UndefinedState, // This error is temporarily for things that cause an undefined state.
+    UndefinedState(i32), // This error is temporarily for things that cause an undefined state.
 }
 
 impl VMError {
