@@ -442,6 +442,40 @@ impl VM {
 
         //TODO: Implement the rest of the validations (TYPE_3)
 
+        // (11) TYPE_3_TX_ZERO_BLOBS
+        if let Some(tx_blob_hashes) = &self.env.tx_blob_hashes {
+            if tx_blob_hashes.is_empty() {
+                return Err(VMError::Type3TxZeroBlobs);
+            }
+        }
+
+        // (12) TYPE_3_TX_INVALID_BLOB_VERSIONED_HASH
+        if let Some(tx_blob_hashes) = &self.env.tx_blob_hashes {
+            for blob_hash in tx_blob_hashes {
+                // convert H256 to bytes
+                let blob_hash = blob_hash.as_bytes();
+                // blob hash is invalid if it doesn't start with 0x01
+                if blob_hash.get(0) != Some(&0x01) {
+                    return Err(VMError::Type3TxInvalidBlobVersionedHash);
+                }
+            }
+        }
+
+        // (13) TYPE_3_TX_PRE_FORK -> This is not necessary for now because we are not supporting pre-cancun transactions yet. But we should somehow be able to tell the current context.
+
+        // (14) TYPE_3_TX_BLOB_COUNT_EXCEEDED
+        if let Some(tx_blob_hashes) = &self.env.tx_blob_hashes {
+            if tx_blob_hashes.len() > MAX_BLOB_COUNT {
+                return Err(VMError::Type3TxBlobCountExceeded);
+            }
+        }
+
+        // (15) TYPE_3_TX_CONTRACT_CREATION
+        // The current way of checking if the transaction is a Type 3 Tx is by checking if the tx_blob_hashes is Some.
+        if self.env.tx_blob_hashes.is_some() && self.is_create() {
+            return Err(VMError::Type3TxContractCreation);
+        }
+
         Ok(())
     }
 

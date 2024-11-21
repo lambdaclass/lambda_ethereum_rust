@@ -22,7 +22,7 @@ use std::{collections::HashMap, error::Error, sync::Arc};
 pub fn run_ef_tests() -> Result<EFTestsReport, Box<dyn Error>> {
     let mut report = EFTestsReport::default();
     let cargo_manifest_dir = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"));
-    let ef_general_state_tests_path = cargo_manifest_dir.join("vectors/GeneralStateTests");
+    let ef_general_state_tests_path = cargo_manifest_dir.join("vectors/GeneralStateTests/Cancun");
     let mut spinner = Spinner::new(Dots, report.progress(), Color::Cyan);
     for test_dir in std::fs::read_dir(ef_general_state_tests_path)?.flatten() {
         for test in std::fs::read_dir(test_dir.path())?
@@ -130,7 +130,13 @@ pub fn prepare_vm_for_tx(tx_id: usize, test: &EFTest) -> Result<VM, Box<dyn Erro
                 .unwrap_or_default(), // or max_fee_per_gas?
             block_excess_blob_gas: Some(test.env.current_excess_blob_gas),
             block_blob_gas_used: None,
-            tx_blob_hashes: None,
+            tx_blob_hashes: test
+                .transactions
+                .get(tx_id)
+                .unwrap()
+                .1
+                .blob_versioned_hashes
+                .clone(),
             block_gas_limit: test.env.current_gas_limit,
             tx_max_priority_fee_per_gas: test
                 .transactions
