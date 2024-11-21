@@ -1,6 +1,6 @@
 use crate::account::Account;
 use bytes::Bytes;
-use ethereum_rust_core::{types::Log, Address};
+use ethrex_core::{types::Log, Address};
 use std::collections::HashMap;
 use thiserror;
 
@@ -63,6 +63,8 @@ pub enum VMError {
     GasRefundsUnderflow,
     #[error("Gas refunds overflow")]
     GasRefundsOverflow,
+    #[error("Memory size overflows")]
+    MemorySizeOverflow,
     // OutOfGas
     #[error("Out Of Gas")]
     OutOfGas(#[from] OutOfGasError),

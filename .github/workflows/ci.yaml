@@ -43,7 +43,7 @@ jobs:
 
       - name: Run cargo clippy
         run: |
-          cargo clippy --all-targets --all-features --workspace --exclude ethereum_rust-prover -- -D warnings
+          cargo clippy --all-targets --all-features --workspace --exclude ethrex-prover -- -D warnings
 
       - name: Run cargo fmt
         run: |
@@ -67,6 +67,12 @@ jobs:
       - name: Download test vectors
         run: |
           make download-test-vectors
+
+      - name: Run L2 integration test
+        run: |
+          cd crates/l2
+          cp .env.example .env
+          make test
 
       - name: Run tests
         run: |

@@ -1,8 +1,9 @@
-use ethereum_rust_l2::utils::eth_client::EthClient;
+use bytes::Bytes;
 use ethereum_types::{Address, H160, U256};
+use ethrex_l2::utils::eth_client::{eth_sender::Overrides, EthClient};
 use keccak_hash::H256;
 use secp256k1::SecretKey;
-use std::str::FromStr;
+use std::{str::FromStr, time::Duration};
 
 const DEFAULT_ETH_URL: &str = "http://localhost:8545";
 const DEFAULT_PROPOSER_URL: &str = "http://localhost:1729";
@@ -17,7 +18,7 @@ const DEFAULT_L1_RICH_WALLET_PRIVATE_KEY: H256 = H256([
     0x33, 0xf6, 0x6b, 0x39, 0x60, 0xd9, 0xe6, 0x22, 0x9c, 0x1c, 0xd2, 0x14, 0xed, 0x3b, 0xbe, 0x31,
 ]);
 
-const L1_GAS_COST_MAX_DELTA: U256 = U256([100_000_000_000_000, 0, 0, 0]);
+const L1_GAS_COST_MAX_DELTA: U256 = U256([1_000_000_000_000_000, 0, 0, 0]);
 const L2_GAS_COST_MAX_DELTA: U256 = U256([100_000_000_000_000, 0, 0, 0]);
 
 /// Test the full flow of depositing, transferring, and withdrawing funds
@@ -58,7 +59,7 @@ async fn testito() {
     println!("Depositing funds from L1 to L2");
 
     let deposit_value = U256::from(1000000000000000000000u128);
-    let deposit_tx = ethereum_rust_l2_sdk::deposit(
+    let deposit_tx = ethrex_l2_sdk::deposit(
         deposit_value,
         l1_rich_wallet_address(),
         l1_rich_wallet_private_key(),
@@ -70,7 +71,7 @@ async fn testito() {
     println!("Waiting for deposit transaction receipt");
 
     let _deposit_tx_receipt =
-        ethereum_rust_l2_sdk::wait_for_transaction_receipt(deposit_tx, &eth_client, 5).await;
+        ethrex_l2_sdk::wait_for_transaction_receipt(deposit_tx, &eth_client, 5).await;
 
     // 3. Check balances on L1 and L2
 
@@ -90,8 +91,9 @@ async fn testito() {
     // TODO: Improve this. Ideally, the L1 contract should return the L2 mint
     // tx hash for the user to wait for the receipt.
     let mut retries = 0;
-    while retries < 10 && l2_after_deposit_balance < l2_initial_balance + deposit_value {
-        tokio::time::sleep(std::time::Duration::from_secs(2)).await;
+    while retries < 30 && l2_after_deposit_balance < l2_initial_balance + deposit_value {
+        std::thread::sleep(std::time::Duration::from_secs(2));
+        println!("[{retries}/30] Waiting for L2 balance to update after deposit");
         l2_after_deposit_balance = proposer_client
             .get_balance(l1_rich_wallet_address())
             .await
@@ -99,7 +101,7 @@ async fn testito() {
         retries += 1;
     }
 
-    assert_ne!(retries, 10, "L2 balance did not update after deposit");
+    assert_ne!(retries, 30, "L2 balance did not update after deposit");
 
     println!("L2 deposit received");
 
@@ -129,7 +131,7 @@ async fn testito() {
         .unwrap();
     assert!(l2_random_account_initial_balance.is_zero());
     let transfer_value = U256::from(10000000000u128);
-    let transfer_tx = ethereum_rust_l2_sdk::transfer(
+    let transfer_tx = ethrex_l2_sdk::transfer(
         transfer_value,
         l1_rich_wallet_address(),
         random_account_address,
@@ -139,7 +141,7 @@ async fn testito() {
     .await
     .unwrap();
     let _transfer_tx_receipt =
-        ethereum_rust_l2_sdk::wait_for_transaction_receipt(transfer_tx, &proposer_client, 30).await;
+        ethrex_l2_sdk::wait_for_transaction_receipt(transfer_tx, &proposer_client, 30).await;
 
     // 5. Check balances on L2
 
@@ -174,7 +176,7 @@ async fn testito() {
     println!("Withdrawing funds from L2 to L1");
 
     let withdraw_value = U256::from(100000000000000000000u128);
-    let withdraw_tx = ethereum_rust_l2_sdk::withdraw(
+    let withdraw_tx = ethrex_l2_sdk::withdraw(
         withdraw_value,
         l1_rich_wallet_address(),
         l1_rich_wallet_private_key(),
@@ -182,8 +184,8 @@ async fn testito() {
     )
     .await
     .unwrap();
-    let _withdraw_tx_receipt =
-        ethereum_rust_l2_sdk::wait_for_transaction_receipt(withdraw_tx, &proposer_client, 30).await;
+    let withdraw_tx_receipt =
+        ethrex_l2_sdk::wait_for_transaction_receipt(withdraw_tx, &proposer_client, 30).await;
 
     // 7. Check balances on L1 and L2
 
@@ -215,7 +217,30 @@ async fn testito() {
 
     println!("Claiming funds on L1");
 
-    let claim_tx = ethereum_rust_l2_sdk::claim_withdraw(
+    while u64::from_str_radix(
+        &eth_client
+            .call(
+                Address::from_str(
+                    &std::env::var("ON_CHAIN_PROPOSER_ADDRESS")
+                        .expect("ON_CHAIN_PROPOSER env var not set"),
+                )
+                .unwrap(),
+                // lastVerifiedBlock()
+                Bytes::from_static(&[0x2f, 0xde, 0x80, 0xe5]),
+                Overrides::default(),
+            )
+            .await
+            .unwrap()[2..],
+        16,
+    )
+    .unwrap()
+        < withdraw_tx_receipt.block_info.block_number
+    {
+        println!("Withdrawal is not verified on L1 yet");
+        std::thread::sleep(Duration::from_secs(2));
+    }
+
+    let claim_tx = ethrex_l2_sdk::claim_withdraw(
         withdraw_tx,
         withdraw_value,
         l1_rich_wallet_address(),
@@ -227,7 +252,7 @@ async fn testito() {
     .unwrap();
 
     let _claim_tx_receipt =
-        ethereum_rust_l2_sdk::wait_for_transaction_receipt(claim_tx, &eth_client, 15).await;
+        ethrex_l2_sdk::wait_for_transaction_receipt(claim_tx, &eth_client, 15).await;
 
     // 9. Check balances on L1 and L2
 

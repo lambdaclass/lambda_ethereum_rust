@@ -1,4 +1,6 @@
-use ethereum_rust_rlp::{
+use std::cmp;
+
+use ethrex_rlp::{
     decode::RLPDecode,
     encode::RLPEncode,
     error::RLPDecodeError,
@@ -53,6 +55,14 @@ impl Nibbles {
             true
         } else {
             false
+        }
+    }
+
+    pub fn compare_prefix(&self, prefix: &Nibbles) -> cmp::Ordering {
+        if self.len() > prefix.len() {
+            self.data[..prefix.len()].cmp(&prefix.data)
+        } else {
+            self.data.cmp(&prefix.data)
         }
     }
 

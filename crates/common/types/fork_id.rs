@@ -1,5 +1,5 @@
 use crc32fast::Hasher;
-use ethereum_rust_rlp::{
+use ethrex_rlp::{
     decode::RLPDecode,
     encode::RLPEncode,
     error::RLPDecodeError,
@@ -10,7 +10,7 @@ use ethereum_types::H32;
 
 use super::{BlockHash, BlockNumber, ChainConfig};
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub struct ForkId {
     fork_hash: H32,
     fork_next: BlockNumber,
