@@ -12,6 +12,7 @@ use crate::{
     opcodes::Opcode,
 };
 use bytes::Bytes;
+use core::error;
 use ethrex_core::{types::TxKind, Address, H256, U256};
 use ethrex_rlp;
 use ethrex_rlp::encode::RLPEncode;
@@ -501,36 +502,17 @@ impl VM {
     //     Ok(())
     // }
 
-    pub fn post_execution_changes(
+    pub fn create_post_execution(
         &mut self,
+        initial_call_frame: &mut CallFrame,
         report: &mut TransactionReport,
     ) -> Result<(), VMError> {
-        let initial_call_frame = self
-            .call_frames
-            .last()
-            .ok_or(VMError::Internal(
-                InternalError::CouldNotAccessLastCallframe,
-            ))?
-            .clone();
-
-        let sender = initial_call_frame.msg_sender;
-
         if self.is_create() {
-            // If create should check if transaction failed. If failed should revert (delete created contract, )
-            // if let TxResult::Revert(error) = report.result {
-            //     self.revert_create()?;
-            //     return Err(error);
-            // }
-            // Revert behavior is actually done at the end of execute, it reverts the cache to the state before execution.
-            // TODO: Think about the behavior when reverting a transaction. What changes to the state? The sender has to lose the gas used and coinbase gets the priority fee, nothing else has to change.
+            if let TxResult::Revert(error) = &report.result {
+                return Err(error.clone());
+            }
 
             let contract_code = report.clone().output;
-
-            // // TODO: Is this the expected behavior?
-            // if contract_code.is_empty() {
-            //     return Err(VMError::InvalidBytecode);
-            // }
-            // I think you are able to create a contract without bytecode.
 
             // (6)
             if contract_code.len() > MAX_CODE_SIZE {
@@ -544,8 +526,7 @@ impl VM {
 
             let max_gas = self.env.gas_limit.low_u64();
 
-            // If the initialization code completes successfully, a final contract-creation cost is paid,
-            // the code-deposit cost, c, proportional to the size of the created contract’s code
+            // If initialization code is successful, code-deposit cost is paid.
             let code_length: u64 = contract_code
                 .len()
                 .try_into()
@@ -555,73 +536,97 @@ impl VM {
                 .ok_or(VMError::Internal(InternalError::OperationOverflow))?;
 
             report.add_gas_with_max(code_deposit_cost, max_gas)?;
-            // Charge 22100 gas for each storage variable set
+            // Charge 22100 gas for each storage variable set (???)
 
+            // Assign bytecode to the new contract
             let contract_address = initial_call_frame.to;
-
             let mut created_contract = self.get_account(&contract_address);
 
             created_contract.info.bytecode = contract_code;
 
             self.cache.add_account(&contract_address, &created_contract);
         }
+        Ok(())
+    }
 
-        let mut sender_account = self.get_account(&sender);
-        let coinbase_address = self.env.coinbase;
+    /// ## Description
+    /// Changes to the state post-execution, if this fails we won't be able to determine a final state.
+    /// Errors here are mostly related to balance overflows.
+    /// TODO: Determine the right behavior when a balance overflow occurs.
+    /// 1. Refund unused gas to sender
+    /// 2. Transfer value to recipient or return value to sender depending on execution result.
+    /// 3. Pay priority fee to coinbase
+    pub fn post_execution_changes(
+        &mut self,
+        initial_call_frame: &CallFrame,
+        report: &TransactionReport,
+    ) -> Result<(), VMError> {
+        // 1. Refund unused gas to sender
+        let sender_address = self.env.origin;
+        let mut sender_account = self.get_account(&sender_address);
+
+        let max_gas = self.env.gas_limit.low_u64();
+        let consumed_gas = report.gas_used;
+        let refunded_gas = report.gas_refunded;
+
+        let refundable_gas = max_gas - consumed_gas + refunded_gas;
+
+        let refund_amount = self
+            .env
+            .gas_price
+            .checked_mul(U256::from(refundable_gas))
+            .ok_or(VMError::Internal(InternalError::UndefinedState))?;
 
         sender_account.info.balance = sender_account
             .info
             .balance
-            .checked_sub(
-                U256::from(report.gas_used)
-                    .checked_mul(self.env.gas_price)
-                    .ok_or(VMError::GasLimitPriceProductOverflow)?, // TODO: Wrong error GasLimitPriceProductOverflow
-            )
-            .ok_or(VMError::BalanceUnderflow)?;
+            .checked_add(refund_amount)
+            .ok_or(VMError::Internal(InternalError::UndefinedState))?;
 
-        let receiver_address = initial_call_frame.to;
-        let mut receiver_account = self.get_account(&receiver_address);
-        // If execution was successful we want to transfer value from sender to receiver
+        // 2. Transfer value to recipient or return value to sender depending on execution result.
+        let recipient_address = initial_call_frame.to;
+        let mut recipient_account = self.get_account(&recipient_address);
+
         if report.is_success() {
-            // Subtract to the caller the gas sent
-            sender_account.info.balance = sender_account
-                .info
-                .balance
-                .checked_sub(initial_call_frame.msg_value)
-                .ok_or(VMError::BalanceUnderflow)?;
-            receiver_account.info.balance = receiver_account
+            // transfer value to recipient
+            recipient_account.info.balance = recipient_account
                 .info
                 .balance
                 .checked_add(initial_call_frame.msg_value)
-                .ok_or(VMError::BalanceUnderflow)?;
+                .ok_or(VMError::Internal(InternalError::UndefinedState))?;
+        } else {
+            // return value to sender
+            sender_account.info.balance = sender_account
+                .info
+                .balance
+                .checked_add(initial_call_frame.msg_value)
+                .ok_or(VMError::Internal(InternalError::UndefinedState))?;
         }
 
-        // Note: This is commented because it's used for debugging purposes in development.
-        // dbg!(&report.gas_refunded);
+        self.cache.add_account(&sender_address, &sender_account);
+        self.cache
+            .add_account(&recipient_address, &recipient_account);
 
-        self.cache.add_account(&sender, &sender_account);
-        self.cache.add_account(&receiver_address, &receiver_account);
-
-        // Send coinbase fee
+        // 3. Pay priority fee to coinbase
+        let coinbase_address = self.env.coinbase;
         let priority_fee_per_gas = self
             .env
             .gas_price
             .checked_sub(self.env.base_fee_per_gas)
-            .ok_or(VMError::GasPriceIsLowerThanBaseFee)?;
-        let coinbase_fee = (U256::from(report.gas_used))
+            .ok_or(VMError::Internal(InternalError::UndefinedState))?;
+        let coinbase_fee = (U256::from(consumed_gas))
             .checked_mul(priority_fee_per_gas)
-            .ok_or(VMError::BalanceOverflow)?;
+            .ok_or(VMError::Internal(InternalError::UndefinedState))?;
 
         let mut coinbase_account = self.get_account(&coinbase_address);
+
         coinbase_account.info.balance = coinbase_account
             .info
             .balance
             .checked_add(coinbase_fee)
-            .ok_or(VMError::BalanceOverflow)?;
+            .ok_or(VMError::Internal(InternalError::UndefinedState))?;
 
         self.cache.add_account(&coinbase_address, &coinbase_account);
-
-        report.new_state.clone_from(&self.cache.accounts);
 
         Ok(())
     }
@@ -687,27 +692,37 @@ impl VM {
     }
 
     pub fn transact(&mut self) -> Result<TransactionReport, VMError> {
-        let mut current_call_frame = self
+        let mut initial_call_frame = self
             .call_frames
             .pop()
             .ok_or(VMError::Internal(InternalError::CouldNotPopCallframe))?;
 
         // Validates transaction and performs pre-exeuction changes.
         // Errors don't revert execution, they are propagated because transaction is invalid.
-        self.validate_transaction(&mut current_call_frame)?;
+        self.validate_transaction(&mut initial_call_frame)?;
 
-        let mut report = self.execute(&mut current_call_frame)?;
+        // We need cache before execution because if a create transaction reverts in post-execution then we need to revert whatever the init-code did.
+        let cache_before_execution = self.cache.clone();
+        let mut report = self.execute(&mut initial_call_frame)?;
 
-        match self.post_execution_changes(&mut report) {
+        // Validation of create transaction post execution
+        // If it fails, it reverts contract creation.
+        match self.create_post_execution(&mut initial_call_frame, &mut report) {
             Ok(_) => {}
             Err(error) => {
                 if error.is_internal() {
                     return Err(error);
-                } else if report.result == TxResult::Success {
+                } else {
                     report.result = TxResult::Revert(error);
+                    self.cache = cache_before_execution;
+                    self.cache.accounts.remove(&initial_call_frame.to);
                 }
             }
-        }
+        };
+
+        self.post_execution_changes(&initial_call_frame, &report)?;
+
+        report.new_state.clone_from(&self.cache.accounts);
 
         Ok(report)
     }
