@@ -1,0 +1,38 @@
+[package]
+name = "ethereum_rust_l2_cli"
+version.workspace = true
+edition.workspace = true
+
+[dependencies]
+serde_json.workspace = true
+serde.workspace = true
+bytes.workspace = true
+ethereum-types.workspace = true
+tokio.workspace = true
+tracing-subscriber = { workspace = true, features = ["env-filter"] }
+tracing.workspace = true
+hex.workspace = true
+log = "0.4"
+clap = { version = "4.3", features = ["derive"] }
+clap_complete = "4.5.17"
+eyre = "0.6"
+dirs = "5.0.1"
+toml = "0.8.19"
+dialoguer = "0.11"
+colored = "2.1.0"
+spinoff = "0.8.0"
+itertools = "0.13.0"
+strum = "0.26.3"
+secp256k1.workspace = true
+keccak-hash = "0.10.0"
+
+ethereum_rust-l2.workspace = true
+ethereum_rust-core.workspace = true
+ethereum_rust-blockchain.workspace = true
+ethereum_rust-prover.workspace = true
+ethereum_rust-rlp.workspace = true
+ethereum_rust-rpc.workspace = true
+
+[[bin]]
+name = "l2"
+path = "./src/main.rs"

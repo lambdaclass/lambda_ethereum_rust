@@ -1,4 +1,4 @@
-use ethrex_blockchain::constants::MIN_GAS_LIMIT;
+use ethereum_rust_blockchain::constants::MIN_GAS_LIMIT;
 use tracing::error;
 
 use crate::utils::RpcErr;
@@ -107,15 +107,15 @@ mod tests {
         RpcApiContext, RpcHandler,
     };
     use bytes::Bytes;
-    use ethrex_core::{
+    use ethereum_rust_core::{
         types::{
             Block, BlockBody, BlockHeader, EIP1559Transaction, Genesis, LegacyTransaction,
             Transaction, TxKind,
         },
         Address, Bloom, H256, U256,
     };
-    use ethrex_net::types::Node;
-    use ethrex_storage::{EngineType, Store};
+    use ethereum_rust_net::types::Node;
+    use ethereum_rust_storage::{EngineType, Store};
     use hex_literal::hex;
     use serde_json::json;
     use std::{net::Ipv4Addr, str::FromStr};

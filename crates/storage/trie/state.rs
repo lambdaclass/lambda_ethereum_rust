@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 
 use crate::error::TrieError;
-use ethrex_rlp::{decode::RLPDecode, encode::RLPEncode};
+use ethereum_rust_rlp::{decode::RLPDecode, encode::RLPEncode};
 
 use super::db::TrieDB;
 

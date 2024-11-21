@@ -1,10 +1,10 @@
 use super::transaction::RpcTransaction;
-use ethrex_core::{
+use ethereum_rust_core::{
     serde_utils,
     types::{Block, BlockBody, BlockHash, BlockHeader, BlockNumber, Withdrawal},
     H256, U256,
 };
-use ethrex_rlp::encode::RLPEncode;
+use ethereum_rust_rlp::encode::RLPEncode;
 
 use serde::{Deserialize, Serialize};
 
@@ -101,7 +101,7 @@ impl FullBlockBody {
 mod test {
 
     use bytes::Bytes;
-    use ethrex_core::{
+    use ethereum_rust_core::{
         types::{EIP1559Transaction, Transaction, TxKind},
         Address, Bloom, H256, U256,
     };

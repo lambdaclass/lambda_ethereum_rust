@@ -4,18 +4,18 @@ use crate::{
     types::EFTest,
     utils,
 };
-use ethrex_core::{
+use ethereum_rust_core::{
     types::{code_hash, AccountInfo},
     H256, U256,
 };
-use ethrex_levm::{
+use ethereum_rust_levm::{
     db::Cache,
     errors::{TransactionReport, VMError},
     vm::VM,
     Environment,
 };
-use ethrex_storage::AccountUpdate;
-use ethrex_vm::db::StoreWrapper;
+use ethereum_rust_storage::AccountUpdate;
+use ethereum_rust_vm::db::StoreWrapper;
 use keccak_hash::keccak;
 use std::{collections::HashMap, sync::Arc};
 

@@ -1,15 +1,14 @@
-# ethrex L2 Contracts
+# Ethereum Rust L2 Contracts
 
 ## ToC
 
-- [ethrex L2 Contracts](#ethrex-l2-contracts)
-  - [ToC](#toc)
-  - [L1 side](#l1-side)
-    - [`CommonBridge`](#commonbridge)
-    - [`OnChainOperator`](#onchainoperator)
-    - [`Verifier`](#verifier)
-  - [L2 side](#l2-side)
-    - [`L1MessageSender`](#l1messagesender)
+- [ToC](#toc)
+- [L1 side](#l1-side)
+  - [`CommonBridge`](#commonbridge)
+  - [`OnChainOperator`](#onchainoperator)
+  - [`Verifier`](#verifier)
+- [L2 side](#l2-side)
+  - [`L1MessageSender`](#l1messagesender)
 
 ## L1 side
 

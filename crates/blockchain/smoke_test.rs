@@ -10,11 +10,11 @@ mod blockchain_integration_test {
         payload::{build_payload, create_payload, BuildPayloadArgs},
     };
 
-    use ethrex_core::{
+    use ethereum_rust_core::{
         types::{Block, BlockHeader},
         H160, H256,
     };
-    use ethrex_storage::{EngineType, Store};
+    use ethereum_rust_storage::{EngineType, Store};
 
     #[test]
     fn test_small_to_long_reorg() {

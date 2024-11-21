@@ -1,8 +1,8 @@
-use ethrex_core::{
+use ethereum_rust_core::{
     types::{Block, BlockHash, BlockHeader, BlockNumber},
     H256,
 };
-use ethrex_storage::{error::StoreError, Store};
+use ethereum_rust_storage::{error::StoreError, Store};
 
 use crate::{
     error::{self, InvalidForkChoice},

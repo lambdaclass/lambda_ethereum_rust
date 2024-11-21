@@ -7,14 +7,14 @@ use crate::{
     Address, H256, U256,
 };
 use bytes::Bytes;
-use ethereum_types::Bloom;
-use ethrex_rlp::{
+use ethereum_rust_rlp::{
     decode::RLPDecode,
     encode::RLPEncode,
     error::RLPDecodeError,
     structs::{Decoder, Encoder},
 };
-use ethrex_trie::Trie;
+use ethereum_rust_trie::Trie;
+use ethereum_types::Bloom;
 use keccak_hash::keccak;
 use serde::{Deserialize, Serialize};
 

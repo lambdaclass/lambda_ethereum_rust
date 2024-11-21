@@ -5,7 +5,7 @@ use crate::{
     gas_cost,
     vm::{word_to_address, VM},
 };
-use ethrex_core::U256;
+use ethereum_rust_core::U256;
 use sha3::{Digest, Keccak256};
 
 // Environmental Information (16)

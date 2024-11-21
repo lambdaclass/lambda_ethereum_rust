@@ -5,24 +5,28 @@ use crate::{
     },
     utils::{
         config::{committer::CommitterConfig, eth::EthConfig},
-        eth_client::{errors::EthClientError, eth_sender::Overrides, EthClient},
+        eth_client::{
+            errors::EthClientError, eth_sender::Overrides, transaction::blob_from_bytes, EthClient,
+        },
         merkle_tree::merkelize,
     },
 };
 use bytes::Bytes;
-use ethrex_blockchain::constants::TX_GAS_COST;
-use ethrex_core::{
+use c_kzg::{Bytes48, KzgSettings};
+use ethereum_rust_blockchain::constants::TX_GAS_COST;
+use ethereum_rust_core::{
     types::{
-        blobs_bundle, BlobsBundle, Block, EIP1559Transaction, GenericTransaction,
-        PrivilegedL2Transaction, PrivilegedTxType, Transaction, TxKind,
+        BlobsBundle, Block, EIP1559Transaction, GenericTransaction, PrivilegedL2Transaction,
+        PrivilegedTxType, Transaction, TxKind, BYTES_PER_BLOB,
     },
     Address, H256, U256,
 };
-use ethrex_rpc::types::transaction::WrappedEIP4844Transaction;
-use ethrex_storage::Store;
-use ethrex_vm::{evm_state, execute_block, get_state_transitions};
+use ethereum_rust_rpc::types::transaction::WrappedEIP4844Transaction;
+use ethereum_rust_storage::Store;
+use ethereum_rust_vm::{evm_state, execute_block, get_state_transitions};
 use keccak_hash::keccak;
 use secp256k1::SecretKey;
+use sha2::{Digest, Sha256};
 use std::ops::Div;
 use std::{collections::HashMap, time::Duration};
 use tokio::time::sleep;
@@ -37,6 +41,7 @@ pub struct Committer {
     l1_address: Address,
     l1_private_key: SecretKey,
     interval_ms: u64,
+    kzg_settings: &'static KzgSettings,
 }
 
 pub async fn start_l1_commiter(store: Store) {
@@ -59,6 +64,7 @@ impl Committer {
             l1_address: committer_config.l1_address,
             l1_private_key: committer_config.l1_private_key,
             interval_ms: committer_config.interval_ms,
+            kzg_settings: c_kzg::ethereum_kzg_settings(),
         }
     }
 
@@ -117,7 +123,8 @@ impl Committer {
                     deposits,
                 )?;
 
-                let blobs_bundle = self.generate_blobs_bundle(state_diff.clone())?;
+                let (blob_commitment, blob_proof) =
+                    self.prepare_blob_commitment(state_diff.clone())?;
 
                 let head_block_hash = block_to_commit.hash();
                 match self
@@ -125,7 +132,9 @@ impl Committer {
                         block_to_commit.header.number,
                         withdrawal_logs_merkle_root,
                         deposit_logs_hash,
-                        blobs_bundle,
+                        blob_commitment,
+                        blob_proof,
+                        state_diff.encode()?,
                     )
                     .await
                 {
@@ -273,16 +282,30 @@ impl Committer {
         Ok(state_diff)
     }
 
-    /// Generate the blob bundle necessary for the EIP-4844 transaction.
-    pub fn generate_blobs_bundle(
+    /// Generate the KZG commitment and proof for the blob. This commitment can then be used
+    /// to calculate the blob versioned hash, necessary for the EIP-4844 transaction.
+    pub fn prepare_blob_commitment(
         &self,
         state_diff: StateDiff,
-    ) -> Result<BlobsBundle, CommitterError> {
+    ) -> Result<([u8; 48], [u8; 48]), CommitterError> {
         let blob_data = state_diff.encode().map_err(CommitterError::from)?;
 
-        let blob = blobs_bundle::blob_from_bytes(blob_data).map_err(CommitterError::from)?;
+        let blob = blob_from_bytes(blob_data).map_err(CommitterError::from)?;
 
-        BlobsBundle::create_from_blobs(&vec![blob]).map_err(CommitterError::from)
+        let commitment = c_kzg::KzgCommitment::blob_to_kzg_commitment(&blob, self.kzg_settings)
+            .map_err(CommitterError::from)?;
+        let commitment_bytes =
+            Bytes48::from_bytes(commitment.as_slice()).map_err(CommitterError::from)?;
+        let proof =
+            c_kzg::KzgProof::compute_blob_kzg_proof(&blob, &commitment_bytes, self.kzg_settings)
+                .map_err(CommitterError::from)?;
+
+        let mut commitment_bytes = [0u8; 48];
+        commitment_bytes.copy_from_slice(commitment.as_slice());
+        let mut proof_bytes = [0u8; 48];
+        proof_bytes.copy_from_slice(proof.as_slice());
+
+        Ok((commitment_bytes, proof_bytes))
     }
 
     pub async fn send_commitment(
@@ -290,26 +313,39 @@ impl Committer {
         block_number: u64,
         withdrawal_logs_merkle_root: H256,
         deposit_logs_hash: H256,
-        blobs_bundle: BlobsBundle,
+        commitment: [u8; 48],
+        proof: [u8; 48],
+        blob_data: Bytes,
     ) -> Result<H256, CommitterError> {
         info!("Sending commitment for block {block_number}");
+
+        let mut hasher = Sha256::new();
+        hasher.update(commitment);
+        let mut blob_versioned_hash = hasher.finalize();
+        blob_versioned_hash[0] = 0x01; // EIP-4844 versioning
 
         let mut calldata = Vec::with_capacity(132);
         calldata.extend(COMMIT_FUNCTION_SELECTOR);
         let mut block_number_bytes = [0_u8; 32];
         U256::from(block_number).to_big_endian(&mut block_number_bytes);
         calldata.extend(block_number_bytes);
-
-        let blob_versioned_hashes = blobs_bundle.generate_versioned_hashes();
-        // We only actually support one versioned hash on the onChainProposer for now,
-        // but eventually this should work if we start sending multiple blobs per commit operation.
-        for blob_versioned_hash in blob_versioned_hashes {
-            let blob_versioned_hash_bytes = blob_versioned_hash.to_fixed_bytes();
-            calldata.extend(blob_versioned_hash_bytes);
-        }
+        calldata.extend(blob_versioned_hash);
         calldata.extend(withdrawal_logs_merkle_root.0);
         calldata.extend(deposit_logs_hash.0);
 
+        let mut buf = [0u8; BYTES_PER_BLOB];
+        buf.copy_from_slice(
+            blob_from_bytes(blob_data)
+                .map_err(CommitterError::from)?
+                .iter()
+                .as_slice(),
+        );
+
+        let blobs_bundle = BlobsBundle {
+            blobs: vec![buf],
+            commitments: vec![commitment],
+            proofs: vec![proof],
+        };
         let wrapped_tx = self
             .eth_client
             .build_eip4844_transaction(

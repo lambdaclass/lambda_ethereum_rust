@@ -1,14 +1,13 @@
-# ethrex L2 Proposer
+# Ethereum Rust L2 Proposer
 
 ## ToC
 
-- [ethrex L2 Proposer](#ethrex-l2-proposer)
-  - [ToC](#toc)
-  - [Components](#components)
-    - [L1 Watcher](#l1-watcher)
-    - [L1 Transaction Sender](#l1-transaction-sender)
-    - [Prover Server](#prover-server)
-  - [Configuration](#configuration)
+- [ToC](#toc)
+- [Components](#components)
+  - [L1 Watcher](#l1-watcher)
+  - [L1 Transaction Sender](#l1-transaction-sender)
+  - [Prover Server](#prover-server)
+- [Configuration](#configuration)
 
 ## Components
 

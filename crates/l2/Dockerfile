@@ -9,7 +9,7 @@ RUN apt-get update && apt-get install -y \
 	&& rm -rf /var/lib/apt/lists/*
 RUN cargo install cargo-chef
 
-WORKDIR /ethrex
+WORKDIR /ethereum_rust
 
 FROM chef AS planner
 COPY . .
@@ -17,7 +17,7 @@ COPY . .
 RUN cargo chef prepare --recipe-path recipe.json
 
 FROM chef AS builder
-COPY --from=planner /ethrex/recipe.json recipe.json
+COPY --from=planner /ethereum_rust/recipe.json recipe.json
 # Build dependencies only, these remained cached
 RUN cargo chef cook --release --recipe-path recipe.json
 
@@ -27,6 +27,6 @@ RUN cargo build --release --features l2
 FROM ubuntu:24.04
 WORKDIR /usr/local/bin
 
-COPY --from=builder ethrex/target/release/ethrex .
+COPY --from=builder ethereum_rust/target/release/ethereum_rust .
 EXPOSE 1729
-ENTRYPOINT [ "./ethrex" ]
+ENTRYPOINT [ "./ethereum_rust" ]

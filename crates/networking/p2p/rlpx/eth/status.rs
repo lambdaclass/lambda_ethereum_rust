@@ -3,11 +3,11 @@ use crate::rlpx::{
     utils::{snappy_compress, snappy_decompress},
 };
 use bytes::BufMut;
-use ethrex_core::{
+use ethereum_rust_core::{
     types::{BlockHash, ForkId},
     U256,
 };
-use ethrex_rlp::{
+use ethereum_rust_rlp::{
     error::{RLPDecodeError, RLPEncodeError},
     structs::{Decoder, Encoder},
 };

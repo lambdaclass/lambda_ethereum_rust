@@ -1,4 +1,4 @@
-use ethrex_rlp::error::RLPDecodeError;
+use ethereum_rust_rlp::error::RLPDecodeError;
 use thiserror::Error;
 
 #[derive(Debug, Error)]
@@ -7,6 +7,4 @@ pub enum TrieError {
     LibmdbxError(anyhow::Error),
     #[error(transparent)]
     RLPDecode(#[from] RLPDecodeError),
-    #[error("Verification Error: {0}")]
-    Verify(String),
 }

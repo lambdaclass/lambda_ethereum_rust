@@ -1,9 +1,9 @@
-use ethrex_rlp::{decode::RLPDecode, encode::RLPEncode, error::RLPDecodeError};
+use ethereum_rust_rlp::{decode::RLPDecode, encode::RLPEncode, error::RLPDecodeError};
 use risc0_zkvm::guest::env;
 
-use ethrex_blockchain::{validate_block, validate_gas_used};
-use ethrex_core::types::{Block, BlockHeader};
-use ethrex_vm::{execute_block, execution_db::ExecutionDB, get_state_transitions, EvmState};
+use ethereum_rust_blockchain::{validate_block, validate_gas_used};
+use ethereum_rust_core::types::{Block, BlockHeader};
+use ethereum_rust_vm::{execute_block, execution_db::ExecutionDB, get_state_transitions, EvmState};
 
 fn main() {
     let (block, execution_db, parent_header) = read_inputs().expect("failed to read inputs");

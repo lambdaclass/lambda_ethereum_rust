@@ -3,14 +3,14 @@ use crate::rlpx::{
     utils::{snappy_compress, snappy_decompress},
 };
 use bytes::BufMut;
-use ethrex_core::types::{BlockBody, BlockHash, BlockHeader, BlockNumber};
-use ethrex_rlp::{
+use ethereum_rust_core::types::{BlockBody, BlockHash, BlockHeader, BlockNumber};
+use ethereum_rust_rlp::{
     decode::RLPDecode,
     encode::RLPEncode,
     error::{RLPDecodeError, RLPEncodeError},
     structs::{Decoder, Encoder},
 };
-use ethrex_storage::Store;
+use ethereum_rust_storage::Store;
 use tracing::error;
 
 pub const HASH_FIRST_BYTE_DECODER: u8 = 160;
@@ -303,7 +303,7 @@ impl RLPxMessage for BlockBodies {
 
 #[cfg(test)]
 mod tests {
-    use ethrex_core::types::BlockHash;
+    use ethereum_rust_core::types::BlockHash;
 
     use crate::rlpx::{
         eth::blocks::{BlockBodies, GetBlockBodies, GetBlockHeaders},

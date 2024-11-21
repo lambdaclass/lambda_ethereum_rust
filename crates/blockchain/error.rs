@@ -1,6 +1,6 @@
-use ethrex_core::types::{BlobsBundleError, InvalidBlockHeaderError};
-use ethrex_storage::error::StoreError;
-use ethrex_vm::EvmError;
+use ethereum_rust_core::types::InvalidBlockHeaderError;
+use ethereum_rust_storage::error::StoreError;
+use ethereum_rust_vm::EvmError;
 
 #[derive(Debug, thiserror::Error)]
 pub enum ChainError {
@@ -42,8 +42,6 @@ pub enum MempoolError {
     NoBlockHeaderError,
     #[error("DB error: {0}")]
     StoreError(#[from] StoreError),
-    #[error("BlobsBundle error: {0}")]
-    BlobsBundleError(#[from] BlobsBundleError),
     #[error("Transaction max init code size exceeded")]
     TxMaxInitCodeSizeError,
     #[error("Transaction gas limit exceeded")]
@@ -58,6 +56,8 @@ pub enum MempoolError {
     TxBlobBaseFeeTooLowError,
     #[error("Blob transaction submited without blobs bundle")]
     BlobTxNoBlobsBundle,
+    #[error("Mismatch between blob versioned hashes and blobs bundle content length")]
+    BlobsBundleWrongLen,
     #[error("Nonce for account too low")]
     InvalidNonce,
     #[error("Transaction chain id mismatch, expected chain id: {0}")]
@@ -66,6 +66,8 @@ pub enum MempoolError {
     NotEnoughBalance,
     #[error("Transaction gas fields are invalid")]
     InvalidTxGasvalues,
+    #[error("Blob versioned hashes do not match the blob commitments")]
+    BlobVersionedHashesIncorrectError,
 }
 
 #[derive(Debug)]

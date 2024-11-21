@@ -1,6 +1,6 @@
 use crate::types::{EFTest, EFTests};
 use bytes::Bytes;
-use ethrex_core::U256;
+use ethereum_rust_core::U256;
 use serde::Deserialize;
 use std::{collections::HashMap, str::FromStr};
 

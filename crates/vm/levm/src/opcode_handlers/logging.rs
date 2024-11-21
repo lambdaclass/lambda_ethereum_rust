@@ -6,7 +6,7 @@ use crate::{
     vm::VM,
 };
 use bytes::Bytes;
-use ethrex_core::{types::Log, H256};
+use ethereum_rust_core::{types::Log, H256};
 
 // Logging Operations (5)
 // Opcodes: LOG0 ... LOG4

@@ -1,5 +1,5 @@
-use ethrex_storage::Store;
-use ethrex_vm::execution_db::ExecutionDB;
+use ethereum_rust_storage::Store;
+use ethereum_rust_vm::execution_db::ExecutionDB;
 use keccak_hash::keccak;
 use secp256k1::SecretKey;
 use serde::{Deserialize, Serialize};
@@ -16,7 +16,7 @@ use tokio::{
 };
 use tracing::{debug, error, info, warn};
 
-use ethrex_core::{
+use ethereum_rust_core::{
     types::{Block, BlockHeader, EIP1559Transaction},
     Address, H256,
 };
@@ -105,9 +105,6 @@ pub async fn start_prover_server(store: Store) {
                 .await
                 .unwrap();
 
-            info!("Sending verify transaction with tx hash: {tx_hash:#x}");
-
-            let mut retries = 1;
             while eth_client
                 .get_transaction_receipt(tx_hash)
                 .await
@@ -115,17 +112,9 @@ pub async fn start_prover_server(store: Store) {
                 .is_none()
             {
                 thread::sleep(Duration::from_secs(1));
-                retries += 1;
-                if retries > 10 {
-                    error!("Couldn't find receipt for transaction {tx_hash:#x}");
-                    panic!("Couldn't find receipt for transaction {tx_hash:#x}");
-                }
             }
 
-            info!(
-                "Mocked verify transaction sent for block {}",
-                last_verified_block + 1
-            );
+            info!("Mocked verify transaction sent");
         }
     } else {
         let mut prover_server = ProverServer::new_from_config(

@@ -1,5 +1,5 @@
-use ethrex_blockchain::find_parent_header;
-use ethrex_rlp::encode::RLPEncode;
+use ethereum_rust_blockchain::find_parent_header;
+use ethereum_rust_rlp::encode::RLPEncode;
 use serde_json::Value;
 use tracing::info;
 
@@ -12,14 +12,14 @@ use crate::{
     utils::RpcErr,
     RpcApiContext, RpcHandler,
 };
-use ethrex_core::{
+use ethereum_rust_core::{
     types::{
         calculate_base_fee_per_blob_gas, Block, BlockBody, BlockHash, BlockHeader, BlockNumber,
         Receipt,
     },
     U256,
 };
-use ethrex_storage::Store;
+use ethereum_rust_storage::Store;
 
 pub struct GetBlockByNumberRequest {
     pub block: BlockIdentifier,

@@ -2,7 +2,7 @@ use crate::{
     account::{Account, AccountInfo, StorageSlot},
     errors::{InternalError, VMError},
 };
-use ethrex_core::{Address, H256, U256};
+use ethereum_rust_core::{Address, H256, U256};
 use std::collections::HashMap;
 
 pub trait Database {

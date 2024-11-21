@@ -1,4 +1,4 @@
-use ethrex_core::{
+use ethereum_rust_core::{
     serde_utils,
     types::{
         BlobsBundle, BlockHash, BlockNumber, EIP1559Transaction, EIP2930Transaction,
@@ -6,7 +6,7 @@ use ethrex_core::{
     },
     Address, H256,
 };
-use ethrex_rlp::{
+use ethereum_rust_rlp::{
     decode::RLPDecode,
     encode::RLPEncode,
     error::RLPDecodeError,

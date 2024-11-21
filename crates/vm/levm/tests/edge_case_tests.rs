@@ -1,6 +1,6 @@
 use bytes::Bytes;
-use ethrex_core::U256;
-use ethrex_levm::{
+use ethereum_rust_core::U256;
+use ethereum_rust_levm::{
     operations::Operation,
     utils::{new_vm_with_bytecode, new_vm_with_ops},
 };

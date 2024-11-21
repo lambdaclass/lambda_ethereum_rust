@@ -1,5 +1,5 @@
 mod account;
-pub mod blobs_bundle;
+mod blobs_bundle;
 mod block;
 mod constants;
 mod fork_id;

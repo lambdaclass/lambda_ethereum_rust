@@ -4,10 +4,10 @@ use crate::{
     types::EFTest,
     utils::load_initial_state,
 };
-use ethrex_core::{types::TxKind, Address};
-use ethrex_levm::errors::{TransactionReport, TxResult};
-use ethrex_storage::{error::StoreError, AccountUpdate};
-use ethrex_vm::{db::StoreWrapper, spec_id, EvmState, RevmAddress, RevmU256};
+use ethereum_rust_core::{types::TxKind, Address};
+use ethereum_rust_levm::errors::{TransactionReport, TxResult};
+use ethereum_rust_storage::{error::StoreError, AccountUpdate};
+use ethereum_rust_vm::{db::StoreWrapper, spec_id, EvmState, RevmAddress, RevmU256};
 use revm::{
     db::State,
     inspectors::TracerEip3155 as RevmTracerEip3155,
@@ -230,7 +230,7 @@ pub fn ensure_post_state(
         // We only want to compare account updates when no exception is expected.
         None => {
             let levm_account_updates = levm_runner::get_state_transitions(levm_execution_report);
-            let revm_account_updates = ethrex_vm::get_state_transitions(revm_state);
+            let revm_account_updates = ethereum_rust_vm::get_state_transitions(revm_state);
             let account_updates_report =
                 compare_levm_revm_account_updates(&levm_account_updates, &revm_account_updates);
             re_run_report.register_account_updates_report(*vector, account_updates_report);

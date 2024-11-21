@@ -7,11 +7,11 @@ use crate::{
     report::TestVector,
 };
 use bytes::Bytes;
-use ethrex_core::{
+use ethereum_rust_core::{
     types::{Genesis, GenesisAccount, TxKind},
     Address, H256, U256,
 };
-use ethrex_vm::SpecId;
+use ethereum_rust_vm::SpecId;
 use serde::Deserialize;
 use std::collections::HashMap;
 

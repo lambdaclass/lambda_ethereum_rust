@@ -1,5 +1,5 @@
 [package]
-name = "ethrex-rlp"
+name = "ethereum_rust-rlp"
 version.workspace = true
 edition.workspace = true
 

@@ -1,8 +1,8 @@
 use bytes::Bytes;
-use ethrex_rlp::error::RLPDecodeError;
+use ethereum_rust_rlp::error::RLPDecodeError;
 use serde::{Deserialize, Serialize};
 
-use ethrex_core::{
+use ethereum_rust_core::{
     serde_utils,
     types::{
         compute_transactions_root, compute_withdrawals_root, BlobsBundle, Block, BlockBody,
