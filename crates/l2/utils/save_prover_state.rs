@@ -11,7 +11,7 @@ use std::{
 
 #[derive(Serialize, Deserialize, Debug)]
 pub enum StateType {
-    Proof(Box<risc0_zkvm::Receipt>),
+    Proof(Box<(risc0_zkvm::Receipt, Vec<u32>)>),
     AccountUpdates(Vec<AccountUpdate>),
 }
 
@@ -172,7 +172,7 @@ pub fn read_state_file_for_block_number(
 
     let state = match state_file_type {
         StateFileType::Proof => {
-            let state: risc0_zkvm::Receipt = serde_json::from_str(&buf)?;
+            let state: (risc0_zkvm::Receipt, Vec<u32>) = serde_json::from_str(&buf)?;
             StateType::Proof(Box::new(state))
         }
         StateFileType::AccountUpdates => {
@@ -326,7 +326,7 @@ mod tests {
 
             write_state_in_block_state_path(
                 block.header.number,
-                StateType::Proof(Box::new(receipt.clone())),
+                StateType::Proof(Box::new((receipt.clone(), vec![5u32; 8]))),
                 StateFileType::Proof,
             )?;
         }
@@ -390,7 +390,11 @@ mod tests {
                 StateType::AccountUpdates(_) => unimplemented!(),
             };
 
-        assert_eq!(read_proof_updates_blk2.journal.bytes, receipt.journal.bytes);
+        assert_eq!(
+            read_proof_updates_blk2.0.journal.bytes,
+            receipt.journal.bytes
+        );
+        assert_eq!(read_proof_updates_blk2.1, vec![5u32; 8]);
 
         fs::remove_dir_all(default_datadir()?)?;
 
