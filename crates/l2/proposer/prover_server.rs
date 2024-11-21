@@ -277,8 +277,9 @@ impl ProverServer {
                     )
                 })?;
 
-                self.handle_proof_submission(block_number, receipt.clone())
-                    .await?;
+                let _ = self
+                    .handle_proof_submission(block_number, receipt.clone())
+                    .await;
 
                 if let Err(e) = self.handle_submit(&mut stream, block_number) {
                     error!("Failed to handle submit_ack: {e}");
@@ -307,7 +308,7 @@ impl ProverServer {
         debug!("Request received");
         // How to Handle shut-downs?
         // 1. Read latest proof from file
-        // 2. Check if we have the proof of the block_to_verify == latestVerifiedBlock
+        // 2. Check if we have the proof of the block_to_verify == latestVerifiedBlock + 1
         //   - if we don't have it -> handle request and send inputs to the prover_client
         //   - if we have it -> resend tx with the same proof_number bumping the gas
 
@@ -346,16 +347,17 @@ impl ProverServer {
                 }
             }
             // Send inputs to the prover
-            Err(e) => {
-                error!("Error checking if block_number_has_state_file: {e}");
+            Err(_) => {
                 proof = None;
                 has_proof = false
             }
         };
 
-        // Force a possible pending or unsent verify function if we have a valid proof saved.
+        // Send a transaction with the saved proof.
         if let Some(pending_proof) = proof {
-            //self.handle_proof_submission(block_to_verify, pending_proof)
+            info!("Resending saved proof {block_to_verify:?}.");
+            self.handle_proof_submission(block_to_verify, pending_proof)
+                .await?;
         }
 
         let send_input = !has_proof;
