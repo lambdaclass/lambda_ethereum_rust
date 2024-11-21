@@ -1,13 +1,13 @@
 use std::collections::HashMap;
 
-use ethereum_rust_core::{
+use ethereum_types::{Address, H160, U256};
+use ethrex_core::{
     types::{AccountState, Block, ChainConfig},
     H256,
 };
-use ethereum_rust_rlp::encode::RLPEncode;
-use ethereum_rust_storage::{hash_address, hash_key, Store};
-use ethereum_rust_trie::Trie;
-use ethereum_types::{Address, H160, U256};
+use ethrex_rlp::encode::RLPEncode;
+use ethrex_storage::{hash_address, hash_key, Store};
+use ethrex_trie::Trie;
 use revm::{
     primitives::{
         AccountInfo as RevmAccountInfo, Address as RevmAddress, Bytecode as RevmBytecode,
@@ -72,12 +72,13 @@ impl ExecutionDB {
 
         for account_update in account_updates.iter() {
             let address = RevmAddress::from_slice(account_update.address.as_bytes());
-            let account_state = store
-                .get_account_state_by_hash(
-                    block.header.parent_hash,
-                    H160::from_slice(address.as_slice()),
-                )?
-                .ok_or(ExecutionDBError::NewMissingAccountInfo(address))?;
+            let account_state = match store.get_account_state_by_hash(
+                block.header.parent_hash,
+                H160::from_slice(address.as_slice()),
+            )? {
+                Some(state) => state,
+                None => continue,
+            };
             accounts.insert(address, account_state);
 
             let account_storage = account_update
