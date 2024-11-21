@@ -12,9 +12,9 @@ ethrex-l2.workspace = true
 zkvm_interface = { path = "../zkvm/interface", default-features = false }
 
 [[bin]]
-name = "ethrexl2_chain"
-path = "src/ethrexl2_chain.rs"
+name = "ethrexl2"
+path = "src/ethrexl2.rs"
 
 [[bin]]
-name = "rsp_chain"
-path = "src/rsp_chain.rs"
+name = "rsp"
+path = "src/rsp.rs"
