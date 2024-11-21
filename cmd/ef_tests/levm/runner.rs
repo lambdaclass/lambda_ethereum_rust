@@ -233,8 +233,11 @@ fn get_post_value(test: &EFTest, tx_id: usize) -> Option<EFTestPostValue> {
     }
 }
 
-fn exception_is_expected(expected_exceptions: Vec<TransactionExpectedException>, returned_error: VMError) -> bool {
-    true
+fn exception_is_expected(
+    expected_exceptions: Vec<TransactionExpectedException>,
+    returned_error: VMError,
+) -> bool {
+    false
 }
 
 pub fn ensure_post_state(

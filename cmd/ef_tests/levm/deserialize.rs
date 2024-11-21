@@ -16,7 +16,7 @@ where
 
     if let Some(value) = option {
         let exceptions = value
-            .split('|') 
+            .split('|')
             .map(|s| match s.trim() {
                 "TransactionException.INITCODE_SIZE_EXCEEDED" => {
                     TransactionExpectedException::InitcodeSizeExceeded
