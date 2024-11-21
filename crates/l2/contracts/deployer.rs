@@ -1,7 +1,10 @@
 use bytes::Bytes;
 use colored::Colorize;
 use ethereum_types::{Address, H160, H256};
-use ethrex_core::{types::{GAS_LIMIT_ADJUSTMENT_FACTOR, GAS_LIMIT_MINIMUM}, U256};
+use ethrex_core::{
+    types::{GAS_LIMIT_ADJUSTMENT_FACTOR, GAS_LIMIT_MINIMUM},
+    U256,
+};
 use ethrex_l2::utils::{
     config::{read_env_as_lines, read_env_file, write_env},
     eth_client::{eth_sender::Overrides, EthClient},
@@ -482,8 +485,8 @@ async fn initialize_on_chain_proposer(
     U256::from(2).to_big_endian(&mut allowed_addresses);
     on_chain_proposer_initialization_calldata.extend_from_slice(&allowed_addresses);
 
-    let committer_h256 : H256 = committer.into();
-    let verifier_h256 : H256 = verifier.into();
+    let committer_h256: H256 = committer.into();
+    let verifier_h256: H256 = verifier.into();
     on_chain_proposer_initialization_calldata.extend_from_slice(committer_h256.as_fixed_bytes());
     on_chain_proposer_initialization_calldata.extend_from_slice(verifier_h256.as_fixed_bytes());
 
