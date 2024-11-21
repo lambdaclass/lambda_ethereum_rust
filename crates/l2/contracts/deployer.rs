@@ -383,6 +383,7 @@ fn create2_address(init_code_hash: H256) -> Address {
     )
 }
 
+#[allow(clippy::too_many_arguments)]
 async fn initialize_contracts(
     deployer: Address,
     deployer_private_key: SecretKey,
@@ -438,6 +439,7 @@ async fn initialize_contracts(
     spinner.success(&msg);
 }
 
+#[allow(clippy::too_many_arguments)]
 async fn initialize_on_chain_proposer(
     on_chain_proposer: Address,
     bridge: Address,
