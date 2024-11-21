@@ -1,9 +1,9 @@
 use crate::runner::EFTestRunnerError;
 use colored::Colorize;
-use ethereum_rust_core::Address;
-use ethereum_rust_levm::errors::{TransactionReport, TxResult, VMError};
-use ethereum_rust_storage::AccountUpdate;
-use ethereum_rust_vm::SpecId;
+use ethrex_core::Address;
+use ethrex_levm::errors::{TransactionReport, TxResult, VMError};
+use ethrex_storage::AccountUpdate;
+use ethrex_vm::SpecId;
 use revm::primitives::{ExecutionResult as RevmExecutionResult, HashSet};
 use std::{
     collections::HashMap,

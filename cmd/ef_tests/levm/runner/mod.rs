@@ -4,8 +4,8 @@ use crate::{
 };
 use clap::Parser;
 use colored::Colorize;
-use ethereum_rust_levm::errors::{TransactionReport, VMError};
-use ethereum_rust_vm::SpecId;
+use ethrex_levm::errors::{TransactionReport, VMError};
+use ethrex_vm::SpecId;
 use spinoff::{spinners::Dots, Color, Spinner};
 
 pub mod levm_runner;
