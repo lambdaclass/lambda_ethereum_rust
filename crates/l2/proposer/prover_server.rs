@@ -307,15 +307,14 @@ impl ProverServer {
         debug!("Request received");
         // How to Handle shut-downs?
         // 1. Read latest proof from file
-        // 2. Check if we have the proof of the last_verified_block+1
+        // 2. Check if we have the proof of the block_to_verify == latestVerifiedBlock
         //   - if we don't have it -> handle request and send inputs to the prover_client
         //   - if we have it -> resend tx with the same proof_number bumping the gas
 
-        let proof;
-        let has_proof = match save_prover_state::block_number_has_state_file(
-            StateFileType::Proof,
-            block_to_verify,
-        ) {
+        let proof: Option<Box<(risc0_zkvm::Receipt, Vec<u32>)>>;
+        let has_proof;
+        match save_prover_state::block_number_has_state_file(StateFileType::Proof, block_to_verify)
+        {
             Ok(bool) => {
                 if bool {
                     proof = match save_prover_state::read_state_file_for_block_number(
@@ -323,7 +322,10 @@ impl ProverServer {
                         StateFileType::Proof,
                     ) {
                         Ok(state) => match state {
-                            StateType::Proof(p) => p,
+                            StateType::Proof(p) => {
+                                has_proof = true;
+                                Some(p)
+                            }
                             _ => unreachable!("Expected Proof state type, but got something else"),
                         },
                         Err(e) => {
@@ -332,27 +334,31 @@ impl ProverServer {
                                 block_to_verify, e,
                             );
                             // If we reach here, we may have encoded the proof wrong.
-                            // Or it was lost.
+                            // Or it is missing.
                             // How can we recover this error?
-                            todo!("Proper error handling")
+                            has_proof = false;
+                            None
                         }
                     };
-                    // Do not send inputs to the prover
-                    false
                 } else {
-                    // Send inputs to the prover
-                    true
+                    proof = None;
+                    has_proof = false
                 }
             }
             // Send inputs to the prover
             Err(e) => {
                 error!("Error checking if block_number_has_state_file: {e}");
-                true
+                proof = None;
+                has_proof = false
             }
         };
 
-        let send_input = !has_proof;
+        // Force a possible pending or unsent verify function if we have a valid proof saved.
+        if let Some(pending_proof) = proof {
+            //self.handle_proof_submission(block_to_verify, pending_proof)
+        }
 
+        let send_input = !has_proof;
         let last_committed_block =
             EthClient::get_last_committed_block(&self.eth_client, self.on_chain_proposer_address)
                 .await?;
