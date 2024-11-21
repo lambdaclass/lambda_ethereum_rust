@@ -52,7 +52,6 @@ where
     Ok(ret)
 }
 
-// TODO: Check if this is okay. I am not sure.
 pub fn deserialize_h256_vec_optional_safe<'de, D>(
     deserializer: D,
 ) -> Result<Option<Vec<H256>>, D::Error>
