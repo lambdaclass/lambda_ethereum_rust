@@ -247,53 +247,38 @@ fn exception_is_expected(
     returned_error: VMError,
 ) -> bool {
     for expected_exception in expected_exceptions {
-        match expected_exception {
-            // Returned OutOfGas(MaxGasLimitExceeded) but expected IntrinsicGasTooLow
-            TransactionExpectedException::IntrinsicGasTooLow => {
-                if returned_error == VMError::IntrinsicGasTooLow {
-                    return true;
-                }
-            }
-            TransactionExpectedException::InsufficientAccountFunds => {
-                if returned_error == VMError::InsufficientAccountFunds {
-                    return true;
-                }
-            }
-            TransactionExpectedException::PriorityGreaterThanMaxFeePerGas => {
-                if returned_error == VMError::PriorityGreaterThanMaxFeePerGas {
-                    return true;
-                }
-            }
-            TransactionExpectedException::GasLimitPriceProductOverflow => {
-                if returned_error == VMError::GasLimitPriceProductOverflow {
-                    return true;
-                }
-            }
-            TransactionExpectedException::SenderNotEoa => {
-                if returned_error == VMError::SenderNotEOA {
-                    return true;
-                }
-            }
-            TransactionExpectedException::InsufficientMaxFeePerGas => {
-                if returned_error == VMError::InsufficientMaxFeePerGas {
-                    return true;
-                }
-            }
-            TransactionExpectedException::NonceIsMax => {
-                if returned_error == VMError::NonceIsMax {
-                    return true;
-                }
-            }
-            TransactionExpectedException::GasAllowanceExceeded => {
-                if returned_error == VMError::GasAllowanceExceeded {
-                    return true;
-                }
-            }
-            _ => {
-                return false;
-            }
+        if matches!(
+            (expected_exception, &returned_error),
+            (
+                TransactionExpectedException::IntrinsicGasTooLow,
+                VMError::IntrinsicGasTooLow
+            ) | (
+                TransactionExpectedException::InsufficientAccountFunds,
+                VMError::InsufficientAccountFunds
+            ) | (
+                TransactionExpectedException::PriorityGreaterThanMaxFeePerGas,
+                VMError::PriorityGreaterThanMaxFeePerGas
+            ) | (
+                TransactionExpectedException::GasLimitPriceProductOverflow,
+                VMError::GasLimitPriceProductOverflow
+            ) | (
+                TransactionExpectedException::SenderNotEoa,
+                VMError::SenderNotEOA
+            ) | (
+                TransactionExpectedException::InsufficientMaxFeePerGas,
+                VMError::InsufficientMaxFeePerGas
+            ) | (
+                TransactionExpectedException::NonceIsMax,
+                VMError::NonceIsMax
+            ) | (
+                TransactionExpectedException::GasAllowanceExceeded,
+                VMError::GasAllowanceExceeded
+            )
+        ) {
+            return true;
         }
     }
+
     false
 }
 
