@@ -244,8 +244,23 @@ pub fn ensure_post_state(
         Ok(execution_report) => {
             match post_value.clone().map(|v| v.clone().expect_exception) {
                 // Execution result was successful but an exception was expected.
-                Some(Some(expected_exception)) => {
-                    let error_reason = format!("Expected exception: {expected_exception}");
+                Some(Some(expected_exceptions)) => {
+                    let error_reason = match expected_exceptions.get(1) {
+                        Some(second_exception) => {
+                            format!(
+                                "Expected exception: {:?} or {:?}",
+                                expected_exceptions.first().unwrap(),
+                                second_exception
+                            )
+                        }
+                        None => {
+                            format!(
+                                "Expected exception: {:?}",
+                                expected_exceptions.first().unwrap()
+                            )
+                        }
+                    };
+
                     return Err(format!("Post-state condition failed: {error_reason}").into());
                 }
                 // Execution result was successful and no exception was expected.
