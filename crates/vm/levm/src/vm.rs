@@ -338,24 +338,12 @@ impl VM {
 
     /// ## Description
     /// This method performs validations and returns an error if any of the validations fail.
-    /// The **only** change it makes to the state is incrementing the nonce of the sender by 1.
-    /// ## The validations are:
-    /// 1. **GASLIMIT_PRICE_PRODUCT_OVERFLOW** -> The product of gas limit and gas price is too high.
-    /// 2. **INSUFFICIENT_ACCOUNT_FUNDS** -> Sender does not have enough funds to pay for the gas.
-    /// 3. **INSUFFICIENT_MAX_FEE_PER_GAS** -> The max fee per gas is lower than the base fee per gas.
-    /// 4. **INITCODE_SIZE_EXCEEDED** -> The size of the initcode is too big.
-    /// 5. **INTRINSIC_GAS_TOO_LOW** -> The gas limit is lower than the intrinsic gas.
-    /// 6. **NONCE_IS_MAX** -> The nonce of the sender is at its maximum value.
-    /// 7. **PRIORITY_GREATER_THAN_MAX_FEE_PER_GAS** -> The priority fee is greater than the max fee per gas.
-    /// 8. **SENDER_NOT_EOA** -> The sender is not an EOA (it has code).
-    /// 9. **GAS_ALLOWANCE_EXCEEDED** -> The gas limit is higher than the block gas limit.
-    /// 10. **INSUFFICIENT_MAX_FEE_PER_BLOB_GAS** -> The max fee per blob gas is lower than the base fee per gas.
-    /// 11. **TYPE_3_TX_ZERO_BLOBS** -> The transaction has zero blobs.
-    /// 12. **TYPE_3_TX_INVALID_BLOB_VERSIONED_HASH** -> The blob versioned hash is invalid.
-    /// 13. **TYPE_3_TX_PRE_FORK** -> The transaction is a pre-cancun transaction.
-    /// 14. **TYPE_3_TX_BLOB_COUNT_EXCEEDED** -> The blob count is higher than the max allowed.
-    /// 15. **TYPE_3_TX_CONTRACT_CREATION** -> The type 3 transaction is a contract creation.
-    fn validate_transaction(&mut self, initial_call_frame: &CallFrame) -> Result<(), VMError> {
+    /// It also makes initial changes alongside the validations:
+    /// - It increases sender nonce
+    /// - It substracts up-front-cost from sender balance.
+    /// - It calculates and adds intrinsic gas to the 'gas used' of callframe and environment.
+    /// See 'docs' for more information about validations.
+    fn validate_transaction(&mut self, initial_call_frame: &mut CallFrame) -> Result<(), VMError> {
         //TODO: This should revert the transaction, not throw an error. And I don't know if it should be done here...
         // if self.is_create() {
         //     // If address is already in db, there's an error
@@ -379,9 +367,11 @@ impl VM {
             .ok_or(VMError::InsufficientAccountFunds)?;
 
         // (2) INSUFFICIENT_ACCOUNT_FUNDS
-        if sender_account.info.balance < up_front_cost {
-            return Err(VMError::InsufficientAccountFunds);
-        }
+        sender_account.info.balance = sender_account
+            .info
+            .balance
+            .checked_sub(up_front_cost)
+            .ok_or(VMError::InsufficientAccountFunds)?;
 
         // (3) INSUFFICIENT_MAX_FEE_PER_GAS
         if self.gas_price_or_max_fee_per_gas() < self.env.base_fee_per_gas {
@@ -397,11 +387,7 @@ impl VM {
         }
 
         // (5) INTRINSIC_GAS_TOO_LOW
-        // Intrinsic gas is gas used by the callframe before execution of opcodes
-        let intrinsic_gas = initial_call_frame.gas_used;
-        if self.env.gas_limit < intrinsic_gas {
-            return Err(VMError::IntrinsicGasTooLow);
-        }
+        self.add_intrinsic_gas(initial_call_frame)?;
 
         // (6) NONCE_IS_MAX
         sender_account.info.nonce = sender_account
@@ -706,9 +692,9 @@ impl VM {
             .pop()
             .ok_or(VMError::Internal(InternalError::CouldNotPopCallframe))?;
 
-        self.add_intrinsic_gas(&mut current_call_frame)?;
-
-        self.validate_transaction(&current_call_frame)?; // Fail without consuming gas
+        // Validates transaction and performs pre-exeuction changes.
+        // Errors don't revert execution, they are propagated because transaction is invalid.
+        self.validate_transaction(&mut current_call_frame)?;
 
         let mut report = self.execute(&mut current_call_frame)?;
 
