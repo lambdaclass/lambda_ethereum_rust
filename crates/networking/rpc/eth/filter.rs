@@ -257,6 +257,7 @@ mod tests {
         sync::{Arc, Mutex},
         time::{Duration, Instant},
     };
+    use tokio::sync::Mutex as TokioMutex;
 
     use super::ActiveFilters;
     use crate::{
@@ -443,7 +444,7 @@ mod tests {
             jwt_secret: Default::default(),
             local_p2p_node: example_p2p_node(),
             active_filters: filters_pointer.clone(),
-            syncer: Arc::new(Mutex::new(SyncManager::dummy())),
+            syncer: Arc::new(TokioMutex::new(SyncManager::dummy())),
         };
         let request: RpcRequest = serde_json::from_value(json_req).expect("Test json is incorrect");
         let genesis_config: Genesis =
@@ -496,7 +497,7 @@ mod tests {
             local_p2p_node: example_p2p_node(),
             jwt_secret: Default::default(),
             active_filters: active_filters.clone(),
-            syncer: Arc::new(Mutex::new(SyncManager::dummy())),
+            syncer: Arc::new(TokioMutex::new(SyncManager::dummy())),
         };
 
         map_http_requests(&uninstall_filter_req, context).unwrap();
@@ -516,7 +517,7 @@ mod tests {
             local_p2p_node: example_p2p_node(),
             active_filters: active_filters.clone(),
             jwt_secret: Default::default(),
-            syncer: Arc::new(Mutex::new(SyncManager::dummy())),
+            syncer: Arc::new(TokioMutex::new(SyncManager::dummy())),
         };
         let uninstall_filter_req: RpcRequest = serde_json::from_value(json!(
         {

@@ -118,11 +118,8 @@ mod tests {
     use ethereum_rust_storage::{EngineType, Store};
     use hex_literal::hex;
     use serde_json::json;
-    use std::{
-        net::Ipv4Addr,
-        str::FromStr,
-        sync::{Arc, Mutex},
-    };
+    use std::{net::Ipv4Addr, str::FromStr, sync::Arc};
+    use tokio::sync::Mutex;
     // Base price for each test transaction.
     const BASE_PRICE_IN_WEI: u64 = 10_u64.pow(9);
     fn test_header(block_num: u64) -> BlockHeader {

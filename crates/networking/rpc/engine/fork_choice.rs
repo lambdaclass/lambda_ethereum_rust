@@ -89,6 +89,23 @@ impl RpcHandler for ForkChoiceUpdatedV3 {
             self.fork_choice_state.finalized_block_hash,
         ) {
             Ok(head) => head,
+            // TODO: handle this more elegantly
+            Err(error @ InvalidForkChoice::Syncing) => {
+                // Start sync
+                let current_number = context.storage.get_latest_block_number()?.unwrap();
+                let current_head = context
+                    .storage
+                    .get_canonical_block_hash(current_number)?
+                    .unwrap();
+                let sync_head = self.fork_choice_state.head_block_hash;
+                tokio::spawn(async move {
+                    // If we can't get hold of the syncer, then it means that there is an active sync in process
+                    if let Ok(mut syncer) = context.syncer.try_lock() {
+                        syncer.start_sync(current_head, sync_head).await
+                    }
+                });
+                return fork_choice_error_to_response(error);
+            }
             Err(error) => return fork_choice_error_to_response(error),
         };
 

@@ -25,7 +25,6 @@ pub struct SyncManager {
     peers: Arc<Mutex<KademliaTable>>,
     // Receiver end of the channel between the manager and the main p2p listen loop
     reply_receiver: tokio::sync::mpsc::Receiver<Message>,
-    active: bool,
 }
 
 impl SyncManager {
@@ -38,7 +37,6 @@ impl SyncManager {
             snap_mode,
             peers,
             reply_receiver,
-            active: false,
         }
     }
     // TODO: only uses snap sync, should also process full sync once implemented
@@ -46,7 +44,6 @@ impl SyncManager {
         const BYTES_PER_REQUEST: u64 = 500; // TODO: Adjust
         const REPLY_TIMEOUT: Duration = Duration::from_secs(30);
         info!("Starting snap-sync from current head {current_head} to sync_head {sync_head}");
-        self.active = true;
         // Request all block headers between the current head and the sync head
         // We will begin from the current head so that we download the earliest state first
         // This step is not parallelized
@@ -114,7 +111,6 @@ impl SyncManager {
         }
 
         // Sync finished
-        self.active = false;
     }
 
     /// Creates a dummy SyncManager for tests where syncing is not needed
@@ -125,7 +121,6 @@ impl SyncManager {
             snap_mode: false,
             peers: dummy_peer_table,
             reply_receiver: tokio::sync::mpsc::channel(0).1,
-            active: false,
         }
     }
 }

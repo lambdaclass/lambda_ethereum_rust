@@ -41,7 +41,7 @@ use std::{
     sync::{Arc, Mutex},
     time::Duration,
 };
-use tokio::net::TcpListener;
+use tokio::{net::TcpListener, sync::Mutex as TokioMutex};
 use tracing::info;
 use types::transaction::SendRawTransactionRequest;
 use utils::{
@@ -66,7 +66,7 @@ pub struct RpcApiContext {
     jwt_secret: Bytes,
     local_p2p_node: Node,
     active_filters: ActiveFilters,
-    syncer: Arc<Mutex<SyncManager>>,
+    syncer: Arc<TokioMutex<SyncManager>>,
 }
 
 trait RpcHandler: Sized {
@@ -104,7 +104,7 @@ pub async fn start_api(
         jwt_secret,
         local_p2p_node,
         active_filters: active_filters.clone(),
-        syncer: Arc::new(Mutex::new(syncer)),
+        syncer: Arc::new(TokioMutex::new(syncer)),
     };
 
     // Periodically clean up the active filters for the filters endpoints.
@@ -329,7 +329,7 @@ mod tests {
             storage,
             jwt_secret: Default::default(),
             active_filters: Default::default(),
-            syncer: Arc::new(Mutex::new(SyncManager::dummy())),
+            syncer: Arc::new(TokioMutex::new(SyncManager::dummy())),
         };
         let result = map_http_requests(&request, context);
         let rpc_response = rpc_response(request.id, result);
@@ -367,7 +367,7 @@ mod tests {
             storage,
             jwt_secret: Default::default(),
             active_filters: Default::default(),
-            syncer: Arc::new(Mutex::new(SyncManager::dummy())),
+            syncer: Arc::new(TokioMutex::new(SyncManager::dummy())),
         };
         let result = map_http_requests(&request, context);
         let response = rpc_response(request.id, result);
@@ -397,7 +397,7 @@ mod tests {
             storage,
             jwt_secret: Default::default(),
             active_filters: Default::default(),
-            syncer: Arc::new(Mutex::new(SyncManager::dummy())),
+            syncer: Arc::new(TokioMutex::new(SyncManager::dummy())),
         };
         let result = map_http_requests(&request, context);
         let response =
