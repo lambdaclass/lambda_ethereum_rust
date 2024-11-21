@@ -1,7 +1,7 @@
 use crate::{
     call_frame::CallFrame,
     constants::{BALANCE_COLD_ADDRESS_ACCESS_COST, WARM_ADDRESS_ACCESS_COST},
-    errors::{InternalError, OpcodeSuccess, OutOfGasError, VMError},
+    errors::{OpcodeSuccess, OutOfGasError, VMError},
     gas_cost,
     vm::{word_to_address, VM},
 };

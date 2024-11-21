@@ -1,7 +1,7 @@
 use crate::{
     call_frame::CallFrame,
     constants::SUCCESS_FOR_RETURN,
-    errors::{OpcodeSuccess, OutOfGasError, ResultReason, VMError},
+    errors::{OpcodeSuccess, ResultReason, VMError},
     gas_cost,
     vm::{word_to_address, VM},
 };
