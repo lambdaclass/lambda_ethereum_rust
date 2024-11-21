@@ -320,10 +320,10 @@ impl VM {
 
         let bytecode = self.get_account(&address).info.bytecode;
 
-        // TODO: Should be an OutOfGas (a very large offset involves a very large cost)
-        let new_memory_size = dest_offset.checked_add(size).ok_or(VMError::Internal(
-            InternalError::ArithmeticOperationOverflow,
-        ))?;
+        // If offset + size overflows usize we should return VeryLargeNumber.
+        let new_memory_size = dest_offset
+            .checked_add(size)
+            .ok_or(VMError::VeryLargeNumber)?;
         let current_memory_size = current_call_frame.memory.data.len();
         if current_memory_size < new_memory_size {
             current_call_frame.memory.data.resize(new_memory_size, 0);
