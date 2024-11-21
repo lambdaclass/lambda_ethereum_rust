@@ -2,7 +2,7 @@ name: Daily Hive Coverage
 
 on:
   schedule:
-    # Every Friday at midnight
+    # Every day at UTC midnight
     - cron: '0 0 * * *'
   workflow_dispatch:
 
