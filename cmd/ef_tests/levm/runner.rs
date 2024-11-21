@@ -1,6 +1,6 @@
 use crate::{
     report::EFTestsReport,
-    types::{EFTest, EFTestPostValue},
+    types::{EFTest, EFTestPostValue, TransactionExpectedException},
     utils,
 };
 use ethrex_core::{
@@ -233,6 +233,10 @@ fn get_post_value(test: &EFTest, tx_id: usize) -> Option<EFTestPostValue> {
     }
 }
 
+fn exception_is_expected(expected_exceptions: Vec<TransactionExpectedException>, returned_error: VMError) -> bool {
+    true
+}
+
 pub fn ensure_post_state(
     execution_result: Result<TransactionReport, VMError>,
     test: &EFTest,
@@ -288,7 +292,31 @@ pub fn ensure_post_state(
             match post_value.map(|v| v.clone().expect_exception) {
                 // Execution result was unsuccessful and an exception was expected.
                 // TODO: Check that the exception matches the expected exception.
-                Some(Some(_expected_exception)) => {}
+                Some(Some(expected_exceptions)) => {
+                    println!("Expected exception is {:?}", expected_exceptions);
+
+                    // Instead of cloning could use references
+                    if !exception_is_expected(expected_exceptions.clone(), err.clone()) {
+                        let error_reason = match expected_exceptions.get(1) {
+                            Some(second_exception) => {
+                                format!(
+                                    "Returned exception is not the expected: Returned {:?} but expected {:?} or {:?}",
+                                    err,
+                                    expected_exceptions.first().unwrap(),
+                                    second_exception
+                                )
+                            }
+                            None => {
+                                format!(
+                                    "Returned exception is not the expected: Returned {:?} but expected {:?}",
+                                    err,
+                                    expected_exceptions.first().unwrap()
+                                )
+                            }
+                        };
+                        return Err(format!("Post-state condition failed: {error_reason}").into());
+                    }
+                }
                 // Execution result was unsuccessful but no exception was expected.
                 None | Some(None) => {
                     let error_reason = format!("Unexpected exception: {err:?}");
