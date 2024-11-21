@@ -23,7 +23,6 @@ use ethrex_vm::{evm_state, execute_block, get_state_transitions};
 use keccak_hash::keccak;
 use secp256k1::SecretKey;
 use sha2::{Digest, Sha256};
-use std::ops::Div;
 use std::{collections::HashMap, time::Duration};
 use tokio::time::sleep;
 use tracing::{error, info, warn};
@@ -120,26 +119,40 @@ impl Committer {
                 let blobs_bundle = self.generate_blobs_bundle(state_diff.clone())?;
 
                 let head_block_hash = block_to_commit.hash();
+
+                let mut wrapped_eip4844 = match self
+                    .build_commitment_tx(
+                        block_to_commit.header.number,
+                        withdrawal_logs_merkle_root,
+                        deposit_logs_hash,
+                        &blobs_bundle,
+                    )
+                    .await
+                {
+                    Ok(tx) => tx,
+                    Err(error) => {
+                        error!("Failed when constructing the commitment for block {head_block_hash:#x}. Manual intervention required: {error}");
+                        // TODO: retry instead of throwing error.
+                        // it may fail in the estimate_gas fn.
+                        return Err(error);
+                    }
+                };
+
                 let mut retries = 0;
                 let max_retries: u32 = 100;
                 while retries < max_retries {
-                    match self
-                        .send_commitment(
-                            block_to_commit.header.number,
-                            withdrawal_logs_merkle_root,
-                            deposit_logs_hash,
-                            &blobs_bundle,
-                        )
-                        .await
-                    {
+                    match self.send_commitment(&wrapped_eip4844).await {
                         Ok(commit_tx_hash) => {
-                            info!("Sent commitment to block {head_block_hash:#x}, with transaction hash {commit_tx_hash:#x}");
+                            info!("Sent commitment for block {head_block_hash:#x}, with transaction hash {commit_tx_hash:#x}");
                             break;
                         }
                         Err(error) => {
-                            error!("Failed to send commitment to block {head_block_hash:#x}. Manual intervention required: {error}");
+                            error!("Failed to send commitment for block {head_block_hash:#x}, retrying. Manual intervention required: {error}");
+                            wrapped_eip4844 =
+                                self.eth_client.bump_eip4844(&mut wrapped_eip4844, 1.1);
                             retries += 1;
                             sleep(Duration::from_secs(2)).await;
+                            continue;
                         }
                     }
                 }
@@ -289,13 +302,13 @@ impl Committer {
         BlobsBundle::create_from_blobs(&vec![blob]).map_err(CommitterError::from)
     }
 
-    pub async fn send_commitment(
+    pub async fn build_commitment_tx(
         &self,
         block_number: u64,
         withdrawal_logs_merkle_root: H256,
         deposit_logs_hash: H256,
         blobs_bundle: &BlobsBundle,
-    ) -> Result<H256, CommitterError> {
+    ) -> Result<WrappedEIP4844Transaction, CommitterError> {
         info!("Sending commitment for block {block_number}");
 
         // TODO: This could be done using BlobsBundle.generate_versioned_hashes but we use different hashing crates
@@ -334,22 +347,27 @@ impl Committer {
             .await
             .map_err(CommitterError::from)?;
 
+        Ok(wrapped_tx)
+    }
+
+    pub async fn send_commitment(
+        &self,
+        wrapped_eip4844: &WrappedEIP4844Transaction,
+    ) -> Result<H256, CommitterError> {
         let commit_tx_hash = self
             .eth_client
-            .send_eip4844_transaction(wrapped_tx.clone(), &self.l1_private_key)
+            .send_eip4844_transaction(wrapped_eip4844.clone(), &self.l1_private_key)
             .await
             .map_err(CommitterError::from)?;
 
         let commit_tx_hash = wrapped_eip4844_transaction_handler(
             &self.eth_client,
-            &wrapped_tx,
+            wrapped_eip4844,
             &self.l1_private_key,
             commit_tx_hash,
             10,
         )
         .await?;
-
-        info!("Commitment sent: {commit_tx_hash:#x}");
 
         Ok(commit_tx_hash)
     }
