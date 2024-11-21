@@ -5,10 +5,9 @@ use tokei::{Config, LanguageType, Languages};
 const CARGO_MANIFEST_DIR: &str = std::env!("CARGO_MANIFEST_DIR");
 
 fn main() {
-    let ethrex = PathBuf::from(CARGO_MANIFEST_DIR).join("../../../lambda_ethereum_rust/");
-    let levm = PathBuf::from(CARGO_MANIFEST_DIR).join("../../../lambda_ethereum_rust/crates/vm");
-    let ethrex_l2 =
-        PathBuf::from(CARGO_MANIFEST_DIR).join("../../../lambda_ethereum_rust/crates/l2");
+    let ethrex = PathBuf::from(CARGO_MANIFEST_DIR).join("../../");
+    let levm = PathBuf::from(CARGO_MANIFEST_DIR).join("../../crates/vm");
+    let ethrex_l2 = PathBuf::from(CARGO_MANIFEST_DIR).join("../../crates/l2");
 
     let config = Config::default();
 
