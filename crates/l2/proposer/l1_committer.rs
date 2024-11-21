@@ -71,20 +71,6 @@ impl Committer {
         }
     }
 
-    // Get next block to commit
-    // Try to commit to it by sending the tx. Two possibilities
-    // - If nonce already known, just error out normally and it'll be fine, the loop will start again, you'll get the new commited block, you're fine
-    // - If tx gas fee too low, increase the fee. This should be handled normally by the function that sends transactions.
-    //
-    // To sum up, the function to send transactions will have a built in feature to retry after a while with a bumped gas price.
-    //
-    // The main logic is simple:
-    // - Fetch the latest committed block from the contract
-    // - Get the state diff to commit to and send the blob transaction
-    // - When sending it just use the function that bumps gas.
-    //
-    // If something errors out, we are back at the beginning, which covers the two cases.
-
     pub async fn main_logic(&self) -> Result<(), CommitterError> {
         let last_committed_block =
             EthClient::get_last_committed_block(&self.eth_client, self.on_chain_proposer_address)
