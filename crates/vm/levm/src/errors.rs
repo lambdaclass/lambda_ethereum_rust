@@ -39,7 +39,7 @@ pub enum VMError {
     AddressDoesNotMatchAnAccount,
     #[error("Sender account should not have bytecode")]
     SenderNotEOA,
-    #[error("Sender balance should contain transfer value")]
+    #[error("Insufficient account founds")]
     InsufficientAccountFunds,
     #[error("Gas price is lower than base fee")]
     GasPriceIsLowerThanBaseFee,
@@ -192,12 +192,9 @@ impl TransactionReport {
         self.gas_used = self
             .gas_used
             .checked_add(gas)
-            .ok_or(VMError::Internal(InternalError::OperationOverflow))?;
-        if self.gas_used > max {
-            Err(VMError::OutOfGas(OutOfGasError::MaxGasLimitExceeded))
-        } else {
-            Ok(())
-        }
+            .filter(|&total| total <= max)
+            .ok_or(VMError::OutOfGas(OutOfGasError::MaxGasLimitExceeded))?;
+        Ok(())
     }
 
     pub fn is_success(&self) -> bool {
