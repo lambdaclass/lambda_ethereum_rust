@@ -16,10 +16,11 @@ use k256::{
     ecdsa::SigningKey,
     elliptic_curve::{sec1::ToEncodedPoint, PublicKey},
 };
-use kademlia::{bucket_number, KademliaTable, MAX_NODES_PER_BUCKET};
+pub use kademlia::KademliaTable;
+use kademlia::{bucket_number, MAX_NODES_PER_BUCKET};
 use rand::rngs::OsRng;
-use rlpx::{connection::RLPxConnection, error::RLPxError, message::Message as RLPxMessage};
-use snap_sync::SnapSyncManager;
+pub use rlpx::message::Message as RLPxMessage;
+use rlpx::{connection::RLPxConnection, error::RLPxError};
 use tokio::{
     net::{TcpSocket, TcpStream, UdpSocket},
     sync::{broadcast, mpsc, Mutex},
@@ -33,7 +34,7 @@ pub(crate) mod discv4;
 pub(crate) mod kademlia;
 pub mod rlpx;
 pub(crate) mod snap;
-mod snap_sync;
+pub mod sync;
 pub mod types;
 
 const MAX_DISC_PACKET_SIZE: usize = 1280;
@@ -44,25 +45,22 @@ const MAX_DISC_PACKET_SIZE: usize = 1280;
 // we should bump this limit.
 const MAX_MESSAGES_TO_BROADCAST: usize = 1000;
 
+pub fn peer_table(signer: SigningKey) -> Arc<Mutex<KademliaTable>> {
+    let local_node_id = node_id_from_signing_key(&signer);
+    Arc::new(Mutex::new(KademliaTable::new(local_node_id)))
+}
+
 pub async fn start_network(
     udp_addr: SocketAddr,
     tcp_addr: SocketAddr,
     bootnodes: Vec<BootNode>,
     signer: SigningKey,
+    peer_table: Arc<Mutex<KademliaTable>>,
     storage: Store,
-    start_snap_sync: bool,
+    channel_backend_send: tokio::sync::mpsc::Sender<RLPxMessage>,
 ) {
     info!("Starting discovery service at {udp_addr}");
     info!("Listening for requests at {tcp_addr}");
-    let local_node_id = node_id_from_signing_key(&signer);
-    let table = Arc::new(Mutex::new(KademliaTable::new(local_node_id)));
-    // Communication between the backend and the main listen loop
-    let (channel_backend_send, channel_backend_receive) =
-        tokio::sync::mpsc::channel::<RLPxMessage>(MAX_MESSAGES_TO_BROADCAST);
-    if start_snap_sync {
-        let snap_sync_manager = SnapSyncManager::new(channel_backend_receive);
-        snap_sync_manager.start(table.clone()) // we need the table in order to send requests to a random peer
-    }
     let (channel_broadcast_send_end, _) = tokio::sync::broadcast::channel::<(
         tokio::task::Id,
         Arc<RLPxMessage>,
@@ -71,7 +69,7 @@ pub async fn start_network(
         udp_addr,
         signer.clone(),
         storage.clone(),
-        table.clone(),
+        peer_table.clone(),
         bootnodes,
         channel_broadcast_send_end.clone(),
         channel_backend_send.clone(),
@@ -80,7 +78,7 @@ pub async fn start_network(
         tcp_addr,
         signer.clone(),
         storage.clone(),
-        table.clone(),
+        peer_table.clone(),
         channel_broadcast_send_end,
         channel_backend_send,
     ));

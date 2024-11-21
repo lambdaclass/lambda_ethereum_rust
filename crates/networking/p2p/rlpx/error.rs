@@ -8,7 +8,7 @@ use super::message::Message;
 
 // TODO improve errors
 #[derive(Debug, Error)]
-pub(crate) enum RLPxError {
+pub enum RLPxError {
     #[error("{0}")]
     HandshakeError(String),
     #[error("{0}")]
@@ -45,6 +45,8 @@ pub(crate) enum RLPxError {
     RecvError(#[from] RecvError),
     #[error(transparent)]
     Send(#[from] tokio::sync::mpsc::error::SendError<Message>),
+    #[error("No peers to interact with yet")]
+    NoPeers,
 }
 
 // Grouping all cryptographic related errors in a single CryptographicError variant

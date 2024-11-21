@@ -332,11 +332,13 @@ impl<S: AsyncWrite + AsyncRead + std::marker::Unpin> RLPxConnection<S> {
                 let response = process_trie_nodes_request(req, self.storage.clone())?;
                 self.send(Message::TrieNodes(response)).await?
             }
-            // Send snap request responses to the SyncManager
+            // Send response messages to the backend
             message @ Message::AccountRange(_)
             | message @ Message::StorageRanges(_)
             | message @ Message::ByteCodes(_)
-            | message @ Message::TrieNodes(_) => backend_send.send(message).await?,
+            | message @ Message::TrieNodes(_)
+            | message @ Message::BlockBodies(_)
+            | message @ Message::BlockHeaders(_) => backend_send.send(message).await?,
             // TODO: Add new message types and handlers as they are implemented
             message => return Err(RLPxError::MessageNotHandled(format!("{message}"))),
         };

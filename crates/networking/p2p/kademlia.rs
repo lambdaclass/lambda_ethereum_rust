@@ -1,6 +1,6 @@
 use crate::{
     discv4::{time_now_unix, FindNodeRequest},
-    rlpx::message::Message,
+    rlpx::{error::RLPxError, message::Message},
     types::Node,
 };
 use ethereum_rust_core::{H256, H512, U256};
@@ -188,7 +188,7 @@ impl KademliaTable {
     /// ## Dev note:
     /// This function should be improved:
     /// We might keep the `peers` list sorted by last_ping as we would avoid unnecessary loops
-    pub fn get_least_recently_pinged_peers(&mut self, limit: usize) -> Vec<PeerData> {
+    pub fn get_least_recently_pinged_peers(&self, limit: usize) -> Vec<PeerData> {
         let mut peers = vec![];
 
         for bucket in &self.buckets {
@@ -225,17 +225,6 @@ impl KademliaTable {
         self.replace_peer_inner(node_id, bucket_idx)
     }
 
-    pub fn set_sender(&mut self, node_id: H512, sender: tokio::sync::mpsc::Sender<Message>) {
-        let bucket_idx = bucket_number(self.local_node_id, node_id);
-        if let Some(peer) = self.buckets[bucket_idx]
-            .peers
-            .iter_mut()
-            .find(|peer| peer.node.node_id == node_id)
-        {
-            peer.sender = Some(sender)
-        }
-    }
-
     #[cfg(test)]
     pub fn replace_peer_on_custom_bucket(
         &mut self,
@@ -265,6 +254,34 @@ impl KademliaTable {
         };
 
         None
+    }
+
+    /// Set the sender end of the channel between the kademlia table and the peer's active connection
+    /// This function should be called each time a connection is established so the backend can send requests to the peers
+    pub fn set_sender(&mut self, node_id: H512, sender: tokio::sync::mpsc::Sender<Message>) {
+        let bucket_idx = bucket_number(self.local_node_id, node_id);
+        if let Some(peer) = self.buckets[bucket_idx]
+            .peers
+            .iter_mut()
+            .find(|peer| peer.node.node_id == node_id)
+        {
+            peer.sender = Some(sender)
+        }
+    }
+
+    /// TODO: Use most recently pinged peer instead
+    fn get_peer(&self) -> Option<PeerData> {
+        self.get_least_recently_pinged_peers(1).pop()
+    }
+
+    /// Send a message to a peer, returns an error if there are no active peers
+    pub async fn send_message_to_peer(&self, message: Message) -> Result<(), RLPxError> {
+        if let Some(sender) = self.get_peer().and_then(|peer| peer.sender) {
+            Ok(sender.send(message).await?)
+        } else {
+            // Let the caller decide when to retry
+            Err(RLPxError::NoPeers)
+        }
     }
 }
 

@@ -5,8 +5,9 @@ use ethereum_rust_blockchain::fork_choice::apply_fork_choice;
 use ethereum_rust_core::types::{Block, Genesis};
 use ethereum_rust_core::H256;
 use ethereum_rust_net::bootnode::BootNode;
-use ethereum_rust_net::node_id_from_signing_key;
+use ethereum_rust_net::sync::SyncManager;
 use ethereum_rust_net::types::Node;
+use ethereum_rust_net::{node_id_from_signing_key, peer_table};
 use ethereum_rust_storage::{EngineType, Store};
 use k256::ecdsa::SigningKey;
 use local_ip_address::local_ip;
@@ -185,6 +186,13 @@ async fn main() {
         tcp_port: tcp_socket_addr.port(),
         node_id: local_node_id,
     };
+    // Create Kademlia Table here so we can access it from rpc server (for syncing)
+    let peer_table = peer_table(signer.clone());
+    // Communication between the backend and the main listen loop
+    let (channel_backend_send, channel_p2p_receive) =
+        tokio::sync::mpsc::channel::<ethereum_rust_net::RLPxMessage>(100);
+    // Create SyncManager
+    let syncer = SyncManager::new(channel_p2p_receive, peer_table.clone(), is_snap_sync);
 
     // TODO: Check every module starts properly.
     let tracker = TaskTracker::new();
@@ -194,6 +202,7 @@ async fn main() {
         store.clone(),
         jwt_secret,
         local_p2p_node,
+        syncer,
     )
     .into_future();
 
@@ -226,8 +235,9 @@ async fn main() {
                 tcp_socket_addr,
                 bootnodes,
                 signer,
+                peer_table,
                 store,
-                is_snap_sync
+                channel_backend_send
             )
             .into_future();
             tracker.spawn(networking);
