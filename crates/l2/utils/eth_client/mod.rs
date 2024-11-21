@@ -127,17 +127,16 @@ impl EthClient {
     ) -> Result<H256, EthClientError> {
         // Sometimes the penalty is a 100%
         // Increase max fee per gas by 110% (set it to 210% of the original)
-        let tx = self.bump_eip1559(tx, 1.1);
-        self.send_eip1559_transaction(tx, private_key).await
+        self.bump_eip1559(tx, 1.1);
+        self.send_eip1559_transaction(tx.clone(), private_key).await
     }
 
     /// Increase max fee per gas by percentage% (set it to (100+percentage)% of the original)
-    pub fn bump_eip1559(&self, tx: &mut EIP1559Transaction, percentage: f64) -> EIP1559Transaction {
+    pub fn bump_eip1559(&self, tx: &mut EIP1559Transaction, percentage: f64) {
         // TODO: handle as conversions
         tx.max_fee_per_gas = (tx.max_fee_per_gas as f64 * (1.0 + percentage)).round() as u64;
         tx.max_priority_fee_per_gas +=
             (tx.max_priority_fee_per_gas as f64 * (1.0 + percentage)).round() as u64;
-        tx.clone()
     }
 
     pub async fn bump_and_resend_eip4844(
@@ -147,29 +146,25 @@ impl EthClient {
     ) -> Result<H256, EthClientError> {
         // Sometimes the penalty is a 100%
         // Increase max fee per gas by 110% (set it to 210% of the original)
-        let tx = self.bump_eip4844(wrapped_tx, 1.1);
-        self.send_eip4844_transaction(tx, private_key).await
+        self.bump_eip4844(wrapped_tx, 1.1);
+        self.send_eip4844_transaction(wrapped_tx.clone(), private_key)
+            .await
     }
 
     /// Increase max fee per gas by percentage% (set it to (100+percentage)% of the original)
-    pub fn bump_eip4844(
-        &self,
-        wrapped_tx: &mut WrappedEIP4844Transaction,
-        percentage: f64,
-    ) -> WrappedEIP4844Transaction {
+    pub fn bump_eip4844(&self, wrapped_tx: &mut WrappedEIP4844Transaction, percentage: f64) {
         // TODO: handle as conversions
         wrapped_tx.tx.max_fee_per_gas =
             (wrapped_tx.tx.max_fee_per_gas as f64 * (1.0 + percentage)).round() as u64;
         wrapped_tx.tx.max_priority_fee_per_gas =
             (wrapped_tx.tx.max_priority_fee_per_gas as f64 * (1.0 + percentage)).round() as u64;
 
-        let factor = (1.0 + percentage).ceil() as u64;
+        let factor = ((1.0 + percentage) * 10.0).ceil() as u64;
         wrapped_tx.tx.max_fee_per_blob_gas = wrapped_tx
             .tx
             .max_fee_per_blob_gas
-            .saturating_mul(U256::from(factor));
-
-        wrapped_tx.clone()
+            .saturating_mul(U256::from(factor))
+            .div(10);
     }
 
     pub async fn send_privileged_l2_transaction(

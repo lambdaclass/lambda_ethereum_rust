@@ -148,8 +148,8 @@ impl Committer {
                         }
                         Err(error) => {
                             error!("Failed to send commitment for block {head_block_hash:#x}, retrying. Manual intervention required: {error}");
-                            wrapped_eip4844 =
-                                self.eth_client.bump_eip4844(&mut wrapped_eip4844, 1.1);
+
+                            self.eth_client.bump_eip4844(&mut wrapped_eip4844, 1.1);
                             retries += 1;
                             sleep(Duration::from_secs(2)).await;
                             continue;
