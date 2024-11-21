@@ -155,6 +155,11 @@ fn get_block_state_path(block_number: u64) -> Result<PathBuf, Box<dyn std::error
     Ok(block_state_path)
 }
 
+pub fn get_latest_block_number() -> Result<u64, Box<dyn std::error::Error>> {
+    let (block_number, _) = get_latest_block_number_and_path_from_state_path()?;
+    Ok(block_number)
+}
+
 /// READ
 pub fn read_state_file_for_block_number(
     block_number: u64,
@@ -239,6 +244,37 @@ pub fn path_has_state_file(
     state_file_type: StateFileType,
     path_buf: &Path,
 ) -> Result<bool, Box<dyn std::error::Error>> {
+    let file_prefix = match state_file_type {
+        StateFileType::AccountUpdates => "account_updates",
+        StateFileType::Proof => "proof",
+    };
+
+    for entry in std::fs::read_dir(path_buf)? {
+        let entry = entry?;
+        let file_name = entry.file_name();
+        let lossy_string = file_name.to_string_lossy();
+
+        let matches_prefix = lossy_string.starts_with(file_prefix);
+        let matches_suffix = lossy_string.ends_with(".json");
+
+        if matches_prefix && matches_suffix {
+            return Ok(true);
+        }
+    }
+
+    Ok(false)
+}
+
+pub fn block_number_has_state_file(
+    state_file_type: StateFileType,
+    block_number: u64,
+) -> Result<bool, Box<dyn std::error::Error>> {
+    let block_state_path = get_block_state_path(block_number)?;
+    let file_path: PathBuf = get_state_file_path(&block_state_path, block_number, state_file_type);
+
+    let mut path_buf = file_path.clone();
+    path_buf.pop();
+
     let file_prefix = match state_file_type {
         StateFileType::AccountUpdates => "account_updates",
         StateFileType::Proof => "proof",
@@ -346,11 +382,21 @@ mod tests {
             &latest_path
         )?);
 
+        assert!(block_number_has_state_file(
+            StateFileType::AccountUpdates,
+            latest_block_state_number
+        )?);
+
         delete_latest_state_file(StateFileType::AccountUpdates)?;
 
         assert!(!path_has_state_file(
             StateFileType::AccountUpdates,
             &latest_path
+        )?);
+
+        assert!(!block_number_has_state_file(
+            StateFileType::AccountUpdates,
+            latest_block_state_number
         )?);
 
         // Delete latest path

@@ -190,7 +190,6 @@ struct ProverServer {
     on_chain_proposer_address: Address,
     verifier_address: Address,
     verifier_private_key: SecretKey,
-    last_verified_block: u64,
 }
 
 impl ProverServer {
@@ -203,15 +202,6 @@ impl ProverServer {
         let eth_client = EthClient::new(&eth_config.rpc_url);
         let on_chain_proposer_address = committer_config.on_chain_proposer_address;
 
-        let last_verified_block =
-            EthClient::get_last_verified_block(&eth_client, on_chain_proposer_address).await?;
-
-        let last_verified_block = if last_verified_block == u64::MAX {
-            0
-        } else {
-            last_verified_block
-        };
-
         Ok(Self {
             ip: config.listen_ip,
             port: config.listen_port,
@@ -220,7 +210,6 @@ impl ProverServer {
             on_chain_proposer_address,
             verifier_address: config.verifier_address,
             verifier_private_key: config.verifier_private_key,
-            last_verified_block,
         })
     }
 
@@ -251,15 +240,24 @@ impl ProverServer {
     }
 
     async fn handle_connection(&mut self, mut stream: TcpStream) -> Result<(), ProverServerError> {
+        // Get latestVerfiedBlock
+        let last_verified_block =
+            EthClient::get_last_verified_block(&self.eth_client, self.on_chain_proposer_address)
+                .await?;
+        let last_verified_block = if last_verified_block == u64::MAX {
+            0
+        } else {
+            last_verified_block
+        };
+
+        let block_to_verify = last_verified_block + 1;
+
         let buf_reader = BufReader::new(&stream);
 
         let data: Result<ProofData, _> = serde_json::de::from_reader(buf_reader);
         match data {
             Ok(ProofData::Request) => {
-                if let Err(e) = self
-                    .handle_request(&mut stream, self.last_verified_block + 1)
-                    .await
-                {
+                if let Err(e) = self.handle_request(&mut stream, block_to_verify).await {
                     warn!("Failed to handle request: {e}");
                 }
             }
@@ -287,8 +285,7 @@ impl ProverServer {
                     panic!("Failed to handle submit_ack: {e}");
                 }
 
-                assert!(block_number == (self.last_verified_block + 1), "Prover Client submitted an invalid block_number: {block_number}. The last_proved_block is: {}", self.last_verified_block);
-                self.last_verified_block = block_number;
+                assert!(block_number == (block_to_verify), "Prover Client submitted an invalid block_number: {block_number}. The last_proved_block is: {}", block_to_verify);
             }
             Err(e) => {
                 warn!("Failed to parse request: {e}");
@@ -305,15 +302,56 @@ impl ProverServer {
     async fn handle_request(
         &self,
         stream: &mut TcpStream,
-        block_number: u64,
+        block_to_verify: u64,
     ) -> Result<(), ProverServerError> {
         debug!("Request received");
         // How to Handle shut-downs?
         // 1. Read latest proof from file
-        // 2. Check if we have the proof
-        //   - if proof_number == latest_verified_block -> handle request and send inputs to the prover_client
-        //   - if proof_number > latest_verified_block -> else resend tx with the same proof_number bumping the gas
-        //   - if proof_number < latest_verified_block -> the proof may have been stored/deleted incorrectly or with errors. send inputs to the prover client to start again
+        // 2. Check if we have the proof of the last_verified_block+1
+        //   - if we don't have it -> handle request and send inputs to the prover_client
+        //   - if we have it -> resend tx with the same proof_number bumping the gas
+
+        let proof;
+        let has_proof = match save_prover_state::block_number_has_state_file(
+            StateFileType::Proof,
+            block_to_verify,
+        ) {
+            Ok(bool) => {
+                if bool {
+                    proof = match save_prover_state::read_state_file_for_block_number(
+                        block_to_verify,
+                        StateFileType::Proof,
+                    ) {
+                        Ok(state) => match state {
+                            StateType::Proof(p) => p,
+                            _ => unreachable!("Expected Proof state type, but got something else"),
+                        },
+                        Err(e) => {
+                            error!(
+                                "Error reading state file for block number {}: {}",
+                                block_to_verify, e,
+                            );
+                            // If we reach here, we may have encoded the proof wrong.
+                            // Or it was lost.
+                            // How can we recover this error?
+                            todo!("Proper error handling")
+                        }
+                    };
+                    // Do not send inputs to the prover
+                    false
+                } else {
+                    // Send inputs to the prover
+                    true
+                }
+            }
+            // Send inputs to the prover
+            Err(e) => {
+                error!("Error checking if block_number_has_state_file: {e}");
+                true
+            }
+        };
+
+        let send_input = !has_proof;
 
         let last_committed_block =
             EthClient::get_last_committed_block(&self.eth_client, self.on_chain_proposer_address)
@@ -323,7 +361,8 @@ impl ProverServer {
         // is greater or equal to the next block_number.
         // Since the block_number passed to the function is the lastVerifiedBlock, we are essentially checking if the
         // block was committed before starting the proving process.
-        let response = if last_committed_block < block_number {
+        // Also checks if there is a proof saved.
+        let response = if (last_committed_block < block_to_verify) && !send_input {
             let response = ProofData::Response {
                 block_number: None,
                 input: None,
@@ -331,12 +370,12 @@ impl ProverServer {
             warn!("Didn't send response");
             response
         } else {
-            let input = self.create_prover_input(block_number)?;
+            let input = self.create_prover_input(block_to_verify)?;
             let response = ProofData::Response {
-                block_number: Some(block_number),
+                block_number: Some(block_to_verify),
                 input: Some(input),
             };
-            info!("Sent Response for block_number: {block_number}");
+            info!("Sent Response for block_number: {block_to_verify}");
             response
         };
 
@@ -422,17 +461,16 @@ impl ProverServer {
                     info!(
                         "Sent proof for block {block_number}, with transaction hash {tx_hash:#x}"
                     );
-                    // Remove the proof file
+                    // Remove the state path.
+                    // We don't store the account updates atm.
                     // Handle errors, a retry may not be sufficient.
-                    save_prover_state::delete_state_file_for_block_number(
-                        block_number,
-                        StateFileType::Proof,
-                    )
-                    .map_err(|e| {
-                        ProverServerError::FailedToSaveState(
-                            format!("Failed to delete proof: {e:?}").to_owned(),
-                        )
-                    })?;
+                    save_prover_state::delete_state_path_for_block_number(block_number).map_err(
+                        |e| {
+                            ProverServerError::FailedToSaveState(
+                                format!("Failed to delete proof: {e:?}").to_owned(),
+                            )
+                        },
+                    )?;
                     break;
                 }
 

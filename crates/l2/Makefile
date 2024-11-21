@@ -1,6 +1,6 @@
 .DEFAULT_GOAL := help
 
-.PHONY: help init down clean init-local-l1 down-local-l1 clean-local-l1 init-l2 down-l2 deploy-l1 deploy-block-executor deploy-inbox setup-prover test
+.PHONY: help init down clean init-local-l1 down-local-l1 clean-local-l1 init-l2 down-l2 deploy-l1 deploy-block-executor deploy-inbox setup-prover test purge_prover_state
 
 L2_GENESIS_FILE_PATH=../../test_data/genesis-l2.json
 L1_GENESIS_FILE_PATH=../../test_data/genesis-l1.json
@@ -118,7 +118,6 @@ else
     $(error Unsupported platform: $(UNAME_S))
 endif
 
-.PHONY: purge_prover_state
 purge_prover_state: ## 🧹 Removes the L2 state, only use to start fresh.
 	@echo "Are you sure you want to delete the directory: $(PROJECT_PATH) ? [y/n]"
 	@read answer; \
