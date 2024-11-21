@@ -79,6 +79,14 @@ pub enum VMError {
     InsufficientMaxFeePerBlobGas,
     #[error("Memory size overflows")]
     MemorySizeOverflow,
+    #[error("Type3TxZeroBlobs")]
+    Type3TxZeroBlobs,
+    #[error("Type3TxInvalidBlobVersionedHash")]
+    Type3TxInvalidBlobVersionedHash,
+    #[error("Type3TxBlobCountExceeded")]
+    Type3TxBlobCountExceeded,
+    #[error("Type3TxContractCreation")]
+    Type3TxContractCreation,
     // OutOfGas
     #[error("Out Of Gas")]
     OutOfGas(#[from] OutOfGasError),
