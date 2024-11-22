@@ -242,6 +242,7 @@ fn get_post_value(test: &EFTest, tx_id: usize) -> Option<EFTestPostValue> {
     }
 }
 
+// Exceptions not covered: RlpInvalidValue and Type3TxPreFork
 fn exception_is_expected(
     expected_exceptions: Vec<TransactionExpectedException>,
     returned_error: VMError,
@@ -273,6 +274,24 @@ fn exception_is_expected(
             ) | (
                 TransactionExpectedException::GasAllowanceExceeded,
                 VMError::GasAllowanceExceeded
+            ) | (
+                TransactionExpectedException::Type3TxBlobCountExceeded,
+                VMError::Type3TxBlobCountExceeded
+            ) | (
+                TransactionExpectedException::Type3TxZeroBlobs,
+                VMError::Type3TxZeroBlobs
+            ) | (
+                TransactionExpectedException::Type3TxContractCreation,
+                VMError::Type3TxContractCreation
+            ) | (
+                TransactionExpectedException::Type3TxInvalidBlobVersionedHash,
+                VMError::Type3TxInvalidBlobVersionedHash
+            ) | (
+                TransactionExpectedException::InsufficientMaxFeePerBlobGas,
+                VMError::InsufficientMaxFeePerBlobGas
+            ) | (
+                TransactionExpectedException::InitcodeSizeExceeded,
+                VMError::InitcodeSizeExceeded
             )
         ) {
             return true;
