@@ -5,7 +5,7 @@ use crate::{
     },
     utils::{
         config::{committer::CommitterConfig, eth::EthConfig},
-        eth_client::{eth_sender::Overrides, EthClient},
+        eth_client::{eth_sender::Overrides, EthClient, WrappedTransaction},
         merkle_tree::merkelize,
     },
 };
@@ -17,15 +17,13 @@ use ethrex_core::{
     },
     Address, H256, U256,
 };
-use ethrex_rpc::types::transaction::WrappedEIP4844Transaction;
 use ethrex_storage::Store;
 use ethrex_vm::{evm_state, execute_block, get_state_transitions};
 use keccak_hash::keccak;
 use secp256k1::SecretKey;
-use std::ops::Div;
 use std::{collections::HashMap, time::Duration};
 use tokio::time::sleep;
-use tracing::{error, info, warn};
+use tracing::{error, info};
 
 const COMMIT_FUNCTION_SELECTOR: [u8; 4] = [132, 97, 12, 179];
 
@@ -330,79 +328,17 @@ impl Committer {
 
         let commit_tx_hash = self
             .eth_client
-            .send_eip4844_transaction(wrapped_tx.clone(), &self.l1_private_key)
+            .send_wrapped_transaction_with_retry(
+                &WrappedTransaction::EIP4844(wrapped_tx),
+                &self.l1_private_key,
+                3 * 60, // 3 minutes
+                10,     // 180[secs]/20[retries] -> 18 seconds per retry
+            )
             .await
             .map_err(CommitterError::from)?;
-
-        let commit_tx_hash = wrapped_eip4844_transaction_handler(
-            &self.eth_client,
-            &wrapped_tx,
-            &self.l1_private_key,
-            commit_tx_hash,
-            10,
-        )
-        .await?;
 
         info!("Commitment sent: {commit_tx_hash:#x}");
 
         Ok(commit_tx_hash)
     }
-}
-
-async fn wrapped_eip4844_transaction_handler(
-    eth_client: &EthClient,
-    wrapped_eip4844: &WrappedEIP4844Transaction,
-    l1_private_key: &SecretKey,
-    commit_tx_hash: H256,
-    max_retries: u32,
-) -> Result<H256, CommitterError> {
-    let mut retries = 0;
-    let max_receipt_retries: u32 = 60 * 2; // 2 minutes
-    let mut commit_tx_hash = commit_tx_hash;
-    let mut wrapped_tx = wrapped_eip4844.clone();
-
-    while retries < max_retries {
-        if (eth_client.get_transaction_receipt(commit_tx_hash).await?).is_some() {
-            // If the tx_receipt was found, return the tx_hash.
-            return Ok(commit_tx_hash);
-        } else {
-            // Else, wait for receipt and send again if necessary.
-            let mut receipt_retries = 0;
-
-            // Try for 2 minutes with an interval of 1 second to get the tx_receipt.
-            while receipt_retries < max_receipt_retries {
-                match eth_client.get_transaction_receipt(commit_tx_hash).await? {
-                    Some(_) => return Ok(commit_tx_hash),
-                    None => {
-                        receipt_retries += 1;
-                        sleep(Duration::from_secs(1)).await;
-                    }
-                }
-            }
-
-            // If receipt was not found, send the same tx(same nonce) but with more gas.
-            // Sometimes the penalty is a 100%
-            warn!("Transaction not confirmed, resending with 110% more gas...");
-            // Increase max fee per gas by 110% (set it to 210% of the original)
-            wrapped_tx.tx.max_fee_per_gas =
-                (wrapped_tx.tx.max_fee_per_gas as f64 * 2.1).round() as u64;
-            wrapped_tx.tx.max_priority_fee_per_gas =
-                (wrapped_tx.tx.max_priority_fee_per_gas as f64 * 2.1).round() as u64;
-            wrapped_tx.tx.max_fee_per_blob_gas = wrapped_tx
-                .tx
-                .max_fee_per_blob_gas
-                .saturating_mul(U256::from(20))
-                .div(10);
-
-            commit_tx_hash = eth_client
-                .send_eip4844_transaction(wrapped_tx.clone(), l1_private_key)
-                .await
-                .map_err(CommitterError::from)?;
-
-            retries += 1;
-        }
-    }
-    Err(CommitterError::FailedToSendCommitment(
-        "Error handling eip4844".to_owned(),
-    ))
 }

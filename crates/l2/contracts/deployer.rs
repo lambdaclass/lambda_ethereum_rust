@@ -325,7 +325,7 @@ async fn create2_deploy(
         .expect("Failed to build create2 deploy tx");
 
     let deploy_tx_hash = eth_client
-        .send_eip1559_transaction(deploy_tx, &deployer_private_key)
+        .send_eip1559_transaction(&deploy_tx, &deployer_private_key)
         .await
         .expect("Failed to send create2 deploy tx");
 
@@ -449,7 +449,7 @@ async fn initialize_on_chain_proposer(
         .await
         .expect("Failed to build initialize transaction");
     let initialize_tx_hash = eth_client
-        .send_eip1559_transaction(initialize_tx, &deployer_private_key)
+        .send_eip1559_transaction(&initialize_tx, &deployer_private_key)
         .await
         .expect("Failed to send initialize transaction");
 
@@ -493,7 +493,7 @@ async fn initialize_bridge(
         .await
         .expect("Failed to build initialize transaction");
     let initialize_tx_hash = eth_client
-        .send_eip1559_transaction(initialize_tx, &deployer_private_key)
+        .send_eip1559_transaction(&initialize_tx, &deployer_private_key)
         .await
         .expect("Failed to send initialize transaction");
 
