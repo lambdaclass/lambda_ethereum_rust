@@ -15,10 +15,7 @@ use serde::{Deserialize, Serialize};
 use std::{
     io::{BufReader, BufWriter},
     net::{IpAddr, Shutdown, TcpListener, TcpStream},
-    sync::{
-        mpsc::{self, Receiver},
-        Arc,
-    },
+    sync::mpsc::{self, Receiver},
     thread,
     time::Duration,
 };
@@ -123,8 +120,11 @@ impl ProverServer {
 
     pub async fn run(&mut self, server_config: &ProverServerConfig) {
         loop {
-            if let Err(err) = self.main_logic(server_config).await {
+            if let Err(err) = self.clone().main_logic(server_config).await {
                 error!("Prover Server Error: {}", err);
+            } else {
+                info!("Prover Server Shut Down");
+                break;
             }
 
             sleep(Duration::from_millis(200)).await;
@@ -132,7 +132,7 @@ impl ProverServer {
     }
 
     async fn main_logic(
-        &mut self,
+        mut self,
         server_config: &ProverServerConfig,
     ) -> Result<(), ProverServerError> {
         if server_config.dev_mode {
