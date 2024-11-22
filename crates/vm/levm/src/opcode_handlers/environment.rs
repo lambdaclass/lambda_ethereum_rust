@@ -404,7 +404,7 @@ impl VM {
                     .min(sub_return_data_len),
             )
         } else {
-            vec![0u8; size].into()
+            return Err(VMError::VeryLargeNumber); // Maybe can create a new error instead of using this one
         };
 
         current_call_frame.memory.store_bytes(dest_offset, &data)?;
