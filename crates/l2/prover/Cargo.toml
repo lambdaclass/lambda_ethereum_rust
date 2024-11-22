@@ -34,7 +34,7 @@ revm = { version = "14.0.3", features = [
 ], default-features = false }
 
 [dev-dependencies]
-ethrex-vm.workspace = true
+ethrex-vm = { path = "../../crates/vm", features = ["l2"] }
 ethrex-storage.workspace = true
 ethrex-blockchain.workspace = true
 
