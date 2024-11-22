@@ -91,9 +91,9 @@ pub async fn start_prover_server(store: Store) {
             let verify_tx = eth_client
                 .build_eip1559_transaction(
                     proposer_config.on_chain_proposer_address,
+                    server_config.verifier_address,
                     calldata.into(),
                     Overrides {
-                        from: Some(server_config.verifier_address),
                         ..Default::default()
                     },
                 )
@@ -490,11 +490,9 @@ impl ProverServer {
             .eth_client
             .build_eip1559_transaction(
                 self.on_chain_proposer_address,
+                self.verifier_address,
                 calldata.into(),
-                Overrides {
-                    from: Some(self.verifier_address),
-                    ..Default::default()
-                },
+                Overrides::default(),
             )
             .await?;
 

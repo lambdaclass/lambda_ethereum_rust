@@ -341,6 +341,7 @@ impl Command {
                 let tx = eth_client
                     .build_eip1559_transaction(
                         cfg.contracts.common_bridge,
+                        cfg.wallet.address,
                         claim_withdrawal_data.into(),
                         Overrides {
                             chain_id: Some(cfg.network.l1_chain_id),
@@ -377,6 +378,7 @@ impl Command {
                 let transfer_tx = client
                     .build_eip1559_transaction(
                         to,
+                        cfg.wallet.address,
                         Bytes::new(),
                         Overrides {
                             value: Some(amount),
@@ -417,6 +419,7 @@ impl Command {
                 let withdraw_transaction = rollup_client
                     .build_privileged_transaction(
                         PrivilegedTxType::Withdrawal,
+                        to.unwrap_or(cfg.wallet.address),
                         to.unwrap_or(cfg.wallet.address),
                         Bytes::new(),
                         Overrides {
@@ -470,6 +473,7 @@ impl Command {
                 let tx = client
                     .build_eip1559_transaction(
                         to,
+                        cfg.wallet.address,
                         calldata,
                         Overrides {
                             value: Some(value),

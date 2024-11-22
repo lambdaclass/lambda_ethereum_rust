@@ -9,9 +9,12 @@ use errors::{
 };
 use eth_sender::Overrides;
 use ethereum_types::{Address, H256, U256};
-use ethrex_core::types::{
-    BlobsBundle, EIP1559Transaction, EIP4844Transaction, GenericTransaction,
-    PrivilegedL2Transaction, PrivilegedTxType, Signable, TxKind, TxType,
+use ethrex_core::{
+    types::{
+        BlobsBundle, EIP1559Transaction, EIP4844Transaction, GenericTransaction,
+        PrivilegedL2Transaction, PrivilegedTxType, Signable, TxKind, TxType,
+    },
+    H160,
 };
 use ethrex_rlp::encode::RLPEncode;
 use ethrex_rpc::{
@@ -30,6 +33,8 @@ use serde_json::json;
 use std::ops::Div;
 use tokio::time::{sleep, Instant};
 use tracing::warn;
+
+use super::get_address_from_secret_key;
 
 pub mod errors;
 pub mod eth_sender;
@@ -216,11 +221,12 @@ impl EthClient {
         tx: &mut EIP1559Transaction,
         private_key: &SecretKey,
     ) -> Result<H256, EthClientError> {
+        let from = get_address_from_secret_key(private_key);
         // Sometimes the penalty is a 100%
         // Increase max fee per gas by 110% (set it to 210% of the original)
         self.bump_eip1559(tx, 1.1);
         let wrapped_tx = &mut WrappedTransaction::EIP1559(tx.clone());
-        self.estimate_gas_for_wrapped_tx(wrapped_tx).await?;
+        self.estimate_gas_for_wrapped_tx(wrapped_tx, from).await?;
         if let WrappedTransaction::EIP1559(eip1559) = wrapped_tx {
             tx.max_fee_per_gas = eip1559.max_fee_per_gas;
             tx.max_priority_fee_per_gas = eip1559.max_fee_per_gas;
@@ -242,11 +248,13 @@ impl EthClient {
         wrapped_tx: &mut WrappedEIP4844Transaction,
         private_key: &SecretKey,
     ) -> Result<H256, EthClientError> {
+        let from = get_address_from_secret_key(private_key);
         // Sometimes the penalty is a 100%
         // Increase max fee per gas by 110% (set it to 210% of the original)
         self.bump_eip4844(wrapped_tx, 1.1);
         let wrapped_eip4844 = &mut WrappedTransaction::EIP4844(wrapped_tx.clone());
-        self.estimate_gas_for_wrapped_tx(wrapped_eip4844).await?;
+        self.estimate_gas_for_wrapped_tx(wrapped_eip4844, from)
+            .await?;
         if let WrappedTransaction::EIP4844(eip4844) = wrapped_eip4844 {
             wrapped_tx.tx.max_fee_per_gas = eip4844.tx.max_fee_per_gas;
             wrapped_tx.tx.max_priority_fee_per_gas = eip4844.tx.max_fee_per_gas;
@@ -277,11 +285,12 @@ impl EthClient {
         tx: &mut PrivilegedL2Transaction,
         private_key: &SecretKey,
     ) -> Result<H256, EthClientError> {
+        let from = get_address_from_secret_key(private_key);
         // Sometimes the penalty is a 100%
         // Increase max fee per gas by 110% (set it to 210% of the original)
         self.bump_privileged_l2(tx, 1.1);
         let wrapped_tx = &mut WrappedTransaction::L2(tx.clone());
-        self.estimate_gas_for_wrapped_tx(wrapped_tx).await?;
+        self.estimate_gas_for_wrapped_tx(wrapped_tx, from).await?;
         if let WrappedTransaction::L2(l2_tx) = wrapped_tx {
             tx.max_fee_per_gas = l2_tx.max_fee_per_gas;
             tx.max_priority_fee_per_gas = l2_tx.max_fee_per_gas;
@@ -568,9 +577,10 @@ impl EthClient {
     pub async fn estimate_gas_for_wrapped_tx(
         &self,
         wrapped_tx: &mut WrappedTransaction,
+        from: H160,
     ) -> Result<u64, EthClientError> {
         loop {
-            let transaction = match wrapped_tx {
+            let mut transaction = match wrapped_tx {
                 WrappedTransaction::EIP4844(wrapped_eip4844_transaction) => {
                     GenericTransaction::from(wrapped_eip4844_transaction.clone().tx)
                 }
@@ -581,6 +591,8 @@ impl EthClient {
                     GenericTransaction::from(privileged_l2_transaction.clone())
                 }
             };
+
+            transaction.from = from;
 
             match self.estimate_gas(transaction).await {
                 Ok(gas_limit) => return Ok(gas_limit),
@@ -614,6 +626,7 @@ impl EthClient {
     pub async fn build_eip1559_transaction(
         &self,
         to: Address,
+        from: Address,
         calldata: Bytes,
         overrides: Overrides,
         // TODO
@@ -627,7 +640,9 @@ impl EthClient {
             } else {
                 self.get_chain_id().await?.as_u64()
             },
-            nonce: self.get_nonce_from_overrides(&overrides).await?,
+            nonce: self
+                .get_nonce_from_overrides_or_rpc(&overrides, from)
+                .await?,
             max_priority_fee_per_gas: if let Some(gas_price) = overrides.gas_price {
                 get_gas_price = gas_price;
                 gas_price
@@ -651,7 +666,10 @@ impl EthClient {
         let gas_limit = if let Some(overrides_gas_limit) = overrides.gas_limit {
             overrides_gas_limit
         } else {
-            match self.estimate_gas_for_wrapped_tx(&mut wrapped_tx).await {
+            match self
+                .estimate_gas_for_wrapped_tx(&mut wrapped_tx, from)
+                .await
+            {
                 Ok(gas_limit) => gas_limit,
                 Err(e) => {
                     warn!("ERROR ESTIMATING GAS");
@@ -678,6 +696,7 @@ impl EthClient {
     pub async fn build_eip4844_transaction(
         &self,
         to: Address,
+        from: Address,
         calldata: Bytes,
         overrides: Overrides,
         blobs_bundle: BlobsBundle,
@@ -692,7 +711,9 @@ impl EthClient {
             } else {
                 self.get_chain_id().await?.as_u64()
             },
-            nonce: self.get_nonce_from_overrides(&overrides).await?,
+            nonce: self
+                .get_nonce_from_overrides_or_rpc(&overrides, from)
+                .await?,
             max_priority_fee_per_gas: if let Some(gas_price) = overrides.gas_price {
                 get_gas_price = gas_price;
                 gas_price
@@ -721,7 +742,10 @@ impl EthClient {
         let gas_limit = if let Some(overrides_gas_limit) = overrides.gas_limit {
             overrides_gas_limit
         } else {
-            match self.estimate_gas_for_wrapped_tx(&mut wrapped_tx).await {
+            match self
+                .estimate_gas_for_wrapped_tx(&mut wrapped_tx, from)
+                .await
+            {
                 Ok(gas_limit) => gas_limit,
                 Err(e) => {
                     warn!("ERROR ESTIMATING GAS");
@@ -749,6 +773,7 @@ impl EthClient {
         &self,
         tx_type: PrivilegedTxType,
         to: Address,
+        from: Address,
         calldata: Bytes,
         overrides: Overrides,
     ) -> Result<PrivilegedL2Transaction, EthClientError> {
@@ -761,7 +786,9 @@ impl EthClient {
             } else {
                 self.get_chain_id().await?.as_u64()
             },
-            nonce: self.get_nonce_from_overrides(&overrides).await?,
+            nonce: self
+                .get_nonce_from_overrides_or_rpc(&overrides, from)
+                .await?,
             max_priority_fee_per_gas: if let Some(gas_price) = overrides.gas_price {
                 get_gas_price = gas_price;
                 gas_price
@@ -785,7 +812,10 @@ impl EthClient {
         let gas_limit = if let Some(overrides_gas_limit) = overrides.gas_limit {
             overrides_gas_limit
         } else {
-            match self.estimate_gas_for_wrapped_tx(&mut wrapped_tx).await {
+            match self
+                .estimate_gas_for_wrapped_tx(&mut wrapped_tx, from)
+                .await
+            {
                 Ok(gas_limit) => gas_limit,
                 Err(e) => {
                     warn!("ERROR ESTIMATING GAS");
@@ -804,12 +834,14 @@ impl EthClient {
         ))
     }
 
-    async fn get_nonce_from_overrides(&self, overrides: &Overrides) -> Result<u64, EthClientError> {
+    async fn get_nonce_from_overrides_or_rpc(
+        &self,
+        overrides: &Overrides,
+        address: Address,
+    ) -> Result<u64, EthClientError> {
         if let Some(nonce) = overrides.nonce {
             return Ok(nonce);
         }
-
-        let address = overrides.from.ok_or(EthClientError::UnrecheableNonce)?;
         self.get_nonce(address).await
     }
 

@@ -1,7 +1,6 @@
 use bytes::Bytes;
 use colored::Colorize;
 use ethereum_types::{Address, H160, H256};
-use ethrex_core::types::{GAS_LIMIT_ADJUSTMENT_FACTOR, GAS_LIMIT_MINIMUM};
 use ethrex_l2::utils::{
     config::{read_env_as_lines, read_env_file, write_env},
     eth_client::{eth_sender::Overrides, EthClient},
@@ -187,18 +186,6 @@ async fn deploy_contracts(
     eth_client: &EthClient,
     contracts_path: &Path,
 ) -> (Address, Address) {
-    let gas_price = if eth_client.url.contains("localhost:8545") {
-        Some(1_000_000_000)
-    } else {
-        Some(eth_client.get_gas_price().await.unwrap().as_u64() * 2)
-    };
-
-    let overrides = Overrides {
-        gas_limit: Some(GAS_LIMIT_MINIMUM * GAS_LIMIT_ADJUSTMENT_FACTOR),
-        gas_price,
-        ..Default::default()
-    };
-
     let deploy_frames = spinner!(["📭❱❱", "❱📬❱", "❱❱📫"], 220);
 
     let mut spinner = Spinner::new(
@@ -208,14 +195,7 @@ async fn deploy_contracts(
     );
 
     let (on_chain_proposer_deployment_tx_hash, on_chain_proposer_address) =
-        deploy_on_chain_proposer(
-            deployer,
-            deployer_private_key,
-            overrides.clone(),
-            eth_client,
-            contracts_path,
-        )
-        .await;
+        deploy_on_chain_proposer(deployer, deployer_private_key, eth_client, contracts_path).await;
 
     let msg = format!(
         "OnChainProposer:\n\tDeployed at address {} with tx hash {}",
@@ -225,14 +205,8 @@ async fn deploy_contracts(
     spinner.success(&msg);
 
     let mut spinner = Spinner::new(deploy_frames, "Deploying CommonBridge", Color::Cyan);
-    let (bridge_deployment_tx_hash, bridge_address) = deploy_bridge(
-        deployer,
-        deployer_private_key,
-        overrides,
-        eth_client,
-        contracts_path,
-    )
-    .await;
+    let (bridge_deployment_tx_hash, bridge_address) =
+        deploy_bridge(deployer, deployer_private_key, eth_client, contracts_path).await;
 
     let msg = format!(
         "CommonBridge:\n\tDeployed at address {} with tx hash {}",
@@ -247,7 +221,6 @@ async fn deploy_contracts(
 async fn deploy_on_chain_proposer(
     deployer: Address,
     deployer_private_key: SecretKey,
-    overrides: Overrides,
     eth_client: &EthClient,
     contracts_path: &Path,
 ) -> (H256, Address) {
@@ -262,7 +235,6 @@ async fn deploy_on_chain_proposer(
         deployer,
         deployer_private_key,
         &on_chain_proposer_init_code,
-        overrides,
         eth_client,
     )
     .await;
@@ -273,7 +245,6 @@ async fn deploy_on_chain_proposer(
 async fn deploy_bridge(
     deployer: Address,
     deployer_private_key: SecretKey,
-    overrides: Overrides,
     eth_client: &EthClient,
     contracts_path: &Path,
 ) -> (H256, Address) {
@@ -296,7 +267,6 @@ async fn deploy_bridge(
         deployer,
         deployer_private_key,
         &bridge_init_code.into(),
-        overrides,
         eth_client,
     )
     .await;
@@ -308,18 +278,15 @@ async fn create2_deploy(
     deployer: Address,
     deployer_private_key: SecretKey,
     init_code: &Bytes,
-    overrides: Overrides,
     eth_client: &EthClient,
 ) -> (H256, Address) {
     let calldata = [SALT.lock().unwrap().as_bytes(), init_code].concat();
     let deploy_tx = eth_client
         .build_eip1559_transaction(
             DETERMINISTIC_CREATE2_ADDRESS,
+            deployer,
             calldata.into(),
-            Overrides {
-                from: Some(deployer),
-                ..overrides
-            },
+            Overrides::default(),
         )
         .await
         .expect("Failed to build create2 deploy tx");
@@ -440,11 +407,9 @@ async fn initialize_on_chain_proposer(
     let initialize_tx = eth_client
         .build_eip1559_transaction(
             on_chain_proposer,
+            deployer,
             on_chain_proposer_initialization_calldata.into(),
-            Overrides {
-                from: Some(deployer),
-                ..Default::default()
-            },
+            Overrides::default(),
         )
         .await
         .expect("Failed to build initialize transaction");
@@ -484,11 +449,9 @@ async fn initialize_bridge(
     let initialize_tx = eth_client
         .build_eip1559_transaction(
             bridge,
+            deployer,
             bridge_initialization_calldata.into(),
-            Overrides {
-                from: Some(deployer),
-                ..Default::default()
-            },
+            Overrides::default(),
         )
         .await
         .expect("Failed to build initialize transaction");

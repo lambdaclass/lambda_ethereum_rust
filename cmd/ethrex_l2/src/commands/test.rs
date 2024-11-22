@@ -89,6 +89,7 @@ async fn transfer_from(
         let tx = client
             .build_eip1559_transaction(
                 to_address,
+                address,
                 Bytes::new(),
                 Overrides {
                     chain_id: Some(cfg.network.l2_chain_id),

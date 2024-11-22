@@ -315,6 +315,7 @@ impl Committer {
             .eth_client
             .build_eip4844_transaction(
                 self.on_chain_proposer_address,
+                self.l1_address,
                 Bytes::from(calldata),
                 Overrides {
                     from: Some(self.l1_address),
