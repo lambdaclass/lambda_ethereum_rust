@@ -16,7 +16,7 @@ hex.workspace = true
 
 # ethrex
 ethrex-core.workspace = true
-ethrex-vm = { path = "../../vm", features = ["l2"] }
+ethrex-vm.workspace = true
 ethrex-rlp.workspace = true
 
 # l2
@@ -34,7 +34,7 @@ revm = { version = "14.0.3", features = [
 ], default-features = false }
 
 [dev-dependencies]
-ethrex-vm = { path = "../../vm", features = ["l2"] }
+ethrex-vm.workspace = true
 ethrex-storage.workspace = true
 ethrex-blockchain.workspace = true
 
