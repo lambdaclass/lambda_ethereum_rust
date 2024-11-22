@@ -87,6 +87,8 @@ pub enum VMError {
     Type3TxBlobCountExceeded,
     #[error("Type3TxContractCreation")]
     Type3TxContractCreation,
+    #[error("Revert Create")]
+    RevertCreate,
     // OutOfGas
     #[error("Out Of Gas")]
     OutOfGas(#[from] OutOfGasError),
@@ -153,6 +155,8 @@ pub enum InternalError {
     UtilsError,
     #[error("Overflow error")]
     OperationOverflow,
+    #[error("Undefined state")]
+    UndefinedState(i32), // This error is temporarily for things that cause an undefined state.
 }
 
 impl VMError {
