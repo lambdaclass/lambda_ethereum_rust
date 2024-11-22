@@ -81,7 +81,7 @@ pub fn run_ef_test_tx(
 }
 
 pub fn run_ef_test(test: EFTest, report: &mut EFTestsReport) -> Result<(), Box<dyn Error>> {
-    println!("Running test: {}", &test.name);
+    //println!("Running test: {}", &test.name);
     let mut failed = false;
     for (tx_id, (tx_indexes, _tx)) in test.transactions.iter().enumerate() {
         // Code for debugging a specific case.
@@ -313,7 +313,6 @@ pub fn ensure_post_state(
                     return Err(format!("Post-state condition failed: {error_reason}").into());
                 }
                 // Execution result was successful and no exception was expected.
-                // TODO: Check that the post-state matches the expected post-state.
                 None | Some(None) => {
                     let pos_state_root = post_state_root(execution_report, test);
                     if let Some(expected_post_state_root_hash) = post_value {
@@ -336,10 +335,7 @@ pub fn ensure_post_state(
         Err(err) => {
             match post_value.map(|v| v.clone().expect_exception) {
                 // Execution result was unsuccessful and an exception was expected.
-                // TODO: Check that the exception matches the expected exception.
                 Some(Some(expected_exceptions)) => {
-                    println!("Expected exception is {:?}", expected_exceptions);
-
                     // Instead of cloning could use references
                     if !exception_is_expected(expected_exceptions.clone(), err.clone()) {
                         let error_reason = match expected_exceptions.get(1) {
