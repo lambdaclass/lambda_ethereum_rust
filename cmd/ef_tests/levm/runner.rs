@@ -1,6 +1,6 @@
 use crate::{
     report::EFTestsReport,
-    types::{EFTest, EFTestPostValue},
+    types::{EFTest, EFTestPostValue, TransactionExpectedException},
     utils,
 };
 use ethrex_core::{
@@ -76,12 +76,12 @@ pub fn run_ef_test_tx(
     let mut evm = prepare_vm_for_tx(tx_id, test)?;
     ensure_pre_state(&evm, test)?;
     let execution_result = evm.transact();
-    // ensure_post_state(execution_result, test, report, tx_id)?;
+    ensure_post_state(execution_result, test, report, tx_id)?;
     Ok(())
 }
 
 pub fn run_ef_test(test: EFTest, report: &mut EFTestsReport) -> Result<(), Box<dyn Error>> {
-    println!("Running test: {}", &test.name);
+    //println!("Running test: {}", &test.name);
     let mut failed = false;
     for (tx_id, (tx_indexes, _tx)) in test.transactions.iter().enumerate() {
         // Code for debugging a specific case.
@@ -242,6 +242,61 @@ fn get_post_value(test: &EFTest, tx_id: usize) -> Option<EFTestPostValue> {
     }
 }
 
+// Exceptions not covered: RlpInvalidValue and Type3TxPreFork
+fn exception_is_expected(
+    expected_exceptions: Vec<TransactionExpectedException>,
+    returned_error: VMError,
+) -> bool {
+    expected_exceptions.iter().any(|exception| {
+        matches!(
+            (exception, &returned_error),
+            (
+                TransactionExpectedException::IntrinsicGasTooLow,
+                VMError::IntrinsicGasTooLow
+            ) | (
+                TransactionExpectedException::InsufficientAccountFunds,
+                VMError::InsufficientAccountFunds
+            ) | (
+                TransactionExpectedException::PriorityGreaterThanMaxFeePerGas,
+                VMError::PriorityGreaterThanMaxFeePerGas
+            ) | (
+                TransactionExpectedException::GasLimitPriceProductOverflow,
+                VMError::GasLimitPriceProductOverflow
+            ) | (
+                TransactionExpectedException::SenderNotEoa,
+                VMError::SenderNotEOA
+            ) | (
+                TransactionExpectedException::InsufficientMaxFeePerGas,
+                VMError::InsufficientMaxFeePerGas
+            ) | (
+                TransactionExpectedException::NonceIsMax,
+                VMError::NonceIsMax
+            ) | (
+                TransactionExpectedException::GasAllowanceExceeded,
+                VMError::GasAllowanceExceeded
+            ) | (
+                TransactionExpectedException::Type3TxBlobCountExceeded,
+                VMError::Type3TxBlobCountExceeded
+            ) | (
+                TransactionExpectedException::Type3TxZeroBlobs,
+                VMError::Type3TxZeroBlobs
+            ) | (
+                TransactionExpectedException::Type3TxContractCreation,
+                VMError::Type3TxContractCreation
+            ) | (
+                TransactionExpectedException::Type3TxInvalidBlobVersionedHash,
+                VMError::Type3TxInvalidBlobVersionedHash
+            ) | (
+                TransactionExpectedException::InsufficientMaxFeePerBlobGas,
+                VMError::InsufficientMaxFeePerBlobGas
+            ) | (
+                TransactionExpectedException::InitcodeSizeExceeded,
+                VMError::InitcodeSizeExceeded
+            )
+        )
+    })
+}
+
 pub fn ensure_post_state(
     execution_result: Result<TransactionReport, VMError>,
     test: &EFTest,
@@ -253,12 +308,26 @@ pub fn ensure_post_state(
         Ok(execution_report) => {
             match post_value.clone().map(|v| v.clone().expect_exception) {
                 // Execution result was successful but an exception was expected.
-                Some(Some(expected_exception)) => {
-                    let error_reason = format!("Expected exception: {expected_exception}");
+                Some(Some(expected_exceptions)) => {
+                    let error_reason = match expected_exceptions.get(1) {
+                        Some(second_exception) => {
+                            format!(
+                                "Expected exception: {:?} or {:?}",
+                                expected_exceptions.first().unwrap(),
+                                second_exception
+                            )
+                        }
+                        None => {
+                            format!(
+                                "Expected exception: {:?}",
+                                expected_exceptions.first().unwrap()
+                            )
+                        }
+                    };
+
                     return Err(format!("Post-state condition failed: {error_reason}").into());
                 }
                 // Execution result was successful and no exception was expected.
-                // TODO: Check that the post-state matches the expected post-state.
                 None | Some(None) => {
                     let pos_state_root = post_state_root(execution_report, test);
                     if let Some(expected_post_state_root_hash) = post_value {
@@ -281,8 +350,29 @@ pub fn ensure_post_state(
         Err(err) => {
             match post_value.map(|v| v.clone().expect_exception) {
                 // Execution result was unsuccessful and an exception was expected.
-                // TODO: Check that the exception matches the expected exception.
-                Some(Some(_expected_exception)) => {}
+                Some(Some(expected_exceptions)) => {
+                    // Instead of cloning could use references
+                    if !exception_is_expected(expected_exceptions.clone(), err.clone()) {
+                        let error_reason = match expected_exceptions.get(1) {
+                            Some(second_exception) => {
+                                format!(
+                                    "Returned exception is not the expected: Returned {:?} but expected {:?} or {:?}",
+                                    err,
+                                    expected_exceptions.first().unwrap(),
+                                    second_exception
+                                )
+                            }
+                            None => {
+                                format!(
+                                    "Returned exception is not the expected: Returned {:?} but expected {:?}",
+                                    err,
+                                    expected_exceptions.first().unwrap()
+                                )
+                            }
+                        };
+                        return Err(format!("Post-state condition failed: {error_reason}").into());
+                    }
+                }
                 // Execution result was unsuccessful but no exception was expected.
                 None | Some(None) => {
                     let error_reason = format!("Unexpected exception: {err:?}");

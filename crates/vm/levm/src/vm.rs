@@ -718,7 +718,8 @@ impl VM {
         // Access List Cost
         // TODO: Implement access list cost.
 
-        self.increase_consumed_gas(initial_call_frame, intrinsic_gas)?;
+        self.increase_consumed_gas(initial_call_frame, intrinsic_gas)
+            .map_err(|_| VMError::IntrinsicGasTooLow)?;
 
         Ok(())
     }
