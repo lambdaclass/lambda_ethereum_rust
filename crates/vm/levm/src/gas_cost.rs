@@ -114,7 +114,7 @@ pub fn exp(exponent_bits: u64) -> Result<U256, OutOfGasError> {
 }
 
 pub fn calldatacopy(
-    current_call_frame: &mut CallFrame,
+    current_call_frame: &CallFrame,
     size: usize,
     dest_offset: usize,
 ) -> Result<U256, OutOfGasError> {
@@ -128,7 +128,7 @@ pub fn calldatacopy(
 }
 
 pub fn codecopy(
-    current_call_frame: &mut CallFrame,
+    current_call_frame: &CallFrame,
     size: usize,
     dest_offset: usize,
 ) -> Result<U256, OutOfGasError> {
@@ -142,15 +142,15 @@ pub fn codecopy(
 }
 
 pub fn extcodecopy(
-    current_call_frame: &mut CallFrame,
+    current_call_frame: &CallFrame,
     size: usize,
     dest_offset: usize,
-    is_cached: bool,
+    address_is_cold: bool,
 ) -> Result<U256, OutOfGasError> {
-    let address_access_cost = if is_cached {
-        WARM_ADDRESS_ACCESS_COST
-    } else {
+    let address_access_cost = if address_is_cold {
         COLD_ADDRESS_ACCESS_COST
+    } else {
+        WARM_ADDRESS_ACCESS_COST
     };
 
     // address_access_cost is not a static cost, but there's no static
@@ -165,7 +165,7 @@ pub fn extcodecopy(
 }
 
 pub fn returndatacopy(
-    current_call_frame: &mut CallFrame,
+    current_call_frame: &CallFrame,
     size: usize,
     dest_offset: usize,
 ) -> Result<U256, OutOfGasError> {
@@ -181,7 +181,7 @@ pub fn returndatacopy(
 fn copy_behavior(
     dynamic_base: U256,
     static_cost: U256,
-    current_call_frame: &mut CallFrame,
+    current_call_frame: &CallFrame,
     size: usize,
     offset: usize,
 ) -> Result<U256, OutOfGasError> {
@@ -208,7 +208,7 @@ fn copy_behavior(
 }
 
 pub fn keccak256(
-    current_call_frame: &mut CallFrame,
+    current_call_frame: &CallFrame,
     size: usize,
     offset: usize,
 ) -> Result<U256, OutOfGasError> {
@@ -222,7 +222,7 @@ pub fn keccak256(
 }
 
 pub fn log(
-    current_call_frame: &mut CallFrame,
+    current_call_frame: &CallFrame,
     size: usize,
     offset: usize,
     number_of_topics: u8,
@@ -248,20 +248,20 @@ pub fn log(
         .ok_or(OutOfGasError::GasCostOverflow)
 }
 
-pub fn mload(current_call_frame: &mut CallFrame, offset: usize) -> Result<U256, OutOfGasError> {
+pub fn mload(current_call_frame: &CallFrame, offset: usize) -> Result<U256, OutOfGasError> {
     mem_expansion_behavior(current_call_frame, offset, WORD_SIZE, MLOAD_STATIC)
 }
 
-pub fn mstore(current_call_frame: &mut CallFrame, offset: usize) -> Result<U256, OutOfGasError> {
+pub fn mstore(current_call_frame: &CallFrame, offset: usize) -> Result<U256, OutOfGasError> {
     mem_expansion_behavior(current_call_frame, offset, WORD_SIZE, MSTORE_STATIC)
 }
 
-pub fn mstore8(current_call_frame: &mut CallFrame, offset: usize) -> Result<U256, OutOfGasError> {
+pub fn mstore8(current_call_frame: &CallFrame, offset: usize) -> Result<U256, OutOfGasError> {
     mem_expansion_behavior(current_call_frame, offset, 1, MSTORE8_STATIC)
 }
 
 fn mem_expansion_behavior(
-    current_call_frame: &mut CallFrame,
+    current_call_frame: &CallFrame,
     offset: usize,
     offset_add: usize,
     static_cost: U256,
@@ -318,7 +318,7 @@ pub fn sstore(
 }
 
 pub fn mcopy(
-    current_call_frame: &mut CallFrame,
+    current_call_frame: &CallFrame,
     size: usize,
     src_offset: usize,
     dest_offset: usize,
@@ -351,7 +351,7 @@ pub fn mcopy(
 
 #[allow(clippy::too_many_arguments)]
 pub fn call(
-    current_call_frame: &mut CallFrame,
+    current_call_frame: &CallFrame,
     args_size: usize,
     args_offset: usize,
     ret_size: usize,
@@ -400,7 +400,7 @@ pub fn call(
 }
 
 pub fn callcode(
-    current_call_frame: &mut CallFrame,
+    current_call_frame: &CallFrame,
     args_size: usize,
     args_offset: usize,
     ret_size: usize,
@@ -429,7 +429,7 @@ pub fn callcode(
 }
 
 pub fn delegatecall(
-    current_call_frame: &mut CallFrame,
+    current_call_frame: &CallFrame,
     args_size: usize,
     args_offset: usize,
     ret_size: usize,
@@ -447,7 +447,7 @@ pub fn delegatecall(
 }
 
 pub fn staticcall(
-    current_call_frame: &mut CallFrame,
+    current_call_frame: &CallFrame,
     args_size: usize,
     args_offset: usize,
     ret_size: usize,
@@ -465,7 +465,7 @@ pub fn staticcall(
 }
 
 fn compute_gas_call(
-    current_call_frame: &mut CallFrame,
+    current_call_frame: &CallFrame,
     args_size: usize,
     args_offset: usize,
     ret_size: usize,
@@ -494,7 +494,7 @@ fn compute_gas_call(
 }
 
 pub fn create(
-    current_call_frame: &mut CallFrame,
+    current_call_frame: &CallFrame,
     code_offset_in_memory: U256,
     code_size_in_memory: U256,
 ) -> Result<U256, OutOfGasError> {
@@ -507,7 +507,7 @@ pub fn create(
 }
 
 pub fn create_2(
-    current_call_frame: &mut CallFrame,
+    current_call_frame: &CallFrame,
     code_offset_in_memory: U256,
     code_size_in_memory: U256,
 ) -> Result<U256, OutOfGasError> {
@@ -520,7 +520,7 @@ pub fn create_2(
 }
 
 fn compute_gas_create(
-    current_call_frame: &mut CallFrame,
+    current_call_frame: &CallFrame,
     code_offset_in_memory: U256,
     code_size_in_memory: U256,
     is_create_2: bool,
