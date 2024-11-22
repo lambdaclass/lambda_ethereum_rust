@@ -81,7 +81,7 @@ pub fn run_ef_test_tx(
 }
 
 pub fn run_ef_test(test: EFTest, report: &mut EFTestsReport) -> Result<(), Box<dyn Error>> {
-    //println!("Running test: {}", &test.name);
+    println!("Running test: {}", &test.name);
     let mut failed = false;
     for (tx_id, (tx_indexes, _tx)) in test.transactions.iter().enumerate() {
         // Code for debugging a specific case.
