@@ -71,10 +71,10 @@ pub async fn transfer(
     let tx = client
         .build_eip1559_transaction(
             to,
+            from,
             Default::default(),
             Overrides {
                 value: Some(amount),
-                from: Some(from),
                 ..Default::default()
             },
         )
@@ -102,10 +102,10 @@ pub async fn withdraw(
         .build_privileged_transaction(
             PrivilegedTxType::Withdrawal,
             from,
+            from,
             Default::default(),
             Overrides {
                 value: Some(amount),
-                from: Some(from),
                 gas_price: Some(800000000),
                 gas_limit: Some(21000 * 2),
                 ..Default::default()
@@ -194,6 +194,7 @@ pub async fn claim_withdraw(
     let claim_tx = eth_client
         .build_eip1559_transaction(
             bridge_address(),
+            from,
             claim_withdrawal_data.into(),
             Overrides {
                 from: Some(from),
