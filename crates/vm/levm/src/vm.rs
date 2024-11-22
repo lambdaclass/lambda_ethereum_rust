@@ -342,7 +342,7 @@ impl VM {
     /// - It increases sender nonce
     /// - It substracts up-front-cost from sender balance.
     /// - It calculates and adds intrinsic gas to the 'gas used' of callframe and environment.
-    /// See 'docs' for more information about validations.
+    ///   See 'docs' for more information about validations.
     fn validate_transaction(&mut self, initial_call_frame: &mut CallFrame) -> Result<(), VMError> {
         //TODO: This should revert the transaction, not throw an error. And I don't know if it should be done here...
         // if self.is_create() {
