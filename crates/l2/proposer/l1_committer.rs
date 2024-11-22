@@ -69,7 +69,7 @@ impl Committer {
         }
     }
 
-    pub async fn main_logic(&self) -> Result<(), CommitterError> {
+    async fn main_logic(&self) -> Result<(), CommitterError> {
         let last_committed_block =
             EthClient::get_last_committed_block(&self.eth_client, self.on_chain_proposer_address)
                 .await?;
