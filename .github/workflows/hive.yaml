@@ -21,7 +21,7 @@ jobs:
     uses: ./.github/workflows/docker_build.yaml
 
   run-hive:
-    name: Hive - ${{ matrix.name }}
+    name: ${{ matrix.name }}
     needs: [build]
     runs-on: ubuntu-latest
     strategy:
