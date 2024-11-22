@@ -73,7 +73,7 @@ impl RpcHandler for ForkChoiceUpdatedV3 {
                 InvalidForkChoice::Syncing => ForkChoiceResponse::from(PayloadStatus::syncing()),
                 reason => {
                     warn!("Invalid fork choice state. Reason: {:#?}", reason);
-                    return Err(RpcErr::InvalidForkChoiceState(reason.to_string()))
+                    return Err(RpcErr::InvalidForkChoiceState(reason.to_string()));
                 }
             };
 
