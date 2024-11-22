@@ -135,12 +135,9 @@ impl Committer {
                 .await
             {
                 Ok(commit_tx_hash) => {
-                    info!(
-                "Sent commitment to block {head_block_hash:#x}, with transaction hash {commit_tx_hash:#x}"
-            );
+                    info!("Sent commitment to block {head_block_hash:#x}, with transaction hash {commit_tx_hash:#x}");
                 }
                 Err(error) => {
-                    error!("Failed to send commitment to block {head_block_hash:#x}. Manual intervention required: {error}");
                     return Err(CommitterError::FailedToSendCommitment(format!("Failed to send commitment to block {head_block_hash:#x}. Manual intervention required: {error}")));
                 }
             }

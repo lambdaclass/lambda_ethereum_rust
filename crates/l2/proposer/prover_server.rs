@@ -8,7 +8,7 @@ use ethrex_core::{
     Address, H256,
 };
 use ethrex_storage::Store;
-use ethrex_vm::execution_db::ExecutionDB;
+use ethrex_vm::{execution_db::ExecutionDB, EvmError};
 use keccak_hash::keccak;
 use secp256k1::SecretKey;
 use serde::{Deserialize, Serialize};
@@ -139,15 +139,13 @@ impl ProverServer {
                     &self.eth_client,
                     self.on_chain_proposer_address,
                 )
-                .await
-                .expect("dev_mode::get_last_committed_block()");
+                .await?;
 
                 let last_verified_block = EthClient::get_last_verified_block(
                     &self.eth_client,
                     self.on_chain_proposer_address,
                 )
-                .await
-                .expect("dev_mode::get_last_verified_block()");
+                .await?;
 
                 if last_committed_block == u64::MAX {
                     debug!("No blocks commited yet");
@@ -170,7 +168,9 @@ impl ProverServer {
                 let mut calldata = keccak(b"verify(uint256,bytes,bytes32,bytes32)")
                     .as_bytes()
                     .get(..4)
-                    .expect("Failed to get initialize selector")
+                    .ok_or(ProverServerError::Custom(
+                        "Failed to get verify_proof_selector in send_proof()".to_owned(),
+                    ))?
                     .to_vec();
                 calldata.extend(H256::from_low_u64_be(last_verified_block + 1).as_bytes());
                 calldata.extend(H256::from_low_u64_be(128).as_bytes());
@@ -188,8 +188,7 @@ impl ProverServer {
                             ..Default::default()
                         },
                     )
-                    .await
-                    .unwrap();
+                    .await?;
 
                 let tx_hash = self
                     .eth_client
@@ -203,8 +202,7 @@ impl ProverServer {
                 while self
                     .eth_client
                     .get_transaction_receipt(tx_hash)
-                    .await
-                    .unwrap()
+                    .await?
                     .is_none()
                 {
                     thread::sleep(Duration::from_secs(1));
@@ -273,11 +271,8 @@ impl ProverServer {
                 block_number,
                 receipt,
             }) => {
-                if let Err(e) = self.handle_submit(&mut stream, block_number) {
-                    error!("Failed to handle submit_ack: {e}");
-                    panic!("Failed to handle submit_ack: {e}");
-                }
-                // Seems to be stopping the prover_server <--> prover_client
+                self.handle_submit(&mut stream, block_number)?;
+
                 self.handle_proof_submission(block_number, receipt).await?;
 
                 assert!(block_number == (self.last_verified_block + 1), "Prover Client submitted an invalid block_number: {block_number}. The last_proved_block is: {}", self.last_verified_block);
@@ -299,14 +294,10 @@ impl ProverServer {
         &self,
         stream: &mut TcpStream,
         block_number: u64,
-    ) -> Result<(), String> {
+    ) -> Result<(), ProverServerError> {
         debug!("Request received");
 
-        let latest_block_number = self
-            .store
-            .get_latest_block_number()
-            .map_err(|e| e.to_string())?
-            .unwrap();
+        let latest_block_number = self.store.get_latest_block_number()?.unwrap();
 
         let response = if block_number > latest_block_number {
             let response = ProofData::Response {
@@ -326,15 +317,21 @@ impl ProverServer {
         };
 
         let writer = BufWriter::new(stream);
-        serde_json::to_writer(writer, &response).map_err(|e| e.to_string())
+        serde_json::to_writer(writer, &response)
+            .map_err(|e| ProverServerError::ConnectionError(e.into()))
     }
 
-    fn handle_submit(&self, stream: &mut TcpStream, block_number: u64) -> Result<(), String> {
+    fn handle_submit(
+        &self,
+        stream: &mut TcpStream,
+        block_number: u64,
+    ) -> Result<(), ProverServerError> {
         debug!("Submit received for BlockNumber: {block_number}");
 
         let response = ProofData::SubmitAck { block_number };
         let writer = BufWriter::new(stream);
-        serde_json::to_writer(writer, &response).map_err(|e| e.to_string())
+        serde_json::to_writer(writer, &response)
+            .map_err(|e| ProverServerError::ConnectionError(e.into()))
     }
 
     async fn handle_proof_submission(
@@ -395,12 +392,10 @@ impl ProverServer {
                             warn!("Retrying... Attempt {}/{}", attempts, max_retries);
                             sleep(retry_secs).await; // Wait before retrying
                         } else {
-                            error!("Max retries reached. Giving up on sending proof for block {block_number:#x}.");
-                            panic!("Failed to send proof after {} attempts.", max_retries);
+                            return Err(e);
                         }
                     } else {
-                        error!("Failed to send proof to block {block_number:#x}. Manual intervention required: {e}");
-                        panic!("Failed to send proof to block {block_number:#x}. Manual intervention required: {e}");
+                        return Err(e);
                     }
                 }
             }
@@ -409,27 +404,24 @@ impl ProverServer {
         Ok(())
     }
 
-    fn create_prover_input(&self, block_number: u64) -> Result<ProverInputData, String> {
+    fn create_prover_input(&self, block_number: u64) -> Result<ProverInputData, ProverServerError> {
         let header = self
             .store
-            .get_block_header(block_number)
-            .map_err(|err| err.to_string())?
-            .ok_or("block header not found")?;
+            .get_block_header(block_number)?
+            .ok_or(ProverServerError::StorageDataIsNone)?;
         let body = self
             .store
-            .get_block_body(block_number)
-            .map_err(|err| err.to_string())?
-            .ok_or("block body not found")?;
+            .get_block_body(block_number)?
+            .ok_or(ProverServerError::StorageDataIsNone)?;
 
         let block = Block::new(header, body);
 
-        let db = ExecutionDB::from_exec(&block, &self.store).map_err(|err| err.to_string())?;
+        let db = ExecutionDB::from_exec(&block, &self.store).map_err(EvmError::ExecutionDB)?;
 
         let parent_header = self
             .store
-            .get_block_header_by_hash(block.header.parent_hash)
-            .map_err(|err| err.to_string())?
-            .ok_or("missing parent header".to_string())?;
+            .get_block_header_by_hash(block.header.parent_hash)?
+            .ok_or(ProverServerError::StorageDataIsNone)?;
 
         debug!("Created prover input for block {block_number}");
 
@@ -459,7 +451,9 @@ impl ProverServer {
         let verify_proof_selector = keccak(b"verify(uint256,bytes,bytes32,bytes32)")
             .as_bytes()
             .get(..4)
-            .expect("Failed to get initialize selector")
+            .ok_or(ProverServerError::Custom(
+                "Failed to get verify_proof_selector in send_proof()".to_owned(),
+            ))?
             .to_vec();
         calldata.extend(verify_proof_selector);
 

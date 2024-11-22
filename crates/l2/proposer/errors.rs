@@ -29,6 +29,12 @@ pub enum ProverServerError {
     EthClientError(#[from] EthClientError),
     #[error("ProverServer failed to send transaction: {0}")]
     FailedToVerifyProofOnChain(String),
+    #[error("ProverServer failed retrieve block from storage: {0}")]
+    FailedToRetrieveBlockFromStorage(#[from] StoreError),
+    #[error("ProverServer failed retrieve block from storaga, data is None.")]
+    StorageDataIsNone,
+    #[error("ProverServer failed to create ProverInputs: {0}")]
+    FailedToCreateProverInputs(#[from] EvmError),
     #[error("ProverServer failed: {0}")]
     Custom(String),
 }
