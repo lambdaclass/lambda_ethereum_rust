@@ -1,6 +1,6 @@
 use crate::{
     report::{AccountUpdatesReport, EFTestReport, TestReRunReport, TestVector},
-    runner::{levm_runner, EFTestRunnerError},
+    runner::{levm_runner, EFTestRunnerError, InternalError},
     types::EFTest,
     utils::load_initial_state,
 };
@@ -24,40 +24,32 @@ pub fn re_run_failed_ef_test(
     failed_test_report: &EFTestReport,
 ) -> Result<TestReRunReport, EFTestRunnerError> {
     let mut re_run_report = TestReRunReport::new();
-    for (vector, _tx) in test.transactions.iter() {
-        let vector_failure = failed_test_report
-            .failed_vectors
-            .get(vector)
-            .cloned()
-            .ok_or(EFTestRunnerError::Internal(
-                "Failed vector not found in the failed test report".to_owned(),
-            ))?;
+    for (vector, vector_failure) in failed_test_report.failed_vectors.iter() {
         match vector_failure {
             // We only want to re-run tests that failed in the post-state validation.
             EFTestRunnerError::FailedToEnsurePostState(transaction_report, _) => {
-                match re_run_failed_ef_test_tx(vector, test, &transaction_report, &mut re_run_report) {
+                match re_run_failed_ef_test_tx(vector, test, transaction_report, &mut re_run_report) {
                     Ok(_) => continue,
                     Err(EFTestRunnerError::VMInitializationFailed(reason)) => {
-                        return Err(EFTestRunnerError::Internal(
-                            format!("REVM initialization failed when re-running failed test: {reason}"),
-                        ));
+                        return Err(EFTestRunnerError::Internal(InternalError::ReRunInternal(
+                            format!("REVM initialization failed when re-running failed test: {reason}"), re_run_report.clone()
+                        )));
                     }
                     Err(EFTestRunnerError::Internal(reason)) => {
                         return Err(EFTestRunnerError::Internal(reason));
                     }
                     unexpected_error => {
-                        return Err(EFTestRunnerError::Internal(format!(
+                        return Err(EFTestRunnerError::Internal(InternalError::ReRunInternal(format!(
                             "Unexpected error when re-running failed test: {unexpected_error:?}"
-                        )));
+                        ), re_run_report.clone())));
                     }
                 }
             },
             EFTestRunnerError::VMInitializationFailed(_)
             | EFTestRunnerError::ExecutionFailedUnexpectedly(_)
             | EFTestRunnerError::FailedToEnsurePreState(_) => continue,
-            EFTestRunnerError::VMExecutionMismatch(reason) => return Err(EFTestRunnerError::Internal(
-                format!("VM execution mismatch errors should only happen when running with revm. This failed during levm's execution: {reason}")
-            )),
+            EFTestRunnerError::VMExecutionMismatch(reason) => return Err(EFTestRunnerError::Internal(InternalError::ReRunInternal(
+                format!("VM execution mismatch errors should only happen when running with revm. This failed during levm's execution: {reason}"), re_run_report.clone()))),
             EFTestRunnerError::Internal(reason) => return Err(EFTestRunnerError::Internal(reason.to_owned())),
         }
     }
@@ -210,9 +202,10 @@ pub fn compare_levm_revm_execution_results(
             }
         }
         (_levm_transaction_report, Err(_)) => {
-            return Err(EFTestRunnerError::Internal(
+            return Err(EFTestRunnerError::Internal(InternalError::ReRunInternal(
                 "REVM execution failed unexpectedly".to_owned(),
-            ));
+                re_run_report.clone(),
+            )));
         }
     }
     Ok(())

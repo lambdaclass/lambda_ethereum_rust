@@ -1,4 +1,4 @@
-use crate::runner::EFTestRunnerError;
+use crate::runner::{EFTestRunnerError, InternalError};
 use colored::Colorize;
 use ethrex_core::Address;
 use ethrex_levm::errors::{TransactionReport, TxResult, VMError};
@@ -72,7 +72,11 @@ pub fn write(reports: Vec<EFTestReport>) -> Result<PathBuf, EFTestRunnerError> {
         "./levm_ef_tests_report.txt",
         failed_test_reports.to_string(),
     )
-    .map_err(|err| EFTestRunnerError::Internal(format!("Failed to write report to file: {err}")))?;
+    .map_err(|err| {
+        EFTestRunnerError::Internal(InternalError::MainRunnerInternal(format!(
+            "Failed to write report to file: {err}"
+        )))
+    })?;
     Ok(report_file_path)
 }
 

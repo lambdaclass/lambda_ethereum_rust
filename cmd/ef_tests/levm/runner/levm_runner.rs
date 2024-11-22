@@ -1,6 +1,6 @@
 use crate::{
     report::{EFTestReport, TestVector},
-    runner::EFTestRunnerError,
+    runner::{EFTestRunnerError, InternalError},
     types::EFTest,
     utils,
 };
@@ -41,10 +41,10 @@ pub fn run_ef_test(test: &EFTest) -> Result<EFTestReport, EFTestRunnerError> {
                 );
             }
             Err(EFTestRunnerError::VMExecutionMismatch(_)) => {
-                return Err(EFTestRunnerError::Internal(
+                return Err(EFTestRunnerError::Internal(InternalError::FirstRunInternal(
                     "VM execution mismatch errors should only happen when running with revm. This failed during levm's execution."
                         .to_owned(),
-                ));
+                )));
             }
             Err(EFTestRunnerError::Internal(reason)) => {
                 return Err(EFTestRunnerError::Internal(reason));

@@ -1,5 +1,5 @@
 use crate::{
-    report::{self, format_duration_as_mm_ss},
+    report::{self, format_duration_as_mm_ss, TestReRunReport},
     types::EFTest,
 };
 use clap::Parser;
@@ -24,7 +24,17 @@ pub enum EFTestRunnerError {
     #[error("VM run mismatch: {0}")]
     VMExecutionMismatch(String),
     #[error("This is a bug: {0}")]
-    Internal(String),
+    Internal(#[from] InternalError),
+}
+
+#[derive(Debug, thiserror::Error, Clone)]
+pub enum InternalError {
+    #[error("First run failed unexpectedly: {0}")]
+    FirstRunInternal(String),
+    #[error("Re-runner failed unexpectedly: {0}")]
+    ReRunInternal(String, TestReRunReport),
+    #[error("Main runner failed unexpectedly: {0}")]
+    MainRunnerInternal(String),
 }
 
 #[derive(Parser)]
@@ -49,9 +59,9 @@ pub fn run_ef_tests(ef_tests: Vec<EFTest>) -> Result<(), EFTestRunnerError> {
             Ok(ef_test_report) => ef_test_report,
             Err(EFTestRunnerError::Internal(err)) => return Err(EFTestRunnerError::Internal(err)),
             non_internal_errors => {
-                return Err(EFTestRunnerError::Internal(format!(
+                return Err(EFTestRunnerError::Internal(InternalError::FirstRunInternal(format!(
                     "Non-internal error raised when executing levm. This should not happen: {non_internal_errors:?}",
-                )))
+                ))))
             }
         };
         reports.push(ef_test_report);
@@ -80,14 +90,32 @@ pub fn run_ef_tests(ef_tests: Vec<EFTest>) -> Result<(), EFTestRunnerError> {
             idx + 1,
             format_duration_as_mm_ss(revm_run_time.elapsed())
         ));
-        let re_run_report = revm_runner::re_run_failed_ef_test(
+        match revm_runner::re_run_failed_ef_test(
             ef_tests
                 .iter()
                 .find(|test| test.name == failed_test_report.name)
                 .unwrap(),
             failed_test_report,
-        )?;
-        failed_test_report.register_re_run_report(re_run_report.clone());
+        ) {
+            Ok(re_run_report) => {
+                failed_test_report.register_re_run_report(re_run_report.clone());
+            }
+            Err(EFTestRunnerError::Internal(InternalError::ReRunInternal(reason, re_run_report))) => {
+                let mut report_spinner = Spinner::new(Dots, "Loading report...".to_owned(), Color::Cyan);
+    // Write report in .txt file
+    let report_file_path = report::write(reports)?;
+    report_spinner.success(&format!("Report written to file {report_file_path:?}"));
+                return Err(EFTestRunnerError::Internal(InternalError::ReRunInternal(
+                    reason,
+                    re_run_report,
+                )))
+            },
+            non_re_run_internal_errors => {
+                return Err(EFTestRunnerError::Internal(InternalError::MainRunnerInternal(format!(
+                    "Non-internal error raised when executing revm. This should not happen: {non_re_run_internal_errors:?}"
+                ))))
+            }
+        }
     }
 
     let mut report_spinner = Spinner::new(Dots, "Loading report...".to_owned(), Color::Cyan);
