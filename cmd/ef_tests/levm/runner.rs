@@ -247,9 +247,9 @@ fn exception_is_expected(
     expected_exceptions: Vec<TransactionExpectedException>,
     returned_error: VMError,
 ) -> bool {
-    for expected_exception in expected_exceptions {
-        if matches!(
-            (expected_exception, &returned_error),
+    expected_exceptions.iter().any(|exception| {
+        matches!(
+            (exception, &returned_error),
             (
                 TransactionExpectedException::IntrinsicGasTooLow,
                 VMError::IntrinsicGasTooLow
@@ -293,12 +293,8 @@ fn exception_is_expected(
                 TransactionExpectedException::InitcodeSizeExceeded,
                 VMError::InitcodeSizeExceeded
             )
-        ) {
-            return true;
-        }
-    }
-
-    false
+        )
+    })
 }
 
 pub fn ensure_post_state(
