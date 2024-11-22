@@ -502,6 +502,20 @@ impl VM {
     //     Ok(())
     // }
 
+    /// Calculates effective gas price and updates variable gas_price in env.
+    pub fn update_effective_gas_price(&mut self) -> Result<(), VMError> {
+        if let (Some(max_priority_fee_per_gas), Some(max_fee_per_gas)) = (
+            self.env.tx_max_priority_fee_per_gas,
+            self.env.tx_max_fee_per_gas,
+        ) {
+            // Effective Gas Price = Base Fee + min(maxPriorityFeePerGas, maxFeePerGas - Base Fee)
+            self.env.gas_price = self.env.base_fee_per_gas
+                + max_priority_fee_per_gas.min(max_fee_per_gas - self.env.base_fee_per_gas);
+            // TODO: Implement error in operations here
+        };
+        Ok(())
+    }
+
     pub fn create_post_execution(
         &mut self,
         initial_call_frame: &mut CallFrame,
@@ -700,6 +714,8 @@ impl VM {
         // Validates transaction and performs pre-exeuction changes.
         // Errors don't revert execution, they are propagated because transaction is invalid.
         self.validate_transaction(&mut initial_call_frame)?;
+
+        self.update_effective_gas_price()?; // This is for gas_price to be a reasonable value
 
         // We need cache before execution because if a create transaction reverts in post-execution then we need to revert whatever the init-code did.
         let cache_before_execution = self.cache.clone();

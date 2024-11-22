@@ -14,6 +14,7 @@ pub struct Environment {
     pub prev_randao: Option<H256>,
     pub chain_id: U256,
     pub base_fee_per_gas: U256,
+    // It should store effective gas price, in type 2 transactions it is not defined but we calculate if with max fee per gas and max priority fee per gas.
     pub gas_price: U256,
     pub block_excess_blob_gas: Option<U256>,
     pub block_blob_gas_used: Option<U256>,
