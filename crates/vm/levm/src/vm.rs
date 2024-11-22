@@ -748,6 +748,8 @@ impl VM {
                     return Err(error);
                 } else {
                     report.result = TxResult::Revert(error);
+                    report.gas_refunded = 0;
+                    report.gas_used = self.env.gas_limit.low_u64();
                     self.cache = cache_before_execution;
                     self.cache.accounts.remove(&initial_call_frame.to);
                 }
