@@ -172,23 +172,14 @@ pub fn ensure_post_state(
                 None => {
                     let levm_account_updates = get_state_transitions(execution_report);
                     let pos_state_root = post_state_root(&levm_account_updates, test);
-                    let expected_post_state_value = test.post.vector_post_value(vector).cloned();
-                    if let Some(expected_post_state_root_hash) = expected_post_state_value {
-                        let expected_post_state_root_hash = expected_post_state_root_hash.hash;
-                        if expected_post_state_root_hash != pos_state_root {
-                            let error_reason = format!(
-                                "Post-state root mismatch: expected {expected_post_state_root_hash:#x}, got {pos_state_root:#x}",
-                            );
-                            return Err(EFTestRunnerError::FailedToEnsurePostState(
-                                execution_report.clone(),
-                                error_reason,
-                            ));
-                        }
-                    } else {
-                        let error_reason = "No post-state root hash provided";
+                    let expected_post_state_root_hash = test.post.vector_post_value(vector).hash;
+                    if expected_post_state_root_hash != pos_state_root {
+                        let error_reason = format!(
+                            "Post-state root mismatch: expected {expected_post_state_root_hash:#x}, got {pos_state_root:#x}",
+                        );
                         return Err(EFTestRunnerError::FailedToEnsurePostState(
                             execution_report.clone(),
-                            error_reason.to_owned(),
+                            error_reason,
                         ));
                     }
                 }
