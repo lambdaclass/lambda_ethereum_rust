@@ -4,9 +4,9 @@ use ethrex_core::Address;
 use ethrex_levm::errors::{TransactionReport, TxResult, VMError};
 use ethrex_storage::AccountUpdate;
 use ethrex_vm::SpecId;
-use revm::primitives::{ExecutionResult as RevmExecutionResult, HashSet};
+use revm::primitives::ExecutionResult as RevmExecutionResult;
 use std::{
-    collections::HashMap,
+    collections::{HashMap, HashSet},
     fmt::{self, Display},
     path::PathBuf,
     time::Duration,
