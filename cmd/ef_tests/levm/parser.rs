@@ -43,6 +43,8 @@ pub fn parse_ef_test_dir(
     opts: &EFTestRunnerOptions,
     directory_parsing_spinner: &mut Spinner,
 ) -> Result<Vec<EFTest>, EFTestParseError> {
+    directory_parsing_spinner.update_text(format!("Parsing directory {:?}", test_dir.file_name()));
+
     let mut directory_tests = Vec::new();
     for test in std::fs::read_dir(test_dir.path())
         .map_err(|err| {
@@ -82,11 +84,12 @@ pub fn parse_ef_test_dir(
                 .tests
                 .contains(&test_dir.file_name().to_str().unwrap().to_owned())
         {
-            continue;
+            directory_parsing_spinner.update_text(format!(
+                "Skipping test {:?} as it is not in the list of tests to run",
+                test.path().file_name()
+            ));
+            return Ok(Vec::new());
         }
-
-        directory_parsing_spinner
-            .update_text(format!("Parsing directory {:?}", test_dir.file_name()));
 
         let test_file = std::fs::File::open(test.path()).map_err(|err| {
             EFTestParseError::FailedToReadFile(format!("{:?}: {err}", test.path()))
