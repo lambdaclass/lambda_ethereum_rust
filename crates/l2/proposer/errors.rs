@@ -6,6 +6,7 @@ use ethrex_core::types::BlobsBundleError;
 use ethrex_dev::utils::engine_client::errors::EngineClientError;
 use ethrex_storage::error::StoreError;
 use ethrex_vm::EvmError;
+use tokio::task::JoinError;
 
 #[derive(Debug, thiserror::Error)]
 pub enum L1WatcherError {
@@ -39,6 +40,8 @@ pub enum ProverServerError {
     FailedToCreateProverInputs(#[from] EvmError),
     #[error("ProverServer SigIntError: {0}")]
     SigIntError(#[from] SigIntError),
+    #[error("ProverServer JoinError: {0}")]
+    JoinError(#[from] JoinError),
     #[error("ProverServer failed: {0}")]
     Custom(String),
 }

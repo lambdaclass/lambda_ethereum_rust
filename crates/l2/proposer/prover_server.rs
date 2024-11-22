@@ -15,7 +15,10 @@ use serde::{Deserialize, Serialize};
 use std::{
     io::{BufReader, BufWriter},
     net::{IpAddr, Shutdown, TcpListener, TcpStream},
-    sync::mpsc::{self, Receiver},
+    sync::{
+        mpsc::{self, Receiver},
+        Arc,
+    },
     thread,
     time::Duration,
 };
@@ -34,6 +37,7 @@ pub struct ProverInputData {
     pub parent_header: BlockHeader,
 }
 
+#[derive(Debug, Clone)]
 struct ProverServer {
     ip: IpAddr,
     port: u16,
@@ -220,9 +224,26 @@ impl ProverServer {
             }
         } else {
             let (tx, rx) = mpsc::channel();
+
+            let server_handle = tokio::spawn(async move { self.start(rx).await });
+
             ProverServer::handle_sigint(tx, server_config).await?;
 
-            self.start(rx).await?;
+            //
+            //tokio::select! {
+            //    ret = server_handle => {
+            //        ret??;
+            //        info!("Program ended with Ctrl+C");
+            //    }
+            //
+            //}
+            match server_handle.await {
+                Ok(result) => match result {
+                    Ok(_) => (),
+                    Err(e) => return Err(e),
+                },
+                Err(e) => return Err(e.into()),
+            };
 
             Ok(())
         }
