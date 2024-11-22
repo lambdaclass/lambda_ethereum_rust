@@ -1,9 +1,12 @@
+use std::time::Duration;
+
 use crate::utils::config::{proposer::ProposerConfig, read_env_file};
 use errors::ProposerError;
 use ethereum_types::{Address, H256};
 use ethrex_dev::utils::engine_client::{config::EngineApiConfig, errors::EngineClientError};
 use ethrex_storage::Store;
-use tracing::{info, warn};
+use tokio::time::sleep;
+use tracing::{error, info, warn};
 
 pub mod l1_committer;
 pub mod l1_watcher;
@@ -33,20 +36,8 @@ pub async fn start_proposer(store: Store) {
         let engine_config = EngineApiConfig::from_env().expect("EngineApiConfig::from_env");
         let proposer = Proposer::new_from_config(&proposer_config, engine_config)
             .expect("Proposer::new_from_config");
-        let head_block_hash = {
-            let current_block_number = store
-                .get_latest_block_number()
-                .expect("store.get_latest_block_number")
-                .expect("store.get_latest_block_number returned None");
-            store
-                .get_canonical_block_hash(current_block_number)
-                .expect("store.get_canonical_block_hash")
-                .expect("store.get_canonical_block_hash returned None")
-        };
-        proposer
-            .start(head_block_hash)
-            .await
-            .expect("Proposer::start");
+
+        proposer.run(store.clone()).await;
     });
     tokio::try_join!(l1_watcher, l1_committer, prover_server, proposer).expect("tokio::try_join");
 }
@@ -63,7 +54,28 @@ impl Proposer {
         })
     }
 
-    pub async fn start(&self, head_block_hash: H256) -> Result<(), ProposerError> {
+    pub async fn run(&self, store: Store) {
+        loop {
+            let head_block_hash = {
+                let current_block_number = store
+                    .get_latest_block_number()
+                    .expect("store.get_latest_block_number")
+                    .expect("store.get_latest_block_number returned None");
+                store
+                    .get_canonical_block_hash(current_block_number)
+                    .expect("store.get_canonical_block_hash")
+                    .expect("store.get_canonical_block_hash returned None")
+            };
+
+            if let Err(err) = self.main_logic(head_block_hash).await {
+                error!("Block Producer Error: {}", err);
+            }
+
+            sleep(Duration::from_millis(200)).await;
+        }
+    }
+
+    pub async fn main_logic(&self, head_block_hash: H256) -> Result<(), ProposerError> {
         ethrex_dev::block_producer::start_block_producer(
             self.engine_config.rpc_url.clone(),
             std::fs::read(&self.engine_config.jwt_path).unwrap().into(),
