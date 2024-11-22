@@ -16,7 +16,7 @@ hex.workspace = true
 
 # ethrex
 ethrex-core.workspace = true
-ethrex-vm.workspace = true
+ethrex-vm = { path = "../../crates/vm", features = ["l2"] }
 ethrex-rlp.workspace = true
 
 # l2
