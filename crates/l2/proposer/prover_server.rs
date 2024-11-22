@@ -1,4 +1,4 @@
-use super::errors::ProverServerError;
+use super::errors::{ProverServerError, SigIntError};
 use crate::utils::{
     config::{committer::CommitterConfig, eth::EthConfig, prover_server::ProverServerConfig},
     eth_client::{errors::EthClientError, eth_sender::Overrides, EthClient, WrappedTransaction},
@@ -220,7 +220,7 @@ impl ProverServer {
             }
         } else {
             let (tx, rx) = mpsc::channel();
-            ProverServer::handle_sigint(tx, server_config).await;
+            ProverServer::handle_sigint(tx, server_config).await?;
 
             self.start(rx).await?;
 
@@ -228,14 +228,18 @@ impl ProverServer {
         }
     }
 
-    async fn handle_sigint(tx: mpsc::Sender<()>, config: &ProverServerConfig) {
+    async fn handle_sigint(
+        tx: mpsc::Sender<()>,
+        config: &ProverServerConfig,
+    ) -> Result<(), ProverServerError> {
         let mut sigint = signal(SignalKind::interrupt()).expect("Failed to create SIGINT stream");
-        sigint.recv().await.expect("signal.recv()");
-        tx.send(()).expect("Failed to send shutdown signal");
-        TcpStream::connect(format!("{}:{}", config.listen_ip, config.listen_port))
-            .expect("TcpStream::connect()")
+        sigint.recv().await.ok_or(SigIntError::Recv)?;
+        tx.send(()).map_err(SigIntError::Send)?;
+        TcpStream::connect(format!("{}:{}", config.listen_ip, config.listen_port))?
             .shutdown(Shutdown::Both)
-            .expect("TcpStream::shutdown()");
+            .map_err(SigIntError::Shutdown)?;
+
+        Ok(())
     }
 
     pub async fn start(&mut self, rx: Receiver<()>) -> Result<(), ProverServerError> {

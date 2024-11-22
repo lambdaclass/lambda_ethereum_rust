@@ -1,3 +1,5 @@
+use std::sync::mpsc::SendError;
+
 use crate::utils::{config::errors::ConfigError, eth_client::errors::EthClientError};
 use ethereum_types::FromStrRadixErr;
 use ethrex_core::types::BlobsBundleError;
@@ -35,8 +37,20 @@ pub enum ProverServerError {
     StorageDataIsNone,
     #[error("ProverServer failed to create ProverInputs: {0}")]
     FailedToCreateProverInputs(#[from] EvmError),
+    #[error("ProverServer SigIntError: {0}")]
+    SigIntError(#[from] SigIntError),
     #[error("ProverServer failed: {0}")]
     Custom(String),
+}
+
+#[derive(Debug, thiserror::Error)]
+pub enum SigIntError {
+    #[error("SigInt sigint.recv() failed")]
+    Recv,
+    #[error("SigInt tx.send(()) failed: {0}")]
+    Send(#[from] SendError<()>),
+    #[error("SigInt shutdown(Shutdown::Both) failed: {0}")]
+    Shutdown(#[from] std::io::Error),
 }
 
 #[derive(Debug, thiserror::Error)]
