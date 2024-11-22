@@ -59,15 +59,6 @@ impl RpcHandler for NewPayloadV3Request {
     fn handle(&self, context: RpcApiContext) -> Result<Value, RpcErr> {
         let storage = &context.storage;
 
-        // We need to get the latest block number, then the header and finally compute the hash
-        let latest_hash =  match storage.get_latest_block_number() {
-            Ok(Some(block_number)) => match storage.get_block_header(block_number) {
-                Ok(Some(block_header)) => Some(block_header.compute_block_hash()),
-                _ => None
-            },
-            _ => None
-        };
-
         let block_hash = self.payload.block_hash;
         info!("Received new payload with block hash: {block_hash:#x}");
 
@@ -140,13 +131,16 @@ impl RpcHandler for NewPayloadV3Request {
                 warn!("Error adding block: {error}");
                 // TODO(#982): this is only valid for the cases where the parent was found, but fully invalid ones may also happen.
                 Ok(PayloadStatus::invalid_with(
-                    Some(block.header.parent_hash),
+                    block.header.parent_hash,
                     error.to_string(),
                 ))
             }
             Err(ChainError::EvmError(error)) => {
                 warn!("Error executing block: {error}");
-                Ok(PayloadStatus::invalid_with(latest_hash, error.to_string()))
+                Ok(PayloadStatus::invalid_with(
+                    block.header.parent_hash,
+                    error.to_string(),
+                ))
             }
             Err(ChainError::StoreError(error)) => {
                 warn!("Error storing block: {error}");

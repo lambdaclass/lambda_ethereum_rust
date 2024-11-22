@@ -168,10 +168,10 @@ pub enum PayloadValidationStatus {
 impl PayloadStatus {
     // Convenience methods to create payload status
 
-    pub fn invalid_with(latest_valid_hash: Option<H256>, error: String) -> Self {
+    pub fn invalid_with(latest_valid_hash: H256, error: String) -> Self {
         PayloadStatus {
             status: PayloadValidationStatus::Invalid,
-            latest_valid_hash: latest_valid_hash,
+            latest_valid_hash: Some(latest_valid_hash),
             validation_error: Some(error),
         }
     }
@@ -181,15 +181,6 @@ impl PayloadStatus {
         PayloadStatus {
             status: PayloadValidationStatus::Invalid,
             latest_valid_hash: None,
-            validation_error: Some(error.to_string()),
-        }
-    }
-
-    /// Creates a PayloadStatus with invalid status and error message
-    pub fn invalid_with_err_and_hash(error: &str, hash: Option<BlockHash>) -> Self {
-        PayloadStatus {
-            status: PayloadValidationStatus::Invalid,
-            latest_valid_hash: hash,
             validation_error: Some(error.to_string()),
         }
     }
