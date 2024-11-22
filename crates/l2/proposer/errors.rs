@@ -29,6 +29,8 @@ pub enum ProverServerError {
     EthClientError(#[from] EthClientError),
     #[error("ProverServer failed to send transaction: {0}")]
     FailedToVerifyProofOnChain(String),
+    #[error("ProverServer failed: {0}")]
+    Custom(String),
 }
 
 #[derive(Debug, thiserror::Error)]

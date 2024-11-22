@@ -2,7 +2,7 @@ use std::time::Duration;
 
 use crate::utils::config::{proposer::ProposerConfig, read_env_file};
 use errors::ProposerError;
-use ethereum_types::{Address, H256};
+use ethereum_types::Address;
 use ethrex_dev::utils::engine_client::{config::EngineApiConfig, errors::EngineClientError};
 use ethrex_storage::Store;
 use tokio::time::sleep;
@@ -56,18 +56,7 @@ impl Proposer {
 
     pub async fn run(&self, store: Store) {
         loop {
-            let head_block_hash = {
-                let current_block_number = store
-                    .get_latest_block_number()
-                    .expect("store.get_latest_block_number")
-                    .expect("store.get_latest_block_number returned None");
-                store
-                    .get_canonical_block_hash(current_block_number)
-                    .expect("store.get_canonical_block_hash")
-                    .expect("store.get_canonical_block_hash returned None")
-            };
-
-            if let Err(err) = self.main_logic(head_block_hash).await {
+            if let Err(err) = self.main_logic(store.clone()).await {
                 error!("Block Producer Error: {}", err);
             }
 
@@ -75,7 +64,18 @@ impl Proposer {
         }
     }
 
-    pub async fn main_logic(&self, head_block_hash: H256) -> Result<(), ProposerError> {
+    pub async fn main_logic(&self, store: Store) -> Result<(), ProposerError> {
+        let head_block_hash = {
+            let current_block_number = store
+                .get_latest_block_number()
+                .expect("store.get_latest_block_number")
+                .expect("store.get_latest_block_number returned None");
+            store
+                .get_canonical_block_hash(current_block_number)
+                .expect("store.get_canonical_block_hash")
+                .expect("store.get_canonical_block_hash returned None")
+        };
+
         ethrex_dev::block_producer::start_block_producer(
             self.engine_config.rpc_url.clone(),
             std::fs::read(&self.engine_config.jwt_path).unwrap().into(),

@@ -1,3 +1,12 @@
+use super::errors::ProverServerError;
+use crate::utils::{
+    config::{committer::CommitterConfig, eth::EthConfig, prover_server::ProverServerConfig},
+    eth_client::{errors::EthClientError, eth_sender::Overrides, EthClient, WrappedTransaction},
+};
+use ethrex_core::{
+    types::{Block, BlockHeader},
+    Address, H256,
+};
 use ethrex_storage::Store;
 use ethrex_vm::execution_db::ExecutionDB;
 use keccak_hash::keccak;
@@ -16,11 +25,6 @@ use tokio::{
 };
 use tracing::{debug, error, info, warn};
 
-use ethrex_core::{
-    types::{Block, BlockHeader},
-    Address, H256,
-};
-
 use risc0_zkvm::sha::{Digest, Digestible};
 
 #[derive(Debug, Serialize, Deserialize, Default)]
@@ -30,126 +34,15 @@ pub struct ProverInputData {
     pub parent_header: BlockHeader,
 }
 
-use crate::utils::{
-    config::{committer::CommitterConfig, eth::EthConfig, prover_server::ProverServerConfig},
-    eth_client::{errors::EthClientError, eth_sender::Overrides, EthClient, WrappedTransaction},
-};
-
-use super::errors::ProverServerError;
-
-pub async fn start_prover_server(store: Store) {
-    let server_config = ProverServerConfig::from_env().expect("ProverServerConfig::from_env()");
-    let eth_config = EthConfig::from_env().expect("EthConfig::from_env()");
-    let proposer_config = CommitterConfig::from_env().expect("CommitterConfig::from_env()");
-
-    if server_config.dev_mode {
-        let eth_client = EthClient::new_from_config(eth_config);
-        loop {
-            thread::sleep(Duration::from_millis(proposer_config.interval_ms));
-
-            let last_committed_block = EthClient::get_last_committed_block(
-                &eth_client,
-                proposer_config.on_chain_proposer_address,
-            )
-            .await
-            .expect("dev_mode::get_last_committed_block()");
-
-            let last_verified_block = EthClient::get_last_verified_block(
-                &eth_client,
-                proposer_config.on_chain_proposer_address,
-            )
-            .await
-            .expect("dev_mode::get_last_verified_block()");
-
-            if last_committed_block == u64::MAX {
-                debug!("No blocks commited yet");
-                continue;
-            }
-
-            if last_committed_block == last_verified_block {
-                debug!("No new blocks to prove");
-                continue;
-            }
-
-            info!("Last committed: {last_committed_block} - Last verified: {last_verified_block}");
-
-            // IOnChainProposer
-            // function verify(uint256,bytes,bytes32,bytes32)
-            // blockNumber, seal, imageId, journalDigest
-            // From crates/l2/contracts/l1/interfaces/IOnChainProposer.sol
-            let mut calldata = keccak(b"verify(uint256,bytes,bytes32,bytes32)")
-                .as_bytes()
-                .get(..4)
-                .expect("Failed to get initialize selector")
-                .to_vec();
-            calldata.extend(H256::from_low_u64_be(last_verified_block + 1).as_bytes());
-            calldata.extend(H256::from_low_u64_be(128).as_bytes());
-            calldata.extend(H256::zero().as_bytes());
-            calldata.extend(H256::zero().as_bytes());
-            calldata.extend(H256::zero().as_bytes());
-            calldata.extend(H256::zero().as_bytes());
-            let verify_tx = eth_client
-                .build_eip1559_transaction(
-                    proposer_config.on_chain_proposer_address,
-                    server_config.verifier_address,
-                    calldata.into(),
-                    Overrides {
-                        ..Default::default()
-                    },
-                )
-                .await
-                .unwrap();
-
-            let tx_hash = eth_client
-                .send_eip1559_transaction(&verify_tx, &server_config.verifier_private_key)
-                .await
-                .unwrap();
-
-            info!("Sending verify transaction with tx hash: {tx_hash:#x}");
-
-            let mut retries = 1;
-            while eth_client
-                .get_transaction_receipt(tx_hash)
-                .await
-                .unwrap()
-                .is_none()
-            {
-                thread::sleep(Duration::from_secs(1));
-                retries += 1;
-                if retries > 10 {
-                    error!("Couldn't find receipt for transaction {tx_hash:#x}");
-                    panic!("Couldn't find receipt for transaction {tx_hash:#x}");
-                }
-            }
-
-            info!(
-                "Mocked verify transaction sent for block {}",
-                last_verified_block + 1
-            );
-        }
-    } else {
-        let mut prover_server = ProverServer::new_from_config(
-            server_config.clone(),
-            &proposer_config,
-            eth_config,
-            store,
-        )
-        .await
-        .expect("ProverServer::new_from_config");
-
-        let (tx, rx) = mpsc::channel();
-
-        let server = tokio::spawn(async move {
-            prover_server
-                .start(rx)
-                .await
-                .expect("prover_server.start()")
-        });
-
-        ProverServer::handle_sigint(tx, server_config).await;
-
-        tokio::try_join!(server).expect("tokio::try_join!()");
-    }
+struct ProverServer {
+    ip: IpAddr,
+    port: u16,
+    store: Store,
+    eth_client: EthClient,
+    on_chain_proposer_address: Address,
+    verifier_address: Address,
+    verifier_private_key: SecretKey,
+    last_verified_block: u64,
 }
 
 /// Enum for the ProverServer <--> ProverClient Communication Protocol.
@@ -182,15 +75,15 @@ pub enum ProofData {
     SubmitAck { block_number: u64 },
 }
 
-struct ProverServer {
-    ip: IpAddr,
-    port: u16,
-    store: Store,
-    eth_client: EthClient,
-    on_chain_proposer_address: Address,
-    verifier_address: Address,
-    verifier_private_key: SecretKey,
-    last_verified_block: u64,
+pub async fn start_prover_server(store: Store) {
+    let server_config = ProverServerConfig::from_env().expect("ProverServerConfig::from_env()");
+    let eth_config = EthConfig::from_env().expect("EthConfig::from_env()");
+    let proposer_config = CommitterConfig::from_env().expect("CommitterConfig::from_env()");
+    let mut prover_server =
+        ProverServer::new_from_config(server_config.clone(), &proposer_config, eth_config, store)
+            .await
+            .expect("ProverServer::new_from_config");
+    prover_server.run(&server_config).await;
 }
 
 impl ProverServer {
@@ -224,7 +117,120 @@ impl ProverServer {
         })
     }
 
-    async fn handle_sigint(tx: mpsc::Sender<()>, config: ProverServerConfig) {
+    pub async fn run(&mut self, server_config: &ProverServerConfig) {
+        loop {
+            if let Err(err) = self.main_logic(server_config).await {
+                error!("Prover Server Error: {}", err);
+            }
+
+            sleep(Duration::from_millis(200)).await;
+        }
+    }
+
+    async fn main_logic(
+        &mut self,
+        server_config: &ProverServerConfig,
+    ) -> Result<(), ProverServerError> {
+        if server_config.dev_mode {
+            loop {
+                thread::sleep(Duration::from_millis(200));
+
+                let last_committed_block = EthClient::get_last_committed_block(
+                    &self.eth_client,
+                    self.on_chain_proposer_address,
+                )
+                .await
+                .expect("dev_mode::get_last_committed_block()");
+
+                let last_verified_block = EthClient::get_last_verified_block(
+                    &self.eth_client,
+                    self.on_chain_proposer_address,
+                )
+                .await
+                .expect("dev_mode::get_last_verified_block()");
+
+                if last_committed_block == u64::MAX {
+                    debug!("No blocks commited yet");
+                    continue;
+                }
+
+                if last_committed_block == last_verified_block {
+                    debug!("No new blocks to prove");
+                    continue;
+                }
+
+                info!(
+                    "Last committed: {last_committed_block} - Last verified: {last_verified_block}"
+                );
+
+                // IOnChainProposer
+                // function verify(uint256,bytes,bytes32,bytes32)
+                // blockNumber, seal, imageId, journalDigest
+                // From crates/l2/contracts/l1/interfaces/IOnChainProposer.sol
+                let mut calldata = keccak(b"verify(uint256,bytes,bytes32,bytes32)")
+                    .as_bytes()
+                    .get(..4)
+                    .expect("Failed to get initialize selector")
+                    .to_vec();
+                calldata.extend(H256::from_low_u64_be(last_verified_block + 1).as_bytes());
+                calldata.extend(H256::from_low_u64_be(128).as_bytes());
+                calldata.extend(H256::zero().as_bytes());
+                calldata.extend(H256::zero().as_bytes());
+                calldata.extend(H256::zero().as_bytes());
+                calldata.extend(H256::zero().as_bytes());
+                let verify_tx = self
+                    .eth_client
+                    .build_eip1559_transaction(
+                        self.on_chain_proposer_address,
+                        self.verifier_address,
+                        calldata.into(),
+                        Overrides {
+                            ..Default::default()
+                        },
+                    )
+                    .await
+                    .unwrap();
+
+                let tx_hash = self
+                    .eth_client
+                    .send_eip1559_transaction(&verify_tx, &self.verifier_private_key)
+                    .await
+                    .unwrap();
+
+                info!("Sending verify transaction with tx hash: {tx_hash:#x}");
+
+                let mut retries = 1;
+                while self
+                    .eth_client
+                    .get_transaction_receipt(tx_hash)
+                    .await
+                    .unwrap()
+                    .is_none()
+                {
+                    thread::sleep(Duration::from_secs(1));
+                    retries += 1;
+                    if retries > 10 {
+                        error!("Couldn't find receipt for transaction {tx_hash:#x}");
+                        panic!("Couldn't find receipt for transaction {tx_hash:#x}");
+                    }
+                }
+
+                info!(
+                    "Mocked verify transaction sent for block {}",
+                    last_verified_block + 1
+                );
+            }
+        } else {
+            let (tx, rx) = mpsc::channel();
+            ProverServer::handle_sigint(tx, server_config).await;
+
+            self.start(rx).await?;
+
+            Ok(())
+        }
+    }
+
+    async fn handle_sigint(tx: mpsc::Sender<()>, config: &ProverServerConfig) {
         let mut sigint = signal(SignalKind::interrupt()).expect("Failed to create SIGINT stream");
         sigint.recv().await.expect("signal.recv()");
         tx.send(()).expect("Failed to send shutdown signal");
