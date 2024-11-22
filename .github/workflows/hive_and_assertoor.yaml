@@ -51,8 +51,11 @@ jobs:
             name: "Engine tests"
             run_command:  make run-hive-on-latest SIMULATION=ethereum/engine TEST_PATTERN="/Blob Transactions On Block 1, Cancun Genesis|Blob Transactions On Block 1, Shanghai Genesis|Blob Transaction Ordering, Single Account, Single Blob|Blob Transaction Ordering, Single Account, Dual Blob|Blob Transaction Ordering, Multiple Accounts|Replace Blob Transactions|Parallel Blob Transactions|ForkchoiceUpdatedV3 Modifies Payload ID on Different Beacon Root|NewPayloadV3 After Cancun|NewPayloadV3 Versioned Hashes|ForkchoiceUpdated Version on Payload Request"
           - simulation: engine-cancun
-            name: "Cancun Engine tests"
-            run_command:  make run-hive-on-latest SIMULATION=ethereum/engine TEST_PATTERN="engine-cancun/Unique Payload ID|ParentHash equals BlockHash|Re-Execute Payload|Payload Build after|RPC|Build Payload with|Invalid PayloadAttributes|Suggested Fee Recipient Test|PrevRandao Opcode|Invalid Missing Ancestor ReOrg, StateRoot|in ForkchoiceState|Unknown|Bad Hash|NewPayload with Missing ForkchoiceUpdated|Multiple New Payloads|Invalid NewPayload, Transaction Gas|Invalid NewPayload, Transaction Nonce|Invalid NewPayload, StateRoot|Invalid NewPayload, Incomplete VersionedHashes|Invalid NewPayload, Incomplete Transactions"
+            name: "Cancun Engine tests 1/2"
+            run_command:  make run-hive-on-latest SIMULATION=ethereum/engine TEST_PATTERN="engine-cancun/Unique Payload ID|ParentHash equals BlockHash|Re-Execute Payload|Payload Build after|RPC|Build Payload with|Invalid PayloadAttributes|Suggested Fee Recipient Test|PrevRandao Opcode|Invalid Missing Ancestor ReOrg, StateRoot"
+          - simulation: engine-cancun
+            name: "Cancun Engine tests 2/2"
+            run_command:  make run-hive-on-latest SIMULATION=ethereum/engine TEST_PATTERN="engine-cancun/in ForkchoiceState|Unknown|Bad Hash|NewPayload with Missing ForkchoiceUpdated|Multiple New Payloads|Invalid NewPayload, [^R][^e]"
     steps:
       - name: Download artifacts
         uses: actions/download-artifact@v4
