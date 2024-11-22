@@ -3,10 +3,10 @@ use std::time::Duration;
 use crate::utils::config::{proposer::ProposerConfig, read_env_file};
 use errors::ProposerError;
 use ethereum_types::Address;
-use ethrex_dev::utils::engine_client::{config::EngineApiConfig, errors::EngineClientError};
+use ethrex_dev::utils::engine_client::config::EngineApiConfig;
 use ethrex_storage::Store;
 use tokio::time::sleep;
-use tracing::{error, info, warn};
+use tracing::{error, info};
 
 pub mod l1_committer;
 pub mod l1_watcher;
@@ -25,7 +25,7 @@ pub async fn start_proposer(store: Store) {
     info!("Starting Proposer");
 
     if let Err(e) = read_env_file() {
-        warn!("Failed to read .env file: {e}");
+        panic!("Failed to read .env file: {e}");
     }
 
     let l1_watcher = tokio::spawn(l1_watcher::start_l1_watcher(store.clone()));
@@ -67,13 +67,11 @@ impl Proposer {
     pub async fn main_logic(&self, store: Store) -> Result<(), ProposerError> {
         let head_block_hash = {
             let current_block_number = store
-                .get_latest_block_number()
-                .expect("store.get_latest_block_number")
-                .expect("store.get_latest_block_number returned None");
+                .get_latest_block_number()?
+                .ok_or(ProposerError::StorageDataIsNone)?;
             store
-                .get_canonical_block_hash(current_block_number)
-                .expect("store.get_canonical_block_hash")
-                .expect("store.get_canonical_block_hash returned None")
+                .get_canonical_block_hash(current_block_number)?
+                .ok_or(ProposerError::StorageDataIsNone)?
         };
 
         ethrex_dev::block_producer::start_block_producer(
@@ -84,7 +82,8 @@ impl Proposer {
             self.block_production_interval,
             self.coinbase_address,
         )
-        .await
-        .map_err(EngineClientError::into)
+        .await?;
+
+        Ok(())
     }
 }

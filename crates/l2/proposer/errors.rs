@@ -41,6 +41,10 @@ pub enum ProposerError {
     FailedToProduceBlock(String),
     #[error("Proposer failed to prepare PayloadAttributes timestamp: {0}")]
     FailedToGetSystemTime(#[from] std::time::SystemTimeError),
+    #[error("Proposer failed retrieve block from storage: {0}")]
+    FailedToRetrieveBlockFromStorage(#[from] StoreError),
+    #[error("Proposer failed retrieve block from storaga, data is None.")]
+    StorageDataIsNone,
 }
 
 #[derive(Debug, thiserror::Error)]

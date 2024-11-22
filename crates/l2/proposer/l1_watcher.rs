@@ -54,7 +54,7 @@ impl L1Watcher {
                 error!("L1 Watcher Error: {}", err);
             }
 
-            sleep(Duration::from_millis(200)).await;
+            sleep(self.check_interval).await;
         }
     }
 
@@ -65,8 +65,7 @@ impl L1Watcher {
             let logs = match self.get_logs().await {
                 Ok(logs) => logs,
                 Err(error) => {
-                    warn!("Error when getting logs from L1: {}", error);
-                    continue;
+                    return Err(error);
                 }
             };
             if logs.is_empty() {
@@ -76,14 +75,12 @@ impl L1Watcher {
             let pending_deposits_logs = match self.get_pending_deposit_logs().await {
                 Ok(logs) => logs,
                 Err(error) => {
-                    warn!("Error when getting L1 pending deposit logs: {}", error);
-                    continue;
+                    return Err(error);
                 }
             };
             let _deposit_txs = self
                 .process_logs(logs, &pending_deposits_logs, &store)
-                .await
-                .expect("l1_watcher.process_logs()");
+                .await?;
         }
     }
 
