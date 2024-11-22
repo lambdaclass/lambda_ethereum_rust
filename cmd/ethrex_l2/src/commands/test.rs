@@ -103,10 +103,7 @@ async fn transfer_from(
             .await
             .unwrap();
 
-        while let Err(e) = client
-            .send_eip1559_transaction(tx.clone(), &private_key)
-            .await
-        {
+        while let Err(e) = client.send_eip1559_transaction(&tx, &private_key).await {
             println!("Transaction failed (PK: {pk} - Nonce: {}): {e}", tx.nonce);
             retries += 1;
             sleep(std::time::Duration::from_secs(2));

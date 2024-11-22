@@ -79,7 +79,7 @@ pub async fn transfer(
             },
         )
         .await?;
-    client.send_eip1559_transaction(tx, &private_key).await
+    client.send_eip1559_transaction(&tx, &private_key).await
 }
 
 pub async fn deposit(
@@ -114,7 +114,7 @@ pub async fn withdraw(
         .await?;
 
     proposer_client
-        .send_privileged_l2_transaction(withdraw_transaction, &from_pk)
+        .send_privileged_l2_transaction(&withdraw_transaction, &from_pk)
         .await
 }
 
@@ -203,7 +203,7 @@ pub async fn claim_withdraw(
         .await?;
 
     eth_client
-        .send_eip1559_transaction(claim_tx, &from_pk)
+        .send_eip1559_transaction(&claim_tx, &from_pk)
         .await
 }
 

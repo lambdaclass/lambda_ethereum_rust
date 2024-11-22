@@ -350,7 +350,7 @@ impl Command {
                     )
                     .await?;
                 let tx_hash = eth_client
-                    .send_eip1559_transaction(tx, &cfg.wallet.private_key)
+                    .send_eip1559_transaction(&tx, &cfg.wallet.private_key)
                     .await?;
 
                 println!("Withdrawal claim sent: {tx_hash:#x}");
@@ -394,7 +394,7 @@ impl Command {
                     .await?;
 
                 let tx_hash = client
-                    .send_eip1559_transaction(transfer_tx, &cfg.wallet.private_key)
+                    .send_eip1559_transaction(&transfer_tx, &cfg.wallet.private_key)
                     .await?;
 
                 println!(
@@ -431,7 +431,7 @@ impl Command {
                     .await?;
 
                 let tx_hash = rollup_client
-                    .send_privileged_l2_transaction(withdraw_transaction, &cfg.wallet.private_key)
+                    .send_privileged_l2_transaction(&withdraw_transaction, &cfg.wallet.private_key)
                     .await?;
 
                 println!("Withdrawal sent: {tx_hash:#x}");
@@ -490,7 +490,7 @@ impl Command {
                     )
                     .await?;
                 let tx_hash = client
-                    .send_eip1559_transaction(tx, &cfg.wallet.private_key)
+                    .send_eip1559_transaction(&tx, &cfg.wallet.private_key)
                     .await?;
 
                 println!(
