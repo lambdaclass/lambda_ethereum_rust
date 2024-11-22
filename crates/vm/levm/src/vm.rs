@@ -12,7 +12,6 @@ use crate::{
     opcodes::Opcode,
 };
 use bytes::Bytes;
-use core::error;
 use ethrex_core::{types::TxKind, Address, H256, U256};
 use ethrex_rlp;
 use ethrex_rlp::encode::RLPEncode;
@@ -509,9 +508,20 @@ impl VM {
             self.env.tx_max_fee_per_gas,
         ) {
             // Effective Gas Price = Base Fee + min(maxPriorityFeePerGas, maxFeePerGas - Base Fee)
-            self.env.gas_price = self.env.base_fee_per_gas
-                + max_priority_fee_per_gas.min(max_fee_per_gas - self.env.base_fee_per_gas);
-            // TODO: Implement error in operations here
+            self.env.gas_price = self
+                .env
+                .base_fee_per_gas
+                .checked_add(
+                    max_priority_fee_per_gas.min(
+                        max_fee_per_gas
+                            .checked_sub(self.env.base_fee_per_gas)
+                            .ok_or(VMError::InsufficientMaxFeePerGas)?,
+                    ),
+                )
+                .ok_or(VMError::Internal(
+                    InternalError::ArithmeticOperationOverflow,
+                ))?;
+            // TODO: See what to return if base fee + priority fee causes overflow.
         };
         Ok(())
     }
@@ -581,20 +591,28 @@ impl VM {
 
         let max_gas = self.env.gas_limit.low_u64();
         let consumed_gas = report.gas_used;
-        let refunded_gas = report.gas_refunded;
+        let refunded_gas = report.gas_refunded.min(
+            consumed_gas
+                .checked_div(5)
+                .ok_or(VMError::Internal(InternalError::UndefinedState(-1)))?,
+        );
+        // "The max refundable proportion of gas was reduced from one half to one fifth by EIP-3529 by Buterin and Swende [2021] in the London release"
 
-        let refundable_gas = max_gas - consumed_gas + refunded_gas;
+        let gas_to_return = max_gas
+            .checked_sub(consumed_gas)
+            .and_then(|gas| gas.checked_add(refunded_gas))
+            .ok_or(VMError::Internal(InternalError::UndefinedState(0)))?;
 
-        let refund_amount = self
+        let gas_return_amount = self
             .env
             .gas_price
-            .checked_mul(U256::from(refundable_gas))
+            .checked_mul(U256::from(gas_to_return))
             .ok_or(VMError::Internal(InternalError::UndefinedState(1)))?;
 
         sender_account.info.balance = sender_account
             .info
             .balance
-            .checked_add(refund_amount)
+            .checked_add(gas_return_amount)
             .ok_or(VMError::Internal(InternalError::UndefinedState(2)))?;
 
         // 2. Transfer value to recipient or return value to sender depending on execution result.
