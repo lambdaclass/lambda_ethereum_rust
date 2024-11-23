@@ -1,11 +1,6 @@
-name: "Hive & Assertoor"
+name: "Hive"
 on:
   merge_group:
-    paths-ignore:
-      - 'README.md'
-      - 'LICENSE'
-      - "**/README.md"
-      - "**/docs/**"
   pull_request:
     branches: ["**"]
     paths-ignore:
@@ -23,10 +18,10 @@ env:
 
 jobs:
   build:
-    uses: ./.github/workflows/docker-build.yaml
+    uses: ./.github/workflows/docker_build.yaml
 
   run-hive:
-    name: Hive - ${{ matrix.name }}
+    name: ${{ matrix.name }}
     needs: [build]
     runs-on: ubuntu-latest
     strategy:
@@ -36,8 +31,8 @@ jobs:
             name: "Rpc Compat tests"
             run_command: make run-hive-on-latest SIMULATION=ethereum/rpc-compat TEST_PATTERN="/eth_chainId|eth_getTransactionByBlockHashAndIndex|eth_getTransactionByBlockNumberAndIndex|eth_getCode|eth_getStorageAt|eth_call|eth_getTransactionByHash|eth_getBlockByHash|eth_getBlockByNumber|eth_createAccessList|eth_getBlockTransactionCountByNumber|eth_getBlockTransactionCountByHash|eth_getBlockReceipts|eth_getTransactionReceipt|eth_blobGasPrice|eth_blockNumber|ethGetTransactionCount|debug_getRawHeader|debug_getRawBlock|debug_getRawTransaction|debug_getRawReceipts|eth_estimateGas|eth_getBalance|eth_sendRawTransaction|eth_getProof|eth_getLogs"
           - simulation: rpc-auth
-            name: "Rpc Auth tests"
-            run_command: make run-hive-on-latest SIMULATION=ethereum/rpc-compat TEST_PATTERN="/engine-auth"
+            name: "Engine Auth tests"
+            run_command: make run-hive-on-latest SIMULATION=ethereum/engine TEST_PATTERN="auth/engine-auth"
           - simulation: discv4
             name: "Devp2p discv4 tests"
             run_command: make run-hive-on-latest SIMULATION=devp2p TEST_PATTERN="discv4"
@@ -46,16 +41,16 @@ jobs:
             run_command: make run-hive-on-latest SIMULATION=devp2p TEST_PATTERN="/AccountRange|StorageRanges|ByteCodes|TrieNodes"
           - simulation: eth
             name: "Devp2p eth tests"
-            run_command: make run-hive SIMULATION=devp2p TEST_PATTERN="eth/status|getblockheaders|getblockbodies|transaction"
+            run_command: make run-hive-on-latest SIMULATION=devp2p TEST_PATTERN="eth/Status|GetBlockHeaders|SimultaneousRequests|SameRequestID|ZeroRequestID|GetBlockBodies|MaliciousHandshake|MaliciousStatus|Transaction"
           - simulation: engine
             name: "Engine tests"
             run_command:  make run-hive-on-latest SIMULATION=ethereum/engine TEST_PATTERN="/Blob Transactions On Block 1, Cancun Genesis|Blob Transactions On Block 1, Shanghai Genesis|Blob Transaction Ordering, Single Account, Single Blob|Blob Transaction Ordering, Single Account, Dual Blob|Blob Transaction Ordering, Multiple Accounts|Replace Blob Transactions|Parallel Blob Transactions|ForkchoiceUpdatedV3 Modifies Payload ID on Different Beacon Root|NewPayloadV3 After Cancun|NewPayloadV3 Versioned Hashes|ForkchoiceUpdated Version on Payload Request"
           - simulation: engine-cancun
             name: "Cancun Engine tests 1/2"
-            run_command:  make run-hive-on-latest SIMULATION=ethereum/engine TEST_PATTERN="engine-cancun/Unique Payload ID|ParentHash equals BlockHash|Re-Execute Payload|Payload Build after|RPC|Build Payload with|Invalid PayloadAttributes|Suggested Fee Recipient Test|PrevRandao Opcode|Invalid Missing Ancestor ReOrg, StateRoot"
+            run_command:  make run-hive-on-latest SIMULATION=ethereum/engine HIVE_EXTRA_ARGS="--sim.parallelism 4" TEST_PATTERN="engine-cancun/Unique Payload ID|ParentHash equals BlockHash|Re-Execute Payload|Payload Build after|RPC|Build Payload with|Invalid PayloadAttributes|Suggested Fee Recipient Test|PrevRandao Opcode|Invalid Missing Ancestor ReOrg, StateRoot|in ForkchoiceState|Unknown|Bad Hash|NewPayload with Missing ForkchoiceUpdated|Multiple New Payloads|"
           - simulation: engine-cancun
             name: "Cancun Engine tests 2/2"
-            run_command:  make run-hive-on-latest SIMULATION=ethereum/engine TEST_PATTERN="engine-cancun/in ForkchoiceState|Unknown|Bad Hash|NewPayload with Missing ForkchoiceUpdated|Multiple New Payloads|Invalid NewPayload, [^R][^e]"
+            run_command:  make run-hive-on-latest SIMULATION=ethereum/engine HIVE_EXTRA_ARGS="--sim.parallelism 4" TEST_PATTERN="engine-cancun/Invalid NewPayload, [^R][^e]"
     steps:
       - name: Download artifacts
         uses: actions/download-artifact@v4
@@ -80,6 +75,7 @@ jobs:
 
       - name: Run Hive Simulation
         run: ${{ matrix.run_command }}
+<<<<<<< HEAD:.github/workflows/hive_and_assertoor.yaml
 
   run-assertoor:
     name: Assertoor - Stability Check
@@ -105,3 +101,5 @@ jobs:
           ethereum_package_url: 'github.com/lambdaclass/ethereum-package'
           ethereum_package_branch: 'ethrex-integration'
           ethereum_package_args: './test_data/network_params.yaml'
+=======
+>>>>>>> main:.github/workflows/hive.yaml
