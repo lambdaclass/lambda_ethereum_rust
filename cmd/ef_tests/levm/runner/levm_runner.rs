@@ -74,7 +74,7 @@ pub fn prepare_vm_for_tx(vector: &TestVector, test: &EFTest) -> Result<VM, EFTes
             origin: test.transactions.get(vector).unwrap().sender,
             consumed_gas: U256::default(),
             refunded_gas: U256::default(),
-            gas_limit: test.env.current_gas_limit, // This one is wrong
+            gas_limit: test.transactions.get(vector).unwrap().gas_limit,
             block_number: test.env.current_number,
             coinbase: test.env.current_coinbase,
             timestamp: test.env.current_timestamp,
@@ -89,7 +89,12 @@ pub fn prepare_vm_for_tx(vector: &TestVector, test: &EFTest) -> Result<VM, EFTes
                 .unwrap_or_default(), // or max_fee_per_gas?
             block_excess_blob_gas: test.env.current_excess_blob_gas,
             block_blob_gas_used: None,
-            tx_blob_hashes: None,
+            tx_blob_hashes: test
+                .transactions
+                .get(vector)
+                .unwrap()
+                .blob_versioned_hashes
+                .clone(),
             block_gas_limit: test.env.current_gas_limit,
             tx_max_priority_fee_per_gas: test
                 .transactions

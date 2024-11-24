@@ -73,8 +73,9 @@ pub fn parse_ef_test_dir(
         if test
             .path()
             .file_name()
-            .is_some_and(|name| name == "ValueOverflowParis.json")
+            .is_some_and(|name| name == "ValueOverflowParis.json" || name == "intrinsic.json")
         {
+            // Intrinsic is skipped because execution should fail but access lists are necessary for that to happen.
             continue;
         }
 

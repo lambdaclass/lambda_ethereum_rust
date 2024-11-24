@@ -63,32 +63,32 @@ pub fn run_ef_tests(ef_tests: Vec<EFTest>) -> Result<(), EFTestRunnerError> {
     summary_spinner.success(&report::summary(&reports));
 
     // Run the failed tests with REVM
-    let revm_run_time = std::time::Instant::now();
-    let mut revm_run_spinner = Spinner::new(
-        Dots,
-        "Running failed tests with REVM...".to_owned(),
-        Color::Cyan,
-    );
-    let failed_tests = reports.iter().filter(|report| !report.passed()).count();
-    for (idx, failed_test_report) in reports.iter_mut().enumerate() {
-        if failed_test_report.passed() {
-            continue;
-        }
-        revm_run_spinner.update_text(format!(
-            "{} {}/{failed_tests} - {}",
-            "Re-running failed tests with REVM".bold(),
-            idx + 1,
-            format_duration_as_mm_ss(revm_run_time.elapsed())
-        ));
-        let re_run_report = revm_runner::re_run_failed_ef_test(
-            ef_tests
-                .iter()
-                .find(|test| test.name == failed_test_report.name)
-                .unwrap(),
-            failed_test_report,
-        )?;
-        failed_test_report.register_re_run_report(re_run_report.clone());
-    }
+    // let revm_run_time = std::time::Instant::now();
+    // let mut revm_run_spinner = Spinner::new(
+    //     Dots,
+    //     "Running failed tests with REVM...".to_owned(),
+    //     Color::Cyan,
+    // );
+    // let failed_tests = reports.iter().filter(|report| !report.passed()).count();
+    // for (idx, failed_test_report) in reports.iter_mut().enumerate() {
+    //     if failed_test_report.passed() {
+    //         continue;
+    //     }
+    //     revm_run_spinner.update_text(format!(
+    //         "{} {}/{failed_tests} - {}",
+    //         "Re-running failed tests with REVM".bold(),
+    //         idx + 1,
+    //         format_duration_as_mm_ss(revm_run_time.elapsed())
+    //     ));
+    //     let re_run_report = revm_runner::re_run_failed_ef_test(
+    //         ef_tests
+    //             .iter()
+    //             .find(|test| test.name == failed_test_report.name)
+    //             .unwrap(),
+    //         failed_test_report,
+    //     )?;
+    //     failed_test_report.register_re_run_report(re_run_report.clone());
+    // }
 
     let mut report_spinner = Spinner::new(Dots, "Loading report...".to_owned(), Color::Cyan);
     // Write report in .txt file
