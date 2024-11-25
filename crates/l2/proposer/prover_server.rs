@@ -29,9 +29,9 @@ use risc0_zkvm::sha::{Digest, Digestible};
 
 #[derive(Debug, Serialize, Deserialize, Default)]
 pub struct ProverInputData {
-    pub db: ExecutionDB,
     pub block: Block,
-    pub parent_header: BlockHeader,
+    pub parent_block_header: BlockHeader,
+    pub db: ExecutionDB,
 }
 
 #[derive(Debug, Clone)]
@@ -352,7 +352,7 @@ impl ProverServer {
 
         let db = ExecutionDB::from_exec(&block, &self.store).map_err(EvmError::ExecutionDB)?;
 
-        let parent_header = self
+        let parent_block_header = self
             .store
             .get_block_header_by_hash(block.header.parent_hash)?
             .ok_or(ProverServerError::StorageDataIsNone)?;
@@ -362,7 +362,7 @@ impl ProverServer {
         Ok(ProverInputData {
             db,
             block,
-            parent_header,
+            parent_block_header,
         })
     }
 
