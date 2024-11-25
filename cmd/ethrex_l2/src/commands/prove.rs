@@ -1,7 +1,6 @@
 use clap::Args;
 use ethrex_l2::utils::test_data_io::{generate_program_input, read_chain_file, read_genesis_file};
 use ethrex_prover_lib::prover::Prover;
-use log::info;
 
 #[derive(Args)]
 pub(crate) struct Command {
@@ -33,8 +32,12 @@ impl Command {
 
         let mut prover = Prover::new();
         prover.prove(program_input).expect("proving failed");
-
-        info!("Successfully proven block");
+        println!(
+            "Total gas consumption: {}",
+            prover
+                .get_gas()
+                .expect("failed to deserialize gas consumption")
+        );
         Ok(())
     }
 }
