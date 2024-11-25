@@ -172,7 +172,7 @@ impl VM {
             .calldata
             .iter()
             .skip(calldata_offset)
-            .take(32)
+            .take(size)
             .enumerate()
         {
             if let Some(data_byte) = data.get_mut(i) {
