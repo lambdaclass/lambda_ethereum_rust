@@ -4,14 +4,13 @@ use ethrex_rlp::{decode::RLPDecode, encode::RLPEncode};
 use ethrex_storage::{EngineType, Store};
 use ethrex_vm::execution_db::ExecutionDB;
 use tracing::info;
+use zkvm_interface::io::ProgramInput;
 
 use std::{
     fs::File,
     io::{BufReader, Read as _, Write},
     path::PathBuf,
 };
-
-use crate::proposer::prover_server::ProverInputData;
 
 use super::error::ProverInputError;
 
@@ -57,11 +56,11 @@ pub fn generate_rlp(
     Ok(())
 }
 
-pub fn generate_prover_input(
+pub fn generate_program_input(
     genesis: Genesis,
     chain: Vec<Block>,
     block_number: usize,
-) -> Result<ProverInputData, ProverInputError> {
+) -> Result<ProgramInput, ProverInputError> {
     let block = chain
         .get(block_number)
         .ok_or(ProverInputError::InvalidBlockNumber(block_number))?
@@ -74,17 +73,17 @@ pub fn generate_prover_input(
         add_block(&block, &store)?;
     }
 
-    let parent_header = store
+    let parent_block_header = store
         .get_block_header_by_hash(block.header.parent_hash)?
         .ok_or(ProverInputError::InvalidParentBlock(
             block.header.parent_hash,
         ))?;
     let db = ExecutionDB::from_exec(&block, &store)?;
 
-    Ok(ProverInputData {
+    Ok(ProgramInput {
         db,
         block,
-        parent_header,
+        parent_block_header,
     })
 }
 
