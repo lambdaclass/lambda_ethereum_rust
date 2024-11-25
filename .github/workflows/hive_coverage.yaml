@@ -51,13 +51,12 @@ jobs:
       - name: Generate the hive report
         id: report
         run: |
-          cargo run -p hive_report > results.md
-          echo "content=$(cat results.md)" >> $GITHUB_OUTPUT
+          #cargo run -p hive_report > results.md
 
       - name: Post results in summary
         run: |
           echo "# Hive coverage report\n\n" >> $GITHUB_STEP_SUMMARY
-          $(cat results.md) >> $GITHUB_STEP_SUMMARY
+          cat results.md >> $GITHUB_STEP_SUMMARY
 
       - name: Post results to slack
         uses: slackapi/slack-github-action@v2.0.0
@@ -73,4 +72,4 @@ jobs:
               - type: "section"
                 text:
                   type: "mrkdwn"
-                  text: ${{steps.report.outputs.content}}
+                  text: $(cat report.txt)
