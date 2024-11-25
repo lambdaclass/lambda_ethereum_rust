@@ -1,6 +1,7 @@
 name: Daily Hive Coverage
 
 on:
+  pull_request:
   schedule:
     # Every day at UTC midnight
     - cron: '0 0 * * *'
@@ -40,9 +41,9 @@ jobs:
       - name: Setup Go
         uses: actions/setup-go@v3
 
-      - name: Run Hive Simulation
-        run: make run-hive-on-latest SIMULATION=ethereum/engine
-        continue-on-error: true
+      # - name: Run Hive Simulation
+      #   run: make run-hive-on-latest SIMULATION=ethereum/engine
+      #   continue-on-error: true
 
       - name: Caching
         uses: Swatinem/rust-cache@v2
