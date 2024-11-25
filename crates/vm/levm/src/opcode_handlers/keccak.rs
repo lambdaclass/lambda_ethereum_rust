@@ -33,16 +33,11 @@ impl VM {
 
         let mut hasher = Keccak256::new();
 
-        if size == 0 {
-            hasher.update([]);
-            let result = hasher.finalize();
-            current_call_frame
-                .stack
-                .push(U256::from_big_endian(&result))?;
-            return Ok(OpcodeSuccess::Continue);
-        }
-
-        let value_bytes = current_call_frame.memory.load_range(offset, size)?;
+        let value_bytes = if size == 0 {
+            vec![]
+        } else {
+            current_call_frame.memory.load_range(offset, size)?
+        };
 
         hasher.update(value_bytes);
         let result = hasher.finalize();
