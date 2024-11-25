@@ -154,18 +154,33 @@ impl EthClient {
         // Failing when sending the first transaction
         // The estimation goes well, but then:
         // ERROR ethrex_l2::proposer::l1_committer: Failed to send commitment to block 0x3a24444ba29a8c524006db1781fff950538b21dd69181737c09c4b8bf514cb5c. Manual intervention required: Committer failed because of an EthClient error: eth_sendRawTransaction request error: replacement transaction underpriced: new tx gas fee cap 97509022 <= 101317673 queued
-        let mut tx_hash = match wrapped_tx {
+        let tx_hash_res = match wrapped_tx {
             WrappedTransaction::EIP4844(wrapped_eip4844_transaction) => {
                 self.send_eip4844_transaction(wrapped_eip4844_transaction, private_key)
-                    .await?
+                    .await
             }
             WrappedTransaction::EIP1559(eip1559_transaction) => {
                 self.send_eip1559_transaction(eip1559_transaction, private_key)
-                    .await?
+                    .await
             }
             WrappedTransaction::L2(privileged_l2_transaction) => {
                 self.send_privileged_l2_transaction(privileged_l2_transaction, private_key)
-                    .await?
+                    .await
+            }
+        };
+
+        // Check if the tx is `already known`, bump gas and resend it.
+        let mut tx_hash = match tx_hash_res {
+            Ok(hash) => hash,
+            Err(e) => {
+                let error = format!("{e}");
+                if error.contains("already known")
+                    || error.contains("replacement transaction underpriced")
+                {
+                    H256::zero()
+                } else {
+                    return Err(e);
+                }
             }
         };
 
@@ -703,9 +718,7 @@ impl EthClient {
                         warn!("ERROR ESTIMATING GAS");
                         let error = format!("{e}");
                         if error.contains("replacement transaction underpriced") {
-                            warn!(
-                                "Bumping gas while building: replacement transaction underpriced"
-                            );
+                            warn!("Bumping gas while building: already known");
                             retry += 1;
                             self.bump_eip1559(&mut tx, 1.1);
                             continue;
@@ -791,10 +804,8 @@ impl EthClient {
                     Err(e) => {
                         warn!("ERROR ESTIMATING GAS");
                         let error = format!("{e}");
-                        if error.contains("replacement transaction underpriced") {
-                            warn!(
-                                "Bumping gas while building: replacement transaction underpriced"
-                            );
+                        if error.contains("already known") {
+                            warn!("Bumping gas while building: already known");
                             retry += 1;
                             self.bump_eip4844(&mut wrapped_eip4844, 1.1);
                             continue;
@@ -876,10 +887,8 @@ impl EthClient {
                     Err(e) => {
                         warn!("ERROR ESTIMATING GAS");
                         let error = format!("{e}");
-                        if error.contains("replacement transaction underpriced") {
-                            warn!(
-                                "Bumping gas while building: replacement transaction underpriced"
-                            );
+                        if error.contains("already known") {
+                            warn!("Bumping gas while building: already known");
                             retry += 1;
                             self.bump_privileged_l2(&mut tx, 1.1);
                             continue;
