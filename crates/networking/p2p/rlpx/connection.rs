@@ -338,7 +338,8 @@ impl<S: AsyncWrite + AsyncRead + std::marker::Unpin> RLPxConnection<S> {
             | message @ Message::ByteCodes(_)
             | message @ Message::TrieNodes(_)
             | message @ Message::BlockBodies(_)
-            | message @ Message::BlockHeaders(_) => backend_send.send(message).await?,
+            | message @ Message::BlockHeaders(_)
+            | message @ Message::Receipts(_) => backend_send.send(message).await?,
             // TODO: Add new message types and handlers as they are implemented
             message => return Err(RLPxError::MessageNotHandled(format!("{message}"))),
         };
