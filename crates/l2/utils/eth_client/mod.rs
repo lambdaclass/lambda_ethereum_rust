@@ -222,12 +222,15 @@ impl EthClient {
         tx: &mut EIP1559Transaction,
         private_key: &SecretKey,
     ) -> Result<H256, EthClientError> {
-        let from = get_address_from_secret_key(private_key);
+        let from = get_address_from_secret_key(private_key).map_err(|e| {
+            EthClientError::Custom(format!("Failed to get_address_from_secret_key: {e}"))
+        })?;
         // Sometimes the penalty is a 100%
         // Increase max fee per gas by 110% (set it to 210% of the original)
         self.bump_eip1559(tx, 1.1);
         let wrapped_tx = &mut WrappedTransaction::EIP1559(tx.clone());
         self.estimate_gas_for_wrapped_tx(wrapped_tx, from).await?;
+
         if let WrappedTransaction::EIP1559(eip1559) = wrapped_tx {
             tx.max_fee_per_gas = eip1559.max_fee_per_gas;
             tx.max_priority_fee_per_gas = eip1559.max_fee_per_gas;
@@ -249,13 +252,16 @@ impl EthClient {
         wrapped_tx: &mut WrappedEIP4844Transaction,
         private_key: &SecretKey,
     ) -> Result<H256, EthClientError> {
-        let from = get_address_from_secret_key(private_key);
+        let from = get_address_from_secret_key(private_key).map_err(|e| {
+            EthClientError::Custom(format!("Failed to get_address_from_secret_key: {e}"))
+        })?;
         // Sometimes the penalty is a 100%
         // Increase max fee per gas by 110% (set it to 210% of the original)
         self.bump_eip4844(wrapped_tx, 1.1);
         let wrapped_eip4844 = &mut WrappedTransaction::EIP4844(wrapped_tx.clone());
         self.estimate_gas_for_wrapped_tx(wrapped_eip4844, from)
             .await?;
+
         if let WrappedTransaction::EIP4844(eip4844) = wrapped_eip4844 {
             wrapped_tx.tx.max_fee_per_gas = eip4844.tx.max_fee_per_gas;
             wrapped_tx.tx.max_priority_fee_per_gas = eip4844.tx.max_fee_per_gas;
@@ -286,7 +292,9 @@ impl EthClient {
         tx: &mut PrivilegedL2Transaction,
         private_key: &SecretKey,
     ) -> Result<H256, EthClientError> {
-        let from = get_address_from_secret_key(private_key);
+        let from = get_address_from_secret_key(private_key).map_err(|e| {
+            EthClientError::Custom(format!("Failed to get_address_from_secret_key: {e}"))
+        })?;
         // Sometimes the penalty is a 100%
         // Increase max fee per gas by 110% (set it to 210% of the original)
         self.bump_privileged_l2(tx, 1.1);

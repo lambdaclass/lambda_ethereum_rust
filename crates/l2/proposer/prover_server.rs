@@ -43,7 +43,6 @@ struct ProverServer {
     on_chain_proposer_address: Address,
     verifier_address: Address,
     verifier_private_key: SecretKey,
-    last_verified_block: u64,
 }
 
 /// Enum for the ProverServer <--> ProverClient Communication Protocol.
@@ -97,15 +96,6 @@ impl ProverServer {
         let eth_client = EthClient::new(&eth_config.rpc_url);
         let on_chain_proposer_address = committer_config.on_chain_proposer_address;
 
-        let last_verified_block =
-            EthClient::get_last_verified_block(&eth_client, on_chain_proposer_address).await?;
-
-        let last_verified_block = if last_verified_block == u64::MAX {
-            0
-        } else {
-            last_verified_block
-        };
-
         Ok(Self {
             ip: config.listen_ip,
             port: config.listen_port,
@@ -114,7 +104,6 @@ impl ProverServer {
             on_chain_proposer_address,
             verifier_address: config.verifier_address,
             verifier_private_key: config.verifier_private_key,
-            last_verified_block,
         })
     }
 
@@ -213,11 +202,21 @@ impl ProverServer {
     async fn handle_connection(&mut self, mut stream: TcpStream) -> Result<(), ProverServerError> {
         let buf_reader = BufReader::new(&stream);
 
+        let last_verified_block =
+            EthClient::get_last_verified_block(&self.eth_client, self.on_chain_proposer_address)
+                .await?;
+
+        let last_verified_block = if last_verified_block == u64::MAX {
+            0
+        } else {
+            last_verified_block
+        };
+
         let data: Result<ProofData, _> = serde_json::de::from_reader(buf_reader);
         match data {
             Ok(ProofData::Request) => {
                 if let Err(e) = self
-                    .handle_request(&mut stream, self.last_verified_block + 1)
+                    .handle_request(&mut stream, last_verified_block + 1)
                     .await
                 {
                     warn!("Failed to handle request: {e}");
@@ -231,10 +230,9 @@ impl ProverServer {
 
                 self.handle_proof_submission(block_number, receipt).await?;
 
-                if block_number != (self.last_verified_block + 1) {
-                    return Err(ProverServerError::Custom(format!("Prover Client submitted an invalid block_number: {block_number}. The last_proved_block is: {}", self.last_verified_block)));
+                if block_number != (last_verified_block + 1) {
+                    return Err(ProverServerError::Custom(format!("Prover Client submitted an invalid block_number: {block_number}. The last_proved_block is: {}", last_verified_block)));
                 }
-                self.last_verified_block = block_number;
             }
             Err(e) => {
                 warn!("Failed to parse request: {e}");
