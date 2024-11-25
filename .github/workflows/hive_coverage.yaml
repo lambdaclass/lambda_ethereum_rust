@@ -52,12 +52,12 @@ jobs:
         id: report
         run: |
           #cargo run -p hive_report > results.md
-          content=$(cat results)
+          content=$(cat results.md)
           echo "content='$content'" >> $GITHUB_OUTPUT
 
       - name: Post results in summary
         run: |
-          echo "# Hive coverage report\n\n" >> $GITHUB_STEP_SUMMARY
+          echo "# Hive coverage report" >> $GITHUB_STEP_SUMMARY
           cat results.md >> $GITHUB_STEP_SUMMARY
 
       - name: Post results to slack
