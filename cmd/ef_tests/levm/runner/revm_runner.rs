@@ -135,6 +135,10 @@ pub fn prepare_revm_for_tx<'state>(
         max_fee_per_blob_gas: None,
         authorization_list: None,
     };
+
+    // dbg!(&block_env);
+    // dbg!(&tx_env);
+
     let evm_builder = Revm::builder()
         .with_block_env(block_env)
         .with_tx_env(tx_env)
@@ -335,9 +339,6 @@ pub fn run_ef_test_tx(vector: &TestVector, test: &EFTest) -> Result<(), EFTestRu
     let mut revm = prepare_revm_for_tx(&mut state, vector, test)?;
     let revm_execution_result = revm.transact_commit();
     drop(revm); // Need to drop the state mutable reference.
-
-    // ensure post state revm
-    // dbg!(&revm_execution_result);
 
     ensure_post_state_revm(revm_execution_result, vector, test, &mut state)?;
 
