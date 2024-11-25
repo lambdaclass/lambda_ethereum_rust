@@ -23,6 +23,7 @@ pub fn re_run_failed_ef_test(
     test: &EFTest,
     failed_test_report: &EFTestReport,
 ) -> Result<TestReRunReport, EFTestRunnerError> {
+    assert_eq!(test.name, failed_test_report.name);
     let mut re_run_report = TestReRunReport::new();
     for (vector, vector_failure) in failed_test_report.failed_vectors.iter() {
         match vector_failure {
@@ -67,6 +68,7 @@ pub fn re_run_failed_ef_test_tx(
     let revm_execution_result = revm.transact_commit();
     drop(revm); // Need to drop the state mutable reference.
     compare_levm_revm_execution_results(
+        vector,
         levm_execution_report,
         revm_execution_result,
         re_run_report,
@@ -104,7 +106,13 @@ pub fn prepare_revm_for_tx<'state>(
                 .as_u64(),
         )),
     };
-    let tx = &test.transactions.get(vector).unwrap();
+    let tx = &test
+        .transactions
+        .get(vector)
+        .ok_or(EFTestRunnerError::VMInitializationFailed(format!(
+            "Vector {vector:?} not found in test {}",
+            test.name
+        )))?;
     let tx_env = RevmTxEnv {
         caller: tx.sender.0.into(),
         gas_limit: tx.gas_limit.as_u64(),
@@ -140,13 +148,14 @@ pub fn prepare_revm_for_tx<'state>(
 }
 
 pub fn compare_levm_revm_execution_results(
+    vector: &TestVector,
     levm_execution_report: &TransactionReport,
     revm_execution_result: Result<RevmExecutionResult, REVMError<StoreError>>,
     re_run_report: &mut TestReRunReport,
 ) -> Result<(), EFTestRunnerError> {
-    match (levm_execution_report, &revm_execution_result) {
+    match (levm_execution_report, revm_execution_result) {
         (levm_tx_report, Ok(revm_execution_result)) => {
-            match (&levm_tx_report.result, revm_execution_result) {
+            match (&levm_tx_report.result, revm_execution_result.clone()) {
                 (
                     TxResult::Success,
                     RevmExecutionResult::Success {
@@ -157,14 +166,18 @@ pub fn compare_levm_revm_execution_results(
                         output: _,
                     },
                 ) => {
-                    if levm_tx_report.gas_used != *revm_gas_used {
-                        re_run_report
-                            .register_gas_used_mismatch(levm_tx_report.gas_used, *revm_gas_used);
+                    if levm_tx_report.gas_used != revm_gas_used {
+                        re_run_report.register_gas_used_mismatch(
+                            *vector,
+                            levm_tx_report.gas_used,
+                            revm_gas_used,
+                        );
                     }
-                    if levm_tx_report.gas_refunded != *revm_gas_refunded {
+                    if levm_tx_report.gas_refunded != revm_gas_refunded {
                         re_run_report.register_gas_refunded_mismatch(
+                            *vector,
                             levm_tx_report.gas_refunded,
-                            *revm_gas_refunded,
+                            revm_gas_refunded,
                         );
                     }
                 }
@@ -175,9 +188,12 @@ pub fn compare_levm_revm_execution_results(
                         output: _,
                     },
                 ) => {
-                    if &levm_tx_report.gas_used != revm_gas_used {
-                        re_run_report
-                            .register_gas_used_mismatch(levm_tx_report.gas_used, *revm_gas_used);
+                    if levm_tx_report.gas_used != revm_gas_used {
+                        re_run_report.register_gas_used_mismatch(
+                            *vector,
+                            levm_tx_report.gas_used,
+                            revm_gas_used,
+                        );
                     }
                 }
                 (
@@ -188,24 +204,29 @@ pub fn compare_levm_revm_execution_results(
                     },
                 ) => {
                     // TODO: Register the revert reasons.
-                    if &levm_tx_report.gas_used != revm_gas_used {
-                        re_run_report
-                            .register_gas_used_mismatch(levm_tx_report.gas_used, *revm_gas_used);
+                    if levm_tx_report.gas_used != revm_gas_used {
+                        re_run_report.register_gas_used_mismatch(
+                            *vector,
+                            levm_tx_report.gas_used,
+                            revm_gas_used,
+                        );
                     }
                 }
                 _ => {
                     re_run_report.register_execution_result_mismatch(
+                        *vector,
                         levm_tx_report.result.clone(),
                         revm_execution_result.clone(),
                     );
                 }
             }
         }
-        (_levm_transaction_report, Err(_)) => {
-            return Err(EFTestRunnerError::Internal(InternalError::ReRunInternal(
-                "REVM execution failed unexpectedly".to_owned(),
-                re_run_report.clone(),
-            )));
+        (levm_transaction_report, Err(revm_error)) => {
+            re_run_report.register_re_run_failure(
+                *vector,
+                levm_transaction_report.result.clone(),
+                revm_error,
+            );
         }
     }
     Ok(())
