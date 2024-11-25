@@ -11,8 +11,6 @@ participants:
 
 additional_services:
   - assertoor
-  - dora
-  - el_forkmon
   - tx_spammer
 
 assertoor_params:
@@ -20,4 +18,4 @@ assertoor_params:
   run_block_proposal_check: false
   run_blob_transaction_test: true
   tests:
-    - 'https://raw.githubusercontent.com/lambdaclass/ethrex/refs/heads/assertoor-allaround-tx-check/test_data/el-stability-check.yml'
+    - 'https://raw.githubusercontent.com/lambdaclass/ethrex/refs/heads/assertoor-allaround-tx-check/test_data/assertoor/el-stability-check.yml'
