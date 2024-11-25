@@ -1,6 +1,3 @@
-#![allow(clippy::indexing_slicing)]
-#![allow(clippy::unwrap_used)]
-
 use bytes::Bytes;
 use ethrex_core::U256;
 use ethrex_levm::{
@@ -126,5 +123,5 @@ fn test_non_compliance_extcodecopy_memory_resize() {
     .unwrap();
     let mut current_call_frame = vm.call_frames.pop().unwrap();
     vm.execute(&mut current_call_frame);
-    assert_eq!(current_call_frame.stack.stack[0], U256::from(32));
+    assert_eq!(current_call_frame.stack.pop().unwrap(), U256::from(32));
 }
