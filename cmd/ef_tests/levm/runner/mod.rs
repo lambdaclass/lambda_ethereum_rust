@@ -48,7 +48,7 @@ pub struct EFTestRunnerOptions {
 
 pub fn run_ef_tests(
     ef_tests: Vec<EFTest>,
-    opts: &EFTestRunnerOptions,
+    _opts: &EFTestRunnerOptions,
 ) -> Result<(), EFTestRunnerError> {
     let mut reports = report::load()?;
     if reports.is_empty() {
