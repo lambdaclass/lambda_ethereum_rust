@@ -1,3 +1,6 @@
+#![allow(clippy::indexing_slicing)]
+#![allow(clippy::unwrap_used)]
+
 use bytes::Bytes;
 use ethrex_core::U256;
 use ethrex_levm::{
