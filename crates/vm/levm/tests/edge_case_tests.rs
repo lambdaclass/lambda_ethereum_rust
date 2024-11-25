@@ -115,6 +115,7 @@ fn test_sdiv_zero_dividend_and_negative_divisor() {
     assert_eq!(current_call_frame.stack.pop().unwrap(), U256::zero());
 }
 
+#[test]
 fn test_non_compliance_extcodecopy() {
     let mut vm = new_vm_with_bytecode(Bytes::copy_from_slice(&[88, 88, 88, 89, 60, 89]))
     .unwrap();
