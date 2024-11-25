@@ -1,6 +1,6 @@
 use crate::types::{EFTest, EFTests};
 use bytes::Bytes;
-use ethrex_core::U256;
+use ethrex_core::{H256, U256};
 use serde::Deserialize;
 use std::{collections::HashMap, str::FromStr};
 
@@ -63,6 +63,29 @@ where
             ))
         },
     )
+}
+
+pub fn deserialize_h256_vec_optional_safe<'de, D>(
+    deserializer: D,
+) -> Result<Option<Vec<H256>>, D::Error>
+where
+    D: serde::Deserializer<'de>,
+{
+    let s = Option::<Vec<String>>::deserialize(deserializer)?;
+    match s {
+        Some(s) => {
+            let mut ret = Vec::new();
+            for s in s {
+                ret.push(H256::from_str(s.trim_start_matches("0x")).map_err(|err| {
+                    serde::de::Error::custom(format!(
+                        "error parsing H256 when deserializing H256 vec optional: {err}"
+                    ))
+                })?);
+            }
+            Ok(Some(ret))
+        }
+        None => Ok(None),
+    }
 }
 
 pub fn deserialize_u256_optional_safe<'de, D>(deserializer: D) -> Result<Option<U256>, D::Error>

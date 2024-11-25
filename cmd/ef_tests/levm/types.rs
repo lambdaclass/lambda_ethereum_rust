@@ -1,8 +1,8 @@
 use crate::{
     deserialize::{
-        deserialize_ef_post_value_indexes, deserialize_hex_bytes, deserialize_hex_bytes_vec,
-        deserialize_u256_optional_safe, deserialize_u256_safe,
-        deserialize_u256_valued_hashmap_safe, deserialize_u256_vec_safe,
+        deserialize_ef_post_value_indexes, deserialize_h256_vec_optional_safe,
+        deserialize_hex_bytes, deserialize_hex_bytes_vec, deserialize_u256_optional_safe,
+        deserialize_u256_safe, deserialize_u256_valued_hashmap_safe, deserialize_u256_vec_safe,
     },
     report::TestVector,
 };
@@ -246,6 +246,14 @@ pub struct EFTestRawTransaction {
     pub to: TxKind,
     #[serde(deserialize_with = "deserialize_u256_vec_safe")]
     pub value: Vec<U256>,
+    #[serde(default, deserialize_with = "deserialize_u256_optional_safe")]
+    pub max_fee_per_gas: Option<U256>,
+    #[serde(default, deserialize_with = "deserialize_u256_optional_safe")]
+    pub max_priority_fee_per_gas: Option<U256>,
+    #[serde(default, deserialize_with = "deserialize_u256_optional_safe")]
+    pub max_fee_per_blob_gas: Option<U256>,
+    #[serde(default, deserialize_with = "deserialize_h256_vec_optional_safe")]
+    pub blob_versioned_hashes: Option<Vec<H256>>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -261,4 +269,12 @@ pub struct EFTestTransaction {
     pub sender: Address,
     pub to: TxKind,
     pub value: U256,
+    #[serde(default, deserialize_with = "deserialize_u256_optional_safe")]
+    pub max_fee_per_gas: Option<U256>,
+    #[serde(default, deserialize_with = "deserialize_u256_optional_safe")]
+    pub max_priority_fee_per_gas: Option<U256>,
+    #[serde(default, deserialize_with = "deserialize_u256_optional_safe")]
+    pub max_fee_per_blob_gas: Option<U256>,
+    #[serde(default, deserialize_with = "deserialize_h256_vec_optional_safe")]
+    pub blob_versioned_hashes: Option<Vec<H256>>,
 }
