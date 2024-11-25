@@ -27,17 +27,17 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Download artifacts
+      - name: Download artifacts (tx)
         uses: actions/download-artifact@v4
         with:
           name: ethrex_image
           path: /tmp
 
-      - name: Load image
+      - name: Load image (tx)
         run: |
           docker load --input /tmp/ethrex_image.tar
 
-      - name: Run assertoor
+      - name: Run assertoor (tx)
         uses: ethpandaops/kurtosis-assertoor-github-action@v1
         with:
           kurtosis_version: '1.4.2'
@@ -52,17 +52,17 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Download artifacts
+      - name: Download artifacts (blob)
         uses: actions/download-artifact@v4
         with:
           name: ethrex_image
           path: /tmp
 
-      - name: Load image
+      - name: Load image (blob)
         run: |
           docker load --input /tmp/ethrex_image.tar
 
-      - name: Run assertoor
+      - name: Run assertoor (blob)
         uses: ethpandaops/kurtosis-assertoor-github-action@v1
         with:
           kurtosis_version: '1.4.2'
