@@ -51,4 +51,4 @@ tasks:
   config:
     minTransactionCount: 50
   configVars:
-    clientPattern: "ethrex-.*"
+    clientPattern: "1-ethrex-lighthouse"
