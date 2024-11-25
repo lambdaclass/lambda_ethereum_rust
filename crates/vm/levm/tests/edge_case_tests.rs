@@ -115,7 +115,7 @@ fn test_non_compliance_keccak256() {
             .unwrap()
     );
     assert_eq!(
-        *current_call_frame.stack.stack.get(2).unwrap(),
+        *current_call_frame.stack.stack.get(1).unwrap(),
         U256::zero()
     );
 }
