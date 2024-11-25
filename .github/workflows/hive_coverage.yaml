@@ -52,6 +52,8 @@ jobs:
         id: report
         run: |
           #cargo run -p hive_report > results.md
+          content=$(cat results)
+          echo "content='$content'" >> $GITHUB_OUTPUT
 
       - name: Post results in summary
         run: |
@@ -72,4 +74,4 @@ jobs:
               - type: "section"
                 text:
                   type: "mrkdwn"
-                  text: $(cat report.txt)
+                  text: ${{steps.report.outputs.content}}
