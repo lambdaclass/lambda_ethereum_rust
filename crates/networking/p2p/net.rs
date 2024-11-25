@@ -24,7 +24,7 @@ use tokio::{
     sync::{broadcast, Mutex},
     try_join,
 };
-use tracing::{debug, error};
+use tracing::{debug, error, info};
 use types::{Endpoint, Node};
 
 pub mod bootnode;
@@ -49,8 +49,8 @@ pub async fn start_network(
     signer: SigningKey,
     storage: Store,
 ) {
-    debug!("Starting discovery service at {udp_addr}");
-    debug!("Listening for requests at {tcp_addr}");
+    info!("Starting discovery service at {udp_addr}");
+    info!("Listening for requests at {tcp_addr}");
     let local_node_id = node_id_from_signing_key(&signer);
     let table = Arc::new(Mutex::new(KademliaTable::new(local_node_id)));
     let (channel_broadcast_send_end, _) = tokio::sync::broadcast::channel::<(
