@@ -101,3 +101,12 @@ fn test_is_negative() {
     let mut current_call_frame = vm.call_frames.pop().unwrap();
     vm.execute(&mut current_call_frame);
 }
+
+#[test]
+fn test_non_compliance_extcodecopy() {
+    let mut vm = new_vm_with_bytecode(Bytes::copy_from_slice(&[88, 88, 88, 89, 60, 89]))
+    .unwrap();
+    let mut current_call_frame = vm.call_frames.pop().unwrap();
+    vm.execute(&mut current_call_frame);
+    assert_eq!(current_call_frame.stack.stack[0], U256::zero());
+}
