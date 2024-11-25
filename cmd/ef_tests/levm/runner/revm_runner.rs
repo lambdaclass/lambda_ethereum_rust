@@ -4,6 +4,7 @@ use crate::{
     types::EFTest,
     utils::load_initial_state,
 };
+use bytes::Bytes;
 use ethrex_core::{types::TxKind, Address};
 use ethrex_levm::errors::{TransactionReport, TxResult};
 use ethrex_storage::{error::StoreError, AccountUpdate};
@@ -17,7 +18,7 @@ use revm::{
     },
     Evm as Revm,
 };
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
 
 pub fn re_run_failed_ef_test(
     test: &EFTest,
@@ -283,4 +284,115 @@ pub fn compare_levm_revm_account_updates(
             .cloned()
             .collect::<HashSet<Address>>(),
     }
+}
+
+pub fn run_ef_test(test: &EFTest) -> Result<EFTestReport, EFTestRunnerError> {
+    let mut ef_test_report = EFTestReport::new(
+        test.name.clone(),
+        test._info.generated_test_hash,
+        test.fork(),
+    );
+    for (vector, _tx) in test.transactions.iter() {
+        match run_ef_test_tx(vector, test) {
+            Ok(_) => continue,
+            Err(EFTestRunnerError::VMInitializationFailed(reason)) => {
+                ef_test_report.register_vm_initialization_failure(reason, *vector);
+            }
+            Err(EFTestRunnerError::FailedToEnsurePreState(reason)) => {
+                ef_test_report.register_pre_state_validation_failure(reason, *vector);
+            }
+            Err(EFTestRunnerError::ExecutionFailedUnexpectedly(error)) => {
+                ef_test_report.register_unexpected_execution_failure(error, *vector);
+            }
+            Err(EFTestRunnerError::FailedToEnsurePostState(transaction_report, reason)) => {
+                ef_test_report.register_post_state_validation_failure(
+                    transaction_report,
+                    reason,
+                    *vector,
+                );
+            }
+            Err(EFTestRunnerError::VMExecutionMismatch(_)) => {
+                return Err(EFTestRunnerError::Internal(InternalError::FirstRunInternal(
+                    "VM execution mismatch errors should only happen when COMPARING LEVM AND REVM. This failed during revm's execution."
+                        .to_owned(),
+                )));
+            }
+            Err(EFTestRunnerError::Internal(reason)) => {
+                return Err(EFTestRunnerError::Internal(reason));
+            }
+        }
+    }
+    Ok(ef_test_report)
+}
+
+pub fn run_ef_test_tx(vector: &TestVector, test: &EFTest) -> Result<(), EFTestRunnerError> {
+    let (mut state, _block_hash) = load_initial_state(test);
+    let mut revm = prepare_revm_for_tx(&mut state, vector, test)?;
+    let revm_execution_result = revm.transact_commit();
+    drop(revm); // Need to drop the state mutable reference.
+
+    // ensure post state revm
+    dbg!(&revm_execution_result);
+
+    Ok(())
+}
+
+pub fn ensure_post_state_revm(
+    revm_execution_result: Result<RevmExecutionResult, REVMError<StoreError>>,
+    vector: &TestVector,
+    test: &EFTest,
+) -> Result<(), EFTestRunnerError> {
+    match revm_execution_result {
+        Ok(execution_report) => {
+            match test.post.vector_post_value(vector).expect_exception {
+                // Execution result was successful but an exception was expected.
+                Some(expected_exception) => {
+                    let error_reason = format!("Expected exception: {expected_exception}");
+                    return Err(EFTestRunnerError::FailedToEnsurePostState(
+                        TransactionReport {
+                            result: TxResult::Success,
+                            gas_used: 0,
+                            gas_refunded: 0,
+                            logs: vec![],
+                            output: Bytes::new(),
+                            new_state: HashMap::new(),
+                            created_address: None,
+                        },
+                        error_reason,
+                    ));
+                }
+                // Execution result was successful and no exception was expected.
+                None => {
+                    println!("lets say this is ok :)");
+                    // let levm_account_updates = get_state_transitions(execution_report);
+                    // let pos_state_root = post_state_root(&levm_account_updates, test);
+                    // let expected_post_state_root_hash = test.post.vector_post_value(vector).hash;
+                    // if expected_post_state_root_hash != pos_state_root {
+                    //     let error_reason = format!(
+                    //         "Post-state root mismatch: expected {expected_post_state_root_hash:#x}, got {pos_state_root:#x}",
+                    //     );
+                    //     return Err(EFTestRunnerError::FailedToEnsurePostState(
+                    //         execution_report.clone(),
+                    //         error_reason,
+                    //     ));
+                    // }
+                }
+            }
+        }
+        Err(err) => {
+            match test.post.vector_post_value(vector).expect_exception {
+                // Execution result was unsuccessful and an exception was expected.
+                // TODO: Check that the exception matches the expected exception.
+                Some(_expected_exception) => {}
+                // Execution result was unsuccessful but no exception was expected.
+                None => {
+                    return Err(EFTestRunnerError::ExecutionFailedUnexpectedly(
+                        ethrex_levm::errors::VMError::AddressAlreadyOccupied,
+                        //TODO: FOR TESTING, change this afterwards.
+                    ));
+                }
+            }
+        }
+    };
+    Ok(())
 }

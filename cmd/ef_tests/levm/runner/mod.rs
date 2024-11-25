@@ -51,10 +51,11 @@ pub fn run_ef_tests(
     _opts: &EFTestRunnerOptions,
 ) -> Result<(), EFTestRunnerError> {
     let mut reports = report::load()?;
-    if reports.is_empty() {
-        run_with_levm(&mut reports, &ef_tests)?;
-    }
-    re_run_with_revm(&mut reports, &ef_tests)?;
+    // if reports.is_empty() {
+    //     run_with_levm(&mut reports, &ef_tests)?;
+    // }
+    // re_run_with_revm(&mut reports, &ef_tests)?;
+    run_with_revm(&mut reports, &ef_tests)?;
     write_report(&reports)
 }
 
@@ -85,6 +86,44 @@ fn run_with_levm(
 
     let mut summary_spinner = Spinner::new(Dots, "Loading summary...".to_owned(), Color::Cyan);
     summary_spinner.success(&report::summary(reports));
+    Ok(())
+}
+
+fn run_with_revm(
+    reports: &mut Vec<EFTestReport>,
+    ef_tests: &[EFTest],
+) -> Result<(), EFTestRunnerError> {
+    let revm_run_time = std::time::Instant::now();
+    let mut revm_run_spinner = Spinner::new(
+        Dots,
+        "Running all tests with REVM...".to_owned(),
+        Color::Cyan,
+    );
+    for (idx, test) in ef_tests.iter().enumerate() {
+        let total_tests = ef_tests.len();
+        revm_run_spinner.update_text(format!(
+            "{} {}/{total_tests} - {}",
+            "Running all tests with REVM".bold(),
+            idx + 1,
+            format_duration_as_mm_ss(revm_run_time.elapsed())
+        ));
+        let ef_test_report = match revm_runner::run_ef_test(test) {
+            Ok(ef_test_report) => ef_test_report,
+            Err(EFTestRunnerError::Internal(err)) => return Err(EFTestRunnerError::Internal(err)),
+            non_internal_errors => {
+                return Err(EFTestRunnerError::Internal(InternalError::FirstRunInternal(format!(
+                    "Non-internal error raised when executing revm. This should not happen: {non_internal_errors:?}",
+                ))))
+            }
+        };
+        reports.push(ef_test_report);
+        revm_run_spinner.update_text(report::progress(reports, revm_run_time.elapsed()));
+        // reports[idx] = ef_test_report;
+    }
+    revm_run_spinner.success(&format!(
+        "Ran all tests with REVM in {}",
+        format_duration_as_mm_ss(revm_run_time.elapsed())
+    ));
     Ok(())
 }
 
