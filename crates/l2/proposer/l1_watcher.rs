@@ -62,22 +62,14 @@ impl L1Watcher {
         loop {
             sleep(self.check_interval).await;
 
-            let logs = match self.get_logs().await {
-                Ok(logs) => logs,
-                Err(error) => {
-                    return Err(error);
-                }
-            };
+            let logs = self.get_logs().await?;
+
+            // We may not have a deposit nor a withdrawal, that means no events -> no logs.
             if logs.is_empty() {
                 continue;
             }
 
-            let pending_deposits_logs = match self.get_pending_deposit_logs().await {
-                Ok(logs) => logs,
-                Err(error) => {
-                    return Err(error);
-                }
-            };
+            let pending_deposits_logs = self.get_pending_deposit_logs().await?;
             let _deposit_txs = self
                 .process_logs(logs, &pending_deposits_logs, &store)
                 .await?;
