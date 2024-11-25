@@ -151,9 +151,6 @@ impl EthClient {
         max_seconds_to_wait: u64,
         retries: u64,
     ) -> Result<H256, EthClientError> {
-        // Failing when sending the first transaction
-        // The estimation goes well, but then:
-        // ERROR ethrex_l2::proposer::l1_committer: Failed to send commitment to block 0x3a24444ba29a8c524006db1781fff950538b21dd69181737c09c4b8bf514cb5c. Manual intervention required: Committer failed because of an EthClient error: eth_sendRawTransaction request error: replacement transaction underpriced: new tx gas fee cap 97509022 <= 101317673 queued
         let tx_hash_res = match wrapped_tx {
             WrappedTransaction::EIP4844(wrapped_eip4844_transaction) => {
                 self.send_eip4844_transaction(wrapped_eip4844_transaction, private_key)
