@@ -1,10 +1,10 @@
 use bytes::Bytes;
-use config::EngineApiConfig;
 use errors::{
     EngineClientError, ExchangeCapabilitiesError, ForkChoiceUpdateError, GetPayloadError,
     NewPayloadError,
 };
-use ethereum_rust_rpc::{
+use ethereum_types::H256;
+use ethrex_rpc::{
     engine::{
         fork_choice::ForkChoiceUpdatedV3,
         payload::{GetPayloadV3Request, NewPayloadV3Request},
@@ -16,7 +16,6 @@ use ethereum_rust_rpc::{
     },
     utils::{RpcErrorResponse, RpcRequest, RpcSuccessResponse},
 };
-use ethereum_types::H256;
 use reqwest::Client;
 use serde::Deserialize;
 use serde_json::json;
@@ -44,14 +43,6 @@ impl EngineClient {
             secret,
             execution_client_url: execution_client_url.to_string(),
         }
-    }
-
-    pub fn new_from_config(config: EngineApiConfig) -> Result<Self, EngineClientError> {
-        Ok(Self {
-            client: Client::new(),
-            secret: std::fs::read(config.jwt_path)?.into(),
-            execution_client_url: config.rpc_url,
-        })
     }
 
     async fn send_request(&self, request: RpcRequest) -> Result<RpcResponse, EngineClientError> {

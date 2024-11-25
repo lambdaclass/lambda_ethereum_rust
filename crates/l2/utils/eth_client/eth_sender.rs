@@ -3,10 +3,10 @@ use crate::utils::eth_client::{
     EthClient, RpcResponse,
 };
 use bytes::Bytes;
-use ethereum_rust_core::types::{GenericTransaction, TxKind};
-use ethereum_rust_rlp::encode::RLPEncode;
-use ethereum_rust_rpc::utils::{RpcRequest, RpcRequestId};
 use ethereum_types::{Address, U256};
+use ethrex_core::types::{GenericTransaction, TxKind};
+use ethrex_rlp::encode::RLPEncode;
+use ethrex_rpc::utils::{RpcRequest, RpcRequestId};
 use keccak_hash::{keccak, H256};
 use secp256k1::SecretKey;
 use serde_json::json;
@@ -53,8 +53,8 @@ impl EthClient {
                         TxKind::Call(addr) => format!("{addr:#x}"),
                         TxKind::Create => format!("{:#x}", Address::zero()),
                     },
-                    "input": format!("{:#x}", tx.input),
-                    "value": format!("{}", tx.value),
+                    "input": format!("0x{:#x}", tx.input),
+                    "value": format!("{:#x}", tx.value),
                     "from": format!("{:#x}", tx.from),
                 }),
                 json!("latest"),

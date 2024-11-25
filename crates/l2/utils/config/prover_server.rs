@@ -1,13 +1,18 @@
-use std::net::IpAddr;
-
-use serde::Deserialize;
-
 use super::errors::ConfigError;
+use crate::utils::secret_key_deserializer;
+use ethereum_types::Address;
+use secp256k1::SecretKey;
+use serde::Deserialize;
+use std::net::IpAddr;
 
 #[derive(Clone, Deserialize)]
 pub struct ProverServerConfig {
     pub listen_ip: IpAddr,
     pub listen_port: u16,
+    pub verifier_address: Address,
+    #[serde(deserialize_with = "secret_key_deserializer")]
+    pub verifier_private_key: SecretKey,
+    pub dev_mode: bool,
 }
 
 impl ProverServerConfig {

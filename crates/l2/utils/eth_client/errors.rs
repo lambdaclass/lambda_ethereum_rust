@@ -1,4 +1,4 @@
-use ethereum_rust_rpc::utils::RpcRequest;
+use ethrex_rpc::utils::RpcRequest;
 
 #[derive(Debug, thiserror::Error)]
 pub enum EthClientError {
@@ -32,6 +32,8 @@ pub enum EthClientError {
     GetTransactionByHashError(#[from] GetTransactionByHashError),
     #[error("Unreachable nonce")]
     UnrecheableNonce,
+    #[error("Error: {0}")]
+    Custom(String),
 }
 
 #[derive(Debug, thiserror::Error)]

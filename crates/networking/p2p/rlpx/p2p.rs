@@ -1,6 +1,6 @@
 use bytes::BufMut;
-use ethereum_rust_core::H512;
-use ethereum_rust_rlp::{
+use ethrex_core::H512;
+use ethrex_rlp::{
     decode::RLPDecode,
     encode::RLPEncode,
     error::{RLPDecodeError, RLPEncodeError},
@@ -102,7 +102,7 @@ impl RLPxMessage for HelloMessage {
 
 #[derive(Debug)]
 pub(crate) struct DisconnectMessage {
-    reason: Option<u8>,
+    pub(crate) reason: Option<u8>,
 }
 
 impl DisconnectMessage {
