@@ -58,4 +58,6 @@ jobs:
           cat results.md >> $GITHUB_STEP_SUMMARY
 
       - name: Post results to slack
-        run: sh publish.sh ${{ secrets.SLACK_WEBHOOK_URL }}
+        env:
+          url: ${{ secrets.SLACK_WEBHOOK_URL }}
+        run: sh publish.sh
