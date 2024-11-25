@@ -1,8 +1,8 @@
-use ethereum_rust_blockchain::add_block;
-use ethereum_rust_blockchain::error::ChainError;
-use ethereum_rust_blockchain::payload::build_payload;
-use ethereum_rust_core::types::Fork;
-use ethereum_rust_core::{H256, U256};
+use ethrex_blockchain::add_block;
+use ethrex_blockchain::error::ChainError;
+use ethrex_blockchain::payload::build_payload;
+use ethrex_core::types::Fork;
+use ethrex_core::{H256, U256};
 use serde_json::Value;
 use tracing::{error, info, warn};
 
@@ -58,6 +58,7 @@ impl RpcHandler for NewPayloadV3Request {
 
     fn handle(&self, context: RpcApiContext) -> Result<Value, RpcErr> {
         let storage = &context.storage;
+
         let block_hash = self.payload.block_hash;
         info!("Received new payload with block hash: {block_hash:#x}");
 
@@ -136,7 +137,10 @@ impl RpcHandler for NewPayloadV3Request {
             }
             Err(ChainError::EvmError(error)) => {
                 warn!("Error executing block: {error}");
-                Ok(PayloadStatus::invalid_with_err(&error.to_string()))
+                Ok(PayloadStatus::invalid_with(
+                    block.header.parent_hash,
+                    error.to_string(),
+                ))
             }
             Err(ChainError::StoreError(error)) => {
                 warn!("Error storing block: {error}");

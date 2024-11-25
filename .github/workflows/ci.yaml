@@ -43,7 +43,7 @@ jobs:
 
       - name: Run cargo clippy
         run: |
-          cargo clippy --all-targets --all-features --workspace --exclude ethereum_rust-prover -- -D warnings
+          cargo clippy --all-targets --all-features --workspace --exclude ethrex-prover -- -D warnings
 
       - name: Run cargo fmt
         run: |
@@ -72,7 +72,7 @@ jobs:
         run: |
           make test
 
-  docker-build:
+  docker_build:
     name: Build Docker image
     runs-on: ubuntu-latest
     steps:

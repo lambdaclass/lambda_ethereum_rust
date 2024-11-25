@@ -1,7 +1,7 @@
-# Lambda Ethereum Rust
+# ethrex
 
 [![Telegram Chat][tg-badge]][tg-url]
-[![license](https://img.shields.io/github/license/lambdaclass/ethereum_rust)](/LICENSE)
+[![license](https://img.shields.io/github/license/lambdaclass/ethrex)](/LICENSE)
 
 [tg-badge]: https://img.shields.io/endpoint?url=https%3A%2F%2Ftg.sumanjay.workers.dev%2Frust_ethereum%2F&logo=telegram&label=chat&color=neon
 [tg-url]: https://t.me/rust_ethereum
@@ -13,7 +13,7 @@ This client supports running in two different modes:
 - As a regular Ethereum execution client
 - As a ZK-Rollup, where block execution is proven and the proof sent to an L1 network for verification, thus inheriting the L1's security.
 
-We call the first one Lambda Ethereum Rust L1 and the second one Lambda Ethereum Rust L2.
+We call the first one ethrex L1 and the second one ethrex L2.
 
 ## Philosophy
 
@@ -33,7 +33,7 @@ Read more about our engineering philosophy [here](https://blog.lambdaclass.com/l
 - Prioritize code readability and maintainability over premature optimizations.
 - Avoid concurrency split all over the codebase. Concurrency adds complexity. Only use where strictly necessary.
 
-# Lambda Ethereum Rust L1
+# ethrex L1
 
 ## Roadmap
 
@@ -47,7 +47,7 @@ An Ethereum execution client consists roughly of the following parts:
     - The Ethereum Wire Protocol (`ETH`), used for state synchronization and block/transaction propagation, among other things. This runs on top of `RLPx`.
     - The `SNAP` protocol, used for exchanging state snapshots. Mainly needed for **snap sync**, a more optimized way of doing state sync than the old fast sync (you can read more about it [here](https://blog.ethereum.org/2021/03/03/geth-v1-10-0)).
 - Block building and Fork choice management (i.e. logic to both build blocks so a validator can propose them and set where the head of the chain is currently at, according to what the consensus layer determines). This is essentially what our `blockchain` crate contains.
-- The block execution logic itself, i.e., an EVM implementation. We are finishing an implementation of our own called [levm](https://github.com/lambdaclass/ethereum_rust/tree/main/crates/vm/levm) (Lambda EVM).
+- The block execution logic itself, i.e., an EVM implementation. We are finishing an implementation of our own called [levm](https://github.com/lambdaclass/ethrex/tree/main/crates/vm/levm) (Lambda EVM).
 
 Because most of the milestones below do not overlap much, we are currently working on them in parallel.
 
@@ -60,61 +60,61 @@ Implement the bare minimum required to:
 
 In a bit more detail:
 
-|  Task Description      | Status                                                                 | 
-| --------- |  --------------------------------------------------------------------------- | 
-|  Add `libmdbx` bindings and basic API, create tables for state (blocks, transactions, etc)                                               | ✅     
+|  Task Description      | Status                                                                 |
+| --------- |  --------------------------------------------------------------------------- |
+|  Add `libmdbx` bindings and basic API, create tables for state (blocks, transactions, etc)                                               | ✅
 |   EVM wrapper for block execution                                                       | ✅     |
 |    JSON RPC API server setup                                                      | ✅     |
 |    RPC State-serving endpoints                                                     | 🏗️  (almost done, a few endpoints are left)   |
-|    Basic Engine API implementation. Set new chain head (`forkchoiceUpdated`) and new block (`newPayload`).                                                   | ✅   
+|    Basic Engine API implementation. Set new chain head (`forkchoiceUpdated`) and new block (`newPayload`).                                                   | ✅
 
-See detailed issues and progress for this milestone [here](https://github.com/lambdaclass/ethereum_rust/milestone/1).
+See detailed issues and progress for this milestone [here](https://github.com/lambdaclass/ethrex/milestone/1).
 
 ### Milestone 2: History & Reorgs
 
 Implement support for block reorganizations and historical state queries. This milestone involves persisting the state trie to enable efficient access to historical states and implementing a tree structure for the blockchain to manage multiple chain branches. It also involves a real implementation of the `engine_forkchoiceUpdated` Engine API when we do not have to build the block ourselves (i.e. when `payloadAttributes` is null).
 
-|  Task Description      | Status                                                                 | 
-| --------- |  --------------------------------------------------------------------------- | 
-|   Persist data on an on-disk Merkle Patricia Tree using `libmdbx`                                       | ✅ 
-|   Engine API `forkchoiceUpdated` implementation (without `payloadAttributes`)                                                     | 🏗️     
-|    Support for RPC historical queries, i.e. queries (`eth_call`, `eth_getBalance`, etc) at any block                                       | ✅   
+|  Task Description      | Status                                                                 |
+| --------- |  --------------------------------------------------------------------------- |
+|   Persist data on an on-disk Merkle Patricia Tree using `libmdbx`                                       | ✅
+|   Engine API `forkchoiceUpdated` implementation (without `payloadAttributes`)                                                     | 🏗️
+|    Support for RPC historical queries, i.e. queries (`eth_call`, `eth_getBalance`, etc) at any block                                       | ✅
 
-Detailed issues and progress [here](https://github.com/lambdaclass/ethereum_rust/milestone/4).
+Detailed issues and progress [here](https://github.com/lambdaclass/ethrex/milestone/4).
 
 ### Milestone 3: Block building
 
 Add the ability to build new payloads (blocks), so the consensus client can propose new blocks based on transactions received from the RPC endpoints.
 
-|  Task Description      | Status                                                                 | 
-| --------- |  --------------------------------------------------------------------------- | 
-|   `engine_forkchoiceUpdated` implementation with a non-null `payloadAttributes`                                      | 🏗️     
-|   `engine_getPayload` endpoint implementation that builds blocks.                                                     | 🏗️     
-|    Implement a mempool and the `eth_sendRawTransaction` endpoint where users can send transactions                                      | ✅   
+|  Task Description      | Status                                                                 |
+| --------- |  --------------------------------------------------------------------------- |
+|   `engine_forkchoiceUpdated` implementation with a non-null `payloadAttributes`                                      | 🏗️
+|   `engine_getPayload` endpoint implementation that builds blocks.                                                     | 🏗️
+|    Implement a mempool and the `eth_sendRawTransaction` endpoint where users can send transactions                                      | ✅
 
-Detailed issues and progress [here](https://github.com/lambdaclass/ethereum_rust/milestone/5).
+Detailed issues and progress [here](https://github.com/lambdaclass/ethrex/milestone/5).
 
 ### Milestone 4: P2P Network
 
 Implement the peer to peer networking stack, i.e. the DevP2P protocol. This includes `discv4`, `RLPx` and the `eth` capability. This will let us get and retrieve blocks and transactions from other nodes. We'll add the transactions we receive to the mempool. We'll also download blocks from other nodes when we get payloads where the parent isn't in our local chain.
 
-|  Task Description      | Status                                                                  | 
-| --------- |  --------------------------------------------------------------------------- | 
-|   Implement `discv4` for peer discovery                                    | ✅     
-|   Implement the `RLPx` transport protocol                                                     | 🏗️     
-|  Implement the `eth` capability                                     | 🏗️  
+|  Task Description      | Status                                                                  |
+| --------- |  --------------------------------------------------------------------------- |
+|   Implement `discv4` for peer discovery                                    | ✅
+|   Implement the `RLPx` transport protocol                                                     | 🏗️
+|  Implement the `eth` capability                                     | 🏗️
 
-Detailed issues and progress [here](https://github.com/lambdaclass/ethereum_rust/milestone/2).
+Detailed issues and progress [here](https://github.com/lambdaclass/ethrex/milestone/2).
 
 ### Milestone 5: State Sync
 
 Add support for the `SNAP` protocol, which lets us get a recent copy of the blockchain state instead of going through all blocks from genesis. This is used for used for snap sync. Since we don't support older versions of the spec by design, this is a prerequisite to being able to sync the node with public networks, including mainnet.
 
-|  Task Description      | Status                                                                 | 
-| --------- |  --------------------------------------------------------------------------- | 
-|   Implement `SNAP` protocol for snap syncing                                    | ❌     
+|  Task Description      | Status                                                                 |
+| --------- |  --------------------------------------------------------------------------- |
+|   Implement `SNAP` protocol for snap syncing                                    | ❌
 
-Detailed issues and progress [here](https://github.com/lambdaclass/ethereum_rust/milestone/3).
+Detailed issues and progress [here](https://github.com/lambdaclass/ethrex/milestone/3).
 
 ## Quick Start (L1 localnet)
 
@@ -160,12 +160,12 @@ make build
 ### Database
 Currently, the database is `libmdbx`, it will be set up
 when you start the client. The location of the db's files will depend on your OS:
-- Mac: `~/Library/Application Support/ethereum_rust`
-- Linux: `~/.config/ethereum_rust`
+- Mac: `~/Library/Application Support/ethrex`
+- Linux: `~/.config/ethrex`
 
 You can delete the db with:
 ```bash
-cargo run --bin ethereum_rust -- removedb
+cargo run --bin ethrex -- removedb
 ```
 
 ### Test
@@ -192,7 +192,7 @@ make test CRATE=<crate>
 ```
 For example:
 ```bash
-make test CRATE="ethereum_rust-blockchain"
+make test CRATE="ethrex-blockchain"
 ```
 
 ##### Hive Tests
@@ -236,7 +236,7 @@ This example runs **every** test under rpc, with debug output
 
 Example run:
 ```bash
-cargo run --bin ethereum_rust -- --network test_data/genesis-kurtosis.json
+cargo run --bin ethrex -- --network test_data/genesis-kurtosis.json
 ```
 
 The `network` argument is mandatory, as it defines the parameters of the chain.
@@ -244,7 +244,7 @@ For more information about the different cli arguments check out the next sectio
 
 ### CLI Commands
 
-Ethereum Rust supports the following command line arguments:
+ethrex supports the following command line arguments:
 - `--network <FILE>`: Receives a `Genesis` struct in json format. This is the only argument which is required. You can look at some example genesis files at `test_data/genesis*`.
 - `--datadir <DIRECTORY>`: Receives the name of the directory where the Database is located.
 - `--import <FILE>`: Receives an rlp encoded `Chain` object (aka a list of `Block`s). You can look at the example chain file at `test_data/chain.rlp`.
@@ -260,11 +260,11 @@ Ethereum Rust supports the following command line arguments:
 - `--bootnodes <BOOTNODE_LIST>`: Comma separated enode URLs for P2P discovery bootstrap.
 - `--log.level <LOG_LEVEL>`: The verbosity level used for logs. Default value: info. possible values: info, debug, trace, warn, error
 
-# Lambda Ethereum Rust L2
+# ethrex L2
 
-In this mode, the Ethereum Rust code is repurposed to run a rollup that settles on Ethereum as the L1.
+In this mode, the ethrex code is repurposed to run a rollup that settles on Ethereum as the L1.
 
-The main differences between this mode and regular Ethereum Rust are:
+The main differences between this mode and regular ethrex are:
 
 - There is no consensus, the node is turned into a sequencer that proposes blocks for the network.
 - Block execution is proven using a RISC-V zkVM and its proofs are sent to L1 for verification.
@@ -286,14 +286,15 @@ At a high level, the following new parts are added to the node:
 | --------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------ |
 | 0         | Users can deposit Eth in the L1 (Ethereum) and receive the corresponding funds on the L2.                                                                                                                                                                                                                         | ✅     |
 | 1         | The network supports basic L2 functionality, allowing users to deposit and withdraw funds to join and exit the network, while also interacting with the network as they do normally on the Ethereum network (deploying contracts, sending transactions, etc).                                                     | ✅     |
-| 2         | The block execution is proven with a RISC-V zkVM and the proof is verified by the Verifier L1 contract.                                                                                                                                                                                                           | 🏗️     |
-| 3         | The network now commits to state diffs instead of the full state, lowering the commit transactions costs. These diffs are also submitted in compressed form, further reducing costs. It also supports EIP 4844 for L1 commit transactions, which means state diffs are sent as blob sidecars instead of calldata. | ❌     |
-| 4         | The L2 supports native account abstraction following EIP 7702, allowing for custom transaction validation logic and paymaster flows.                                                                                                                                                             | ❌     |
-| 5         | Support multiple L2s sharing the same bridge contract on L1 for seamless interoperability.               | ❌     |
-| 6         | The L2 can also be deployed using a custom native token, meaning that a certain ERC20 can be the common currency that's used for paying network fees.                                                                                                                                                                              | ❌     |
-| 7         | The L2 has added security mechanisms in place, running on Trusted Execution Environments and Multi Prover setup where multiple guarantees (Execution on TEEs, zkVMs/proving systems) are required for settlement on the L1. This better protects against possible security bugs on implementations.                                                         | ❌     |
-| 8         | The network can be run as a Based Rollup, meaning sequencing is done by the Ethereum Validator set; transactions are sent to a private mempool and L1 Validators that opt into the L2 sequencing propose blocks for the L2 on every L1 block.                                                                                                                                                                  | ❌     |
-| 9         | The L2 can be initialized in Validium Mode, meaning the Data Availability layer is no longer the L1, but rather a DA layer of the user's choice.                                                                                                                                                                  | ❌     |
+| 2         | The block execution is proven with a RISC-V zkVM and the proof is verified by the Verifier L1 contract.                                                                                                                                                                                                           | ✅     |
+| 3         | The network now commits to state diffs instead of the full state, lowering the commit transactions costs. These diffs are also submitted in compressed form, further reducing costs. It also supports EIP 4844 for L1 commit transactions, which means state diffs are sent as blob sidecars instead of calldata. | 🏗️     |
+| 4         | Use our own EVM implementation | 🏗️     |
+| 5         | The L2 supports native account abstraction following EIP 7702, allowing for custom transaction validation logic and paymaster flows.                                                                                                                                                             | ❌     |
+| 6         | Support multiple L2s sharing the same bridge contract on L1 for seamless interoperability.               | ❌     |
+| 7         | The L2 can also be deployed using a custom native token, meaning that a certain ERC20 can be the common currency that's used for paying network fees.                                                                                                                                                                              | ❌     |
+| 8         | The L2 has added security mechanisms in place, running on Trusted Execution Environments and Multi Prover setup where multiple guarantees (Execution on TEEs, zkVMs/proving systems) are required for settlement on the L1. This better protects against possible security bugs on implementations.                                                         | ❌     |
+| 9         | The network can be run as a Based Rollup, meaning sequencing is done by the Ethereum Validator set; transactions are sent to a private mempool and L1 Validators that opt into the L2 sequencing propose blocks for the L2 on every L1 block.                                                                                                                                                                  | ❌     |
+| 10         | The L2 can be initialized in Validium Mode, meaning the Data Availability layer is no longer the L1, but rather a DA layer of the user's choice.                                                                                                                                                                  | ❌     |
 
 ### Milestone 0
 
@@ -331,8 +332,8 @@ The L2's block execution is proven with a RISC-V zkVM and the proof is verified 
 | Task Description                                                                                                                                                                          | Status |
 | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------ |
 | On the EVM, return all storage touched during block execution to pass to the prover as a witness                                                                                          | ✅      |
-| Make the `onChainproposer` L1 contract verify the SNARK proof on the `verify` function.                                                                                                   | 🏗️      |
-| Add a `proverClient` binary that asks the sequencer for witness data to prove, generates proofs of execution and submits proofs to the `proverServer` component (see below)               | 🏗️      |
+| Make the `onChainproposer` L1 contract verify the SNARK proof on the `verify` function.                                                                                                   | ✅      |
+| Add a `proverClient` binary that asks the sequencer for witness data to prove, generates proofs of execution and submits proofs to the `proverServer` component (see below)               | ✅      |
 | Add a `proverServer` component that feeds the `proverClient` with block witness data to be proven and delivers proofs to the `proposer` to send the L1 transaction for block verification | ✅      |
 
 ### Milestone 3: State diffs + Data compression + EIP 4844 (Blobs)
@@ -345,13 +346,27 @@ It also supports EIP 4844 for L1 commit transactions, which means state diffs ar
 
 | Task Description                                                                                                                                                                                            | Status |
 | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------ |
-| The sequencer sends state diffs to the prover instead of full transaction data.                                                                                                                             | ❌      |
+| The sequencer sends state diffs to the prover instead of full transaction data.                                                                                                                             | ✅      |
 | On the prover, prove the state diffs compression                                                                                                                                                            | ❌      |
-| On the `proposer`, send the state diffs through a blob in a EIP 4844 transaction.                                                                                                                           | ❌      |
+| On the `proposer`, send the state diffs through a blob in a EIP 4844 transaction.                                                                                                                           | ✅      |
 | Adapt the prover to prove a KZG commitment to the state diff and use the point evaluation precompile to show that the blob sent to the L1 is indeed the correct one through a proof of equivalence protocol | ❌      |
 | Add a command to the CLI to reconstructing the full L2 state from all the blob data on the L1.                                                                                                              | ❌      |
 
-### Milestone 4: Account Abstraction
+### Milestone 4: Own EVM Implementation
+
+Finish our own EVM implementation (`levm`) to be able to add custom behaviour to the network (like account abstraction below).
+
+#### Status
+
+| Task Description                                     | Status |
+| ---------------------------------------------------- | ------ |
+| Implement all opcodes                                | ✅      |
+| Pass all execution (non-precompile) EF tests         | 🏗️      |
+| Implement all precompiles                            | 🏗️      |
+| Pass all execution EF tests                          | 🏗️      |
+| Full Ethereum Rust Integration (pass all Hive tests) | 🏗️      |
+
+### Milestone 5: Account Abstraction
 
 The L2 supports native account abstraction following EIP 7702, allowing for custom transaction validation logic and paymaster flows.
 
@@ -362,7 +377,7 @@ The L2 supports native account abstraction following EIP 7702, allowing for cust
 | Add support for `SET_CODE_TX_TYPE` transactions (i.e. implement EIP 7702). | ❌      |
 | Add examples of WebAuthn signing and paymaster flows using EIP 7702        | ❌      |
 
-### Milestone 5: L2s interoperability
+### Milestone 6: L2s interoperability
 
 Support multiple L2s sharing the same bridge contract on L1 for seamless interoperability.
 
@@ -375,7 +390,7 @@ Support multiple L2s sharing the same bridge contract on L1 for seamless interop
 
 TODO: Expand on tasks about proper interoperability between chains (seamlessly bridging between chains, etc).
 
-### Milestone 6: Custom Native token
+### Milestone 7: Custom Native token
 
 The L2 can also be deployed using a custom native token, meaning that a certain ERC20 can be the common currency that's used for paying network fees.
 
@@ -387,7 +402,7 @@ The L2 can also be deployed using a custom native token, meaning that a certain 
 | On the `commonBridge`, for custom native token deposits, `msg.value` should always be zero, and the amount of the native token to mint should be a new `valueToMintOnL2` argument. The amount should be deducted from the caller thorugh a `transferFrom`. | ❌      |
 | On the CLI, add support for custom native token deposits and withdrawals                                                                                                                                                                                   | ❌      |
 
-### Milestone 7: Security (TEEs and Multi Prover support)
+### Milestone 8: Security (TEEs and Multi Prover support)
 
 The L2 has added security mechanisms in place, running on Trusted Execution Environments and Multi Prover setup where multiple guarantees (Execution on TEEs, zkVMs/proving systems) are required for settlement on the L1. This better protects against possible security bugs on implementations.
 
@@ -399,7 +414,7 @@ The L2 has added security mechanisms in place, running on Trusted Execution Envi
 | Support verifying multiple different zkVM executions on the `onChainProposer` L1 contract. | ❌      |
 | Support running the operator on a TEE environment                                          | ❌      |
 
-### Milestone 8: Based Contestable Rollup
+### Milestone 9: Based Contestable Rollup
 
 The network can be run as a Based Rollup, meaning sequencing is done by the Ethereum Validator set; transactions are sent to a private mempool and L1 Validators that opt into the L2 sequencing propose blocks for the L2 on every L1 block.
 
@@ -411,7 +426,7 @@ The network can be run as a Based Rollup, meaning sequencing is done by the Ethe
 
 TODO: Expand on this.
 
-### Milestone 9: Validium
+### Milestone 10: Validium
 
 The L2 can be initialized in Validium Mode, meaning the Data Availability layer is no longer the L1, but rather a DA layer of the user's choice.
 
@@ -443,7 +458,7 @@ The L2 can be initialized in Validium Mode, meaning the Data Availability layer 
 make init
 ```
 
-This will setup a local Ethereum network as the L1, deploy all the needed contracts on it, then start an Ethereum Rust L2 node pointing to it.
+This will setup a local Ethereum network as the L1, deploy all the needed contracts on it, then start an ethrex L2 node pointing to it.
 
 ### Restarting the network
 
@@ -465,10 +480,10 @@ Most of them are [here](https://github.com/ethpandaops/ethereum-package/blob/mai
 }
 ```
 
-## Lambda Ethereum Rust L2 Docs
+## ethrex L2 Docs
 
-- [Ethereum Rust L2 Docs](./crates/l2/docs/README.md)
-- [Ethereum Rust L2 CLI Docs](./cmd/ethereum_rust_l2/README.md)
+- [ethrex L2 Docs](./crates/l2/docs/README.md)
+- [ethrex L2 CLI Docs](./cmd/ethrex_l2/README.md)
 
 
 ## 📚 References and acknowledgements

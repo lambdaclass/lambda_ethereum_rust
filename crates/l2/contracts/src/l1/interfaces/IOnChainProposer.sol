@@ -6,7 +6,10 @@ pragma solidity ^0.8.27;
 /// @notice A OnChainProposer contract ensures the advancement of the L2. It is used
 /// by the proposer to commit blocks and verify block proofs.
 interface IOnChainProposer {
-    /// @notice The latest verified block number.
+    /// @notice The latest commited block number.
+    function lastCommittedBlock() external view returns (uint256);
+
+    /// @notice The latest verified block number
     function lastVerifiedBlock() external view returns (uint256);
 
     /// @notice A block has been committed.
@@ -21,7 +24,8 @@ interface IOnChainProposer {
     /// @dev This method is called only once after the contract is deployed.
     /// @dev It sets the bridge address.
     /// @param bridge the address of the bridge contract.
-    function initialize(address bridge) external;
+    /// @param r0verifier the address of the risc0 groth16 verifier.
+    function initialize(address bridge, address r0verifier, address[] calldata sequencerAddress) external;
 
     /// @notice Commits to an L2 block.
     /// @dev Committing to an L2 block means to store the block's commitment
@@ -43,5 +47,12 @@ interface IOnChainProposer {
     /// verified (this is after proved).
     /// @param blockNumber is the number of the block to be verified.
     /// @param blockProof is the proof of the block to be verified.
-    function verify(uint256 blockNumber, bytes calldata blockProof) external;
+    /// @param imageId Digest of the zkVM imageid.
+    /// @param journalDigest Digest of the public_inputs aka journal
+    function verify(
+        uint256 blockNumber,
+        bytes calldata blockProof,
+        bytes32 imageId,
+        bytes32 journalDigest
+    ) external;
 }

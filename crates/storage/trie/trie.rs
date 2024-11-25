@@ -1,17 +1,20 @@
 mod db;
 mod error;
+mod nibbles;
 mod node;
 mod node_hash;
 mod rlp;
 mod state;
-mod trie_iter;
-
-mod nibbles;
 #[cfg(test)]
 mod test_utils;
 
-use ethereum_rust_rlp::constants::RLP_NULL;
+use std::collections::HashSet;
+
+use db::null::NullTrieDB;
+mod trie_iter;
+mod verify_range;
 use ethereum_types::H256;
+use ethrex_rlp::constants::RLP_NULL;
 use nibbles::Nibbles;
 use node::Node;
 use node_hash::NodeHash;
@@ -21,6 +24,7 @@ use sha3::{Digest, Keccak256};
 pub use self::db::{libmdbx::LibmdbxTrieDB, libmdbx_dupsort::LibmdbxDupsortTrieDB};
 
 pub use self::db::{in_memory::InMemoryTrieDB, TrieDB};
+pub use self::verify_range::verify_range;
 
 pub use self::error::TrieError;
 use self::{node::LeafNode, state::TrieState, trie_iter::TrieIterator};
@@ -39,8 +43,10 @@ lazy_static! {
 
 /// RLP-encoded trie path
 pub type PathRLP = Vec<u8>;
-// RLP-encoded trie value
+/// RLP-encoded trie value
 pub type ValueRLP = Vec<u8>;
+/// RLP-encoded trie node
+pub type NodeRLP = Vec<u8>;
 
 /// Libmdx-based Ethereum Compatible Merkle Patricia Trie
 pub struct Trie {
@@ -135,10 +141,19 @@ impl Trie {
             .unwrap_or(*EMPTY_TRIE_HASH))
     }
 
+    /// Return the hash of the trie's root node.
+    /// Returns keccak(RLP_NULL) if the trie is empty
+    pub fn hash_no_commit(&self) -> H256 {
+        self.root
+            .as_ref()
+            .map(|root| root.clone().finalize())
+            .unwrap_or(*EMPTY_TRIE_HASH)
+    }
+
     /// Obtain a merkle proof for the given path.
     /// The proof will contain all the encoded nodes traversed until reaching the node where the path is stored (including this last node).
     /// The proof will still be constructed even if the path is not stored in the trie, proving its absence.
-    pub fn get_proof(&self, path: &PathRLP) -> Result<Vec<Vec<u8>>, TrieError> {
+    pub fn get_proof(&self, path: &PathRLP) -> Result<Vec<NodeRLP>, TrieError> {
         // Will store all the encoded nodes traversed until reaching the node containing the path
         let mut node_path = Vec::new();
         let Some(root) = &self.root else {
@@ -154,65 +169,76 @@ impl Trie {
         Ok(node_path)
     }
 
-    pub fn verify_proof(
-        _proof: &[Vec<u8>],
-        _root_hash: NodeHash,
-        _path: &PathRLP,
-        _value: &ValueRLP,
-    ) -> Result<bool, TrieError> {
-        // This is a mockup function for verifying proof of inclusions. This function will be
-        // possible to implement after refactoring the current Trie implementation.
+    /// Obtains all encoded nodes traversed until reaching the node where every path is stored.
+    /// The list doesn't include the root node, this is returned separately.
+    /// Will still be constructed even if some path is not stored in the trie.
+    pub fn get_proofs(
+        &self,
+        paths: &[PathRLP],
+    ) -> Result<(Option<NodeRLP>, Vec<NodeRLP>), TrieError> {
+        let Some(root_node) = self
+            .root
+            .as_ref()
+            .map(|root| self.state.get_node(root.clone()))
+            .transpose()?
+            .flatten()
+        else {
+            return Ok((None, Vec::new()));
+        };
 
-        // We'll build a trie from the proof nodes and check whether:
-        //     1. the trie root hash is the one we expect
-        //     2. the trie contains the (key, value) pair to verify
+        let mut node_path = Vec::new();
+        for path in paths {
+            let mut nodes = self.get_proof(path)?;
+            nodes.swap_remove(0);
+            node_path.extend(nodes); // skip root node
+        }
 
-        // We will only be using the trie's cache so we don't need a working DB
-        // struct NullTrieDB;
+        // dedup
+        // TODO: really inefficient, by making the traversing smarter we can avoid having
+        // duplicates
+        let node_path: HashSet<_> = node_path.drain(..).collect();
+        let node_path = Vec::from_iter(node_path);
+        Ok((Some(root_node.encode_raw()), node_path))
+    }
 
-        // impl TrieDB for NullTrieDB {
-        //     fn get(&self, _key: Vec<u8>) -> Result<Option<Vec<u8>>, TrieError> {
-        //         Ok(None)
-        //     }
+    /// Creates a cached Trie (with [NullTrieDB]) from a list of encoded nodes.
+    /// Generally used in conjuction with [Trie::get_proofs].
+    pub fn from_nodes(
+        root_node: Option<&NodeRLP>,
+        other_nodes: &[NodeRLP],
+    ) -> Result<Self, TrieError> {
+        let mut trie = Trie::new(Box::new(NullTrieDB));
 
-        //     fn put(&self, _key: Vec<u8>, _value: Vec<u8>) -> Result<(), TrieError> {
-        //         Ok(())
-        //     }
-        // }
+        if let Some(root_node) = root_node {
+            let root_node = Node::decode_raw(root_node)?;
+            trie.root = Some(root_node.insert_self(&mut trie.state)?);
+        }
 
-        // let mut trie = Trie::new(Box::new(NullTrieDB));
+        for node in other_nodes.iter().map(|node| Node::decode_raw(node)) {
+            node?.insert_self(&mut trie.state)?;
+        }
 
-        // Insert root into trie
-        // let mut proof = proof.into_iter();
-        // let root_node = proof.next();
-        // trie.root = Some(root_node.insert_self(path_offset, &mut trie.state)?);
-
-        // Insert rest of nodes
-        // for node in proof {
-        //     node.insert_self(path_offset, &mut trie.state)?;
-        // }
-        // let expected_root_hash = trie.hash_no_commit()?.into();
-
-        // Check key exists
-        // let Some(retrieved_value) = trie.get(path)? else {
-        //     return Ok(false);
-        // };
-        // // Check value is correct
-        // if retrieved_value != *value {
-        //     return Ok(false);
-        // }
-        // // Check root hash
-        // if root_hash != expected_root_hash {
-        //     return Ok(false);
-        // }
-
-        Ok(true)
+        Ok(trie)
     }
 
     /// Builds an in-memory trie from the given elements and returns its hash
     pub fn compute_hash_from_unsorted_iter(
         iter: impl Iterator<Item = (PathRLP, ValueRLP)>,
     ) -> H256 {
+        let mut trie = Trie::stateless();
+        for (path, value) in iter {
+            // Unwraping here won't panic as our in_memory trie DB won't fail
+            trie.insert(path, value).unwrap();
+        }
+        trie.root
+            .as_ref()
+            .map(|root| root.clone().finalize())
+            .unwrap_or(*EMPTY_TRIE_HASH)
+    }
+
+    /// Creates a new stateless trie. This trie won't be able to store any nodes so all data will be lost after calculating the hash
+    /// Only use it for proof verification or computing a hash from an iterator
+    pub(crate) fn stateless() -> Trie {
         // We will only be using the trie's cache so we don't need a working DB
         struct NullTrieDB;
 
@@ -226,15 +252,7 @@ impl Trie {
             }
         }
 
-        let mut trie = Trie::new(Box::new(NullTrieDB));
-        for (path, value) in iter {
-            // Unwraping here won't panic as our in_memory trie DB won't fail
-            trie.insert(path, value).unwrap();
-        }
-        trie.root
-            .as_ref()
-            .map(|root| root.clone().finalize())
-            .unwrap_or(*EMPTY_TRIE_HASH)
+        Trie::new(Box::new(NullTrieDB))
     }
 
     /// Obtain the encoded node given its path.
@@ -1111,21 +1129,5 @@ mod test {
         let cita_proof = cita_trie.get_proof(&a).unwrap();
         let trie_proof = trie.get_proof(&a).unwrap();
         assert_eq!(cita_proof, trie_proof);
-    }
-
-    #[test]
-    fn verify_proof_one_leaf() {
-        let mut trie = Trie::new_temp();
-        trie.insert(b"duck".to_vec(), b"duckling".to_vec()).unwrap();
-
-        let root_hash = trie.hash().unwrap().into();
-        let trie_proof = trie.get_proof(&b"duck".to_vec()).unwrap();
-        assert!(Trie::verify_proof(
-            &trie_proof,
-            root_hash,
-            &b"duck".to_vec(),
-            &b"duckling".to_vec(),
-        )
-        .unwrap());
     }
 }
