@@ -214,6 +214,7 @@ impl L1Watcher {
                         gas_limit: Some(TX_GAS_COST.mul(2)),
                         ..Default::default()
                     },
+                    10,
                 )
                 .await?;
             mint_transaction.sign_inplace(&self.l2_proposer_pk);

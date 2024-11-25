@@ -320,6 +320,7 @@ impl Committer {
                     ..Default::default()
                 },
                 blobs_bundle,
+                10,
             )
             .await
             .map_err(CommitterError::from)?;
