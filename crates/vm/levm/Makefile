@@ -33,7 +33,7 @@ download-ef-tests: $(SPECTEST_VECTORS_DIR) ## 📥 Download EF Tests
 
 run-ef-tests: ## 🏃‍♂️ Run EF Tests
 	cd ../../../ && \
-	cargo test -p ef_tests-levm --tests test
+	time cargo test -p ef_tests-levm --test ef_tests_levm
 
 clean-ef-tests: ## 🗑️  Clean test vectors
 	rm -rf $(SPECTEST_VECTORS_DIR)
