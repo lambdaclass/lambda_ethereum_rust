@@ -462,7 +462,7 @@ async fn initialize_on_chain_proposer(
             deployer,
             on_chain_proposer_initialization_calldata.into(),
             Overrides::default(),
-            10
+            10,
         )
         .await
         .expect("Failed to build initialize transaction");
@@ -505,7 +505,7 @@ async fn initialize_bridge(
             deployer,
             bridge_initialization_calldata.into(),
             Overrides::default(),
-            10
+            10,
         )
         .await
         .expect("Failed to build initialize transaction");

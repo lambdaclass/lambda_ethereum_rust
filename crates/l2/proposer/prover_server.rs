@@ -427,7 +427,7 @@ impl ProverServer {
                 self.verifier_address,
                 calldata.into(),
                 Overrides::default(),
-                10
+                10,
             )
             .await?;
 
@@ -500,7 +500,7 @@ impl ProverServer {
                     Overrides {
                         ..Default::default()
                     },
-                    10
+                    10,
                 )
                 .await?;
 
