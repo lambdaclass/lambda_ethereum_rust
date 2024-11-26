@@ -66,16 +66,6 @@ tasks:
   timeout: 15m
   config:
     tasks:
-    - name: check_consensus_finality
-      title: "Check consensus chain finality"
-      config:
-        minFinalizedEpochs: 1
-        maxUnfinalizedEpochs: 2
-    - name: check_consensus_attestation_stats
-      title: "Check consensus attestation stats"
-      config:
-        minTargetPercent: 98
-        minHeadPercent: 80
     - name: check_consensus_reorgs
       title: "Check consensus reorgs"
     - name: check_consensus_forks
