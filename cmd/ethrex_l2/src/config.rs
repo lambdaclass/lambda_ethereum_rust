@@ -40,6 +40,7 @@ pub struct WalletConfig {
 #[derive(Deserialize, Serialize, Clone)]
 pub struct ContractsConfig {
     pub common_bridge: Address,
+    pub on_chain_proposer: Address,
 }
 
 pub async fn try_load_selected_config() -> eyre::Result<Option<EthrexL2Config>> {

@@ -71,6 +71,8 @@ pub struct EditConfigOpts {
     pub address: Option<Address>,
     #[arg(long, requires = "config_name", required = false)]
     pub common_bridge: Option<Address>,
+    #[arg(long, requires = "config_name", required = false)]
+    pub on_chain_proposer: Option<Address>,
 }
 
 impl EditConfigOpts {
@@ -82,6 +84,7 @@ impl EditConfigOpts {
             && self.private_key.is_none()
             && self.address.is_none()
             && self.common_bridge.is_none()
+            && self.on_chain_proposer.is_none()
     }
 }
 

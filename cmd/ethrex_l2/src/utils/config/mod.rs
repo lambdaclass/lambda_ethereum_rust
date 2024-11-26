@@ -16,12 +16,13 @@ use std::{path::PathBuf, str::FromStr};
 
 pub mod default_values;
 use default_values::{
-    DEFAULT_ADDRESS, DEFAULT_CONTRACTS_COMMON_BRIDGE_ADDRESS, DEFAULT_L1_CHAIN_ID,
-    DEFAULT_L1_EXPLORER_URL, DEFAULT_L1_RPC_URL, DEFAULT_L2_CHAIN_ID, DEFAULT_L2_EXPLORER_URL,
-    DEFAULT_L2_RPC_URL, DEFAULT_PRIVATE_KEY,
+    DEFAULT_ADDRESS, DEFAULT_CONTRACTS_COMMON_BRIDGE_ADDRESS,
+    DEFAULT_CONTRACTS_ON_CHAIN_PROPOSER_ADDRESS, DEFAULT_L1_CHAIN_ID, DEFAULT_L1_EXPLORER_URL,
+    DEFAULT_L1_RPC_URL, DEFAULT_L2_CHAIN_ID, DEFAULT_L2_EXPLORER_URL, DEFAULT_L2_RPC_URL,
+    DEFAULT_PRIVATE_KEY,
 };
 
-use super::messages::CONTRACTS_COMMON_BRIDGE_PROMPT_MSG;
+use super::messages::{CONTRACTS_COMMON_BRIDGE_PROMPT_MSG, CONTRACTS_ON_CHAIN_PROPOSER_PROMPT_MSG};
 
 pub const SELECTED_CONFIG_FILE_NAME: &str = ".selected";
 
@@ -125,6 +126,10 @@ pub fn prompt_config() -> eyre::Result<EthrexL2Config> {
                 CONTRACTS_COMMON_BRIDGE_PROMPT_MSG,
                 DEFAULT_CONTRACTS_COMMON_BRIDGE_ADDRESS,
             )?,
+            on_chain_proposer: prompt(
+                CONTRACTS_ON_CHAIN_PROPOSER_PROMPT_MSG,
+                DEFAULT_CONTRACTS_ON_CHAIN_PROPOSER_ADDRESS,
+            )?,
         },
     };
     Ok(prompted_config)
@@ -227,6 +232,10 @@ pub fn edit_existing_config_interactively(
                 CONTRACTS_COMMON_BRIDGE_PROMPT_MSG,
                 existing_config.contracts.common_bridge,
             )?,
+            on_chain_proposer: prompt(
+                CONTRACTS_ON_CHAIN_PROPOSER_PROMPT_MSG,
+                DEFAULT_CONTRACTS_ON_CHAIN_PROPOSER_ADDRESS,
+            )?,
         },
     };
     Ok(config)
@@ -270,6 +279,9 @@ pub fn edit_existing_config_non_interactively(
             common_bridge: opts
                 .common_bridge
                 .unwrap_or(existing_config.contracts.common_bridge),
+            on_chain_proposer: opts
+                .on_chain_proposer
+                .unwrap_or(existing_config.contracts.on_chain_proposer),
         },
     };
     Ok(config)
