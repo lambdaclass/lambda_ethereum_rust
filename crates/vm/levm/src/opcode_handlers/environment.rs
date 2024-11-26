@@ -32,9 +32,9 @@ impl VM {
     ) -> Result<OpcodeSuccess, VMError> {
         let address = word_to_address(current_call_frame.stack.pop()?);
 
-        let (account_info, address_is_cold) = self.access_account(address);
+        let (account_info, address_was_cold) = self.access_account(address);
 
-        self.increase_consumed_gas(current_call_frame, gas_cost::balance(address_is_cold)?)?;
+        self.increase_consumed_gas(current_call_frame, gas_cost::balance(address_was_cold)?)?;
 
         current_call_frame.stack.push(account_info.balance)?;
 
@@ -267,9 +267,9 @@ impl VM {
     ) -> Result<OpcodeSuccess, VMError> {
         let address = word_to_address(current_call_frame.stack.pop()?);
 
-        let (account_info, address_is_cold) = self.access_account(address);
+        let (account_info, address_was_cold) = self.access_account(address);
 
-        self.increase_consumed_gas(current_call_frame, gas_cost::extcodesize(address_is_cold)?)?;
+        self.increase_consumed_gas(current_call_frame, gas_cost::extcodesize(address_was_cold)?)?;
 
         current_call_frame
             .stack
@@ -300,7 +300,7 @@ impl VM {
             .try_into()
             .map_err(|_| VMError::VeryLargeNumber)?;
 
-        let (account_info, address_is_cold) = self.access_account(address);
+        let (account_info, address_was_cold) = self.access_account(address);
 
         let new_memory_size = dest_offset.checked_add(size).ok_or(VMError::Internal(
             InternalError::ArithmeticOperationOverflow,
@@ -312,7 +312,7 @@ impl VM {
             gas_cost::extcodecopy(
                 new_memory_size.into(),
                 current_memory_size.into(),
-                address_is_cold,
+                address_was_cold,
             )?,
         )?;
 
@@ -420,9 +420,9 @@ impl VM {
     ) -> Result<OpcodeSuccess, VMError> {
         let address = word_to_address(current_call_frame.stack.pop()?);
 
-        let (account_info, address_is_cold) = self.access_account(address);
+        let (account_info, address_was_cold) = self.access_account(address);
 
-        self.increase_consumed_gas(current_call_frame, gas_cost::extcodehash(address_is_cold)?)?;
+        self.increase_consumed_gas(current_call_frame, gas_cost::extcodehash(address_was_cold)?)?;
 
         current_call_frame.stack.push(U256::from_big_endian(
             keccak(account_info.bytecode).as_fixed_bytes(),

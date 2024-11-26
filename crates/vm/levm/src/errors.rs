@@ -91,6 +91,8 @@ pub enum OutOfGasError {
     MaxGasLimitExceeded,
     #[error("Arithmetic operation divided by zero in gas calculation")]
     ArithmeticOperationDividedByZero,
+    #[error("Memory Expansion Cost Overflow")]
+    MemoryExpansionCostOverflow,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, thiserror::Error)]

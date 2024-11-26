@@ -56,14 +56,14 @@ impl VM {
         let new_memory_size = new_memory_size_for_args.max(new_memory_size_for_return_data);
         let current_memory_size = current_call_frame.memory.data.len();
 
-        let (account_info, address_is_cold) = self.access_account(callee);
+        let (account_info, address_was_cold) = self.access_account(callee);
 
         self.increase_consumed_gas(
             current_call_frame,
             gas_cost::call(
                 new_memory_size.into(),
                 current_memory_size.into(),
-                address_is_cold,
+                address_was_cold,
                 account_info.is_empty(),
                 value_to_transfer,
             )?,
@@ -130,14 +130,14 @@ impl VM {
         let new_memory_size = new_memory_size_for_args.max(new_memory_size_for_return_data);
         let current_memory_size = current_call_frame.memory.data.len();
 
-        let (_account_info, address_is_cold) = self.access_account(code_address);
+        let (_account_info, address_was_cold) = self.access_account(code_address);
 
         self.increase_consumed_gas(
             current_call_frame,
             gas_cost::callcode(
                 new_memory_size.into(),
                 current_memory_size.into(),
-                address_is_cold,
+                address_was_cold,
                 value_to_transfer,
             )?,
         )?;
@@ -231,7 +231,7 @@ impl VM {
         let to = current_call_frame.to;
         let is_static = current_call_frame.is_static;
 
-        let (_account_info, address_is_cold) = self.access_account(code_address);
+        let (_account_info, address_was_cold) = self.access_account(code_address);
 
         let new_memory_size_for_args = (args_start_offset
             .checked_add(args_size)
@@ -249,7 +249,7 @@ impl VM {
             gas_cost::delegatecall(
                 new_memory_size.into(),
                 current_memory_size.into(),
-                address_is_cold,
+                address_was_cold,
             )?,
         )?;
 
@@ -298,7 +298,7 @@ impl VM {
             .try_into()
             .map_err(|_err| VMError::VeryLargeNumber)?;
 
-        let (_account_info, address_is_cold) = self.access_account(code_address);
+        let (_account_info, address_was_cold) = self.access_account(code_address);
 
         let new_memory_size_for_args = (args_start_offset
             .checked_add(args_size)
@@ -316,7 +316,7 @@ impl VM {
             gas_cost::staticcall(
                 new_memory_size.into(),
                 current_memory_size.into(),
-                address_is_cold,
+                address_was_cold,
             )?,
         )?;
 
@@ -461,44 +461,27 @@ impl VM {
             return Err(VMError::OpcodeNotAllowedInStaticContext);
         }
 
-        // 1. Pop the target address from the stack
         let target_address = word_to_address(current_call_frame.stack.pop()?);
 
-        // 2. Get current account and: Store the balance in a variable, set it's balance to 0
-        let mut current_account = self.get_account(&current_call_frame.to);
-        let current_account_balance = current_account.info.balance;
+        let (target_account_info, target_account_is_cold) = self.access_account(target_address);
 
-        current_account.info.balance = U256::zero();
+        self.increase_consumed_gas(
+            current_call_frame,
+            gas_cost::selfdestruct(target_account_is_cold, target_account_info.is_empty())
+                .map_err(VMError::OutOfGas)?,
+        )?;
 
-        let is_cached = self.cache.is_account_cached(&target_address);
+        let (current_account_info, _current_account_is_cold) =
+            self.access_account(current_call_frame.to);
 
-        // 3 & 4. Get target account and add the balance of the current account to it
-        let mut target_account = self.get_account(&target_address);
-        let account_is_empty = target_account.is_empty();
+        self.increase_account_balance(target_address, current_account_info.balance)?;
+        self.decrease_account_balance(current_call_frame.to, current_account_info.balance)?;
 
-        let gas_cost =
-            gas_cost::selfdestruct(is_cached, account_is_empty).map_err(VMError::OutOfGas)?;
-
-        target_account.info.balance = target_account
-            .info
-            .balance
-            .checked_add(current_account_balance)
-            .ok_or(VMError::BalanceOverflow)?;
-
-        // 5. Register account to be destroyed in accrued substate IF executed in the same transaction a contract was created
         if self.tx_kind == TxKind::Create {
             self.accrued_substate
                 .selfdestrutct_set
                 .insert(current_call_frame.to);
         }
-        // Accounts in SelfDestruct set should be destroyed at the end of the transaction.
-
-        // Update cache after modifying accounts.
-        self.cache
-            .add_account(&current_call_frame.to, &current_account);
-        self.cache.add_account(&target_address, &target_account);
-
-        self.increase_consumed_gas(current_call_frame, gas_cost)?;
 
         Ok(OpcodeSuccess::Result(ResultReason::SelfDestruct))
     }
