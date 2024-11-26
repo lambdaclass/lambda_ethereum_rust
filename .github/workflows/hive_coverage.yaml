@@ -24,10 +24,10 @@ jobs:
         include:
           - simulation: rpc-compat
             name: "Rpc Compat tests"
-            run_command: make run-hive-on-latest SIMULATION=ethereum/rpc-compat
+            run_command: make run-hive-on-latest SIMULATION=ethereum/rpc-compat TEST_PATTERN="/eth_chainId|eth_getTransactionByBlockHashAndIndex"
           - simulation: devp2p
             name: "Devp2p eth tests"
-            run_command: make run-hive-on-latest SIMULATION=devp2p
+            run_command: make run-hive-on-latest SIMULATION=devp2p TEST_PATTERN="discv4"
           # TODO: uncomment
           # - simulation: engine
           #   name: "Cancun Engine tests"
@@ -55,10 +55,10 @@ jobs:
         continue-on-error: true
 
       - name: Upload results
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: ${{ matrix.simulation }}_logs
-          path: hive/workspace/logs
+          path: hive/workspace/logs/*-*.json
 
   hive-report:
     name: Generate report and upload to summary and slack
@@ -80,9 +80,11 @@ jobs:
 
       - name: Combine and process results and generate report
         run: |
+          tree aggregated-logs
           mkdir -p hive/workspace/logs
           cp aggregated-logs/*/* hive/workspace/logs
           cargo run -p hive_report > results.md
+          tree hive
 
       - name: Caching
         uses: Swatinem/rust-cache@v2
@@ -92,7 +94,7 @@ jobs:
           echo "# Hive coverage report" >> $GITHUB_STEP_SUMMARY
           cat results.md >> $GITHUB_STEP_SUMMARY
 
-      - name: Post results to slack
-        env:
-          url: ${{ secrets.SLACK_WEBHOOK_URL }}
-        run: sh publish.sh
+      # - name: Post results to slack
+      #   env:
+      #     url: ${{ secrets.SLACK_WEBHOOK_URL }}
+      #   run: sh publish.sh
