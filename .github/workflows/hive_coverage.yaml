@@ -78,9 +78,7 @@ jobs:
           merge-multiple: true
 
       - name: Combine and process results and generate report
-        run: |
-          tree hive
-          cargo run -p hive_report > results.md
+        run: cargo run -p hive_report > results.md
 
       - name: Caching
         uses: Swatinem/rust-cache@v2
