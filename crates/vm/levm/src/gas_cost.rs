@@ -95,6 +95,8 @@ pub const SLOAD_STATIC: U256 = U256::zero();
 pub const SLOAD_COLD_DYNAMIC: U256 = U256([2100, 0, 0, 0]);
 pub const SLOAD_WARM_DYNAMIC: U256 = U256([100, 0, 0, 0]);
 
+pub const SSTORE_STATIC: U256 = U256::zero();
+
 pub const BALANCE_STATIC: U256 = DEFAULT_STATIC;
 pub const BALANCE_COLD_DYNAMIC: U256 = DEFAULT_COLD_DYNAMIC;
 pub const BALANCE_WARM_DYNAMIC: U256 = DEFAULT_WARM_DYNAMIC;
@@ -313,34 +315,33 @@ pub fn sload(storage_slot_was_cold: bool) -> Result<U256, VMError> {
 }
 
 pub fn sstore(
-    value: U256,
-    is_cached: bool,
     storage_slot: &StorageSlot,
-) -> Result<U256, OutOfGasError> {
-    let mut base_dynamic_gas: U256 = U256::zero();
+    new_value: U256,
+    storage_slot_was_cold: bool,
+) -> Result<U256, VMError> {
+    let static_gas = SSTORE_STATIC;
 
-    if !is_cached {
-        // If slot is cold 2100 is added to base_dynamic_gas
-        base_dynamic_gas = base_dynamic_gas
-            .checked_add(U256::from(2100))
-            .ok_or(OutOfGasError::GasCostOverflow)?;
-    };
-
-    let sstore_gas_cost = if value == storage_slot.current_value {
+    let mut base_dynamic_gas = if new_value == storage_slot.current_value {
         U256::from(100)
     } else if storage_slot.current_value == storage_slot.original_value {
-        if storage_slot.original_value == U256::zero() {
+        if storage_slot.original_value.is_zero() {
             U256::from(20000)
         } else {
-            U256::from(2900)
+            U256::from(5000)
         }
     } else {
         U256::from(100)
     };
 
-    base_dynamic_gas
-        .checked_add(sstore_gas_cost)
-        .ok_or(OutOfGasError::GasCostOverflow)
+    if storage_slot_was_cold {
+        base_dynamic_gas = base_dynamic_gas
+            .checked_add(U256::from(2100))
+            .ok_or(OutOfGasError::GasCostOverflow)?;
+    }
+
+    Ok(static_gas
+        .checked_add(base_dynamic_gas)
+        .ok_or(OutOfGasError::GasCostOverflow)?)
 }
 
 pub fn mcopy(
