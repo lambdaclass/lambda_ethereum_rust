@@ -176,11 +176,8 @@ async fn main() {
     };
     // Create Kademlia Table here so we can access it from rpc server (for syncing)
     let peer_table = peer_table(signer.clone());
-    // Communication between the backend and the main listen loop
-    let (channel_backend_send, channel_p2p_receive) =
-        tokio::sync::mpsc::channel::<ethrex_net::RLPxMessage>(100);
     // Create SyncManager
-    let syncer = SyncManager::new(channel_p2p_receive, peer_table.clone(), is_snap_sync);
+    let syncer = SyncManager::new(peer_table.clone(), is_snap_sync);
 
     // TODO: Check every module starts properly.
     let tracker = TaskTracker::new();
@@ -226,7 +223,6 @@ async fn main() {
                 signer,
                 peer_table,
                 store,
-                channel_backend_send
             )
             .into_future();
             tracker.spawn(networking);

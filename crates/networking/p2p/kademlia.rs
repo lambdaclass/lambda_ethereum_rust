@@ -1,11 +1,17 @@
+use std::sync::Arc;
+
 use crate::{
     discv4::{time_now_unix, FindNodeRequest},
     rlpx::{error::RLPxError, message::Message},
     types::Node,
+    MAX_MESSAGES_TO_BROADCAST,
 };
 use ethrex_core::{H256, H512, U256};
 use sha3::{Digest, Keccak256};
-use tokio::sync::mpsc::UnboundedSender;
+use tokio::sync::{
+    mpsc::{self, UnboundedSender},
+    Mutex,
+};
 
 pub const MAX_NODES_PER_BUCKET: usize = 16;
 const NUMBER_OF_BUCKETS: usize = 256;
@@ -258,30 +264,25 @@ impl KademliaTable {
 
     /// Set the sender end of the channel between the kademlia table and the peer's active connection
     /// This function should be called each time a connection is established so the backend can send requests to the peers
-    pub fn set_sender(&mut self, node_id: H512, sender: tokio::sync::mpsc::Sender<Message>) {
+    pub fn set_channels(&mut self, node_id: H512, channels: PeerChannels) {
         let bucket_idx = bucket_number(self.local_node_id, node_id);
         if let Some(peer) = self.buckets[bucket_idx]
             .peers
             .iter_mut()
             .find(|peer| peer.node.node_id == node_id)
         {
-            peer.sender = Some(sender)
+            peer.channels = Some(channels)
         }
     }
 
     /// TODO: Use most recently pinged peer instead
-    fn get_peer(&self) -> Option<PeerData> {
+    pub(crate) fn get_peer(&self) -> Option<PeerData> {
         self.get_least_recently_pinged_peers(1).pop()
     }
 
-    /// Send a message to a peer, returns an error if there are no active peers
-    pub async fn send_message_to_peer(&self, message: Message) -> Result<(), RLPxError> {
-        if let Some(sender) = self.get_peer().and_then(|peer| peer.sender) {
-            Ok(sender.send(message).await?)
-        } else {
-            // Let the caller decide when to retry
-            Err(RLPxError::NoPeers)
-        }
+    // Returns true if the table has at least one peer
+    pub fn has_peers(&self) -> bool {
+        self.get_peer().is_some()
     }
 }
 
@@ -308,8 +309,32 @@ pub struct PeerData {
     pub liveness: u16,
     /// if a revalidation was sent to the peer, the bool marks if it has answered
     pub revalidation: Option<bool>,
-    /// sender end of the channel between the peer and its rlpx connection
-    pub sender: Option<tokio::sync::mpsc::Sender<Message>>,
+    /// communication channels bewteen the peer data and its active connection
+    pub channels: Option<PeerChannels>,
+}
+
+#[derive(Debug, Clone)]
+/// Holds the respective sender and receiver ends of the communication channels bewteen the peer data and its active connection
+pub struct PeerChannels {
+    pub sender: mpsc::Sender<Message>,
+    pub receiver: Arc<Mutex<mpsc::Receiver<Message>>>,
+}
+
+impl PeerChannels {
+    /// Sets up the communication channels for the peer
+    /// Returns the channel endpoints to send to the active connection's listen loop
+    pub fn create() -> (Self, mpsc::Sender<Message>, mpsc::Receiver<Message>) {
+        let (sender, connection_receiver) = mpsc::channel::<Message>(MAX_MESSAGES_TO_BROADCAST);
+        let (connection_sender, receiver) = mpsc::channel::<Message>(MAX_MESSAGES_TO_BROADCAST);
+        (
+            Self {
+                sender,
+                receiver: Arc::new(Mutex::new(receiver)),
+            },
+            connection_sender,
+            connection_receiver,
+        )
+    }
 }
 
 impl PeerData {
@@ -323,7 +348,7 @@ impl PeerData {
             last_ping_hash: None,
             find_node_request: None,
             revalidation: None,
-            sender: None,
+            channels: None,
         }
     }
 

@@ -23,7 +23,7 @@ use rlpx::connection::RLPxConnection;
 pub use rlpx::message::Message as RLPxMessage;
 use tokio::{
     net::{TcpSocket, TcpStream, UdpSocket},
-    sync::{broadcast, mpsc, Mutex},
+    sync::{broadcast, Mutex},
     try_join,
 };
 use tracing::{debug, error, info};
@@ -32,6 +32,7 @@ use types::{Endpoint, Node};
 pub mod bootnode;
 pub(crate) mod discv4;
 pub(crate) mod kademlia;
+pub mod peer_request;
 pub mod rlpx;
 pub(crate) mod snap;
 pub mod sync;
@@ -57,7 +58,6 @@ pub async fn start_network(
     signer: SigningKey,
     peer_table: Arc<Mutex<KademliaTable>>,
     storage: Store,
-    channel_backend_send: tokio::sync::mpsc::Sender<RLPxMessage>,
 ) {
     info!("Starting discovery service at {udp_addr}");
     info!("Listening for requests at {tcp_addr}");
@@ -72,7 +72,6 @@ pub async fn start_network(
         peer_table.clone(),
         bootnodes,
         channel_broadcast_send_end.clone(),
-        channel_backend_send.clone(),
     ));
     let server_handle = tokio::spawn(serve_requests(
         tcp_addr,
@@ -80,7 +79,6 @@ pub async fn start_network(
         storage.clone(),
         peer_table.clone(),
         channel_broadcast_send_end,
-        channel_backend_send,
     ));
 
     try_join!(discovery_handle, server_handle).unwrap();
@@ -93,7 +91,6 @@ async fn discover_peers(
     table: Arc<Mutex<KademliaTable>>,
     bootnodes: Vec<BootNode>,
     connection_broadcast: broadcast::Sender<(tokio::task::Id, Arc<RLPxMessage>)>,
-    backend_send: mpsc::Sender<RLPxMessage>,
 ) {
     let udp_socket = Arc::new(UdpSocket::bind(udp_addr).await.unwrap());
 
@@ -104,7 +101,6 @@ async fn discover_peers(
         table.clone(),
         signer.clone(),
         connection_broadcast,
-        backend_send,
     ));
     let revalidation_handler = tokio::spawn(peers_revalidation(
         udp_addr,
@@ -144,7 +140,6 @@ async fn discover_peers_server(
     table: Arc<Mutex<KademliaTable>>,
     signer: SigningKey,
     tx_broadcaster_send: broadcast::Sender<(tokio::task::Id, Arc<RLPxMessage>)>,
-    backend_send: mpsc::Sender<RLPxMessage>,
 ) {
     let mut buf = vec![0; MAX_DISC_PACKET_SIZE];
 
@@ -231,7 +226,6 @@ async fn discover_peers_server(
                         let signer = signer.clone();
                         let storage = storage.clone();
                         let broadcaster = tx_broadcaster_send.clone();
-                        let backend_send = backend_send.clone();
                         tokio::spawn(async move {
                             handle_peer_as_initiator(
                                 signer,
@@ -240,7 +234,6 @@ async fn discover_peers_server(
                                 storage,
                                 table,
                                 broadcaster,
-                                backend_send,
                             )
                             .await;
                         });
@@ -773,7 +766,6 @@ async fn serve_requests(
     storage: Store,
     table: Arc<Mutex<KademliaTable>>,
     connection_broadcast: broadcast::Sender<(tokio::task::Id, Arc<RLPxMessage>)>,
-    backend_send: mpsc::Sender<RLPxMessage>,
 ) {
     let tcp_socket = TcpSocket::new_v4().unwrap();
     tcp_socket.bind(tcp_addr).unwrap();
@@ -787,7 +779,6 @@ async fn serve_requests(
             storage.clone(),
             table.clone(),
             connection_broadcast.clone(),
-            backend_send.clone(),
         ));
     }
 }
@@ -798,10 +789,9 @@ async fn handle_peer_as_receiver(
     storage: Store,
     table: Arc<Mutex<KademliaTable>>,
     connection_broadcast: broadcast::Sender<(tokio::task::Id, Arc<RLPxMessage>)>,
-    backend_send: mpsc::Sender<RLPxMessage>,
 ) {
     let mut conn = RLPxConnection::receiver(signer, stream, storage, connection_broadcast);
-    conn.start_peer(table, backend_send).await;
+    conn.start_peer(table).await;
 }
 
 async fn handle_peer_as_initiator(
@@ -811,7 +801,6 @@ async fn handle_peer_as_initiator(
     storage: Store,
     table: Arc<Mutex<KademliaTable>>,
     connection_broadcast: broadcast::Sender<(tokio::task::Id, Arc<RLPxMessage>)>,
-    backend_send: mpsc::Sender<RLPxMessage>,
 ) {
     info!("Trying RLPx connection with {node:?}");
     let stream = TcpSocket::new_v4()
@@ -820,7 +809,7 @@ async fn handle_peer_as_initiator(
         .await
         .unwrap();
     match RLPxConnection::initiator(signer, msg, stream, storage, connection_broadcast).await {
-        Ok(mut conn) => conn.start_peer(table, backend_send).await,
+        Ok(mut conn) => conn.start_peer(table).await,
         Err(e) => {
             error!("Error: {e}, Could not start connection with {node:?}");
         }
@@ -878,11 +867,7 @@ mod tests {
         pub udp_socket: Arc<UdpSocket>,
     }
 
-    async fn start_mock_discovery_server(
-        udp_port: u16,
-        should_start_server: bool,
-        backend_send: mpsc::Sender<RLPxMessage>,
-    ) -> MockServer {
+    async fn start_mock_discovery_server(udp_port: u16, should_start_server: bool) -> MockServer {
         let addr = SocketAddr::new(IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1)), udp_port);
         let signer = SigningKey::random(&mut OsRng);
         let udp_socket = Arc::new(UdpSocket::bind(addr).await.unwrap());
@@ -902,7 +887,6 @@ mod tests {
                 table.clone(),
                 signer.clone(),
                 channel_broadcast_send_end,
-                backend_send,
             ));
         }
 
@@ -949,10 +933,8 @@ mod tests {
      * To make this run faster, we'll change the revalidation time to be every 2secs
      */
     async fn discovery_server_revalidation() {
-        let (backend_send, _) =
-            tokio::sync::mpsc::channel::<RLPxMessage>(MAX_MESSAGES_TO_BROADCAST);
-        let mut server_a = start_mock_discovery_server(7998, true, backend_send.clone()).await;
-        let mut server_b = start_mock_discovery_server(7999, true, backend_send).await;
+        let mut server_a = start_mock_discovery_server(7998, true).await;
+        let mut server_b = start_mock_discovery_server(7999, true).await;
 
         connect_servers(&mut server_a, &mut server_b).await;
 
@@ -1014,10 +996,8 @@ mod tests {
      * This test for only one lookup, and not recursively.
      */
     async fn discovery_server_lookup() {
-        let (backend_send, _) =
-            tokio::sync::mpsc::channel::<RLPxMessage>(MAX_MESSAGES_TO_BROADCAST);
-        let mut server_a = start_mock_discovery_server(8000, true, backend_send.clone()).await;
-        let mut server_b = start_mock_discovery_server(8001, true, backend_send).await;
+        let mut server_a = start_mock_discovery_server(8000, true).await;
+        let mut server_b = start_mock_discovery_server(8001, true).await;
 
         fill_table_with_random_nodes(server_a.table.clone()).await;
 
@@ -1074,12 +1054,10 @@ mod tests {
      * - We'll run a recursive lookup on server `a` and we expect to end with `b`, `c`, `d` and its mock nodes
      */
     async fn discovery_server_recursive_lookup() {
-        let (backend_send, _) =
-            tokio::sync::mpsc::channel::<RLPxMessage>(MAX_MESSAGES_TO_BROADCAST);
-        let mut server_a = start_mock_discovery_server(8002, true, backend_send.clone()).await;
-        let mut server_b = start_mock_discovery_server(8003, true, backend_send.clone()).await;
-        let mut server_c = start_mock_discovery_server(8004, true, backend_send.clone()).await;
-        let mut server_d = start_mock_discovery_server(8005, true, backend_send).await;
+        let mut server_a = start_mock_discovery_server(8002, true).await;
+        let mut server_b = start_mock_discovery_server(8003, true).await;
+        let mut server_c = start_mock_discovery_server(8004, true).await;
+        let mut server_d = start_mock_discovery_server(8005, true).await;
 
         connect_servers(&mut server_a, &mut server_b).await;
         connect_servers(&mut server_b, &mut server_c).await;

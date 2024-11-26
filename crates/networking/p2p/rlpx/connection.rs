@@ -1,6 +1,7 @@
 use std::sync::Arc;
 
 use crate::{
+    kademlia::PeerChannels,
     rlpx::{
         eth::{
             backend,
@@ -16,7 +17,7 @@ use crate::{
         process_account_range_request, process_byte_codes_request, process_storage_ranges_request,
         process_trie_nodes_request,
     },
-    MAX_DISC_PACKET_SIZE, MAX_MESSAGES_TO_BROADCAST,
+    MAX_DISC_PACKET_SIZE,
 };
 
 use super::{
@@ -144,19 +145,14 @@ impl<S: AsyncWrite + AsyncRead + std::marker::Unpin> RLPxConnection<S> {
 
     /// Starts a handshake and runs the peer connection.
     /// It runs in it's own task and blocks until the connection is dropped
-    pub async fn start_peer(
-        &mut self,
-        table: Arc<Mutex<crate::kademlia::KademliaTable>>,
-        backend_send: mpsc::Sender<Message>,
-    ) {
+    pub async fn start_peer(&mut self, table: Arc<Mutex<crate::kademlia::KademliaTable>>) {
         // Perform handshake
         if let Err(e) = self.handshake().await {
             self.peer_conn_failed("Handshake failed", e, table).await;
         } else {
             // Handshake OK: handle connection
-            // Create channel to communicate directly to the peer
-            let (sender, backend_receive) =
-                tokio::sync::mpsc::channel::<Message>(MAX_MESSAGES_TO_BROADCAST);
+            // Create channels to communicate directly to the peer
+            let (peer_channels, sender, receiver) = PeerChannels::create();
             let Ok(node_id) = self.get_remote_node_id() else {
                 return self
                     .peer_conn_failed(
@@ -166,8 +162,8 @@ impl<S: AsyncWrite + AsyncRead + std::marker::Unpin> RLPxConnection<S> {
                     )
                     .await;
             };
-            table.lock().await.set_sender(node_id, sender);
-            if let Err(e) = self.handle_peer_conn(backend_send, backend_receive).await {
+            table.lock().await.set_channels(node_id, peer_channels);
+            if let Err(e) = self.handle_peer_conn(sender, receiver).await {
                 self.peer_conn_failed("Error during RLPx connection", e, table)
                     .await;
             }
@@ -256,8 +252,8 @@ impl<S: AsyncWrite + AsyncRead + std::marker::Unpin> RLPxConnection<S> {
 
     pub async fn handle_peer_conn(
         &mut self,
-        backend_send: mpsc::Sender<rlpx::Message>,
-        mut backend_receive: mpsc::Receiver<rlpx::Message>,
+        sender: mpsc::Sender<rlpx::Message>,
+        mut receiver: mpsc::Receiver<rlpx::Message>,
     ) -> Result<(), RLPxError> {
         if let RLPxConnectionState::Established(_) = &self.state {
             self.init_peer_conn().await?;
@@ -277,7 +273,7 @@ impl<S: AsyncWrite + AsyncRead + std::marker::Unpin> RLPxConnection<S> {
                 tokio::select! {
                     // TODO check if this is cancel safe, and fix it if not.
                     message = self.receive() => {
-                        self.handle_message(message?, backend_send.clone()).await?;
+                        self.handle_message(message?, sender.clone()).await?;
                     }
                     // This is not ideal, but using the receiver without
                     // this function call, causes the loop to take ownwership
@@ -290,7 +286,7 @@ impl<S: AsyncWrite + AsyncRead + std::marker::Unpin> RLPxConnection<S> {
                     Some(broadcasted_msg) = Self::maybe_wait_for_broadcaster(&mut broadcaster_receive) => {
                         self.handle_broadcast(broadcasted_msg?).await?
                     }
-                    Some(message) = backend_receive.recv() => {
+                    Some(message) = receiver.recv() => {
                         self.send(message).await?;
                     }
                     _ = sleep(PERIODIC_TASKS_CHECK_INTERVAL) => {
