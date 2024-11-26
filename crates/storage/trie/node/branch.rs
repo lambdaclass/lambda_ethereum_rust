@@ -60,9 +60,10 @@ impl BranchNode {
             // Delegate to children if present
             let child_hash = &self.choices[choice];
             if child_hash.is_valid() {
-                let child_node = state
-                    .get_node(child_hash.clone())?
-                    .expect("inconsistent internal tree structure");
+                let child_node = match state.get_node(child_hash.clone())? {
+                    Some(n) => n,
+                    None => return Err(TrieError::MalformedTrie),
+                };
                 child_node.get(state, path)
             } else {
                 Ok(None)
