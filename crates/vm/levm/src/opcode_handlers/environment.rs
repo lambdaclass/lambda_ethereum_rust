@@ -301,25 +301,32 @@ impl VM {
             .try_into()
             .map_err(|_| VMError::VeryLargeNumber)?;
 
-        let is_cached = self.cache.is_account_cached(&address);
-
-        let gas_cost = gas_cost::extcodecopy(current_call_frame, size, dest_offset, is_cached)
-            .map_err(VMError::OutOfGas)?;
-
-        self.increase_consumed_gas(current_call_frame, gas_cost)?;
-
-        if !is_cached {
-            self.cache_from_db(&address);
-        };
-
-        let bytecode = self.get_account(&address).info.bytecode;
+        let (account_info, address_is_cold) = self.access_account(address);
 
         let new_memory_size = dest_offset.checked_add(size).ok_or(VMError::Internal(
             InternalError::ArithmeticOperationOverflow,
         ))?;
         let current_memory_size = current_call_frame.memory.data.len();
+
+        self.increase_consumed_gas(
+            current_call_frame,
+            gas_cost::extcodecopy(
+                new_memory_size.into(),
+                current_memory_size.into(),
+                address_is_cold,
+            )?,
+        )?;
+
         if current_memory_size < new_memory_size {
-            current_call_frame.memory.data.resize(new_memory_size, 0);
+            current_call_frame
+                .memory
+                .data
+                .try_reserve(new_memory_size)
+                .map_err(|_err| VMError::MemorySizeOverflow)?;
+            current_call_frame
+                .memory
+                .data
+                .extend(std::iter::repeat(0).take(new_memory_size));
         }
 
         for i in 0..size {
@@ -331,7 +338,8 @@ impl VM {
                         InternalError::ArithmeticOperationOverflow,
                     ))?)
             {
-                *memory_byte = *bytecode
+                *memory_byte = *account_info
+                    .bytecode
                     .get(offset.checked_add(i).ok_or(VMError::Internal(
                         InternalError::ArithmeticOperationOverflow,
                     ))?)

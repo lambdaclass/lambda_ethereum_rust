@@ -1,8 +1,8 @@
 use crate::{
     call_frame::CallFrame,
-    constants::{COLD_STORAGE_ACCESS_COST, WORD_SIZE},
-    errors::OutOfGasError,
-    StorageSlot,
+    constants::{COLD_STORAGE_ACCESS_COST, WORD_SIZE, WORD_SIZE_IN_BYTES},
+    errors::{InternalError, OutOfGasError, VMError},
+    memory, StorageSlot,
 };
 use bytes::Bytes;
 /// Contains the gas costs of the EVM instructions (in wei)
@@ -84,7 +84,6 @@ pub const CODESIZE: U256 = U256([2, 0, 0, 0]);
 pub const CODECOPY_STATIC: U256 = U256([3, 0, 0, 0]);
 pub const CODECOPY_DYNAMIC_BASE: U256 = U256([3, 0, 0, 0]);
 pub const GASPRICE: U256 = U256([2, 0, 0, 0]);
-pub const EXTCODECOPY_DYNAMIC_BASE: U256 = U256([3, 0, 0, 0]);
 pub const SELFDESTRUCT_STATIC: U256 = U256([5000, 0, 0, 0]);
 pub const SELFDESTRUCT_DYNAMIC: U256 = U256([25000, 0, 0, 0]);
 
@@ -99,6 +98,15 @@ pub const BALANCE_WARM_DYNAMIC: U256 = DEFAULT_WARM_DYNAMIC;
 pub const EXTCODESIZE_STATIC: U256 = DEFAULT_STATIC;
 pub const EXTCODESIZE_COLD_DYNAMIC: U256 = DEFAULT_COLD_DYNAMIC;
 pub const EXTCODESIZE_WARM_DYNAMIC: U256 = DEFAULT_WARM_DYNAMIC;
+
+pub const EXTCODEHASH_STATIC: U256 = DEFAULT_STATIC;
+pub const EXTCODEHASH_COLD_DYNAMIC: U256 = DEFAULT_COLD_DYNAMIC;
+pub const EXTCODEHASH_WARM_DYNAMIC: U256 = DEFAULT_WARM_DYNAMIC;
+
+pub const EXTCODECOPY_STATIC: U256 = U256::zero();
+pub const EXTCODECOPY_DYNAMIC_BASE: U256 = U256([3, 0, 0, 0]);
+pub const EXTCODECOPY_COLD_DYNAMIC: U256 = DEFAULT_COLD_DYNAMIC;
+pub const EXTCODECOPY_WARM_DYNAMIC: U256 = DEFAULT_WARM_DYNAMIC;
 
 // Costs in gas for call opcodes (in wei)
 pub const WARM_ADDRESS_ACCESS_COST: U256 = U256([100, 0, 0, 0]);
@@ -147,29 +155,6 @@ pub fn codecopy(
     copy_behavior(
         CODECOPY_DYNAMIC_BASE,
         CODECOPY_STATIC,
-        current_call_frame,
-        size,
-        dest_offset,
-    )
-}
-
-pub fn extcodecopy(
-    current_call_frame: &CallFrame,
-    size: usize,
-    dest_offset: usize,
-    address_is_cold: bool,
-) -> Result<U256, OutOfGasError> {
-    let address_access_cost = if address_is_cold {
-        COLD_ADDRESS_ACCESS_COST
-    } else {
-        WARM_ADDRESS_ACCESS_COST
-    };
-
-    // address_access_cost is not a static cost, but there's no static
-    // cost and there is the address_access_cost
-    copy_behavior(
-        EXTCODECOPY_DYNAMIC_BASE,
-        address_access_cost,
         current_call_frame,
         size,
         dest_offset,
@@ -636,7 +621,7 @@ fn address_access_cost(
     static_cost: U256,
     cold_dynamic_cost: U256,
     warm_dynamic_cost: U256,
-) -> Result<U256, OutOfGasError> {
+) -> Result<U256, VMError> {
     let static_gas = static_cost;
     let dynamic_cost: U256 = if address_is_cold {
         cold_dynamic_cost
@@ -644,12 +629,43 @@ fn address_access_cost(
         warm_dynamic_cost
     };
 
-    static_gas
+    Ok(static_gas
         .checked_add(dynamic_cost)
-        .ok_or(OutOfGasError::GasCostOverflow)
+        .ok_or(OutOfGasError::GasCostOverflow)?)
 }
 
-pub fn balance(address_is_cold: bool) -> Result<U256, OutOfGasError> {
+fn memory_access_cost(
+    new_memory_size: U256,
+    current_memory_size: U256,
+    static_cost: U256,
+    dynamic_base_cost: U256,
+) -> Result<U256, VMError> {
+    let minimum_word_size = new_memory_size
+        .checked_add(
+            WORD_SIZE_IN_BYTES
+                .checked_sub(U256::one())
+                .ok_or(InternalError::ArithmeticOperationUnderflow)?,
+        )
+        .ok_or(OutOfGasError::MemoryExpansionCostOverflow)?
+        .checked_div(WORD_SIZE_IN_BYTES)
+        .ok_or(OutOfGasError::MemoryExpansionCostOverflow)?;
+
+    let static_gas = static_cost;
+    let dynamic_cost = dynamic_base_cost
+        .checked_mul(minimum_word_size)
+        .ok_or(OutOfGasError::MemoryExpansionCostOverflow)?
+        .checked_add(memory::expansion_cost(
+            new_memory_size,
+            current_memory_size,
+        )?)
+        .ok_or(OutOfGasError::MemoryExpansionCostOverflow)?;
+
+    Ok(static_gas
+        .checked_add(dynamic_cost)
+        .ok_or(OutOfGasError::GasCostOverflow)?)
+}
+
+pub fn balance(address_is_cold: bool) -> Result<U256, VMError> {
     address_access_cost(
         address_is_cold,
         BALANCE_STATIC,
@@ -658,7 +674,7 @@ pub fn balance(address_is_cold: bool) -> Result<U256, OutOfGasError> {
     )
 }
 
-pub fn extcodesize(address_is_cold: bool) -> Result<U256, OutOfGasError> {
+pub fn extcodesize(address_is_cold: bool) -> Result<U256, VMError> {
     address_access_cost(
         address_is_cold,
         EXTCODESIZE_STATIC,
@@ -667,7 +683,27 @@ pub fn extcodesize(address_is_cold: bool) -> Result<U256, OutOfGasError> {
     )
 }
 
-pub fn extcodehash(address_is_cold: bool) -> Result<U256, OutOfGasError> {
+pub fn extcodecopy(
+    new_memory_size: U256,
+    current_memory_size: U256,
+    address_is_cold: bool,
+) -> Result<U256, VMError> {
+    Ok(memory_access_cost(
+        new_memory_size,
+        current_memory_size,
+        EXTCODECOPY_STATIC,
+        EXTCODECOPY_DYNAMIC_BASE,
+    )?
+    .checked_add(address_access_cost(
+        address_is_cold,
+        EXTCODECOPY_STATIC,
+        EXTCODECOPY_COLD_DYNAMIC,
+        EXTCODECOPY_WARM_DYNAMIC,
+    )?)
+    .ok_or(OutOfGasError::GasCostOverflow)?)
+}
+
+pub fn extcodehash(address_is_cold: bool) -> Result<U256, VMError> {
     address_access_cost(
         address_is_cold,
         EXTCODEHASH_STATIC,
