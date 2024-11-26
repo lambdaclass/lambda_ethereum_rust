@@ -1,6 +1,6 @@
 use crate::{
     call_frame::CallFrame,
-    constants::{COLD_STORAGE_ACCESS_COST, WORD_SIZE, WORD_SIZE_IN_BYTES},
+    constants::{WORD_SIZE, WORD_SIZE_IN_BYTES},
     errors::{InternalError, OutOfGasError, VMError},
     memory, StorageSlot,
 };
@@ -90,6 +90,10 @@ pub const SELFDESTRUCT_DYNAMIC: U256 = U256([25000, 0, 0, 0]);
 pub const DEFAULT_STATIC: U256 = U256::zero();
 pub const DEFAULT_COLD_DYNAMIC: U256 = U256([2600, 0, 0, 0]);
 pub const DEFAULT_WARM_DYNAMIC: U256 = U256([100, 0, 0, 0]);
+
+pub const SLOAD_STATIC: U256 = U256::zero();
+pub const SLOAD_COLD_DYNAMIC: U256 = U256([2100, 0, 0, 0]);
+pub const SLOAD_WARM_DYNAMIC: U256 = U256([100, 0, 0, 0]);
 
 pub const BALANCE_STATIC: U256 = DEFAULT_STATIC;
 pub const BALANCE_COLD_DYNAMIC: U256 = DEFAULT_COLD_DYNAMIC;
@@ -294,14 +298,18 @@ fn mem_expansion_behavior(
         .ok_or(OutOfGasError::GasCostOverflow)
 }
 
-pub fn sload(is_cached: bool) -> U256 {
-    if is_cached {
-        // If slot is warm (cached) add 100 to base_dynamic_gas
-        WARM_ADDRESS_ACCESS_COST
+pub fn sload(storage_slot_was_cold: bool) -> Result<U256, VMError> {
+    let static_gas = SLOAD_STATIC;
+
+    let dynamic_cost = if storage_slot_was_cold {
+        SLOAD_COLD_DYNAMIC
     } else {
-        // If slot is cold (not cached) add 2100 to base_dynamic_gas
-        COLD_STORAGE_ACCESS_COST
-    }
+        SLOAD_WARM_DYNAMIC
+    };
+
+    Ok(static_gas
+        .checked_add(dynamic_cost)
+        .ok_or(OutOfGasError::GasCostOverflow)?)
 }
 
 pub fn sstore(
