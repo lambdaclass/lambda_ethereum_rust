@@ -1,8 +1,8 @@
 use crate::types::{EFTest, EFTestAccessListItem, EFTests};
 use bytes::Bytes;
-use ethrex_core::{H256, U256};
+use ethrex_core::{Address, H256, U256};
 use serde::Deserialize;
-use std::{collections::HashMap, intrinsics::atomic_singlethreadfence_release, str::FromStr};
+use std::{collections::HashMap, str::FromStr};
 
 use crate::types::{EFTestRawTransaction, EFTestTransaction};
 
@@ -94,26 +94,43 @@ pub fn deserialize_access_lists<'de, D>(
 where
     D: serde::Deserializer<'de>,
 {
-    let access_lists_strings: Option<Vec<Vec<(String, Vec<String>)>>> =
-        Option::<Vec<Vec<(String, Vec<String>)>>>::deserialize(deserializer)?;
+    // Deserialize as an optional vector, defaulting to an empty vector if `null` or missing
+    let access_lists: Option<Vec<Option<Vec<EFTestAccessListItem>>>> =
+        Option::<Vec<Option<Vec<EFTestAccessListItem>>>>::deserialize(deserializer)
+            .unwrap_or_default();
 
-    match access_lists_strings {
-        Some(s) => {
-            for access_list_string in access_lists_strings {
-                let mut access_list: Vec<EFTestAccessListItem> = Vec::new();
-                for access_list_element in access_list_string {
-                    let address = access_list_element[0].0;
+    println!("access_lists: {:?}", access_lists);
 
-                }
-            }
-        }
-        None => {
-            return Ok(None);
-        }
+    let mut final_access_lists: Vec<Vec<EFTestAccessListItem>> = Vec::new();
+
+    // // Process each access list (handling nested `null` values)
+    // if let Some(access_lists) = access_lists {
+    //     for access_list in access_lists {
+    //         // Treat `null` as an empty vector
+    //         let access_list = access_list.unwrap_or_default();
+
+    //         let mut final_access_list: Vec<EFTestAccessListItem> = Vec::new();
+    //         for access_list_element in access_list {
+    //             let final_element = parse_access_list_item(access_list_element);
+    //             final_access_list.push(final_element);
+    //         }
+    //         final_access_lists.push(final_access_list);
+    //     }
+    // }
+
+    Ok(Some(final_access_lists))
+}
+
+pub fn parse_access_list_item(access_list_element: (String, Vec<String>)) -> EFTestAccessListItem {
+    let address = Address::from_str(access_list_element.0.trim_start_matches("0x")).unwrap();
+    let mut storage_keys = Vec::new();
+    for storage_key in access_list_element.1 {
+        storage_keys.push(H256::from_str(storage_key.trim_start_matches("0x")).unwrap());
     }
-
-    let aux: Option<Vec<Vec<EFTestAccessListItem>>> = None;
-    Ok(aux)
+    EFTestAccessListItem {
+        address,
+        storage_keys,
+    }
 }
 
 pub fn deserialize_u256_optional_safe<'de, D>(deserializer: D) -> Result<Option<U256>, D::Error>
@@ -222,6 +239,14 @@ impl<'de> Deserialize<'de> for EFTests {
                             max_fee_per_blob_gas: raw_tx.max_fee_per_blob_gas,
                             max_priority_fee_per_gas: raw_tx.max_priority_fee_per_gas,
                             max_fee_per_gas: raw_tx.max_fee_per_gas,
+                            access_list: Vec::default(),
+                            // access_list: raw_tx
+                            //     .access_lists
+                            //     .clone()
+                            //     .unwrap_or_default()
+                            //     .get(data_id)
+                            //     .cloned()
+                            //     .unwrap_or_default(),
                         };
                         transactions.insert((data_id, gas_limit_id, value_id), tx);
                     }

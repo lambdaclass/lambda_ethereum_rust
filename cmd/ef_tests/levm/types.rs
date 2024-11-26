@@ -13,8 +13,9 @@ use ethrex_core::{
     Address, H256, U256,
 };
 use ethrex_vm::SpecId;
+use revm::primitives::AccessListItem;
 use serde::Deserialize;
-use std::collections::HashMap;
+use std::{collections::HashMap, ops::Add};
 
 #[derive(Debug)]
 pub struct EFTests(pub Vec<EFTest>);
@@ -231,7 +232,8 @@ impl From<&EFTestPreValue> for GenesisAccount {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct EFTestAccessListItem {
     pub address: Address,
     pub storage_keys: Vec<H256>,
@@ -281,4 +283,5 @@ pub struct EFTestTransaction {
     pub max_priority_fee_per_gas: Option<U256>,
     pub max_fee_per_blob_gas: Option<U256>,
     pub blob_versioned_hashes: Vec<H256>,
+    pub access_list: Vec<EFTestAccessListItem>,
 }

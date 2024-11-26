@@ -8,24 +8,20 @@ use crate::{
     utils::load_initial_state,
 };
 use bytes::Bytes;
-use ethrex_core::{types::TxKind, Address, H256, U256};
+use ethrex_core::{types::TxKind, Address, U256};
 use ethrex_levm::errors::{TransactionReport, TxResult};
 use ethrex_storage::{error::StoreError, AccountUpdate};
 use ethrex_vm::{db::StoreWrapper, EvmState, RevmAddress, RevmU256, SpecId};
 use revm::{
     db::State,
     inspectors::TracerEip3155 as RevmTracerEip3155,
-    interpreter::{gas::ZERO, instructions::host_env::basefee},
     primitives::{
         BlobExcessGasAndPrice, BlockEnv as RevmBlockEnv, EVMError as REVMError,
         ExecutionResult as RevmExecutionResult, TxEnv as RevmTxEnv, TxKind as RevmTxKind, B256,
     },
     Evm as Revm,
 };
-use std::{
-    collections::{HashMap, HashSet},
-    thread::current,
-};
+use std::collections::{HashMap, HashSet};
 
 pub fn re_run_failed_ef_test(
     test: &EFTest,
@@ -132,6 +128,8 @@ pub fn prepare_revm_for_tx<'state>(
             "Vector {vector:?} not found in test {}",
             test.name
         )))?;
+
+    // println!("Transaction access list: {:?}", tx.access_list);
 
     let tx_env = RevmTxEnv {
         caller: tx.sender.0.into(),
