@@ -88,6 +88,10 @@ pub const EXTCODECOPY_DYNAMIC_BASE: U256 = U256([3, 0, 0, 0]);
 pub const SELFDESTRUCT_STATIC: U256 = U256([5000, 0, 0, 0]);
 pub const SELFDESTRUCT_DYNAMIC: U256 = U256([25000, 0, 0, 0]);
 
+pub const BALANCE_STATIC: U256 = U256::zero();
+pub const BALANCE_WARM_DYNAMIC: U256 = U256([100, 0, 0, 0]);
+pub const BALANCE_COLD_DYNAMIC: U256 = U256([2600, 0, 0, 0]);
+
 // Costs in gas for call opcodes (in wei)
 pub const WARM_ADDRESS_ACCESS_COST: U256 = U256([100, 0, 0, 0]);
 pub const COLD_ADDRESS_ACCESS_COST: U256 = U256([2600, 0, 0, 0]);
@@ -617,4 +621,31 @@ pub fn tx_creation(code_length: u64, number_of_words: u64) -> Result<u64, OutOfG
     creation_cost
         .checked_add(words_cost)
         .ok_or(OutOfGasError::GasUsedOverflow)
+}
+
+fn address_access_cost(
+    address_is_cold: bool,
+    static_cost: U256,
+    cold_dynamic_cost: U256,
+    warm_dynamic_cost: U256,
+) -> Result<U256, OutOfGasError> {
+    let static_gas = static_cost;
+    let dynamic_cost: U256 = if address_is_cold {
+        cold_dynamic_cost
+    } else {
+        warm_dynamic_cost
+    };
+
+    static_gas
+        .checked_add(dynamic_cost)
+        .ok_or(OutOfGasError::GasCostOverflow)
+}
+
+pub fn balance(address_is_cold: bool) -> Result<U256, OutOfGasError> {
+    address_access_cost(
+        address_is_cold,
+        BALANCE_STATIC,
+        BALANCE_COLD_DYNAMIC,
+        BALANCE_WARM_DYNAMIC,
+    )
 }

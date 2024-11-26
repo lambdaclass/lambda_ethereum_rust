@@ -31,18 +31,14 @@ impl VM {
         &mut self,
         current_call_frame: &mut CallFrame,
     ) -> Result<OpcodeSuccess, VMError> {
-        let address = &word_to_address(current_call_frame.stack.pop()?);
+        let address = word_to_address(current_call_frame.stack.pop()?);
 
-        if self.cache.is_account_cached(address) {
-            self.increase_consumed_gas(current_call_frame, WARM_ADDRESS_ACCESS_COST)?;
-        } else {
-            self.increase_consumed_gas(current_call_frame, BALANCE_COLD_ADDRESS_ACCESS_COST)?;
-            self.cache_from_db(address);
-        };
+        let (account_info, address_is_cold) = self.access_account(address);
 
-        let balance = self.get_account(address).info.balance;
+        self.increase_consumed_gas(current_call_frame, gas_cost::balance(address_is_cold)?)?;
 
-        current_call_frame.stack.push(balance)?;
+        current_call_frame.stack.push(account_info.balance)?;
+
         Ok(OpcodeSuccess::Continue)
     }
 
