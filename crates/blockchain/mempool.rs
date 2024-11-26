@@ -313,7 +313,7 @@ mod tests {
 
     use super::{transaction_intrinsic_gas, validate_transaction};
     use ethrex_core::types::{
-        BlockHeader, ChainConfig, EIP1559Transaction, EIP4844Transaction, Signable, Transaction,
+        BlockHeader, ChainConfig, EIP1559Transaction, EIP4844Transaction, Transaction,
         TxKind,
     };
     use ethrex_core::{Address, Bytes, H256, U256};
