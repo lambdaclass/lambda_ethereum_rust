@@ -1,7 +1,4 @@
-use crate::{
-    constants::EMPTY_CODE_HASH,
-    errors::{InternalError, VMError},
-};
+use crate::constants::EMPTY_CODE_HASH;
 use bytes::Bytes;
 use ethrex_core::{H256, U256};
 use keccak_hash::keccak;
@@ -88,15 +85,5 @@ impl Account {
     pub fn with_nonce(mut self, nonce: u64) -> Self {
         self.info.nonce = nonce;
         self
-    }
-
-    // TODO: Replace nonce increments with this or cache's analog (currently does not have senders)
-    pub fn increment_nonce(&mut self) -> Result<(), VMError> {
-        self.info.nonce = self
-            .info
-            .nonce
-            .checked_add(1)
-            .ok_or(VMError::Internal(InternalError::NonceOverflowed))?;
-        Ok(())
     }
 }

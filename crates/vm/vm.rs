@@ -80,7 +80,7 @@ impl From<ExecutionDB> for EvmState {
 cfg_if::cfg_if! {
     if #[cfg(feature = "levm")] {
         use ethrex_levm::{
-            db::{Cache, Database as LevmDatabase},
+            db::{CacheDB, Database as LevmDatabase},
             errors::{TransactionReport, TxResult, VMError},
             vm::VM,
             Environment,
@@ -187,7 +187,7 @@ cfg_if::cfg_if! {
                 tx.value(),
                 tx.data().clone(),
                 db,
-                Cache::default(),
+                CacheDB::default(),
             )?;
 
             vm.transact()
