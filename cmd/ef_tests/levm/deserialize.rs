@@ -1,8 +1,8 @@
-use crate::types::{EFTest, EFTests};
+use crate::types::{EFTest, EFTestAccessListItem, EFTests};
 use bytes::Bytes;
 use ethrex_core::{H256, U256};
 use serde::Deserialize;
-use std::{collections::HashMap, str::FromStr};
+use std::{collections::HashMap, intrinsics::atomic_singlethreadfence_release, str::FromStr};
 
 use crate::types::{EFTestRawTransaction, EFTestTransaction};
 
@@ -86,6 +86,34 @@ where
         }
         None => Ok(None),
     }
+}
+
+pub fn deserialize_access_lists<'de, D>(
+    deserializer: D,
+) -> Result<Option<Vec<Vec<EFTestAccessListItem>>>, D::Error>
+where
+    D: serde::Deserializer<'de>,
+{
+    let access_lists_strings: Option<Vec<Vec<(String, Vec<String>)>>> =
+        Option::<Vec<Vec<(String, Vec<String>)>>>::deserialize(deserializer)?;
+
+    match access_lists_strings {
+        Some(s) => {
+            for access_list_string in access_lists_strings {
+                let mut access_list: Vec<EFTestAccessListItem> = Vec::new();
+                for access_list_element in access_list_string {
+                    let address = access_list_element[0].0;
+
+                }
+            }
+        }
+        None => {
+            return Ok(None);
+        }
+    }
+
+    let aux: Option<Vec<Vec<EFTestAccessListItem>>> = None;
+    Ok(aux)
 }
 
 pub fn deserialize_u256_optional_safe<'de, D>(deserializer: D) -> Result<Option<U256>, D::Error>

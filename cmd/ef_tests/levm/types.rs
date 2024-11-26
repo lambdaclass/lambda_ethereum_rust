@@ -1,8 +1,9 @@
 use crate::{
     deserialize::{
-        deserialize_ef_post_value_indexes, deserialize_h256_vec_optional_safe,
-        deserialize_hex_bytes, deserialize_hex_bytes_vec, deserialize_u256_optional_safe,
-        deserialize_u256_safe, deserialize_u256_valued_hashmap_safe, deserialize_u256_vec_safe,
+        deserialize_access_lists, deserialize_ef_post_value_indexes,
+        deserialize_h256_vec_optional_safe, deserialize_hex_bytes, deserialize_hex_bytes_vec,
+        deserialize_u256_optional_safe, deserialize_u256_safe,
+        deserialize_u256_valued_hashmap_safe, deserialize_u256_vec_safe,
     },
     report::TestVector,
 };
@@ -230,6 +231,12 @@ impl From<&EFTestPreValue> for GenesisAccount {
     }
 }
 
+#[derive(Debug)]
+pub struct EFTestAccessListItem {
+    pub address: Address,
+    pub storage_keys: Vec<H256>,
+}
+
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct EFTestRawTransaction {
@@ -254,6 +261,8 @@ pub struct EFTestRawTransaction {
     pub max_fee_per_blob_gas: Option<U256>,
     #[serde(default, deserialize_with = "deserialize_h256_vec_optional_safe")]
     pub blob_versioned_hashes: Option<Vec<H256>>,
+    #[serde(default, deserialize_with = "deserialize_access_lists")]
+    pub access_lists: Option<Vec<Vec<EFTestAccessListItem>>>,
 }
 
 #[derive(Debug, Deserialize)]

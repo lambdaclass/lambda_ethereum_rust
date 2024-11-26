@@ -92,7 +92,7 @@ pub fn re_run_failed_ef_test_tx(
 }
 
 // If gas price is not provided, calculate it with current base fee and priority fee
-pub fn gas_price(test: &EFTest, tx: &&EFTestTransaction) -> U256 {
+pub fn effective_gas_price(test: &EFTest, tx: &&EFTestTransaction) -> U256 {
     match tx.gas_price {
         None => {
             let current_base_fee = test.env.current_base_fee.unwrap_or_default();
@@ -136,7 +136,7 @@ pub fn prepare_revm_for_tx<'state>(
     let tx_env = RevmTxEnv {
         caller: tx.sender.0.into(),
         gas_limit: tx.gas_limit.as_u64(),
-        gas_price: RevmU256::from_limbs(gas_price(test, tx).0),
+        gas_price: RevmU256::from_limbs(effective_gas_price(test, tx).0),
         transact_to: match tx.to {
             TxKind::Call(to) => RevmTxKind::Call(to.0.into()),
             TxKind::Create => RevmTxKind::Create,
@@ -160,8 +160,8 @@ pub fn prepare_revm_for_tx<'state>(
         authorization_list: None,
     };
 
-    dbg!(&block_env);
-    dbg!(&tx_env);
+    // dbg!(&block_env);
+    // dbg!(&tx_env);
 
     let evm_builder = Revm::builder()
         .with_block_env(block_env)
