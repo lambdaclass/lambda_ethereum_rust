@@ -4,7 +4,7 @@ use crate::{
         levm_runner::{self, post_state_root},
         EFTestRunnerError, InternalError,
     },
-    types::EFTest,
+    types::{EFTest, EFTestTransaction},
     utils::load_initial_state,
 };
 use bytes::Bytes;
@@ -15,13 +15,17 @@ use ethrex_vm::{db::StoreWrapper, EvmState, RevmAddress, RevmU256, SpecId};
 use revm::{
     db::State,
     inspectors::TracerEip3155 as RevmTracerEip3155,
+    interpreter::{gas::ZERO, instructions::host_env::basefee},
     primitives::{
         BlobExcessGasAndPrice, BlockEnv as RevmBlockEnv, EVMError as REVMError,
         ExecutionResult as RevmExecutionResult, TxEnv as RevmTxEnv, TxKind as RevmTxKind, B256,
     },
     Evm as Revm,
 };
-use std::collections::{HashMap, HashSet};
+use std::{
+    collections::{HashMap, HashSet},
+    thread::current,
+};
 
 pub fn re_run_failed_ef_test(
     test: &EFTest,
@@ -87,6 +91,19 @@ pub fn re_run_failed_ef_test_tx(
     Ok(())
 }
 
+// If gas price is not provided, calculate it with current base fee and priority fee
+pub fn gas_price(test: &EFTest, tx: &&EFTestTransaction) -> U256 {
+    match tx.gas_price {
+        None => {
+            let current_base_fee = test.env.current_base_fee.unwrap_or_default();
+            let priority_fee = tx.max_priority_fee_per_gas.unwrap_or_default();
+            let max_fee_per_gas = tx.max_fee_per_gas.unwrap_or_default();
+            std::cmp::min(max_fee_per_gas, current_base_fee + priority_fee)
+        }
+        Some(price) => price,
+    }
+}
+
 pub fn prepare_revm_for_tx<'state>(
     initial_state: &'state mut EvmState,
     vector: &TestVector,
@@ -115,10 +132,11 @@ pub fn prepare_revm_for_tx<'state>(
             "Vector {vector:?} not found in test {}",
             test.name
         )))?;
+
     let tx_env = RevmTxEnv {
         caller: tx.sender.0.into(),
         gas_limit: tx.gas_limit.as_u64(),
-        gas_price: RevmU256::from_limbs(tx.gas_price.unwrap_or_default().0),
+        gas_price: RevmU256::from_limbs(gas_price(test, tx).0),
         transact_to: match tx.to {
             TxKind::Call(to) => RevmTxKind::Call(to.0.into()),
             TxKind::Create => RevmTxKind::Create,
@@ -142,8 +160,8 @@ pub fn prepare_revm_for_tx<'state>(
         authorization_list: None,
     };
 
-    // dbg!(&block_env);
-    // dbg!(&tx_env);
+    dbg!(&block_env);
+    dbg!(&tx_env);
 
     let evm_builder = Revm::builder()
         .with_block_env(block_env)
