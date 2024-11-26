@@ -723,3 +723,28 @@ pub fn callcode(
         .checked_add(dynamic_gas)
         .ok_or(OutOfGasError::GasCostOverflow)?)
 }
+
+pub fn delegatecall(
+    new_memory_size: U256,
+    current_memory_size: U256,
+    address_is_cold: bool,
+) -> Result<U256, VMError> {
+    let static_gas = DELEGATECALL_STATIC;
+
+    let memory_expansion_cost = memory::expansion_cost(new_memory_size, current_memory_size)?;
+    let address_access_cost = address_access_cost(
+        address_is_cold,
+        DELEGATECALL_STATIC,
+        DELEGATECALL_COLD_DYNAMIC,
+        DELEGATECALL_WARM_DYNAMIC,
+    )?;
+
+    // Note: code_execution_cost will be charged from the sub context post-state.
+    let dynamic_gas = memory_expansion_cost
+        .checked_add(address_access_cost)
+        .ok_or(OutOfGasError::GasCostOverflow)?;
+
+    Ok(static_gas
+        .checked_add(dynamic_gas)
+        .ok_or(OutOfGasError::GasCostOverflow)?)
+}
