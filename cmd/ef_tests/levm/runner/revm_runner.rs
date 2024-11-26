@@ -126,11 +126,11 @@ pub fn prepare_revm_for_tx<'state>(
         value: RevmU256::from_limbs(tx.value.0),
         data: tx.data.to_vec().into(),
         nonce: Some(tx.nonce.as_u64()),
-        chain_id: None,
-        access_list: Vec::default(),
-        gas_priority_fee: None,
-        blob_hashes: Vec::default(),
-        max_fee_per_blob_gas: None,
+        chain_id: Some(chain_spec.chain_id), //TODO: See what to do with this... ChainId test fails IDK why.
+        access_list: Vec::default(),         //TODO: Set access list
+        gas_priority_fee: None,              //TODO: Set gas priority fee
+        blob_hashes: Vec::default(),         //TODO: Set blob hashes
+        max_fee_per_blob_gas: None,          //TODO: Set max fee per blob gas
         authorization_list: None,
     };
 

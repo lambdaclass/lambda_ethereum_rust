@@ -72,6 +72,8 @@ pub enum VMError {
     // Internal
     #[error("Internal error: {0}")]
     Internal(#[from] InternalError),
+    #[error("Testing: {0}")]
+    TestingOnly(String),
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash, thiserror::Error, Serialize, Deserialize)]
