@@ -47,6 +47,8 @@ jobs:
         with:
           name: ethrex_image
           path: /tmp
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          run-id: ${{ github.event.workflow_run.id }}
 
       - name: Load image
         run: |
