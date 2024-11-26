@@ -712,7 +712,6 @@ impl EthClient {
                         return Ok(tx);
                     }
                     Err(e) => {
-                        warn!("ERROR ESTIMATING GAS");
                         let error = format!("{e}");
                         if error.contains("replacement transaction underpriced") {
                             warn!("Bumping gas while building: already known");
@@ -799,7 +798,6 @@ impl EthClient {
                         return Ok(wrapped_eip4844);
                     }
                     Err(e) => {
-                        warn!("ERROR ESTIMATING GAS");
                         let error = format!("{e}");
                         if error.contains("already known") {
                             warn!("Bumping gas while building: already known");
@@ -882,7 +880,6 @@ impl EthClient {
                         return Ok(tx);
                     }
                     Err(e) => {
-                        warn!("ERROR ESTIMATING GAS");
                         let error = format!("{e}");
                         if error.contains("already known") {
                             warn!("Bumping gas while building: already known");
