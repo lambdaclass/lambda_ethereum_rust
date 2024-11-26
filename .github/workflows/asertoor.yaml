@@ -40,7 +40,7 @@ jobs:
       - name: Run assertoor (tx)
         uses: ethpandaops/kurtosis-assertoor-github-action@v1
         with:
-          enclave_name: "ethrex_assertoor_tx"
+          enclave_name: "ethrex-assertoor-tx"
           kurtosis_version: "1.4.2"
           ethereum_package_url: "github.com/lambdaclass/ethereum-package"
           ethereum_package_branch: "ethrex-integration"
@@ -66,7 +66,7 @@ jobs:
       - name: Run assertoor (blob)
         uses: ethpandaops/kurtosis-assertoor-github-action@v1
         with:
-          enclave_name: "ethrex_assertoor_blob"
+          enclave_name: "ethrex-assertoor-blob"
           kurtosis_version: "1.4.2"
           ethereum_package_url: "github.com/lambdaclass/ethereum-package"
           ethereum_package_branch: "ethrex-integration"

@@ -18,4 +18,4 @@ assertoor_params:
   run_block_proposal_check: false
   tests:
     - https://raw.githubusercontent.com/lambdaclass/ethrex/refs/heads/assertoor-allaround-tx-check/test_data/assertoor/el-stability-check.yml
-    - https://raw.githubusercontent.com/ethpandaops/assertoor-test/refs/heads/master/assertoor-tests/eoa-transactions-test.yaml
+    - https://raw.githubusercontent.com/ethpandaops/assertoor/refs/heads/master/playbooks/stable/eoa-transactions-test.yaml
