@@ -1,11 +1,11 @@
 use crate::{
     call_frame::CallFrame,
-    constants::SUCCESS_FOR_RETURN,
+    constants::{SUCCESS_FOR_RETURN, WORD_SIZE_IN_BYTES_USIZE},
     errors::{InternalError, OpcodeSuccess, ResultReason, VMError},
     gas_cost,
     vm::{word_to_address, VM},
 };
-use ethrex_core::{types::TxKind, U256};
+use ethrex_core::{types::TxKind, Address, U256};
 
 // System Operations (10)
 // Opcodes: CREATE, CALL, CALLCODE, RETURN, DELEGATECALL, CREATE2, STATICCALL, REVERT, INVALID, SELFDESTRUCT
@@ -16,10 +16,15 @@ impl VM {
         &mut self,
         current_call_frame: &mut CallFrame,
     ) -> Result<OpcodeSuccess, VMError> {
-        let gas = current_call_frame.stack.pop()?;
-        let code_address = word_to_address(current_call_frame.stack.pop()?);
-        let value = current_call_frame.stack.pop()?;
-        let args_offset: usize = current_call_frame
+        let gas_for_call = current_call_frame.stack.pop()?;
+        let callee: Address = word_to_address(current_call_frame.stack.pop()?);
+        let value_to_transfer: U256 = current_call_frame.stack.pop()?;
+
+        if current_call_frame.is_static && !value_to_transfer.is_zero() {
+            return Err(VMError::OpcodeNotAllowedInStaticContext);
+        }
+
+        let args_start_offset: usize = current_call_frame
             .stack
             .pop()?
             .try_into()
@@ -29,60 +34,58 @@ impl VM {
             .pop()?
             .try_into()
             .map_err(|_| VMError::VeryLargeNumber)?;
-        let ret_offset: usize = current_call_frame
+        let return_data_start_offset: usize = current_call_frame
             .stack
             .pop()?
             .try_into()
             .map_err(|_| VMError::VeryLargeNumber)?;
-        let ret_size: usize = current_call_frame
+        let return_data_size: usize = current_call_frame
             .stack
             .pop()?
             .try_into()
             .map_err(|_| VMError::VeryLargeNumber)?;
 
-        if current_call_frame.is_static && !value.is_zero() {
-            return Err(VMError::OpcodeNotAllowedInStaticContext);
-        }
+        let new_memory_size_for_args = (args_start_offset
+            .checked_add(args_size)
+            .ok_or(InternalError::ArithmeticOperationOverflow)?)
+        .next_multiple_of(WORD_SIZE_IN_BYTES_USIZE);
+        let new_memory_size_for_return_data = (return_data_start_offset
+            .checked_add(return_data_size)
+            .ok_or(InternalError::ArithmeticOperationOverflow)?)
+        .next_multiple_of(WORD_SIZE_IN_BYTES_USIZE);
+        let new_memory_size = new_memory_size_for_args.max(new_memory_size_for_return_data);
+        let current_memory_size = current_call_frame.memory.data.len();
 
-        let is_cached = self.cache.is_account_cached(&code_address);
+        let (account_info, address_is_cold) = self.access_account(callee);
 
-        if !is_cached {
-            self.cache_from_db(&code_address);
-        }
-
-        let account_is_empty = self.get_account(&code_address).clone().is_empty();
-
-        let gas_cost = gas_cost::call(
+        self.increase_consumed_gas(
             current_call_frame,
-            args_size,
-            args_offset,
-            ret_size,
-            ret_offset,
-            value,
-            is_cached,
-            account_is_empty,
-        )
-        .map_err(VMError::OutOfGas)?;
-
-        self.increase_consumed_gas(current_call_frame, gas_cost)?;
+            gas_cost::call(
+                new_memory_size.into(),
+                current_memory_size.into(),
+                address_is_cold,
+                account_info.is_empty(),
+                value_to_transfer,
+            )?,
+        )?;
 
         let msg_sender = current_call_frame.to; // The new sender will be the current contract.
-        let to = code_address; // In this case code_address and the sub-context account are the same. Unlike CALLCODE or DELEGATECODE.
+        let to = callee; // In this case code_address and the sub-context account are the same. Unlike CALLCODE or DELEGATECODE.
         let is_static = current_call_frame.is_static;
 
         self.generic_call(
             current_call_frame,
-            gas,
-            value,
+            gas_for_call,
+            value_to_transfer,
             msg_sender,
             to,
-            code_address,
+            callee,
             false,
             is_static,
-            args_offset,
+            args_start_offset,
             args_size,
-            ret_offset,
-            ret_size,
+            return_data_start_offset,
+            return_data_size,
         )
     }
 
@@ -120,7 +123,7 @@ impl VM {
         let is_cached = self.cache.is_account_cached(&code_address);
 
         if !is_cached {
-            self.cache_from_db(&code_address);
+            self.cache_from_db(code_address);
         };
 
         let gas_cost = gas_cost::callcode(

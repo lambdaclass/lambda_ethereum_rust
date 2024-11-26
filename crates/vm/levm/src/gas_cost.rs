@@ -108,6 +108,13 @@ pub const EXTCODECOPY_DYNAMIC_BASE: U256 = U256([3, 0, 0, 0]);
 pub const EXTCODECOPY_COLD_DYNAMIC: U256 = DEFAULT_COLD_DYNAMIC;
 pub const EXTCODECOPY_WARM_DYNAMIC: U256 = DEFAULT_WARM_DYNAMIC;
 
+pub const CALL_STATIC: U256 = DEFAULT_STATIC;
+pub const CALL_COLD_DYNAMIC: U256 = DEFAULT_COLD_DYNAMIC;
+pub const CALL_WARM_DYNAMIC: U256 = DEFAULT_WARM_DYNAMIC;
+pub const CALL_POSITIVE_VALUE: U256 = U256([9000, 0, 0, 0]);
+pub const CALL_POSITIVE_VALUE_STIPEND: U256 = U256([2300, 0, 0, 0]);
+pub const CALL_TO_EMPTY_ACCOUNT: U256 = U256([25000, 0, 0, 0]);
+
 // Costs in gas for call opcodes (in wei)
 pub const WARM_ADDRESS_ACCESS_COST: U256 = U256([100, 0, 0, 0]);
 pub const COLD_ADDRESS_ACCESS_COST: U256 = U256([2600, 0, 0, 0]);
@@ -343,56 +350,6 @@ pub fn mcopy(
         .checked_add(copied_words_cost)
         .ok_or(OutOfGasError::GasCostOverflow)?
         .checked_add(memory_expansion_cost)
-        .ok_or(OutOfGasError::GasCostOverflow)
-}
-
-#[allow(clippy::too_many_arguments)]
-pub fn call(
-    current_call_frame: &CallFrame,
-    args_size: usize,
-    args_offset: usize,
-    ret_size: usize,
-    ret_offset: usize,
-    value: U256,
-    is_cached: bool,
-    account_is_empty: bool,
-) -> Result<U256, OutOfGasError> {
-    let memory_byte_size = args_size
-        .checked_add(args_offset)
-        .ok_or(OutOfGasError::GasCostOverflow)?
-        .max(
-            ret_size
-                .checked_add(ret_offset)
-                .ok_or(OutOfGasError::GasCostOverflow)?,
-        );
-    let memory_expansion_cost = current_call_frame.memory.expansion_cost(memory_byte_size)?;
-
-    let positive_value_cost = if !value.is_zero() {
-        NON_ZERO_VALUE_COST
-            .checked_add(BASIC_FALLBACK_FUNCTION_STIPEND)
-            .ok_or(OutOfGasError::GasCostOverflow)?
-    } else {
-        U256::zero()
-    };
-
-    let address_access_cost = if !is_cached {
-        COLD_ADDRESS_ACCESS_COST
-    } else {
-        WARM_ADDRESS_ACCESS_COST
-    };
-
-    let value_to_empty_account_cost = if !value.is_zero() && account_is_empty {
-        VALUE_TO_EMPTY_ACCOUNT_COST
-    } else {
-        U256::zero()
-    };
-
-    memory_expansion_cost
-        .checked_add(address_access_cost)
-        .ok_or(OutOfGasError::GasCostOverflow)?
-        .checked_add(positive_value_cost)
-        .ok_or(OutOfGasError::GasCostOverflow)?
-        .checked_add(value_to_empty_account_cost)
         .ok_or(OutOfGasError::GasCostOverflow)
 }
 
@@ -710,4 +667,47 @@ pub fn extcodehash(address_is_cold: bool) -> Result<U256, VMError> {
         EXTCODEHASH_COLD_DYNAMIC,
         EXTCODEHASH_WARM_DYNAMIC,
     )
+}
+
+pub fn call(
+    new_memory_size: U256,
+    current_memory_size: U256,
+    address_is_cold: bool,
+    address_is_empty: bool,
+    value_to_transfer: U256,
+) -> Result<U256, VMError> {
+    let static_gas = CALL_STATIC;
+
+    let memory_expansion_cost = memory::expansion_cost(new_memory_size, current_memory_size)?;
+    let address_access_cost = address_access_cost(
+        address_is_cold,
+        CALL_STATIC,
+        CALL_COLD_DYNAMIC,
+        CALL_WARM_DYNAMIC,
+    )?;
+    let positive_value_cost = if !value_to_transfer.is_zero() {
+        CALL_POSITIVE_VALUE
+            .checked_add(CALL_POSITIVE_VALUE_STIPEND)
+            .ok_or(InternalError::ArithmeticOperationOverflow)?
+    } else {
+        U256::zero()
+    };
+    let value_to_empty_account = if address_is_empty && !value_to_transfer.is_zero() {
+        CALL_TO_EMPTY_ACCOUNT
+    } else {
+        U256::zero()
+    };
+
+    // Note: code_execution_cost will be charged from the sub context post-state.
+    let dynamic_gas = memory_expansion_cost
+        .checked_add(address_access_cost)
+        .ok_or(OutOfGasError::GasCostOverflow)?
+        .checked_add(positive_value_cost)
+        .ok_or(OutOfGasError::GasCostOverflow)?
+        .checked_add(value_to_empty_account)
+        .ok_or(OutOfGasError::GasCostOverflow)?;
+
+    Ok(static_gas
+        .checked_add(dynamic_gas)
+        .ok_or(OutOfGasError::GasCostOverflow)?)
 }
