@@ -40,8 +40,7 @@ use tokio::{
     io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt},
     sync::{
         broadcast::{self, error::RecvError},
-        mpsc,
-        Mutex,
+        mpsc, Mutex,
     },
     task,
     time::{sleep, Instant},
@@ -145,24 +144,29 @@ impl<S: AsyncWrite + AsyncRead + std::marker::Unpin> RLPxConnection<S> {
 
     /// Starts a handshake and runs the peer connection.
     /// It runs in it's own task and blocks until the connection is dropped
-    pub async fn start_peer(&mut self, table: Arc<Mutex<crate::kademlia::KademliaTable>>, backend_send: mpsc::Sender<Message>,) {
+    pub async fn start_peer(
+        &mut self,
+        table: Arc<Mutex<crate::kademlia::KademliaTable>>,
+        backend_send: mpsc::Sender<Message>,
+    ) {
         // Perform handshake
         if let Err(e) = self.handshake().await {
             self.peer_conn_failed("Handshake failed", e, table).await;
         } else {
             // Handshake OK: handle connection
             // Create channel to communicate directly to the peer
-        let (sender, backend_receive) =
-        tokio::sync::mpsc::channel::<Message>(MAX_MESSAGES_TO_BROADCAST);
-    let Ok(node_id) = self.get_remote_node_id() else {
-        return self.peer_conn_failed(
-            "Error during RLPx connection",
-            RLPxError::InvalidState(),
-            table,
-        )
-        .await;
-    };
-    table.lock().await.set_sender(node_id, sender);
+            let (sender, backend_receive) =
+                tokio::sync::mpsc::channel::<Message>(MAX_MESSAGES_TO_BROADCAST);
+            let Ok(node_id) = self.get_remote_node_id() else {
+                return self
+                    .peer_conn_failed(
+                        "Error during RLPx connection",
+                        RLPxError::InvalidState(),
+                        table,
+                    )
+                    .await;
+            };
+            table.lock().await.set_sender(node_id, sender);
             if let Err(e) = self.handle_peer_conn(backend_send, backend_receive).await {
                 self.peer_conn_failed("Error during RLPx connection", e, table)
                     .await;

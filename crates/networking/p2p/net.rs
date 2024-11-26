@@ -19,8 +19,8 @@ use k256::{
 pub use kademlia::KademliaTable;
 use kademlia::{bucket_number, MAX_NODES_PER_BUCKET};
 use rand::rngs::OsRng;
-pub use rlpx::message::Message as RLPxMessage;
 use rlpx::connection::RLPxConnection;
+pub use rlpx::message::Message as RLPxMessage;
 use tokio::{
     net::{TcpSocket, TcpStream, UdpSocket},
     sync::{broadcast, mpsc, Mutex},

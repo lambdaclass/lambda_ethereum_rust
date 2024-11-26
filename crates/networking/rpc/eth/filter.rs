@@ -274,8 +274,8 @@ mod tests {
         utils::{test_utils::example_p2p_node, RpcRequest},
     };
     use ethrex_core::types::Genesis;
-    use ethrex_storage::{EngineType, Store};
     use ethrex_net::sync::SyncManager;
+    use ethrex_storage::{EngineType, Store};
 
     use serde_json::{json, Value};
     use test_utils::TEST_GENESIS;

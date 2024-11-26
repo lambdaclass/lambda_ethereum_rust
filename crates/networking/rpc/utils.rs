@@ -247,7 +247,7 @@ pub mod test_utils {
     use std::{net::SocketAddr, str::FromStr};
 
     use ethrex_core::H512;
-    use ethrex_net::{types::Node, sync::SyncManager};
+    use ethrex_net::{sync::SyncManager, types::Node};
     use ethrex_storage::{EngineType, Store};
 
     use crate::start_api;

@@ -9,13 +9,13 @@ mod state;
 mod test_utils;
 mod trie_iter;
 mod verify_range;
-use std::collections::HashSet;
 use ethereum_types::H256;
 use ethrex_rlp::constants::RLP_NULL;
 use nibbles::Nibbles;
 use node::Node;
 use node_hash::NodeHash;
 use sha3::{Digest, Keccak256};
+use std::collections::HashSet;
 
 #[cfg(feature = "libmdbx")]
 pub use self::db::{libmdbx::LibmdbxTrieDB, libmdbx_dupsort::LibmdbxDupsortTrieDB};

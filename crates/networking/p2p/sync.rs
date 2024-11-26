@@ -45,7 +45,7 @@ impl SyncManager {
         }
     }
     // TODO: only uses snap sync, should also process full sync once implemented
-    pub async fn start_sync(&mut self, current_head: H256, sync_head: H256) {
+    pub async fn start_sync(&mut self, current_head: H256, sync_head: H256, store: Store) {
         const BYTES_PER_REQUEST: u64 = 500; // TODO: Adjust
         info!("Starting snap-sync from current head {current_head} to sync_head {sync_head}");
         // Request all block headers between the current head and the sync head
@@ -150,6 +150,7 @@ impl SyncManager {
             all_block_hashes.clone(),
             block_and_receipt_receiver,
             self.peers.clone(),
+            store.clone(),
         ));
         let fetch_snap_state_handle = tokio::spawn(fetch_snap_state(
             all_block_hashes.clone(),
@@ -157,8 +158,12 @@ impl SyncManager {
             self.peers.clone(),
         ));
         // Store headers
-        for (hash, header) in all_block_headers.into_iter().zip(all_block_hashes.into_iter()) {
-
+        for (header, hash) in all_block_headers
+            .into_iter()
+            .zip(all_block_hashes.into_iter())
+        {
+            // TODO: Handle error
+            store.add_block_header(hash, header).unwrap();
         }
         // TODO: Handle error
         let err = tokio::join!(fetch_blocks_and_receipts_handle, fetch_snap_state_handle);
@@ -230,6 +235,7 @@ async fn fetch_blocks_and_receipts(
     block_hashes: Vec<BlockHash>,
     mut reply_receiver: tokio::sync::mpsc::Receiver<Message>,
     peers: Arc<Mutex<KademliaTable>>,
+    store: Store,
 ) {
     // Snap state fetching will take much longer than this so we don't need to paralelize fetching blocks and receipts
     // Fetch Block Bodies
@@ -264,17 +270,23 @@ async fn fetch_blocks_and_receipts(
                     message.block_bodies.len()
                 );
                 // Track which bodies we have already fetched
-                block_bodies_request.block_hashes = block_bodies_request.block_hashes
-                    [block_bodies_request
-                        .block_hashes
-                        .len()
-                        .min(message.block_bodies.len())..]
-                    .to_vec();
+                let (fetched_hashes, remaining_hahses) = block_bodies_request
+                    .block_hashes
+                    .split_at(message.block_bodies.len());
                 // Store Block Bodies
+                for (hash, body) in fetched_hashes
+                    .into_iter()
+                    .zip(message.block_bodies.into_iter())
+                {
+                    // TODO: handle error
+                    store.add_block_body(hash.clone(), body).unwrap()
+                }
+
                 // Check if we need to ask for another batch
-                if block_bodies_request.block_hashes.is_empty() {
+                if remaining_hahses.is_empty() {
                     break;
                 }
+                block_bodies_request.block_hashes = remaining_hahses.to_vec();
             }
             // Bad peer response, lets try a different peer
             Ok(Some(_)) => info!("[Sync] Bad peer response"),

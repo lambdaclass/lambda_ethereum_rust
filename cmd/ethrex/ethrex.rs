@@ -1,13 +1,26 @@
 use bytes::Bytes;
 use directories::ProjectDirs;
 use ethrex_blockchain::{add_block, fork_choice::apply_fork_choice};
-use ethrex_core::{types::{Block, Genesis}, H256};
-use ethrex_net::{bootnode::BootNode, node_id_from_signing_key, peer_table, sync::SyncManager, types::Node};
-use ethrex_storage::{EngineType, Store};
+use ethrex_core::{
+    types::{Block, Genesis},
+    H256,
+};
+use ethrex_net::{
+    bootnode::BootNode, node_id_from_signing_key, peer_table, sync::SyncManager, types::Node,
+};
 use ethrex_rlp::decode::RLPDecode;
+use ethrex_storage::{EngineType, Store};
 use k256::ecdsa::SigningKey;
 use local_ip_address::local_ip;
-use std::{fs::{self, File}, future::IntoFuture, io, net::{Ipv4Addr, SocketAddr, ToSocketAddrs}, path::Path, str::FromStr as _, time::Duration};
+use std::{
+    fs::{self, File},
+    future::IntoFuture,
+    io,
+    net::{Ipv4Addr, SocketAddr, ToSocketAddrs},
+    path::Path,
+    str::FromStr as _,
+    time::Duration,
+};
 use tokio_util::task::TaskTracker;
 use tracing::{error, info, warn};
 use tracing_subscriber::{filter::Directive, EnvFilter, FmtSubscriber};
