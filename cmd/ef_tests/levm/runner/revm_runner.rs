@@ -103,12 +103,10 @@ pub fn prepare_revm_for_tx<'state>(
         basefee: RevmU256::from_limbs(test.env.current_base_fee.unwrap_or_default().0),
         difficulty: RevmU256::from_limbs(test.env.current_difficulty.0),
         prevrandao: test.env.current_random.map(|v| v.0.into()),
-        blob_excess_gas_and_price: Some(BlobExcessGasAndPrice::new(
-            test.env
-                .current_excess_blob_gas
-                .unwrap_or_default()
-                .as_u64(),
-        )),
+        blob_excess_gas_and_price: test
+            .env
+            .current_excess_blob_gas
+            .map(|gas| BlobExcessGasAndPrice::new(gas.as_u64())),
     };
     let tx = &test
         .transactions
