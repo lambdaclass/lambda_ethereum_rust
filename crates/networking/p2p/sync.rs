@@ -1,4 +1,4 @@
-use std::{sync::Arc, time::Duration};
+use std::{str::FromStr, sync::Arc, time::Duration};
 
 use ethrex_core::{
     types::{validate_block_header, BlockHash, BlockHeader, InvalidBlockHeaderError},
@@ -13,6 +13,7 @@ use crate::{
     rlpx::{
         eth::blocks::{BlockBodies, BlockHeaders, GetBlockBodies, GetBlockHeaders},
         message::Message,
+        snap::GetAccountRange,
     },
 };
 const REPLY_TIMEOUT: Duration = Duration::from_secs(30);
@@ -152,10 +153,15 @@ impl SyncManager {
             self.peers.clone(),
             store.clone(),
         ));
+        let state_roots = all_block_headers
+            .iter()
+            .map(|header| header.state_root)
+            .collect::<Vec<_>>();
         let fetch_snap_state_handle = tokio::spawn(fetch_snap_state(
-            all_block_hashes.clone(),
+            state_roots.clone(),
             snap_state_receiver,
             self.peers.clone(),
+            store.clone(),
         ));
         // Store headers
         for (header, hash) in all_block_headers
@@ -202,6 +208,7 @@ async fn receive_block_headers(
 fn validate_header_batch(headers: &[BlockHeader]) -> Result<(), InvalidBlockHeaderError> {
     // The first header is a header we have already validated (either current last block or last block in previous batch)
     for headers in headers.windows(2) {
+        // TODO: Validation commented to make this work with older blocks
         //validate_block_header(&headers[0], &headers[1])?;
     }
     Ok(())
@@ -295,14 +302,60 @@ async fn fetch_blocks_and_receipts(
             // Reply timeouted/peer shut down, lets try a different peer
             _ => info!("[Sync] Peer response timeout( Blocks & Receipts)"),
         }
+        // TODO: Fetch Receipts and store them
     }
 }
 
 async fn fetch_snap_state(
-    block_hashes: Vec<BlockHash>,
-    reply_receiver: tokio::sync::mpsc::Receiver<Message>,
+    state_roots: Vec<BlockHash>,
+    mut reply_receiver: tokio::sync::mpsc::Receiver<Message>,
     peers: Arc<Mutex<KademliaTable>>,
+    store: Store,
 ) {
+    for root_hash in state_roots {
+        // Fetch Account Ranges
+        let mut account_ranges_request = GetAccountRange {
+            id: 7,
+            root_hash,
+            starting_hash: H256::zero(),
+            limit_hash: H256::from_str(
+                "0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+            )
+            .unwrap(),
+            response_bytes: 500,
+        };
+        loop {
+            // TODO: Randomize id
+            account_ranges_request.id += 1;
+            info!("[Sync] Sending Block headers request ");
+            // Send a GetBlockBodies request to a peer
+            if peers
+                .lock()
+                .await
+                .send_message_to_peer(Message::GetAccountRange(account_ranges_request.clone()))
+                .await
+                .is_err()
+            {
+                info!("[Sync] No peers available, retrying in 10 sec");
+                // This is the unlikely case where we just started the node and don't have peers, wait a bit and try again
+                tokio::time::sleep(tokio::time::Duration::from_secs(10)).await;
+                continue;
+            };
+            // Wait for the peer to reply
+            match tokio::time::timeout(REPLY_TIMEOUT, reply_receiver.recv()).await {
+                Ok(Some(Message::AccountRange(message)))
+                    if message.id == account_ranges_request.id && !message.accounts.is_empty() =>
+                {
+                    info!("[SYNC] Received {} Accounts", message.accounts.len());
+                }
+
+                // Bad peer response, lets try a different peer
+                Ok(Some(_)) => info!("[Sync] Bad peer response"),
+                // Reply timeouted/peer shut down, lets try a different peer
+                _ => info!("[Sync] Peer response timeout( Snap Account Range)"),
+            }
+        }
+    }
 }
 
 async fn receive_block_bodies(
