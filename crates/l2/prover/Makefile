@@ -1,4 +1,6 @@
-.PHONY: perf_test_proving perf_gpu rsp-comparison build-rsp-comparison
+.PHONY: perf_test_proving perf_gpu rsp_comparison
+
+ROOT_DIRECTORY := ../../..
 
 RISC0_DEV_MODE?=1
 RUST_LOG?="info"
@@ -9,10 +11,34 @@ perf_test_proving:
 perf_gpu:
 	RUSTFLAGS="-C target-cpu=native" RISC0_DEV_MODE=0 RUST_LOG="debug" cargo test --release --test perf_zkvm --features "build_zkvm,gpu" -- --show-output
 
-# Benchmarks
-rsp_comparison: build-rsp-comparison
-	cd bench/target/release; \
-	hyperfine --runs 5 --warmup 3 './ethrexl2' './rsp'
+# L2 Prover comparison with rsp. Uses GPU by default.
 
-build_rsp_comparison:
-	CARGO_TARGET_DIR=bench/target cargo build --manifest-path bench/Cargo.toml --release
+ETHREX_L2_BIN := ./target/release/ethrex_l2
+RSP_BIN := ./target/release/rsp
+
+GENESIS_FILE := $(ROOT_DIRECTORY)/test_data/genesis-l2-old.json
+CHAIN_FILE := $(ROOT_DIRECTORY)/test_data/l2-loadtest.rlp
+RSP_CACHE := $(ROOT_DIRECTORY)/test_data/rsp
+
+rsp_comparison: $(ETHREX_L2_BIN) $(RSP_BIN)
+	@echo "rsp times (L1 Mainnet block, 24 MGas):"
+	@time $(RSP_BIN) --prove \
+		--chain-id 1 \
+		--block-number 21272632 \
+		--cache-dir $(RSP_CACHE) \
+		> /dev/null 2>&1
+	@echo ""
+	@echo "ethrex_l2 times (L2 block, 25 MGas):"
+	@RISC0_DEV_MODE=1 time $(ETHREX_L2_BIN) prove \
+		--genesis $(GENESIS_FILE) \
+		--chain $(CHAIN_FILE) \
+		--block-number 2 \
+		> /dev/null 2>&1
+
+$(ETHREX_L2_BIN):
+	CARGO_TARGET_DIR=target cargo build -r --manifest-path $(ROOT_DIRECTORY)/Cargo.toml --bin ethrex_l2 --features "build_zkvm,gpu"
+
+$(RSP_BIN):
+	git clone https://github.com/succinctlabs/rsp.git
+	cd rsp; \
+	CARGO_TARGET_DIR=../target cargo build -r --bin rsp --features cuda
