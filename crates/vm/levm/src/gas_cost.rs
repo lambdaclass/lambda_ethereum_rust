@@ -121,6 +121,10 @@ pub const CALLCODE_WARM_DYNAMIC: U256 = DEFAULT_WARM_DYNAMIC;
 pub const CALLCODE_POSITIVE_VALUE: U256 = U256([9000, 0, 0, 0]);
 pub const CALLCODE_POSITIVE_VALUE_STIPEND: U256 = U256([2300, 0, 0, 0]);
 
+pub const DELEGATECALL_STATIC: U256 = DEFAULT_STATIC;
+pub const DELEGATECALL_COLD_DYNAMIC: U256 = DEFAULT_COLD_DYNAMIC;
+pub const DELEGATECALL_WARM_DYNAMIC: U256 = DEFAULT_WARM_DYNAMIC;
+
 // Costs in gas for call opcodes (in wei)
 pub const WARM_ADDRESS_ACCESS_COST: U256 = U256([100, 0, 0, 0]);
 pub const COLD_ADDRESS_ACCESS_COST: U256 = U256([2600, 0, 0, 0]);
@@ -357,24 +361,6 @@ pub fn mcopy(
         .ok_or(OutOfGasError::GasCostOverflow)?
         .checked_add(memory_expansion_cost)
         .ok_or(OutOfGasError::GasCostOverflow)
-}
-
-pub fn delegatecall(
-    current_call_frame: &CallFrame,
-    args_size: usize,
-    args_offset: usize,
-    ret_size: usize,
-    ret_offset: usize,
-    is_cached: bool,
-) -> Result<U256, OutOfGasError> {
-    compute_gas_call(
-        current_call_frame,
-        args_size,
-        args_offset,
-        ret_size,
-        ret_offset,
-        is_cached,
-    )
 }
 
 pub fn staticcall(
