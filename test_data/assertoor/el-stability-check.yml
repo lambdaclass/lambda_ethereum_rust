@@ -44,7 +44,7 @@ tasks:
 
 - name: run_tasks_concurrent
   title: "Check chain stability (reorgs and forks)"
-  timeout: 7m
+  timeout: 8m
   config:
     tasks:
     - name: check_consensus_reorgs

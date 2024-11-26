@@ -4,8 +4,8 @@ on:
   pull_request:
     branches: ["**"]
     paths-ignore:
-      - 'README.md'
-      - 'LICENSE'
+      - "README.md"
+      - "LICENSE"
       - "**/README.md"
       - "**/docs/**"
 
@@ -40,10 +40,11 @@ jobs:
       - name: Run assertoor (tx)
         uses: ethpandaops/kurtosis-assertoor-github-action@v1
         with:
-          kurtosis_version: '1.4.2'
-          ethereum_package_url: 'github.com/lambdaclass/ethereum-package'
-          ethereum_package_branch: 'ethrex-integration'
-          ethereum_package_args: './test_data/assertoor/network_params_tx.yaml'
+          enclave_name: "ethrex_assertoor_tx"
+          kurtosis_version: "1.4.2"
+          ethereum_package_url: "github.com/lambdaclass/ethereum-package"
+          ethereum_package_branch: "ethrex-integration"
+          ethereum_package_args: "./test_data/assertoor/network_params_tx.yaml"
 
   run-assertoor-blob-check:
     name: Blobs Stability Check
@@ -65,9 +66,10 @@ jobs:
       - name: Run assertoor (blob)
         uses: ethpandaops/kurtosis-assertoor-github-action@v1
         with:
-          kurtosis_version: '1.4.2'
-          ethereum_package_url: 'github.com/lambdaclass/ethereum-package'
-          ethereum_package_branch: 'ethrex-integration'
-          ethereum_package_args: './test_data/assertoor/network_params_blob.yaml'
+          enclave_name: "ethrex_assertoor_blob"
+          kurtosis_version: "1.4.2"
+          ethereum_package_url: "github.com/lambdaclass/ethereum-package"
+          ethereum_package_branch: "ethrex-integration"
+          ethereum_package_args: "./test_data/assertoor/network_params_blob.yaml"
   
 
