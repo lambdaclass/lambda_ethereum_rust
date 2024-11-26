@@ -71,6 +71,7 @@ pub mod io {
 pub mod trie {
     use std::collections::HashMap;
 
+    use crate::trie;
     use ethrex_core::{types::AccountState, H160};
     use ethrex_rlp::{decode::RLPDecode, encode::RLPEncode, error::RLPDecodeError};
     use ethrex_storage::{hash_address, hash_key, AccountUpdate};
@@ -100,10 +101,17 @@ pub mod trie {
             } else {
                 // Add or update AccountState in the trie
                 // Fetch current state or create a new state to be inserted
-                let mut account_state = match state_trie.get(&hashed_address)? {
-                    Some(encoded_state) => AccountState::decode(&encoded_state)?,
-                    None => AccountState::default(),
+                let mut account_state = match state_trie.get(&hashed_address) {
+                    Ok(option) => match option {
+                        Some(encoded_state) => AccountState::decode(&encoded_state)?,
+                        None => AccountState::default(),
+                    },
+                    Err(e) => match e {
+                        TrieError::MalformedTrie => AccountState::default(),
+                        _ => return Err(trie::Error::TrieError(e)),
+                    },
                 };
+
                 if let Some(info) = &update.info {
                     account_state.nonce = info.nonce;
                     account_state.balance = info.balance;

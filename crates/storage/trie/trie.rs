@@ -77,10 +77,10 @@ impl Trie {
     /// Retrieve an RLP-encoded value from the trie given its RLP-encoded path.
     pub fn get(&self, path: &PathRLP) -> Result<Option<ValueRLP>, TrieError> {
         if let Some(root) = &self.root {
-            let root_node = self
-                .state
-                .get_node(root.clone())?
-                .expect("inconsistent internal tree structure");
+            let root_node = match self.state.get_node(root.clone())? {
+                Some(n) => n,
+                None => return Err(TrieError::MalformedTrie),
+            };
             root_node.get(&self.state, Nibbles::from_bytes(path))
         } else {
             Ok(None)
