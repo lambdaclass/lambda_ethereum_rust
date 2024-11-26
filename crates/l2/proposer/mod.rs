@@ -76,7 +76,9 @@ impl Proposer {
 
         ethrex_dev::block_producer::start_block_producer(
             self.engine_config.rpc_url.clone(),
-            std::fs::read(&self.engine_config.jwt_path).unwrap().into(),
+            std::fs::read(&self.engine_config.jwt_path)
+                .map_err(ProposerError::from)?
+                .into(),
             head_block_hash,
             10,
             self.block_production_interval,
