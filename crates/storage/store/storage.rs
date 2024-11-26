@@ -928,6 +928,7 @@ mod tests {
     use bytes::Bytes;
     use ethereum_types::{H256, U256};
     use ethrex_core::{
+        serde_utils::blob,
         types::{Transaction, TxType, BYTES_PER_BLOB},
         Bloom,
     };
