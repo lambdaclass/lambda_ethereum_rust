@@ -50,7 +50,7 @@ impl Command {
             Command::BlockNumber { l2, l1 } => {
                 if !l1 || l2 {
                     let block_number = rollup_client.get_block_number().await?;
-                    println
+                    println!(
                         "[L2] BlockNumber: {}",
                         format!("{block_number}").bright_cyan()
                     );
