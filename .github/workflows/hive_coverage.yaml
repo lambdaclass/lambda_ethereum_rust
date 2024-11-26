@@ -76,8 +76,8 @@ jobs:
       - name: Download all results
         uses: actions/download-artifact@v4
         with:
-          pattern: *-logs
           path: hive/workspace/logs
+          pattern: "*_logs"
           merge-multiple: true
 
       - name: Combine and process results and generate report
