@@ -26,3 +26,6 @@ build_zkvm = []
 
 [lib]
 path = "./src/lib.rs"
+
+[lints.clippy]
+unwrap_used = "deny"
