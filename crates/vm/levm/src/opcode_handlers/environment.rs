@@ -413,21 +413,13 @@ impl VM {
     ) -> Result<OpcodeSuccess, VMError> {
         let address = word_to_address(current_call_frame.stack.pop()?);
 
-        if self.cache.is_account_cached(&address) {
-            self.increase_consumed_gas(current_call_frame, WARM_ADDRESS_ACCESS_COST)?;
-        } else {
-            self.increase_consumed_gas(current_call_frame, BALANCE_COLD_ADDRESS_ACCESS_COST)?;
-            self.cache_from_db(&address);
-        };
+        let (account_info, address_is_cold) = self.access_account(address);
 
-        let bytecode = self.get_account(&address).info.bytecode;
+        self.increase_consumed_gas(current_call_frame, gas_cost::extcodehash(address_is_cold)?)?;
 
-        let mut hasher = Keccak256::new();
-        hasher.update(bytecode);
-        let result = hasher.finalize();
-        current_call_frame
-            .stack
-            .push(U256::from_big_endian(&result))?;
+        current_call_frame.stack.push(U256::from_big_endian(
+            keccak(account_info.bytecode).as_fixed_bytes(),
+        ))?;
 
         Ok(OpcodeSuccess::Continue)
     }

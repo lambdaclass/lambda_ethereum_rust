@@ -666,3 +666,12 @@ pub fn extcodesize(address_is_cold: bool) -> Result<U256, OutOfGasError> {
         EXTCODESIZE_WARM_DYNAMIC,
     )
 }
+
+pub fn extcodehash(address_is_cold: bool) -> Result<U256, OutOfGasError> {
+    address_access_cost(
+        address_is_cold,
+        EXTCODEHASH_STATIC,
+        EXTCODEHASH_COLD_DYNAMIC,
+        EXTCODEHASH_WARM_DYNAMIC,
+    )
+}
