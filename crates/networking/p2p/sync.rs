@@ -163,6 +163,8 @@ impl SyncManager {
             .zip(all_block_hashes.into_iter())
         {
             // TODO: Handle error
+            store.set_canonical_block(header.number, hash).unwrap();
+            store.update_latest_block_number(header.number).unwrap();
             store.add_block_header(hash, header).unwrap();
         }
         // TODO: Handle error
