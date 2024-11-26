@@ -19,4 +19,8 @@ assertoor_params:
     - https://raw.githubusercontent.com/ethpandaops/assertoor/refs/heads/master/playbooks/stable/eoa-transactions-test.yaml
     - file: https://raw.githubusercontent.com/ethpandaops/assertoor/refs/heads/master/playbooks/stable/big-calldata-tx-test.yaml
       config:
-         transactionCount: 60
+          walletPrivkey: ""
+          transactionCount: 100
+          transactionsPerBlock: 10
+          calldataSize: 1000
+          transactionGasLimit: 5000000
