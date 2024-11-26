@@ -179,8 +179,10 @@ impl VM {
             };
 
             // Note: This is commented because it's used for debugging purposes in development.
-            // dbg!(&current_call_frame.gas_used);
-            // dbg!(&opcode);
+            //dbg!(&current_call_frame.gas_used);
+            //println!("Memory: {:?}", &current_call_frame.memory);
+            //dbg!(&current_call_frame.stack);
+            //dbg!(&opcode);
             let op_result: Result<OpcodeSuccess, VMError> = match opcode {
                 Opcode::STOP => Ok(OpcodeSuccess::Result(ResultReason::Stop)),
                 Opcode::ADD => self.op_add(current_call_frame),
@@ -586,9 +588,12 @@ impl VM {
             .balance
             .checked_add(coinbase_fee)
             .ok_or(VMError::BalanceOverflow)?;
-
         self.cache.add_account(&coinbase_address, &coinbase_account);
 
+        if coinbase_fee.is_zero() {
+            self.cache.accounts.remove(&coinbase_address);
+        }
+        
         report.new_state.clone_from(&self.cache.accounts);
 
         Ok(report)
