@@ -232,7 +232,7 @@ impl From<&EFTestPreValue> for GenesisAccount {
     }
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct EFTestAccessListItem {
     pub address: Address,

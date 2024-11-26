@@ -238,14 +238,13 @@ impl<'de> Deserialize<'de> for EFTests {
                             max_fee_per_blob_gas: raw_tx.max_fee_per_blob_gas,
                             max_priority_fee_per_gas: raw_tx.max_priority_fee_per_gas,
                             max_fee_per_gas: raw_tx.max_fee_per_gas,
-                            access_list: Vec::default(),
-                            // access_list: raw_tx
-                            //     .access_lists
-                            //     .clone()
-                            //     .unwrap_or_default()
-                            //     .get(data_id)
-                            //     .cloned()
-                            //     .unwrap_or_default(),
+                            access_list: raw_tx
+                                .access_lists
+                                .clone()
+                                .unwrap_or_default()
+                                .get(data_id)
+                                .cloned()
+                                .unwrap_or_default(),
                         };
                         transactions.insert((data_id, gas_limit_id, value_id), tx);
                     }

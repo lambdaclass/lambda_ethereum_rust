@@ -16,7 +16,7 @@ use revm::{
     db::State,
     inspectors::TracerEip3155 as RevmTracerEip3155,
     primitives::{
-        BlobExcessGasAndPrice, BlockEnv as RevmBlockEnv, EVMError as REVMError,
+        AccessListItem, BlobExcessGasAndPrice, BlockEnv as RevmBlockEnv, EVMError as REVMError,
         ExecutionResult as RevmExecutionResult, TxEnv as RevmTxEnv, TxKind as RevmTxKind, B256,
     },
     Evm as Revm,
@@ -130,6 +130,20 @@ pub fn prepare_revm_for_tx<'state>(
         )))?;
 
     // println!("Transaction access list: {:?}", tx.access_list);
+    let revm_access_list: Vec<AccessListItem> = tx
+        .access_list
+        .iter()
+        .map(|eftest_access_list_item| AccessListItem {
+            address: RevmAddress(eftest_access_list_item.address.0.into()),
+            storage_keys: eftest_access_list_item
+                .storage_keys
+                .iter()
+                .map(|key| B256::from(key.0))
+                .collect(),
+        })
+        .collect();
+
+    println!("Access list: {:?}", revm_access_list);
 
     let tx_env = RevmTxEnv {
         caller: tx.sender.0.into(),
@@ -143,7 +157,7 @@ pub fn prepare_revm_for_tx<'state>(
         data: tx.data.to_vec().into(),
         nonce: Some(tx.nonce.as_u64()),
         chain_id: Some(chain_spec.chain_id), //TODO: See what to do with this... ChainId test fails IDK why.
-        access_list: Vec::default(),         //TODO: Set access list
+        access_list: revm_access_list,
         gas_priority_fee: tx
             .max_priority_fee_per_gas
             .map(|fee| RevmU256::from_limbs(fee.0)), // It is max priority fee per gas, right?
