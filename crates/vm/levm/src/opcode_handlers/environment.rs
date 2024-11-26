@@ -1,12 +1,11 @@
 use crate::{
     call_frame::CallFrame,
-    constants::{BALANCE_COLD_ADDRESS_ACCESS_COST, WARM_ADDRESS_ACCESS_COST},
     errors::{InternalError, OpcodeSuccess, OutOfGasError, VMError},
     gas_cost,
     vm::{word_to_address, VM},
 };
 use ethrex_core::U256;
-use sha3::{Digest, Keccak256};
+use keccak_hash::keccak;
 
 // Environmental Information (16)
 // Opcodes: ADDRESS, BALANCE, ORIGIN, CALLER, CALLVALUE, CALLDATALOAD, CALLDATASIZE, CALLDATACOPY, CODESIZE, CODECOPY, GASPRICE, EXTCODESIZE, EXTCODECOPY, RETURNDATASIZE, RETURNDATACOPY, EXTCODEHASH
