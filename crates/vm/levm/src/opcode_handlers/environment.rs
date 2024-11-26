@@ -268,16 +268,14 @@ impl VM {
     ) -> Result<OpcodeSuccess, VMError> {
         let address = word_to_address(current_call_frame.stack.pop()?);
 
-        if self.cache.is_account_cached(&address) {
-            self.increase_consumed_gas(current_call_frame, WARM_ADDRESS_ACCESS_COST)?;
-        } else {
-            self.increase_consumed_gas(current_call_frame, BALANCE_COLD_ADDRESS_ACCESS_COST)?;
-            self.cache_from_db(&address);
-        };
+        let (account_info, address_is_cold) = self.access_account(address);
 
-        let bytecode = self.get_account(&address).info.bytecode;
+        self.increase_consumed_gas(current_call_frame, gas_cost::extcodesize(address_is_cold)?)?;
 
-        current_call_frame.stack.push(bytecode.len().into())?;
+        current_call_frame
+            .stack
+            .push(account_info.bytecode.len().into())?;
+
         Ok(OpcodeSuccess::Continue)
     }
 

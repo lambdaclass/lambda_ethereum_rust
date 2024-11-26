@@ -88,9 +88,17 @@ pub const EXTCODECOPY_DYNAMIC_BASE: U256 = U256([3, 0, 0, 0]);
 pub const SELFDESTRUCT_STATIC: U256 = U256([5000, 0, 0, 0]);
 pub const SELFDESTRUCT_DYNAMIC: U256 = U256([25000, 0, 0, 0]);
 
-pub const BALANCE_STATIC: U256 = U256::zero();
-pub const BALANCE_WARM_DYNAMIC: U256 = U256([100, 0, 0, 0]);
-pub const BALANCE_COLD_DYNAMIC: U256 = U256([2600, 0, 0, 0]);
+pub const DEFAULT_STATIC: U256 = U256::zero();
+pub const DEFAULT_COLD_DYNAMIC: U256 = U256([2600, 0, 0, 0]);
+pub const DEFAULT_WARM_DYNAMIC: U256 = U256([100, 0, 0, 0]);
+
+pub const BALANCE_STATIC: U256 = DEFAULT_STATIC;
+pub const BALANCE_COLD_DYNAMIC: U256 = DEFAULT_COLD_DYNAMIC;
+pub const BALANCE_WARM_DYNAMIC: U256 = DEFAULT_WARM_DYNAMIC;
+
+pub const EXTCODESIZE_STATIC: U256 = DEFAULT_STATIC;
+pub const EXTCODESIZE_COLD_DYNAMIC: U256 = DEFAULT_COLD_DYNAMIC;
+pub const EXTCODESIZE_WARM_DYNAMIC: U256 = DEFAULT_WARM_DYNAMIC;
 
 // Costs in gas for call opcodes (in wei)
 pub const WARM_ADDRESS_ACCESS_COST: U256 = U256([100, 0, 0, 0]);
@@ -647,5 +655,14 @@ pub fn balance(address_is_cold: bool) -> Result<U256, OutOfGasError> {
         BALANCE_STATIC,
         BALANCE_COLD_DYNAMIC,
         BALANCE_WARM_DYNAMIC,
+    )
+}
+
+pub fn extcodesize(address_is_cold: bool) -> Result<U256, OutOfGasError> {
+    address_access_cost(
+        address_is_cold,
+        EXTCODESIZE_STATIC,
+        EXTCODESIZE_COLD_DYNAMIC,
+        EXTCODESIZE_WARM_DYNAMIC,
     )
 }
