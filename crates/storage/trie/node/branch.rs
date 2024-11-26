@@ -93,10 +93,10 @@ impl BranchNode {
                 }
                 // Insert into existing child and then update it
                 choice_hash => {
-                    let child_node = state
-                        .get_node(choice_hash.clone())?
-                        .expect("inconsistent internal tree structure");
-
+                    let child_node = match state.get_node(choice_hash.clone())? {
+                        Some(n) => n,
+                        None => return Err(TrieError::MalformedTrie),
+                    };
                     let child_node = child_node.insert(state, path, value)?;
                     *choice_hash = child_node.insert_self(state)?;
                 }
@@ -138,9 +138,10 @@ impl BranchNode {
         // Check if the value is located in a child subtrie
         let value = if let Some(choice_index) = path.next_choice() {
             if self.choices[choice_index].is_valid() {
-                let child_node = state
-                    .get_node(self.choices[choice_index].clone())?
-                    .expect("inconsistent internal tree structure");
+                let child_node = match state.get_node(self.choices[choice_index].clone())? {
+                    Some(n) => n,
+                    None => return Err(TrieError::MalformedTrie),
+                };
                 // Remove value from child node
                 let (child_node, old_value) = child_node.remove(state, path.clone())?;
                 if let Some(child_node) = child_node {
@@ -179,9 +180,10 @@ impl BranchNode {
             // If this node doesn't have a value and has only one child, replace it with its child node
             (1, false) => {
                 let (choice_index, child_hash) = children[0];
-                let child = state
-                    .get_node(child_hash.clone())?
-                    .expect("inconsistent internal tree structure");
+                let child = match state.get_node(child_hash.clone())? {
+                    Some(n) => n,
+                    None => return Err(TrieError::MalformedTrie),
+                };
                 match child {
                     // Replace self with an extension node leading to the child
                     Node::Branch(_) => ExtensionNode::new(
