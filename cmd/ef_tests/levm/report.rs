@@ -384,6 +384,7 @@ impl fmt::Display for AccountUpdatesReport {
                 updated_account_info.nonce,
                 updated_account_storage,
             );
+            let mut updates = 0;
             if initial_account.info.balance != updated_account.info.balance {
                 writeln!(
                     f,
@@ -395,7 +396,9 @@ impl fmt::Display for AccountUpdatesReport {
                     )
                     .red()
                 )?;
-            } else if initial_account.info.nonce != updated_account.info.nonce {
+                updates += 1;
+            }
+            if initial_account.info.nonce != updated_account.info.nonce {
                 writeln!(
                     f,
                     "{}",
@@ -406,7 +409,9 @@ impl fmt::Display for AccountUpdatesReport {
                     )
                     .red()
                 )?;
-            } else if initial_account.info.bytecode != updated_account.info.bytecode {
+                updates += 1;
+            }
+            if initial_account.info.bytecode != updated_account.info.bytecode {
                 writeln!(
                     f,
                     "{}",
@@ -417,7 +422,9 @@ impl fmt::Display for AccountUpdatesReport {
                     )
                     .red()
                 )?;
-            } else {
+                updates += 1;
+            }
+            if updates == 0 {
                 writeln!(f, "{}", "      No changes".green())?;
             }
         }
