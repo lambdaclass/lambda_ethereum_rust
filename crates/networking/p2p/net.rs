@@ -19,8 +19,7 @@ use k256::{
 pub use kademlia::KademliaTable;
 use kademlia::{bucket_number, MAX_NODES_PER_BUCKET};
 use rand::rngs::OsRng;
-use rlpx::connection::RLPxConnection;
-pub use rlpx::message::Message as RLPxMessage;
+use rlpx::{connection::RLPxConnection, message::Message as RLPxMessage};
 use tokio::{
     net::{TcpSocket, TcpStream, UdpSocket},
     sync::{broadcast, Mutex},
@@ -32,7 +31,7 @@ use types::{Endpoint, Node};
 pub mod bootnode;
 pub(crate) mod discv4;
 pub(crate) mod kademlia;
-pub mod peer_request;
+pub mod peer_channels;
 pub mod rlpx;
 pub(crate) mod snap;
 pub mod sync;

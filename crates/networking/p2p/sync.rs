@@ -36,22 +36,11 @@ impl SyncManager {
         // Ask for block headers
         let mut all_block_headers = vec![];
         let mut all_block_hashes = vec![];
-        // Make sure we have active peers before we start making requests
         loop {
-            if self.peers.lock().await.has_peers() {
-                break;
-            }
-            info!("[Sync] No peers available, retrying in 10 sec");
-            // This is the unlikely case where we just started the node and don't have peers, wait a bit and try again
-            tokio::time::sleep(tokio::time::Duration::from_secs(10)).await;
-        }
-        loop {
+            let peer = self.peers.lock().await.get_peer_channels().await;
             info!("[Sync] Requesting Block Headers from {current_head}");
             // Request Block Headers from Peer
-            if let Some(block_headers) = self
-                .peers
-                .lock()
-                .await
+            if let Some(block_headers) = peer
                 .request_block_headers(current_head)
                 .await
             {
@@ -159,11 +148,9 @@ async fn fetch_blocks_and_receipts(
     // Snap state fetching will take much longer than this so we don't need to paralelize fetching blocks and receipts
     // Fetch Block Bodies
     loop {
+        let peer = peers.lock().await.get_peer_channels().await;
         info!("[Sync] Requesting Block Headers ");
-        if let Some(block_bodies) = peers
-            .lock()
-            .await
-            .request_block_bodies(block_hashes.clone())
+        if let Some(block_bodies) = peer.request_block_bodies(block_hashes.clone())
             .await
         {
             info!("[SYNC] Received {} Block Bodies", block_bodies.len());

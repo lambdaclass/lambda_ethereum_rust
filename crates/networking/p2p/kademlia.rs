@@ -1,17 +1,10 @@
-use std::sync::Arc;
-
 use crate::{
-    discv4::{time_now_unix, FindNodeRequest},
-    rlpx::{error::RLPxError, message::Message},
-    types::Node,
-    MAX_MESSAGES_TO_BROADCAST,
+    discv4::{time_now_unix, FindNodeRequest}, peer_channels::PeerChannels, types::Node,
 };
 use ethrex_core::{H256, H512, U256};
 use sha3::{Digest, Keccak256};
-use tokio::sync::{
-    mpsc::{self, UnboundedSender},
-    Mutex,
-};
+use tokio::sync::mpsc::UnboundedSender;
+use tracing::info;
 
 pub const MAX_NODES_PER_BUCKET: usize = 16;
 const NUMBER_OF_BUCKETS: usize = 256;
@@ -275,15 +268,26 @@ impl KademliaTable {
         }
     }
 
-    /// TODO: Use most recently pinged peer instead
-    pub(crate) fn get_peer(&self) -> Option<PeerData> {
+    /// TODO: Randomly select peer
+    pub fn get_peer(&self) -> Option<PeerData> {
         self.get_least_recently_pinged_peers(1).pop()
     }
 
-    // Returns true if the table has at least one peer
-    pub fn has_peers(&self) -> bool {
-        self.get_peer().is_some()
+    /// Returns the channel ends to an active peer connection
+    /// The peer is selected randomly (TODO), and doesn't guarantee that the selected peer is not currenlty busy
+    /// If no peer is found, this method will try again after 10 seconds
+    /// TODO: Filter peers by capabilities, set max amount of retries
+    pub async fn get_peer_channels(&self) -> PeerChannels {
+        loop {
+            if let Some(channels) = self.get_peer().and_then(|peer| peer.channels) {
+                return channels
+            }
+            info!("[Sync] No peers available, retrying in 10 sec");
+            // This is the unlikely case where we just started the node and don't have peers, wait a bit and try again
+            tokio::time::sleep(tokio::time::Duration::from_secs(10)).await;
+        }
     }
+
 }
 
 /// Computes the distance between two nodes according to the discv4 protocol
@@ -311,30 +315,6 @@ pub struct PeerData {
     pub revalidation: Option<bool>,
     /// communication channels bewteen the peer data and its active connection
     pub channels: Option<PeerChannels>,
-}
-
-#[derive(Debug, Clone)]
-/// Holds the respective sender and receiver ends of the communication channels bewteen the peer data and its active connection
-pub struct PeerChannels {
-    pub sender: mpsc::Sender<Message>,
-    pub receiver: Arc<Mutex<mpsc::Receiver<Message>>>,
-}
-
-impl PeerChannels {
-    /// Sets up the communication channels for the peer
-    /// Returns the channel endpoints to send to the active connection's listen loop
-    pub fn create() -> (Self, mpsc::Sender<Message>, mpsc::Receiver<Message>) {
-        let (sender, connection_receiver) = mpsc::channel::<Message>(MAX_MESSAGES_TO_BROADCAST);
-        let (connection_sender, receiver) = mpsc::channel::<Message>(MAX_MESSAGES_TO_BROADCAST);
-        (
-            Self {
-                sender,
-                receiver: Arc::new(Mutex::new(receiver)),
-            },
-            connection_sender,
-            connection_receiver,
-        )
-    }
 }
 
 impl PeerData {
