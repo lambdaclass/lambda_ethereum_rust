@@ -1,3 +1,5 @@
+use std::str::FromStr;
+
 use bytes::Bytes;
 use ethrex_core::U256;
 use ethrex_levm::{
@@ -104,6 +106,22 @@ fn test_is_negative() {
 }
 
 #[test]
+fn test_non_compliance_keccak256() {
+    let mut vm = new_vm_with_bytecode(Bytes::copy_from_slice(&[88, 88, 32, 89])).unwrap();
+    let mut current_call_frame = vm.call_frames.pop().unwrap();
+    vm.execute(&mut current_call_frame);
+    assert_eq!(
+        *current_call_frame.stack.stack.first().unwrap(),
+        U256::from_str("0xc5d2460186f7233c927e7db2dcc703c0e500b653ca82273b7bfad8045d85a470")
+            .unwrap()
+    );
+    assert_eq!(
+        *current_call_frame.stack.stack.get(1).unwrap(),
+        U256::zero()
+    );
+}
+
+#[test]
 fn test_sdiv_zero_dividend_and_negative_divisor() {
     let mut vm = new_vm_with_bytecode(Bytes::copy_from_slice(&[
         0x7F, 0xC5, 0xD2, 0x46, 0x01, 0x86, 0xF7, 0x23, 0x3C, 0x92, 0x7E, 0x7D, 0xB2, 0xDC, 0xC7,
@@ -131,4 +149,15 @@ fn test_non_compliance_extcodecopy() {
     let mut current_call_frame = vm.call_frames.pop().unwrap();
     vm.execute(&mut current_call_frame);
     assert_eq!(current_call_frame.stack.stack.pop().unwrap(), U256::zero());
+}
+
+#[test]
+fn test_non_compliance_extcodecopy_memory_resize() {
+    let mut vm = new_vm_with_bytecode(Bytes::copy_from_slice(&[
+        0x60, 12, 0x5f, 0x5f, 0x5f, 0x3c, 89,
+    ]))
+    .unwrap();
+    let mut current_call_frame = vm.call_frames.pop().unwrap();
+    vm.execute(&mut current_call_frame);
+    assert_eq!(current_call_frame.stack.pop().unwrap(), U256::from(32));
 }
