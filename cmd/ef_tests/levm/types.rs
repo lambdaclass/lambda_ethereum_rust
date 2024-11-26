@@ -271,6 +271,5 @@ pub struct EFTestTransaction {
     pub max_fee_per_gas: Option<U256>,
     pub max_priority_fee_per_gas: Option<U256>,
     pub max_fee_per_blob_gas: Option<U256>,
-    #[serde(default, deserialize_with = "deserialize_h256_vec_optional_safe")]
-    pub blob_versioned_hashes: Option<Vec<H256>>,
+    pub blob_versioned_hashes: Vec<H256>,
 }

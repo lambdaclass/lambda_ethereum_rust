@@ -8,7 +8,7 @@ use crate::{
     utils::load_initial_state,
 };
 use bytes::Bytes;
-use ethrex_core::{types::TxKind, Address};
+use ethrex_core::{types::TxKind, Address, H256, U256};
 use ethrex_levm::errors::{TransactionReport, TxResult};
 use ethrex_storage::{error::StoreError, AccountUpdate};
 use ethrex_vm::{db::StoreWrapper, EvmState, RevmAddress, RevmU256, SpecId};
@@ -17,7 +17,7 @@ use revm::{
     inspectors::TracerEip3155 as RevmTracerEip3155,
     primitives::{
         BlobExcessGasAndPrice, BlockEnv as RevmBlockEnv, EVMError as REVMError,
-        ExecutionResult as RevmExecutionResult, TxEnv as RevmTxEnv, TxKind as RevmTxKind,
+        ExecutionResult as RevmExecutionResult, TxEnv as RevmTxEnv, TxKind as RevmTxKind, B256,
     },
     Evm as Revm,
 };
@@ -131,7 +131,11 @@ pub fn prepare_revm_for_tx<'state>(
         gas_priority_fee: tx
             .max_priority_fee_per_gas
             .map(|fee| RevmU256::from_limbs(fee.0)), // It is max priority fee per gas, right?
-        blob_hashes: Vec::default(),         //TODO: Set blob hashes
+        blob_hashes: tx
+            .blob_versioned_hashes
+            .iter()
+            .map(|h256| B256::from(h256.0))
+            .collect::<Vec<B256>>(),
         max_fee_per_blob_gas: tx
             .max_fee_per_blob_gas
             .map(|fee| RevmU256::from_limbs(fee.0)),

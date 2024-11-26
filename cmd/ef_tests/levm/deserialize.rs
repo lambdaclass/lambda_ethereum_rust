@@ -187,7 +187,10 @@ impl<'de> Deserialize<'de> for EFTests {
                             sender: raw_tx.sender,
                             to: raw_tx.to.clone(),
                             value: *value,
-                            blob_versioned_hashes: raw_tx.blob_versioned_hashes.clone(),
+                            blob_versioned_hashes: raw_tx
+                                .blob_versioned_hashes
+                                .clone()
+                                .unwrap_or_default(),
                             max_fee_per_blob_gas: raw_tx.max_fee_per_blob_gas,
                             max_priority_fee_per_gas: raw_tx.max_priority_fee_per_gas,
                             max_fee_per_gas: raw_tx.max_fee_per_gas,
