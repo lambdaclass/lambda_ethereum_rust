@@ -115,6 +115,12 @@ pub const CALL_POSITIVE_VALUE: U256 = U256([9000, 0, 0, 0]);
 pub const CALL_POSITIVE_VALUE_STIPEND: U256 = U256([2300, 0, 0, 0]);
 pub const CALL_TO_EMPTY_ACCOUNT: U256 = U256([25000, 0, 0, 0]);
 
+pub const CALLCODE_STATIC: U256 = DEFAULT_STATIC;
+pub const CALLCODE_COLD_DYNAMIC: U256 = DEFAULT_COLD_DYNAMIC;
+pub const CALLCODE_WARM_DYNAMIC: U256 = DEFAULT_WARM_DYNAMIC;
+pub const CALLCODE_POSITIVE_VALUE: U256 = U256([9000, 0, 0, 0]);
+pub const CALLCODE_POSITIVE_VALUE_STIPEND: U256 = U256([2300, 0, 0, 0]);
+
 // Costs in gas for call opcodes (in wei)
 pub const WARM_ADDRESS_ACCESS_COST: U256 = U256([100, 0, 0, 0]);
 pub const COLD_ADDRESS_ACCESS_COST: U256 = U256([2600, 0, 0, 0]);
@@ -351,35 +357,6 @@ pub fn mcopy(
         .ok_or(OutOfGasError::GasCostOverflow)?
         .checked_add(memory_expansion_cost)
         .ok_or(OutOfGasError::GasCostOverflow)
-}
-
-pub fn callcode(
-    current_call_frame: &CallFrame,
-    args_size: usize,
-    args_offset: usize,
-    ret_size: usize,
-    ret_offset: usize,
-    value: U256,
-    is_cached: bool,
-) -> Result<U256, OutOfGasError> {
-    let transfer_cost = if value == U256::zero() {
-        U256::zero()
-    } else {
-        NON_ZERO_VALUE_COST
-        // Should also add BASIC_FALLBACK_FUNCTION_STIPEND??
-        // See https://www.evm.codes/?fork=cancun#f2 and call impl
-    };
-
-    compute_gas_call(
-        current_call_frame,
-        args_size,
-        args_offset,
-        ret_size,
-        ret_offset,
-        is_cached,
-    )?
-    .checked_add(transfer_cost)
-    .ok_or(OutOfGasError::GasCostOverflow)
 }
 
 pub fn delegatecall(
@@ -705,6 +682,41 @@ pub fn call(
         .checked_add(positive_value_cost)
         .ok_or(OutOfGasError::GasCostOverflow)?
         .checked_add(value_to_empty_account)
+        .ok_or(OutOfGasError::GasCostOverflow)?;
+
+    Ok(static_gas
+        .checked_add(dynamic_gas)
+        .ok_or(OutOfGasError::GasCostOverflow)?)
+}
+
+pub fn callcode(
+    new_memory_size: U256,
+    current_memory_size: U256,
+    address_is_cold: bool,
+    value_to_transfer: U256,
+) -> Result<U256, VMError> {
+    let static_gas = CALLCODE_STATIC;
+
+    let memory_expansion_cost = memory::expansion_cost(new_memory_size, current_memory_size)?;
+    let address_access_cost = address_access_cost(
+        address_is_cold,
+        CALLCODE_STATIC,
+        CALLCODE_COLD_DYNAMIC,
+        CALLCODE_WARM_DYNAMIC,
+    )?;
+    let positive_value_cost = if !value_to_transfer.is_zero() {
+        CALLCODE_POSITIVE_VALUE
+            .checked_add(CALLCODE_POSITIVE_VALUE_STIPEND)
+            .ok_or(InternalError::ArithmeticOperationOverflow)?
+    } else {
+        U256::zero()
+    };
+
+    // Note: code_execution_cost will be charged from the sub context post-state.
+    let dynamic_gas = memory_expansion_cost
+        .checked_add(address_access_cost)
+        .ok_or(OutOfGasError::GasCostOverflow)?
+        .checked_add(positive_value_cost)
         .ok_or(OutOfGasError::GasCostOverflow)?;
 
     Ok(static_gas

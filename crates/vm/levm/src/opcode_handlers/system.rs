@@ -97,8 +97,8 @@ impl VM {
     ) -> Result<OpcodeSuccess, VMError> {
         let gas = current_call_frame.stack.pop()?;
         let code_address = word_to_address(current_call_frame.stack.pop()?);
-        let value = current_call_frame.stack.pop()?;
-        let args_offset: usize = current_call_frame
+        let value_to_transfer = current_call_frame.stack.pop()?;
+        let args_start_offset: usize = current_call_frame
             .stack
             .pop()?
             .try_into()
@@ -108,36 +108,39 @@ impl VM {
             .pop()?
             .try_into()
             .map_err(|_err| VMError::VeryLargeNumber)?;
-        let ret_offset: usize = current_call_frame
+        let return_data_start_offset: usize = current_call_frame
             .stack
             .pop()?
             .try_into()
             .map_err(|_err| VMError::VeryLargeNumber)?;
-        let ret_size = current_call_frame
+        let return_data_size = current_call_frame
             .stack
             .pop()?
             .try_into()
             .map_err(|_err| VMError::VeryLargeNumber)?;
 
-        // Gas consumed
-        let is_cached = self.cache.is_account_cached(&code_address);
+        let new_memory_size_for_args = (args_start_offset
+            .checked_add(args_size)
+            .ok_or(InternalError::ArithmeticOperationOverflow)?)
+        .next_multiple_of(WORD_SIZE_IN_BYTES_USIZE);
+        let new_memory_size_for_return_data = (return_data_start_offset
+            .checked_add(return_data_size)
+            .ok_or(InternalError::ArithmeticOperationOverflow)?)
+        .next_multiple_of(WORD_SIZE_IN_BYTES_USIZE);
+        let new_memory_size = new_memory_size_for_args.max(new_memory_size_for_return_data);
+        let current_memory_size = current_call_frame.memory.data.len();
 
-        if !is_cached {
-            self.cache_from_db(code_address);
-        };
+        let (_account_info, address_is_cold) = self.access_account(code_address);
 
-        let gas_cost = gas_cost::callcode(
+        self.increase_consumed_gas(
             current_call_frame,
-            args_size,
-            args_offset,
-            ret_size,
-            ret_offset,
-            value,
-            is_cached,
-        )
-        .map_err(VMError::OutOfGas)?;
-
-        self.increase_consumed_gas(current_call_frame, gas_cost)?;
+            gas_cost::callcode(
+                new_memory_size.into(),
+                current_memory_size.into(),
+                address_is_cold,
+                value_to_transfer,
+            )?,
+        )?;
 
         // Sender and recipient are the same in this case. But the code executed is from another account.
         let msg_sender = current_call_frame.to;
@@ -147,16 +150,16 @@ impl VM {
         self.generic_call(
             current_call_frame,
             gas,
-            value,
+            value_to_transfer,
             msg_sender,
             to,
             code_address,
             false,
             is_static,
-            args_offset,
+            args_start_offset,
             args_size,
-            ret_offset,
-            ret_size,
+            return_data_start_offset,
+            return_data_size,
         )
     }
 
