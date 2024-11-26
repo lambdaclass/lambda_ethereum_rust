@@ -374,28 +374,19 @@ impl VM {
             }
         }
 
-        let origin = self.env.origin;
+        let (sender_account_info, _address_is_cold) = self.access_account(self.env.origin);
 
-        let mut sender_account = self.get_account(&origin);
-
-        // See if it's raised in upper layers
-        sender_account.info.nonce = sender_account
-            .info
-            .nonce
-            .checked_add(1)
-            .ok_or(VMError::Internal(InternalError::NonceOverflowed))?;
+        self.increment_account_nonce(self.env.origin)?;
 
         // (4)
-        if sender_account.has_code()? {
+        if sender_account_info.has_code() {
             return Err(VMError::SenderAccountShouldNotHaveBytecode);
         }
 
         // (6)
-        if sender_account.info.balance < call_frame.msg_value {
+        if sender_account_info.balance < call_frame.msg_value {
             return Err(VMError::SenderBalanceShouldContainTransferValue);
         }
-
-        self.cache.add_account(&origin, &sender_account);
 
         // (7)
         if self.env.gas_price < self.env.base_fee_per_gas {
