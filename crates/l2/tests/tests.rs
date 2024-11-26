@@ -289,6 +289,7 @@ fn proposer_client() -> EthClient {
     EthClient::new(&std::env::var("PROPOSER_URL").unwrap_or(DEFAULT_PROPOSER_URL.to_owned()))
 }
 
+#[allow(clippy::unwrap_used)]
 fn l1_rich_wallet_address() -> Address {
     std::env::var("L1_RICH_WALLET_ADDRESS")
         .unwrap_or(format!("{DEFAULT_L1_RICH_WALLET_ADDRESS:#x}"))
@@ -296,6 +297,7 @@ fn l1_rich_wallet_address() -> Address {
         .unwrap()
 }
 
+#[allow(clippy::unwrap_used)]
 fn l1_rich_wallet_private_key() -> SecretKey {
     std::env::var("L1_RICH_WALLET_PRIVATE_KEY")
         .map(|s| SecretKey::from_slice(H256::from_str(&s).unwrap().as_bytes()).unwrap())
