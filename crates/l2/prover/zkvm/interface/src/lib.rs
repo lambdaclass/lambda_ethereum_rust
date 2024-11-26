@@ -100,10 +100,18 @@ pub mod trie {
             } else {
                 // Add or update AccountState in the trie
                 // Fetch current state or create a new state to be inserted
-                let mut account_state = match state_trie.get(&hashed_address)? {
-                    Some(encoded_state) => AccountState::decode(&encoded_state)?,
-                    None => AccountState::default(),
-                };
+                let mut account_state =
+                    // we're catching a panic because the Trie library assumes that tries are
+                    // well-formed, but we're using pruned tries so this hypothesis doesn't hold, and
+                    // so the get() call panics in the case of a missing value (because there're
+                    // nodes missing in the path from the root into the missing value).
+                    match std::panic::catch_unwind(|| state_trie.get(&hashed_address)) {
+                        Ok(result) => match result? {
+                            Some(encoded_state) => AccountState::decode(&encoded_state)?,
+                            None => AccountState::default(),
+                        },
+                        Err(_) => AccountState::default(),
+                    };
                 if let Some(info) = &update.info {
                     account_state.nonce = info.nonce;
                     account_state.balance = info.balance;
