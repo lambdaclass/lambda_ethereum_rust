@@ -2,6 +2,8 @@ use crate::config::EthrexL2Config;
 use clap::Subcommand;
 use colored::{self, Colorize};
 use ethrex_l2::utils::eth_client::EthClient;
+use keccak_hash::H256;
+use std::str::FromStr;
 
 #[derive(Subcommand)]
 pub(crate) enum Command {
@@ -10,15 +12,21 @@ pub(crate) enum Command {
         short_flag = 'l'
     )]
     LatestBlocks,
-    #[clap(
-        about = "Get latestCommittedBlock and latestVerifiedBlock from the OnChainProposer.",
-        short_flag = 'b'
-    )]
+    #[clap(about = "Get the current block_number.", short_flag = 'b')]
     BlockNumber {
         #[arg(long = "l2", required = false)]
         l2: bool,
         #[arg(long = "l1", required = false)]
         l1: bool,
+    },
+    #[clap(about = "Get the transaction's info.", short_flag = 't')]
+    Transaction {
+        #[arg(long = "l2", required = false)]
+        l2: bool,
+        #[arg(long = "l1", required = false)]
+        l1: bool,
+        #[arg(short = 'h', required = true)]
+        tx_hash: String,
     },
 }
 
@@ -61,6 +69,24 @@ impl Command {
                         "[L1] BlockNumber: {}",
                         format!("{block_number}").bright_cyan()
                     );
+                }
+            }
+            Command::Transaction { l2, l1, tx_hash } => {
+                let hash = H256::from_str(&tx_hash)?;
+
+                if !l1 || l2 {
+                    let tx = rollup_client
+                        .get_transaction_by_hash(hash)
+                        .await?
+                        .ok_or(eyre::Error::msg("Not found"))?;
+                    println!("[L2]:\n {tx:#?}");
+                }
+                if l1 {
+                    let tx = eth_client
+                        .get_transaction_by_hash(hash)
+                        .await?
+                        .ok_or(eyre::Error::msg("Not found"))?;
+                    println!("[L1]:\n {tx:#?}");
                 }
             }
         }
