@@ -134,8 +134,8 @@ pub fn prepare_revm_for_tx<'state>(
         authorization_list: None,
     };
 
-    // dbg!(&block_env);
-    // dbg!(&tx_env);
+    dbg!(&block_env);
+    dbg!(&tx_env);
 
     let evm_builder = Revm::builder()
         .with_block_env(block_env)
@@ -400,7 +400,9 @@ pub fn ensure_post_state_revm(
             }
         }
         Err(err) => {
-            dbg!(err);
+            dbg!(&err);
+            // store error name in variable
+            let error_reason = format!("{err}");
             match test.post.vector_post_value(vector).expect_exception {
                 // Execution result was unsuccessful and an exception was expected.
                 // TODO: Check that the exception matches the expected exception.
@@ -408,8 +410,8 @@ pub fn ensure_post_state_revm(
                 // Execution result was unsuccessful but no exception was expected.
                 None => {
                     return Err(EFTestRunnerError::ExecutionFailedUnexpectedly(
-                        ethrex_levm::errors::VMError::AddressAlreadyOccupied,
-                        //TODO: FOR TESTING, change this afterwards.
+                        ethrex_levm::errors::VMError::TestingOnly(error_reason),
+                        //TODO: This is for testing
                     ));
                 }
             }
