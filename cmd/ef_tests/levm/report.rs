@@ -424,6 +424,18 @@ impl fmt::Display for AccountUpdatesReport {
                 )?;
                 updates += 1;
             }
+            for (added_storage_address, added_storage_slot) in updated_account.storage.iter() {
+                writeln!(
+                    f,
+                    "{}",
+                    format!(
+                        "      Storage slot added: {added_storage_address}: {} -> {}",
+                        added_storage_slot.original_value, added_storage_slot.current_value
+                    )
+                    .red()
+                )?;
+                updates += 1;
+            }
             if updates == 0 {
                 writeln!(f, "{}", "      No changes".green())?;
             }
