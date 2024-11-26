@@ -8,7 +8,7 @@ use crate::{
     utils::load_initial_state,
 };
 use bytes::Bytes;
-use ethrex_core::{types::TxKind, Address, H256};
+use ethrex_core::{types::TxKind, Address};
 use ethrex_levm::errors::{TransactionReport, TxResult};
 use ethrex_storage::{error::StoreError, AccountUpdate};
 use ethrex_vm::{db::StoreWrapper, EvmState, RevmAddress, RevmU256, SpecId};
@@ -128,9 +128,13 @@ pub fn prepare_revm_for_tx<'state>(
         nonce: Some(tx.nonce.as_u64()),
         chain_id: Some(chain_spec.chain_id), //TODO: See what to do with this... ChainId test fails IDK why.
         access_list: Vec::default(),         //TODO: Set access list
-        gas_priority_fee: None,              //TODO: Set gas priority fee
+        gas_priority_fee: tx
+            .max_priority_fee_per_gas
+            .map(|fee| RevmU256::from_limbs(fee.0)), // It is max priority fee per gas, right?
         blob_hashes: Vec::default(),         //TODO: Set blob hashes
-        max_fee_per_blob_gas: None,          //TODO: Set max fee per blob gas
+        max_fee_per_blob_gas: tx
+            .max_fee_per_blob_gas
+            .map(|fee| RevmU256::from_limbs(fee.0)),
         authorization_list: None,
     };
 

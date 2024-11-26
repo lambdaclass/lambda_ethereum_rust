@@ -261,7 +261,6 @@ pub struct EFTestRawTransaction {
 pub struct EFTestTransaction {
     pub data: Bytes,
     pub gas_limit: U256,
-    #[serde(default, deserialize_with = "deserialize_u256_optional_safe")]
     pub gas_price: Option<U256>,
     #[serde(deserialize_with = "deserialize_u256_safe")]
     pub nonce: U256,
@@ -269,11 +268,8 @@ pub struct EFTestTransaction {
     pub sender: Address,
     pub to: TxKind,
     pub value: U256,
-    #[serde(default, deserialize_with = "deserialize_u256_optional_safe")]
     pub max_fee_per_gas: Option<U256>,
-    #[serde(default, deserialize_with = "deserialize_u256_optional_safe")]
     pub max_priority_fee_per_gas: Option<U256>,
-    #[serde(default, deserialize_with = "deserialize_u256_optional_safe")]
     pub max_fee_per_blob_gas: Option<U256>,
     #[serde(default, deserialize_with = "deserialize_h256_vec_optional_safe")]
     pub blob_versioned_hashes: Option<Vec<H256>>,
