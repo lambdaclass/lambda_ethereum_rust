@@ -138,8 +138,8 @@ pub fn prepare_revm_for_tx<'state>(
         authorization_list: None,
     };
 
-    dbg!(&block_env);
-    dbg!(&tx_env);
+    // dbg!(&block_env);
+    // dbg!(&tx_env);
 
     let evm_builder = Revm::builder()
         .with_block_env(block_env)
@@ -397,14 +397,15 @@ pub fn ensure_post_state_revm(
                             },
                             error_reason,
                         ));
-                    } else {
-                        println!("Post-state root matches expected");
                     }
                 }
             }
         }
         Err(err) => {
-            dbg!(&err);
+            println!(
+                "Test failed. Name: {}, vector: {:?}, error: {:?}",
+                &test.name, vector, err
+            );
             // store error name in variable
             let error_reason = format!("{err}");
             match test.post.vector_post_value(vector).expect_exception {
