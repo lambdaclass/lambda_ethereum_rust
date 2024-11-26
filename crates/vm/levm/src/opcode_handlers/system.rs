@@ -277,7 +277,7 @@ impl VM {
     ) -> Result<OpcodeSuccess, VMError> {
         let gas = current_call_frame.stack.pop()?;
         let code_address = word_to_address(current_call_frame.stack.pop()?);
-        let args_offset: usize = current_call_frame
+        let args_start_offset: usize = current_call_frame
             .stack
             .pop()?
             .try_into()
@@ -287,39 +287,42 @@ impl VM {
             .pop()?
             .try_into()
             .map_err(|_err| VMError::VeryLargeNumber)?;
-        let ret_offset: usize = current_call_frame
+        let return_data_start_offset: usize = current_call_frame
             .stack
             .pop()?
             .try_into()
             .map_err(|_err| VMError::VeryLargeNumber)?;
-        let ret_size = current_call_frame
+        let return_data_size = current_call_frame
             .stack
             .pop()?
             .try_into()
             .map_err(|_err| VMError::VeryLargeNumber)?;
+
+        let (_account_info, address_is_cold) = self.access_account(code_address);
+
+        let new_memory_size_for_args = (args_start_offset
+            .checked_add(args_size)
+            .ok_or(InternalError::ArithmeticOperationOverflow)?)
+        .next_multiple_of(WORD_SIZE_IN_BYTES_USIZE);
+        let new_memory_size_for_return_data = (return_data_start_offset
+            .checked_add(return_data_size)
+            .ok_or(InternalError::ArithmeticOperationOverflow)?)
+        .next_multiple_of(WORD_SIZE_IN_BYTES_USIZE);
+        let new_memory_size = new_memory_size_for_args.max(new_memory_size_for_return_data);
+        let current_memory_size = current_call_frame.memory.data.len();
+
+        self.increase_consumed_gas(
+            current_call_frame,
+            gas_cost::staticcall(
+                new_memory_size.into(),
+                current_memory_size.into(),
+                address_is_cold,
+            )?,
+        )?;
 
         let value = U256::zero();
         let msg_sender = current_call_frame.to; // The new sender will be the current contract.
         let to = code_address; // In this case code_address and the sub-context account are the same. Unlike CALLCODE or DELEGATECODE.
-
-        // Gas consumed
-        let is_cached = self.cache.is_account_cached(&code_address);
-
-        if !is_cached {
-            self.cache_from_db(&code_address);
-        };
-
-        let gas_cost = gas_cost::staticcall(
-            current_call_frame,
-            args_size,
-            args_offset,
-            ret_size,
-            ret_offset,
-            is_cached,
-        )
-        .map_err(VMError::OutOfGas)?;
-
-        self.increase_consumed_gas(current_call_frame, gas_cost)?;
 
         self.generic_call(
             current_call_frame,
@@ -330,10 +333,10 @@ impl VM {
             code_address,
             false,
             true,
-            args_offset,
+            args_start_offset,
             args_size,
-            ret_offset,
-            ret_size,
+            return_data_start_offset,
+            return_data_size,
         )
     }
 

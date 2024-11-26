@@ -125,6 +125,10 @@ pub const DELEGATECALL_STATIC: U256 = DEFAULT_STATIC;
 pub const DELEGATECALL_COLD_DYNAMIC: U256 = DEFAULT_COLD_DYNAMIC;
 pub const DELEGATECALL_WARM_DYNAMIC: U256 = DEFAULT_WARM_DYNAMIC;
 
+pub const STATICCALL_STATIC: U256 = DEFAULT_STATIC;
+pub const STATICCALL_COLD_DYNAMIC: U256 = DEFAULT_COLD_DYNAMIC;
+pub const STATICCALL_WARM_DYNAMIC: U256 = DEFAULT_WARM_DYNAMIC;
+
 // Costs in gas for call opcodes (in wei)
 pub const WARM_ADDRESS_ACCESS_COST: U256 = U256([100, 0, 0, 0]);
 pub const COLD_ADDRESS_ACCESS_COST: U256 = U256([2600, 0, 0, 0]);
@@ -361,24 +365,6 @@ pub fn mcopy(
         .ok_or(OutOfGasError::GasCostOverflow)?
         .checked_add(memory_expansion_cost)
         .ok_or(OutOfGasError::GasCostOverflow)
-}
-
-pub fn staticcall(
-    current_call_frame: &CallFrame,
-    args_size: usize,
-    args_offset: usize,
-    ret_size: usize,
-    ret_offset: usize,
-    is_cached: bool,
-) -> Result<U256, OutOfGasError> {
-    compute_gas_call(
-        current_call_frame,
-        args_size,
-        args_offset,
-        ret_size,
-        ret_offset,
-        is_cached,
-    )
 }
 
 fn compute_gas_call(
@@ -723,6 +709,31 @@ pub fn delegatecall(
         DELEGATECALL_STATIC,
         DELEGATECALL_COLD_DYNAMIC,
         DELEGATECALL_WARM_DYNAMIC,
+    )?;
+
+    // Note: code_execution_cost will be charged from the sub context post-state.
+    let dynamic_gas = memory_expansion_cost
+        .checked_add(address_access_cost)
+        .ok_or(OutOfGasError::GasCostOverflow)?;
+
+    Ok(static_gas
+        .checked_add(dynamic_gas)
+        .ok_or(OutOfGasError::GasCostOverflow)?)
+}
+
+pub fn staticcall(
+    new_memory_size: U256,
+    current_memory_size: U256,
+    address_is_cold: bool,
+) -> Result<U256, VMError> {
+    let static_gas = STATICCALL_STATIC;
+
+    let memory_expansion_cost = memory::expansion_cost(new_memory_size, current_memory_size)?;
+    let address_access_cost = address_access_cost(
+        address_is_cold,
+        STATICCALL_STATIC,
+        STATICCALL_COLD_DYNAMIC,
+        STATICCALL_WARM_DYNAMIC,
     )?;
 
     // Note: code_execution_cost will be charged from the sub context post-state.
