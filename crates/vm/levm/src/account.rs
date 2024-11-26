@@ -15,6 +15,14 @@ impl AccountInfo {
     pub fn is_empty(&self) -> bool {
         self.balance.is_zero() && self.nonce == 0 && self.bytecode.is_empty()
     }
+
+    pub fn has_code(&self) -> bool {
+        !(self.bytecode.is_empty() || self.bytecode_hash() == EMPTY_CODE_HASH)
+    }
+
+    pub fn bytecode_hash(&self) -> H256 {
+        keccak(self.bytecode.as_ref()).0.into()
+    }
 }
 
 #[derive(Clone, Default, Debug, PartialEq, Eq)]
@@ -55,12 +63,12 @@ impl Account {
         }
     }
 
-    pub fn has_code(&self) -> Result<bool, VMError> {
-        Ok(!(self.info.bytecode.is_empty() || self.bytecode_hash() == EMPTY_CODE_HASH))
+    pub fn has_code(&self) -> bool {
+        self.info.has_code()
     }
 
     pub fn bytecode_hash(&self) -> H256 {
-        keccak(self.info.bytecode.as_ref()).0.into()
+        self.info.bytecode_hash()
     }
 
     pub fn is_empty(&self) -> bool {
