@@ -1,6 +1,8 @@
 name: Daily Hive Coverage
 
 on:
+  #TODO: remove
+  pull_request:
   schedule:
     # Every day at UTC midnight
     - cron: '0 0 * * *'
@@ -13,12 +15,25 @@ jobs:
   build:
     uses: ./.github/workflows/docker_build.yaml
 
-  hive-coverage:
-    name: Run engine hive simulator to gather coverage information.
-    runs-on: ubuntu-latest
+  run-hive:
+    name: ${{ matrix.name }}
     needs: [build]
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        include:
+          - simulation: rpc-compat
+            name: "Rpc Compat tests"
+            run_command: make run-hive-on-latest SIMULATION=ethereum/rpc-compat
+          - simulation: devp2p
+            name: "Devp2p eth tests"
+            run_command: make run-hive-on-latest SIMULATION=devp2p
+          # TODO: uncomment
+          # - simulation: engine
+          #   name: "Cancun Engine tests"
+          #   run_command: make run-hive-on-latest SIMULATION=ethereum/engine
+
     steps:
-      # TODO: Maybe this can be reused as well.
       - name: Download artifacts
         uses: actions/download-artifact@v4
         with:
@@ -32,25 +47,45 @@ jobs:
       - name: Checkout sources
         uses: actions/checkout@v3
 
+      - name: Setup Go
+        uses: actions/setup-go@v3
+
+      - name: Run Hive Simulation
+        run: ${{ matrix.run_command }}
+        continue-on-error: true
+
+      - name: Upload results
+        uses: actions/upload-artifact@v3
+        with:
+          name: ${simulation}_logs
+          path: hive/workspace/logs
+
+  hive-report:
+    name: Generate report and upload to summary and slack
+    needs: run-hive
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout sources
+        uses: actions/checkout@v3
+
       - name: Rustup toolchain install
         uses: dtolnay/rust-toolchain@stable
         with:
           toolchain: ${{ env.RUST_VERSION }}
 
-      - name: Setup Go
-        uses: actions/setup-go@v3
+      - name: Download all results
+        uses: actions/download-artifact@v4
+        with:
+          path: aggregated-logs
 
-      - name: Run Hive Simulation
-        run: make run-hive-on-latest SIMULATION=ethereum/engine
-        continue-on-error: true
+      - name: Combine and process results and generate report
+        run: |
+          mkdir -p hive/workspace/logs
+          cp aggregated-logs/*/* hive/workspace/logs
+          cargo run -p hive_report > results.md
 
       - name: Caching
         uses: Swatinem/rust-cache@v2
-
-      - name: Generate the hive report
-        id: report
-        run: |
-          cargo run -p hive_report > results.md
 
       - name: Post results in summary
         run: |
