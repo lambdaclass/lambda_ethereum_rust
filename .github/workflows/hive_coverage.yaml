@@ -57,7 +57,7 @@ jobs:
       - name: Upload results
         uses: actions/upload-artifact@v3
         with:
-          name: ${simulation}_logs
+          name: ${{ matrix.simulation }}_logs
           path: hive/workspace/logs
 
   hive-report:
