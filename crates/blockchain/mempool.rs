@@ -313,7 +313,8 @@ mod tests {
 
     use super::{transaction_intrinsic_gas, validate_transaction};
     use ethrex_core::types::{
-        BlockHeader, ChainConfig, EIP1559Transaction, EIP4844Transaction, Transaction, TxKind,
+        BlockHeader, ChainConfig, EIP1559Transaction, EIP4844Transaction, Signable, Transaction,
+        TxKind,
     };
     use ethrex_core::{Address, Bytes, H256, U256};
     use ethrex_storage::EngineType;
@@ -548,7 +549,7 @@ mod tests {
         };
 
         let tx = Transaction::EIP1559Transaction(tx);
-        let validation = validate_transaction(&tx, store);
+        let validation = validate_transaction(&tx, Address::random(), store);
         assert!(matches!(
             validation,
             Err(MempoolError::TxMaxInitCodeSizeError)
@@ -574,7 +575,7 @@ mod tests {
         };
 
         let tx = Transaction::EIP1559Transaction(tx);
-        let validation = validate_transaction(&tx, store);
+        let validation = validate_transaction(&tx, Address::random(), store);
         assert!(matches!(
             validation,
             Err(MempoolError::TxGasLimitExceededError)
@@ -600,7 +601,7 @@ mod tests {
         };
 
         let tx = Transaction::EIP1559Transaction(tx);
-        let validation = validate_transaction(&tx, store);
+        let validation = validate_transaction(&tx, Address::random(), store);
         assert!(matches!(
             validation,
             Err(MempoolError::TxTipAboveFeeCapError)
@@ -627,7 +628,7 @@ mod tests {
         };
 
         let tx = Transaction::EIP1559Transaction(tx);
-        let validation = validate_transaction(&tx, store);
+        let validation = validate_transaction(&tx, Address::random(), store);
         assert!(matches!(
             validation,
             Err(MempoolError::TxIntrinsicGasCostAboveLimitError)
@@ -653,7 +654,7 @@ mod tests {
         };
 
         let tx = Transaction::EIP4844Transaction(tx);
-        let validation = validate_transaction(&tx, store);
+        let validation = validate_transaction(&tx, Address::random(), store);
         assert!(matches!(
             validation,
             Err(MempoolError::TxBlobBaseFeeTooLowError)
