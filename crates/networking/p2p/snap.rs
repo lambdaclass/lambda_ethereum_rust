@@ -1,8 +1,8 @@
 use bytes::Bytes;
-use ethereum_rust_core::types::AccountState;
-use ethereum_rust_rlp::encode::RLPEncode;
-use ethereum_rust_storage::{error::StoreError, Store};
-use ethereum_rust_trie::verify_range;
+use ethrex_core::types::AccountState;
+use ethrex_rlp::encode::RLPEncode;
+use ethrex_storage::{error::StoreError, Store};
+use ethrex_trie::verify_range;
 
 use crate::rlpx::{
     error::RLPxError,
@@ -196,9 +196,9 @@ fn encodable_to_proof(proof: &Vec<Bytes>) -> Vec<Vec<u8>> {
 mod tests {
     use std::str::FromStr;
 
-    use ethereum_rust_core::{types::AccountState, BigEndianHash, H256};
-    use ethereum_rust_rlp::{decode::RLPDecode, encode::RLPEncode};
-    use ethereum_rust_storage::EngineType;
+    use ethrex_core::{types::AccountState, BigEndianHash, H256};
+    use ethrex_rlp::{decode::RLPDecode, encode::RLPEncode};
+    use ethrex_storage::EngineType;
 
     use crate::rlpx::snap::AccountStateSlim;
 

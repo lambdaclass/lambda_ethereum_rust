@@ -10,8 +10,8 @@ use discv4::{
     get_expiration, is_expired, time_now_unix, time_since_in_hs, FindNodeMessage, Message,
     NeighborsMessage, Packet, PingMessage, PongMessage,
 };
-use ethereum_rust_core::{H256, H512};
-use ethereum_rust_storage::Store;
+use ethrex_core::{H256, H512};
+use ethrex_storage::Store;
 use k256::{
     ecdsa::SigningKey,
     elliptic_curve::{sec1::ToEncodedPoint, PublicKey},
@@ -20,7 +20,7 @@ pub use kademlia::KademliaTable;
 use kademlia::{bucket_number, MAX_NODES_PER_BUCKET};
 use rand::rngs::OsRng;
 pub use rlpx::message::Message as RLPxMessage;
-use rlpx::{connection::RLPxConnection, error::RLPxError};
+use rlpx::connection::RLPxConnection;
 use tokio::{
     net::{TcpSocket, TcpStream, UdpSocket},
     sync::{broadcast, mpsc, Mutex},
@@ -360,7 +360,7 @@ async fn discovery_startup(
             ip: bootnode.socket_address.ip(),
             udp_port: bootnode.socket_address.port(),
             // TODO: udp port can differ from tcp port.
-            // see https://github.com/lambdaclass/lambda_ethereum_rust/issues/905
+            // see https://github.com/lambdaclass/lambda_ethrex/issues/905
             tcp_port: bootnode.socket_address.port(),
             node_id: bootnode.node_id,
         });
@@ -800,8 +800,8 @@ async fn handle_peer_as_receiver(
     connection_broadcast: broadcast::Sender<(tokio::task::Id, Arc<RLPxMessage>)>,
     backend_send: mpsc::Sender<RLPxMessage>,
 ) {
-    let conn = RLPxConnection::receiver(signer, stream, storage, connection_broadcast);
-    handle_peer(conn, table, backend_send).await;
+    let mut conn = RLPxConnection::receiver(signer, stream, storage, connection_broadcast);
+    conn.start_peer(table, backend_send).await;
 }
 
 async fn handle_peer_as_initiator(
@@ -820,54 +820,10 @@ async fn handle_peer_as_initiator(
         .await
         .unwrap();
     match RLPxConnection::initiator(signer, msg, stream, storage, connection_broadcast).await {
-        Ok(conn) => handle_peer(conn, table, backend_send).await,
+        Ok(mut conn) => conn.start_peer(table, backend_send).await,
         Err(e) => {
             error!("Error: {e}, Could not start connection with {node:?}");
         }
-    }
-}
-
-async fn handle_peer(
-    mut conn: RLPxConnection<TcpStream>,
-    table: Arc<Mutex<KademliaTable>>,
-    backend_send: mpsc::Sender<RLPxMessage>,
-) {
-    // Perform handshake
-    if let Err(e) = conn.handshake().await {
-        peer_conn_failed("Handshake failed", e, conn, table).await;
-    } else {
-        // Handshake OK: handle connection
-        // Create channel to communicate directly to the peer
-        let (sender, backend_receive) =
-            tokio::sync::mpsc::channel::<RLPxMessage>(MAX_MESSAGES_TO_BROADCAST);
-        let Ok(node_id) = conn.get_remote_node_id() else {
-            return peer_conn_failed(
-                "Error during RLPx connection",
-                RLPxError::InvalidState(),
-                conn,
-                table,
-            )
-            .await;
-        };
-        table.lock().await.set_sender(node_id, sender);
-        if let Err(e) = conn.handle_peer_conn(backend_send, backend_receive).await {
-            peer_conn_failed("Error during RLPx connection", e, conn, table).await;
-        }
-    }
-}
-
-async fn peer_conn_failed(
-    error_text: &str,
-    error: RLPxError,
-    conn: RLPxConnection<TcpStream>,
-    table: Arc<Mutex<KademliaTable>>,
-) {
-    if let Ok(node_id) = conn.get_remote_node_id() {
-        // Discard peer from kademlia table
-        info!("{error_text}: ({error}), discarding peer {node_id}");
-        table.lock().await.replace_peer(node_id);
-    } else {
-        info!("{error_text}: ({error}), unknown peer")
     }
 }
 
@@ -880,7 +836,7 @@ pub fn node_id_from_signing_key(signer: &SigningKey) -> H512 {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use ethereum_rust_storage::EngineType;
+    use ethrex_storage::EngineType;
     use kademlia::bucket_number;
     use rand::rngs::OsRng;
     use std::{

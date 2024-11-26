@@ -1,4 +1,4 @@
-use ethereum_rust_blockchain::{
+use ethrex_blockchain::{
     error::{ChainError, InvalidForkChoice},
     fork_choice::apply_fork_choice,
     latest_canonical_block_hash,
@@ -73,9 +73,7 @@ impl RpcHandler for ForkChoiceUpdatedV3 {
                 InvalidForkChoice::Syncing => ForkChoiceResponse::from(PayloadStatus::syncing()),
                 reason => {
                     warn!("Invalid fork choice state. Reason: {:#?}", reason);
-                    ForkChoiceResponse::from(PayloadStatus::invalid_with_err(
-                        reason.to_string().as_str(),
-                    ))
+                    return Err(RpcErr::InvalidForkChoiceState(reason.to_string()));
                 }
             };
 

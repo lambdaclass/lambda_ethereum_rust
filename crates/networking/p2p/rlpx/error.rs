@@ -1,6 +1,6 @@
-use ethereum_rust_rlp::error::{RLPDecodeError, RLPEncodeError};
-use ethereum_rust_storage::error::StoreError;
-use ethereum_rust_trie::TrieError;
+use ethrex_rlp::error::{RLPDecodeError, RLPEncodeError};
+use ethrex_storage::error::StoreError;
+use ethrex_trie::TrieError;
 use thiserror::Error;
 use tokio::sync::broadcast::error::RecvError;
 

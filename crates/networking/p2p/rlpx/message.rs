@@ -1,5 +1,5 @@
 use bytes::BufMut;
-use ethereum_rust_rlp::error::{RLPDecodeError, RLPEncodeError};
+use ethrex_rlp::error::{RLPDecodeError, RLPEncodeError};
 use std::fmt::Display;
 
 use super::eth::blocks::{BlockBodies, BlockHeaders, GetBlockBodies, GetBlockHeaders};
@@ -12,7 +12,7 @@ use super::snap::{
     StorageRanges, TrieNodes,
 };
 
-use ethereum_rust_rlp::encode::RLPEncode;
+use ethrex_rlp::encode::RLPEncode;
 
 pub trait RLPxMessage: Sized {
     fn encode(&self, buf: &mut dyn BufMut) -> Result<(), RLPEncodeError>;
@@ -66,6 +66,7 @@ impl Message {
             0x13 => Ok(Message::GetBlockHeaders(GetBlockHeaders::decode(msg_data)?)),
             0x14 => Ok(Message::BlockHeaders(BlockHeaders::decode(msg_data)?)),
             0x15 => Ok(Message::GetBlockBodies(GetBlockBodies::decode(msg_data)?)),
+            0x16 => Ok(Message::BlockBodies(BlockBodies::decode(msg_data)?)),
             0x20 => Ok(Message::Receipts(Receipts::decode(msg_data)?)),
             0x21 => Ok(Message::GetAccountRange(GetAccountRange::decode(msg_data)?)),
             0x22 => Ok(Message::AccountRange(AccountRange::decode(msg_data)?)),

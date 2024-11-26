@@ -1,9 +1,10 @@
 use std::{sync::Arc, time::Duration};
 
-use ethereum_rust_core::{
+use ethrex_core::{
     types::{validate_block_header, BlockHash, BlockHeader, InvalidBlockHeaderError},
     H256,
 };
+use ethrex_storage::Store;
 use tokio::sync::Mutex;
 use tracing::{debug, info};
 
@@ -128,7 +129,7 @@ impl SyncManager {
                     break;
                 }
             };
-            info!("[Sync] Peer response timeout");
+            info!("[Sync] Peer response timeout (Headers)");
             // Reply timeouted/ peer shut down, lets try a different peer
         }
         info!("[Sync] All headers fetched and validated");
@@ -156,6 +157,9 @@ impl SyncManager {
             self.peers.clone(),
         ));
         // Store headers
+        for (hash, header) in all_block_headers.into_iter().zip(all_block_hashes.into_iter()) {
+
+        }
         // TODO: Handle error
         let err = tokio::join!(fetch_blocks_and_receipts_handle, fetch_snap_state_handle);
         router_handle.abort();
@@ -236,8 +240,8 @@ async fn fetch_blocks_and_receipts(
     loop {
         // TODO: Randomize id
         block_bodies_request.id += 1;
-        info!("[Sync] Sending request {block_bodies_request:?}");
-        // Send a GetBlockHeaders request to a peer
+        info!("[Sync] Sending Block headers request ");
+        // Send a GetBlockBodies request to a peer
         if peers
             .lock()
             .await
@@ -275,7 +279,7 @@ async fn fetch_blocks_and_receipts(
             // Bad peer response, lets try a different peer
             Ok(Some(_)) => info!("[Sync] Bad peer response"),
             // Reply timeouted/peer shut down, lets try a different peer
-            _ => info!("[Sync] Peer response timeout"),
+            _ => info!("[Sync] Peer response timeout( Blocks & Receipts)"),
         }
     }
 }
