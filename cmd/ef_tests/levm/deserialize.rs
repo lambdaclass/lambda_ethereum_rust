@@ -1,6 +1,7 @@
 use crate::types::{EFTest, EFTestAccessListItem, EFTests};
 use bytes::Bytes;
 use ethrex_core::{Address, H256, U256};
+use revm::primitives::AccessList;
 use serde::Deserialize;
 use std::{collections::HashMap, str::FromStr};
 
@@ -99,39 +100,37 @@ where
         Option::<Vec<Option<Vec<EFTestAccessListItem>>>>::deserialize(deserializer)
             .unwrap_or_default();
 
-    println!("access_lists: {:?}", access_lists);
-
     let mut final_access_lists: Vec<Vec<EFTestAccessListItem>> = Vec::new();
 
-    // // Process each access list (handling nested `null` values)
-    // if let Some(access_lists) = access_lists {
-    //     for access_list in access_lists {
-    //         // Treat `null` as an empty vector
-    //         let access_list = access_list.unwrap_or_default();
+    // Process each access list (handling nested `null` values)
+    if let Some(access_lists) = access_lists {
+        for access_list in access_lists {
+            // Treat `null` as an empty vector
+            let access_list = access_list.unwrap_or_default();
 
-    //         let mut final_access_list: Vec<EFTestAccessListItem> = Vec::new();
-    //         for access_list_element in access_list {
-    //             let final_element = parse_access_list_item(access_list_element);
-    //             final_access_list.push(final_element);
-    //         }
-    //         final_access_lists.push(final_access_list);
-    //     }
-    // }
+            let mut final_access_list: Vec<EFTestAccessListItem> = Vec::new();
+            for access_list_element in access_list {
+                // let final_element = parse_access_list_item(access_list_element);
+                final_access_list.push(access_list_element);
+            }
+            final_access_lists.push(final_access_list);
+        }
+    }
 
     Ok(Some(final_access_lists))
 }
 
-pub fn parse_access_list_item(access_list_element: (String, Vec<String>)) -> EFTestAccessListItem {
-    let address = Address::from_str(access_list_element.0.trim_start_matches("0x")).unwrap();
-    let mut storage_keys = Vec::new();
-    for storage_key in access_list_element.1 {
-        storage_keys.push(H256::from_str(storage_key.trim_start_matches("0x")).unwrap());
-    }
-    EFTestAccessListItem {
-        address,
-        storage_keys,
-    }
-}
+// pub fn parse_access_list_item(access_list_element: (String, Vec<String>)) -> EFTestAccessListItem {
+//     let address = Address::from_str(access_list_element.0.trim_start_matches("0x")).unwrap();
+//     let mut storage_keys = Vec::new();
+//     for storage_key in access_list_element.1 {
+//         storage_keys.push(H256::from_str(storage_key.trim_start_matches("0x")).unwrap());
+//     }
+//     EFTestAccessListItem {
+//         address,
+//         storage_keys,
+//     }
+// }
 
 pub fn deserialize_u256_optional_safe<'de, D>(deserializer: D) -> Result<Option<U256>, D::Error>
 where
