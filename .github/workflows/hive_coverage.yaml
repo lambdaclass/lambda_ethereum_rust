@@ -76,15 +76,14 @@ jobs:
       - name: Download all results
         uses: actions/download-artifact@v4
         with:
-          path: aggregated-logs
+          pattern: *-logs
+          path: hive/workspace/logs
+          merge-multiple: true
 
       - name: Combine and process results and generate report
         run: |
-          tree aggregated-logs
-          mkdir -p hive/workspace/logs
-          cp aggregated-logs/*/* hive/workspace/logs
-          cargo run -p hive_report > results.md
           tree hive
+          cargo run -p hive_report > results.md
 
       - name: Caching
         uses: Swatinem/rust-cache@v2
