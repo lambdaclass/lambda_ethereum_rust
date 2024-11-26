@@ -19,7 +19,6 @@ assertoor_params:
   tests:
     - file: https://raw.githubusercontent.com/ethpandaops/assertoor/refs/heads/master/playbooks/stable/big-calldata-tx-test.yaml
       config:
-          walletPrivkey: ""
           transactionCount: 100
           transactionsPerBlock: 10
           calldataSize: 1000
