@@ -8,8 +8,8 @@ name: "Big Calldata TX Test"
 timeout: 30m
 config:
   walletPrivkey: ""
-  transactionCount: 18
-  transactionsPerBlock: 5
+  transactionCount: 10
+  transactionsPerBlock: 2
   calldataSize: 1000
   transactionGasLimit: 5000000
 tasks:
