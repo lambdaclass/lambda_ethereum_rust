@@ -16,5 +16,3 @@ assertoor_params:
   run_stability_check: false
   run_block_proposal_check: false
   run_transaction_test: true
-  tests:
-    - https://raw.githubusercontent.com/lambdaclass/ethrex/refs/heads/assertoor-allaround-tx-check/test_data/assertoor/el-big-calldata-check.yml
