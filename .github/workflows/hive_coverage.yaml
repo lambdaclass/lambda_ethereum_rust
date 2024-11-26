@@ -1,8 +1,6 @@
 name: Daily Hive Coverage
 
 on:
-  #TODO: remove
-  pull_request:
   schedule:
     # Every day at UTC midnight
     - cron: '0 0 * * *'
@@ -24,14 +22,13 @@ jobs:
         include:
           - simulation: rpc-compat
             name: "Rpc Compat tests"
-            run_command: make run-hive-on-latest SIMULATION=ethereum/rpc-compat TEST_PATTERN="/eth_chainId|eth_getTransactionByBlockHashAndIndex"
+            run_command: make run-hive-on-latest SIMULATION=ethereum/rpc-compat HIVE_EXTRA_ARGS="--sim.parallelism 4"
           - simulation: devp2p
             name: "Devp2p eth tests"
-            run_command: make run-hive-on-latest SIMULATION=devp2p TEST_PATTERN="discv4"
-          # TODO: uncomment
-          # - simulation: engine
-          #   name: "Cancun Engine tests"
-          #   run_command: make run-hive-on-latest SIMULATION=ethereum/engine
+            run_command: make run-hive-on-latest SIMULATION=devp2p HIVE_EXTRA_ARGS="--sim.parallelism 4"
+          - simulation: engine
+            name: "Cancun Engine tests"
+            run_command: make run-hive-on-latest SIMULATION=ethereum/engine HIVE_EXTRA_ARGS="--sim.parallelism 4"
 
     steps:
       - name: Download artifacts
@@ -93,7 +90,7 @@ jobs:
           echo "# Hive coverage report" >> $GITHUB_STEP_SUMMARY
           cat results.md >> $GITHUB_STEP_SUMMARY
 
-      # - name: Post results to slack
-      #   env:
-      #     url: ${{ secrets.SLACK_WEBHOOK_URL }}
-      #   run: sh publish.sh
+      - name: Post results to slack
+        env:
+          url: ${{ secrets.SLACK_WEBHOOK_URL }}
+        run: sh publish.sh
