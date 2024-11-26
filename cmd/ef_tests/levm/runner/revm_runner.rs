@@ -143,8 +143,6 @@ pub fn prepare_revm_for_tx<'state>(
         })
         .collect();
 
-    println!("Access list: {:?}", revm_access_list);
-
     let tx_env = RevmTxEnv {
         caller: tx.sender.0.into(),
         gas_limit: tx.gas_limit.as_u64(),
@@ -388,7 +386,7 @@ pub fn ensure_post_state_revm(
     revm_state: &mut EvmState,
 ) -> Result<(), EFTestRunnerError> {
     match revm_execution_result {
-        Ok(execution_result) => {
+        Ok(_execution_result) => {
             match test.post.vector_post_value(vector).expect_exception {
                 // Execution result was successful but an exception was expected.
                 Some(expected_exception) => {
@@ -404,6 +402,7 @@ pub fn ensure_post_state_revm(
                             new_state: HashMap::new(),
                             created_address: None,
                         },
+                        //TODO: This is not a TransactionReport because it is REVM
                         error_reason,
                     ));
                 }
@@ -429,6 +428,7 @@ pub fn ensure_post_state_revm(
                                 new_state: HashMap::new(),
                                 created_address: None,
                             },
+                            //TODO: This is not a TransactionReport because it is REVM
                             error_reason,
                         ));
                     }
@@ -450,7 +450,7 @@ pub fn ensure_post_state_revm(
                 None => {
                     return Err(EFTestRunnerError::ExecutionFailedUnexpectedly(
                         ethrex_levm::errors::VMError::TestingOnly(error_reason),
-                        //TODO: This is for testing
+                        //TODO: This is for testing. Remove this from VMError afterwards!
                     ));
                 }
             }

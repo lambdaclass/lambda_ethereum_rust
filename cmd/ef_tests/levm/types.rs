@@ -13,9 +13,8 @@ use ethrex_core::{
     Address, H256, U256,
 };
 use ethrex_vm::SpecId;
-use revm::primitives::AccessListItem;
 use serde::Deserialize;
-use std::{collections::HashMap, ops::Add};
+use std::collections::HashMap;
 
 #[derive(Debug)]
 pub struct EFTests(pub Vec<EFTest>);

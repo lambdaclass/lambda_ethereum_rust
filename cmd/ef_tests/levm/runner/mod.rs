@@ -51,11 +51,11 @@ pub fn run_ef_tests(
     _opts: &EFTestRunnerOptions,
 ) -> Result<(), EFTestRunnerError> {
     let mut reports = report::load()?;
-    // if reports.is_empty() {
-    //     run_with_levm(&mut reports, &ef_tests)?;
-    // }
-    // re_run_with_revm(&mut reports, &ef_tests)?;
-    run_with_revm(&mut reports, &ef_tests)?;
+    if reports.is_empty() {
+        run_with_levm(&mut reports, &ef_tests)?;
+    }
+    re_run_with_revm(&mut reports, &ef_tests)?;
+    // run_with_revm(&mut reports, &ef_tests)?;
     write_report(&reports)
 }
 
@@ -118,7 +118,6 @@ fn run_with_revm(
         };
         reports.push(ef_test_report);
         revm_run_spinner.update_text(report::progress(reports, revm_run_time.elapsed()));
-        // reports[idx] = ef_test_report;
     }
     revm_run_spinner.success(&format!(
         "Ran all tests with REVM in {}",
