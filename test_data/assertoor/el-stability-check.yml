@@ -47,6 +47,11 @@ tasks:
   timeout: 8m
   config:
     tasks:
+    - name: check_consensus_attestation_stats
+      title: "Check consensus attestation stats"
+      config:
+        minTargetPercent: 98
+        minHeadPercent: 80
     - name: check_consensus_reorgs
       title: "Check consensus reorgs"
     - name: check_consensus_forks
