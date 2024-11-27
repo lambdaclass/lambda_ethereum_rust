@@ -69,7 +69,10 @@ pub mod io {
 }
 
 pub mod trie {
-    use std::collections::HashMap;
+    use std::{
+        collections::{hash_map::Entry, HashMap},
+        default,
+    };
 
     use ethrex_core::{types::AccountState, H160};
     use ethrex_rlp::{decode::RLPDecode, encode::RLPEncode, error::RLPDecodeError};
@@ -100,14 +103,20 @@ pub mod trie {
             } else {
                 // Add or update AccountState in the trie
                 // Fetch current state or create a new state to be inserted
-                let mut account_state = match state_trie.get(&hashed_address) {
-                    Ok(option) => match option {
-                        Some(encoded_state) => AccountState::decode(&encoded_state)?,
-                        None => AccountState::default(),
-                    },
-                    Err(TrieError::InconsistentTree) => AccountState::default(),
-                    Err(err) => return Err(err.into()),
+                let account_state = state_trie.get(&hashed_address);
+
+                let mut account_state = if matches!(account_state, Err(TrieError::InconsistentTree))
+                {
+                    // if there isn't a path into the account, then it's potentially a new account.
+                    // This is because we're using pruned tries so the path into a new account
+                    // might not be included in the pruned state trie.
+                    AccountState::default()
+                } else {
+                    let encoded_state = account_state?.unwrap_or_default();
+                    AccountState::decode(&encoded_state)?
                 };
+                let is_account_new = account_state == AccountState::default();
+
                 if let Some(info) = &update.info {
                     account_state.nonce = info.nonce;
                     account_state.balance = info.balance;
@@ -115,9 +124,15 @@ pub mod trie {
                 }
                 // Store the added storage in the account's storage trie and compute its new root
                 if !update.added_storage.is_empty() {
-                    let storage_trie = storage_tries
-                        .get_mut(&update.address)
-                        .ok_or(Error::StorageNotFound(update.address))?;
+                    let storage_trie = if is_account_new {
+                        let trie = Trie::from_nodes(None, &[])?;
+                        storage_tries.insert(update.address, trie);
+                        storage_tries.get_mut(&update.address).unwrap()
+                    } else {
+                        storage_tries
+                            .get_mut(&update.address)
+                            .ok_or(Error::StorageNotFound(update.address))?
+                    };
                     for (storage_key, storage_value) in &update.added_storage {
                         let hashed_key = hash_key(storage_key);
                         if storage_value.is_zero() {
