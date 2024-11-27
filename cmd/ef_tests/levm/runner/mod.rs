@@ -55,7 +55,6 @@ pub fn run_ef_tests(
         run_with_levm(&mut reports, &ef_tests)?;
     }
     re_run_with_revm(&mut reports, &ef_tests)?;
-    // _run_with_revm(&mut reports, &ef_tests)?;
     write_report(&reports)
 }
 
@@ -89,6 +88,8 @@ fn run_with_levm(
     Ok(())
 }
 
+/// ### Runs all tests with REVM
+/// **Note:** This is not used in the current implementation because we only run with REVM the tests that failed with LEVM so that execution time is minimized.
 fn _run_with_revm(
     reports: &mut Vec<EFTestReport>,
     ef_tests: &[EFTest],
