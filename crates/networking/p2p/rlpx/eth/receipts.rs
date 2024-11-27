@@ -14,8 +14,8 @@ use ethrex_rlp::{
 pub(crate) struct GetReceipts {
     // id is a u64 chosen by the requesting peer, the responding peer must mirror the value for the response
     // https://github.com/ethereum/devp2p/blob/master/caps/eth.md#protocol-messages
-    id: u64,
-    block_hashes: Vec<BlockHash>,
+    pub id: u64,
+    pub block_hashes: Vec<BlockHash>,
 }
 
 impl GetReceipts {

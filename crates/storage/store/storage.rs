@@ -890,6 +890,10 @@ impl Store {
     pub fn new_state_trie_for_test(&self) -> Trie {
         self.engine.open_state_trie(*EMPTY_TRIE_HASH)
     }
+
+    pub fn get_receipts_for_block_range(&self) -> Result<Vec<Receipt>, StoreError> {
+        todo!()
+    }
 }
 
 pub fn hash_address(address: &Address) -> Vec<u8> {

@@ -348,6 +348,11 @@ impl StoreEngine for Store {
     fn get_payload(&self, payload_id: u64) -> Result<Option<Block>, StoreError> {
         Ok(self.inner().payloads.get(&payload_id).cloned())
     }
+
+    // FIXME: Implement this
+    fn get_receipts_for_block(&self, block_hash: BlockHash) -> Result<Vec<Receipt>, StoreError> {
+        todo!()
+    }
 }
 
 impl Debug for Store {

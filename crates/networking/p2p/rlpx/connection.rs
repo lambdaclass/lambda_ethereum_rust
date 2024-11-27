@@ -21,6 +21,7 @@ use crate::{
 
 use super::{
     error::RLPxError,
+    eth::receipts::GetReceipts,
     frame,
     handshake::{decode_ack_message, decode_auth_message, encode_auth_message},
     message as rlpx,
@@ -348,6 +349,13 @@ impl<S: AsyncWrite + AsyncRead + std::marker::Unpin> RLPxConnection<S> {
                     block_bodies: msg_data.fetch_blocks(&self.storage),
                 };
                 self.send(Message::BlockBodies(response)).await?;
+            }
+            Message::GetReceipts(GetReceipts { id, block_hashes }) if peer_supports_eth => {
+                // FIXME: Implement this
+                todo!()
+                // block_hashes
+                //     .into_iter()
+                //     .map(|hash| )
             }
             Message::GetStorageRanges(req) => {
                 let response = process_storage_ranges_request(req, self.storage.clone())?;
