@@ -20,24 +20,6 @@ use tracing::{warn};
 use ethrex_l2::utils::eth_client::errors::EthClientError;
 use crate::errors::DeployerError;
 
-struct SetupResult {
-    deployer_address: Address,
-    deployer_private_key: SecretKey,
-    committer_address: Address,
-    verifier_address: Address,
-    contract_verifier_address: Address,
-    eth_client: EthClient,
-    contracts_path: PathBuf,
-}
-
-#[derive(Debug, thiserror::Error)]
-pub enum DeployError {
-    #[error("Failed to lock SALT: {0}")]
-    FailedToLockSALT(String),
-    #[error("The path is not a valid utf-8 string")]
-    FailedToGetStringFromPath,
-}
-
 // 0x4e59b44847b379578588920cA78FbF26c0B4956C
 const DETERMINISTIC_CREATE2_ADDRESS: Address = H160([
     0x4e, 0x59, 0xb4, 0x48, 0x47, 0xb3, 0x79, 0x57, 0x85, 0x88, 0x92, 0x0c, 0xa7, 0x8f, 0xbf, 0x26,
@@ -47,6 +29,16 @@ const DETERMINISTIC_CREATE2_ADDRESS: Address = H160([
 lazy_static::lazy_static! {
     static ref SALT: std::sync::Mutex<H256> = std::sync::Mutex::new(H256::zero());
 }
+
+type SetupResult = (
+    Address,
+    SecretKey,
+    Address,
+    Address,
+    Address,
+    EthClient,
+    PathBuf,
+);
 
 #[tokio::main]
 async fn main() {
@@ -128,7 +120,7 @@ async fn main() {
     }
 }
 
-fn setup() -> Result<SetupResult, DeployError> {
+fn setup() -> Result<SetupResult, DeployerError> {
     if let Err(e) = read_env_file() {
         warn!("Failed to read .env file: {e}");
     }
@@ -181,15 +173,15 @@ fn setup() -> Result<SetupResult, DeployError> {
         .parse()
         .expect("Malformed DEPLOYER_CONTRACT_VERIFIER");
     let contract_verifier_address = parse_env_var("DEPLOYER_CONTRACT_VERIFIER")?;
-    Ok(SetupResult {
-        deployer_address,
+    Ok((
+        deployer,
         deployer_private_key,
-        committer_address,
-        verifier_address,
+        committer,
+        verifier,
         contract_verifier_address,
         eth_client,
         contracts_path,
-    })
+    ))
 }
 
 fn read_env_var(key: &str) -> Result<String, DeployerError> {
