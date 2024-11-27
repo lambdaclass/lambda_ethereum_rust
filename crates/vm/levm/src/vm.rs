@@ -8,7 +8,7 @@ use crate::{
         InternalError, OpcodeSuccess, OutOfGasError, ResultReason, TransactionReport, TxResult,
         TxValidationError, VMError,
     },
-    gas_cost,
+    gas_cost::{self, CREATE_BASE_COST},
     opcodes::Opcode,
 };
 use bytes::Bytes;
