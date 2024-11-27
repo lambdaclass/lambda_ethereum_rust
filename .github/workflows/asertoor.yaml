@@ -1,6 +1,5 @@
 name: Assertoor
 on:
-  merge_group:
   workflow_run:
     workflows: [Docker build]
     types: [completed]
