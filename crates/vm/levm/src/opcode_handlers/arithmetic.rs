@@ -134,28 +134,46 @@ impl VM {
     ) -> Result<OpcodeSuccess, VMError> {
         self.increase_consumed_gas(current_call_frame, gas_cost::SMOD)?;
 
-        let dividend = current_call_frame.stack.pop()?;
-        let divisor = current_call_frame.stack.pop()?;
-        if divisor.is_zero() {
+        let unchecked_dividend = current_call_frame.stack.pop()?;
+        let unchecked_divisor = current_call_frame.stack.pop()?;
+
+        if unchecked_divisor.is_zero() {
             current_call_frame.stack.push(U256::zero())?;
-        } else {
-            let normalized_dividend = abs(dividend);
-            let normalized_divisor = abs(divisor);
-
-            let mut remainder =
-                normalized_dividend
-                    .checked_rem(normalized_divisor)
-                    .ok_or(VMError::Internal(
-                        InternalError::ArithmeticOperationDividedByZero,
-                    ))?; // Cannot be zero bc if above;
-
-            // The remainder should have the same sign as the dividend
-            if is_negative(dividend) {
-                remainder = negate(remainder);
-            }
-
-            current_call_frame.stack.push(remainder)?;
+            return Ok(OpcodeSuccess::Continue);
         }
+
+        let divisor_is_negative = unchecked_divisor.bit(255);
+        let divisor = if divisor_is_negative {
+            let (divisor, _overflowed) = (!unchecked_divisor).overflowing_add(U256::one());
+            divisor
+        } else {
+            unchecked_divisor
+        };
+
+        let dividend_is_negative = unchecked_dividend.bit(255);
+        let dividend = if dividend_is_negative {
+            let (dividend, _overflowed) = (!unchecked_dividend).overflowing_add(U256::one());
+            dividend
+        } else {
+            unchecked_dividend
+        };
+
+        let unchecked_remainder = match dividend.checked_rem(divisor) {
+            Some(remainder) => remainder,
+            None => {
+                current_call_frame.stack.push(U256::zero())?;
+                return Ok(OpcodeSuccess::Continue);
+            }
+        };
+
+        let remainder = if dividend_is_negative {
+            let (remainder, _overflowed) = (!unchecked_remainder).overflowing_add(U256::one());
+            remainder
+        } else {
+            unchecked_remainder
+        };
+
+        current_call_frame.stack.push(remainder)?;
 
         Ok(OpcodeSuccess::Continue)
     }
