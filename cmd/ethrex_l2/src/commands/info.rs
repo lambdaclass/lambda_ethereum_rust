@@ -79,14 +79,14 @@ impl Command {
                         .get_transaction_by_hash(hash)
                         .await?
                         .ok_or(eyre::Error::msg("Not found"))?;
-                    println!("[L2]:\n {tx:#?}");
+                    println!("[L2]:\n{tx}");
                 }
                 if l1 {
                     let tx = eth_client
                         .get_transaction_by_hash(hash)
                         .await?
                         .ok_or(eyre::Error::msg("Not found"))?;
-                    println!("[L1]:\n {tx:#?}");
+                    println!("[L1]:\n{tx}");
                 }
             }
         }
