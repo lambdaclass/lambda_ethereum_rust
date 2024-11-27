@@ -234,7 +234,7 @@ pub fn edit_existing_config_interactively(
             )?,
             on_chain_proposer: prompt(
                 CONTRACTS_ON_CHAIN_PROPOSER_PROMPT_MSG,
-                DEFAULT_CONTRACTS_ON_CHAIN_PROPOSER_ADDRESS,
+                existing_config.contracts.on_chain_proposer,
             )?,
         },
     };
