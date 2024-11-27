@@ -126,7 +126,6 @@ impl VM {
                     accrued_substate: Substate::default(),
                     cache,
                     tx_kind: to,
-                    // FIXME
                     touched_accounts: HashSet::new(),
                     touched_storage_slots: HashSet::new(),
                 })
