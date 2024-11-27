@@ -151,14 +151,13 @@ pub fn process_trie_nodes_request(
 
 // Helper method to convert proof to RLP-encodable format
 #[inline]
-fn proof_to_encodable(proof: Vec<Vec<u8>>) -> Vec<Bytes> {
+pub(crate) fn proof_to_encodable(proof: Vec<Vec<u8>>) -> Vec<Bytes> {
     proof.into_iter().map(Bytes::from).collect()
 }
 
 // Helper method to obtain proof from RLP-encodable format
 #[inline]
-#[allow(unused)]
-fn encodable_to_proof(proof: &[Bytes]) -> Vec<Vec<u8>> {
+pub(crate) fn encodable_to_proof(proof: &[Bytes]) -> Vec<Vec<u8>> {
     proof.iter().map(|bytes| bytes.to_vec()).collect()
 }
 
@@ -973,7 +972,7 @@ mod tests {
 
         // Create a store and load it up with the accounts
         let store = Store::new("null", EngineType::InMemory).unwrap();
-        let mut state_trie = store.new_state_trie_for_test();
+        let mut state_trie = store.new_state_trie();
         for (address, account) in accounts {
             let hashed_address = H256::from_str(address).unwrap().as_bytes().to_vec();
             let account = AccountState::from(AccountStateSlim::decode(&account).unwrap());

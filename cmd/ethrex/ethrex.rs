@@ -116,9 +116,6 @@ async fn main() {
         .map_or(set_datadir(DEFAULT_DATADIR), |datadir| set_datadir(datadir));
 
     let snap_sync = is_snap_sync(&matches);
-    if snap_sync {
-        info!("snap-sync not available, defaulting to full-sync");
-    }
 
     let store = Store::new(&data_dir, EngineType::Libmdbx).expect("Failed to create Store");
 
