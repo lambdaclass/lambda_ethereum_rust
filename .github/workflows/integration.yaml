@@ -41,7 +41,7 @@ jobs:
   run-assertoor:
     name: Assertoor - Stability Check
     runs-on: ubuntu-latest
-    needs: [docker-build]
+    needs: [docker_build]
     steps:
       - uses: actions/checkout@v4
 
@@ -68,7 +68,7 @@ jobs:
   run-hive:
     name: Hive - ${{ matrix.name }}
     runs-on: ubuntu-latest
-    needs: [docker-build]
+    needs: [docker_build]
     strategy:
       matrix:
         include:
