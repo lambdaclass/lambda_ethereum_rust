@@ -100,9 +100,13 @@ pub mod trie {
             } else {
                 // Add or update AccountState in the trie
                 // Fetch current state or create a new state to be inserted
-                let mut account_state = match state_trie.get(&hashed_address)? {
-                    Some(encoded_state) => AccountState::decode(&encoded_state)?,
-                    None => AccountState::default(),
+                let mut account_state = match state_trie.get(&hashed_address) {
+                    Ok(option) => match option {
+                        Some(encoded_state) => AccountState::decode(&encoded_state)?,
+                        None => AccountState::default(),
+                    },
+                    Err(TrieError::InconsistentTree) => AccountState::default(),
+                    Err(err) => return Err(err.into()),
                 };
                 if let Some(info) = &update.info {
                     account_state.nonce = info.nonce;
