@@ -1,11 +1,12 @@
 use std::sync::Arc;
 
+use ethrex_blockchain::error::ChainError;
 use ethrex_core::{
     types::{validate_block_header, Block, BlockHash, BlockHeader, InvalidBlockHeaderError},
     H256,
 };
 use ethrex_storage::Store;
-use tokio::sync::Mutex;
+use tokio::{sync::Mutex, time::Instant};
 use tracing::{info, warn};
 
 use crate::kademlia::KademliaTable;
@@ -40,12 +41,11 @@ impl SyncManager {
             info!("Requesting Block Headers from {current_head}");
             // Request Block Headers from Peer
             if let Some(block_headers) = peer.request_block_headers(current_head).await {
-                // We already checked that the range is not empty
-                info!(
-                    "Received block headers {}..{}",
-                    block_headers.first().unwrap(),
-                    block_headers.last().unwrap()
-                );
+                info!("Received {} block headers", block_headers.len());
+                let block_hashes = block_headers
+                    .iter()
+                    .map(|header| header.compute_block_hash())
+                    .collect::<Vec<_>>();
                 // Keep headers so we can process them later
                 // Discard the first header as we already have it
                 all_block_headers.extend_from_slice(&block_headers[1..]);
@@ -74,14 +74,17 @@ impl SyncManager {
         ))
         .await
         {
-            Ok(Ok(())) => info!("Sync finished, time elapsed: {} ", start_time.elapsed()),
+            Ok(Ok(())) => info!(
+                "Sync finished, time elapsed: {} secs",
+                start_time.elapsed().as_secs()
+            ),
             Ok(Err(error)) => warn!(
-                "Sync failed due to {error}, time elapsed: {} ",
-                start_time.elapsed()
+                "Sync failed due to {error}, time elapsed: {} secs ",
+                start_time.elapsed().as_secs()
             ),
             _ => warn!(
-                "Sync failed due to internal error, time elapsed: {} ",
-                start_time.elapsed()
+                "Sync failed due to internal error, time elapsed: {} secs",
+                start_time.elapsed().as_secs()
             ),
         }
     }
@@ -109,19 +112,20 @@ async fn download_and_run_blocks(
         let peer = peers.lock().await.get_peer_channels().await;
         info!("Requesting Block Bodies ");
         if let Some(block_bodies) = peer.request_block_bodies(block_hashes.clone()).await {
-            info!("Received {} Block Bodies", block_bodies.len());
+            let block_bodies_len = block_bodies.len();
+            info!("Received {} Block Bodies", block_bodies_len);
             // Execute and store blocks
-            for body in block_bodies {
+            for body in block_bodies.into_iter() {
                 // We already validated that there are no more block bodies than the ones requested
                 let header = block_headers.remove(0);
-                let hash = block_hashes.remove(0);
+                let _hash = block_hashes.remove(0);
                 let block = Block::new(header, body);
                 if let Err(error) = ethrex_blockchain::add_block(&block, &store) {
                     warn!("Failed to add block during FullSync: {error}");
                     return Err(error);
                 }
             }
-            info!("Executed & stored {} blocks", block_bodies.len());
+            info!("Executed & stored {} blocks", block_bodies_len);
             // Check if we need to ask for another batch
             if block_hashes.is_empty() {
                 break;
