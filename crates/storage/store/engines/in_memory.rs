@@ -350,8 +350,22 @@ impl StoreEngine for Store {
     }
 
     // FIXME: Implement this
-    fn get_receipts_for_block(&self, block_hash: BlockHash) -> Result<Vec<Receipt>, StoreError> {
-        todo!()
+    fn get_receipts_for_block(&self, block_hash: &BlockHash) -> Result<Vec<Receipt>, StoreError> {
+        // FIXME: Remove this unwrap
+        let store = self.inner();
+        let mut receipts = store
+            .receipts
+            .get(&block_hash)
+            .unwrap()
+            .iter()
+            .collect::<Vec<(&Index, &Receipt)>>();
+
+        receipts.sort_by_key(|(index, _receipt)| **index);
+
+        Ok(receipts
+            .into_iter()
+            .map(|(_index, receipt)| receipt.clone())
+            .collect())
     }
 }
 

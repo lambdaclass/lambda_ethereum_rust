@@ -424,12 +424,12 @@ impl StoreEngine for Store {
     // FIXME: Comment this
     fn get_receipts_for_block(
         &self,
-        block_hash: BlockHash,
+        block_hash: &BlockHash,
         // FIXME: Alias this type
     ) -> std::result::Result<Vec<Receipt>, StoreError> {
         let mut receipts = vec![];
         let mut receipt_index = 0;
-        let mut key: TupleRLP<BlockHash, Index> = (block_hash, 0).into();
+        let mut key: TupleRLP<BlockHash, Index> = (*block_hash, 0).into();
         // FIXME: Remove unwrap
         let txn = self.db.begin_read().unwrap();
         // FIXME: Remove unwrap
@@ -439,14 +439,11 @@ impl StoreEngine for Store {
         while let Some((_, encoded_receipt)) = cursor.seek_exact(key).unwrap() {
             receipt_index += 1;
             //FIXME: Comment this idea a bit more
-            key = (block_hash, receipt_index).into();
+            key = (*block_hash, receipt_index).into();
             receipts.push(encoded_receipt);
         }
 
-        Ok(receipts
-            .into_iter()
-            .map(|receipt| receipt.to())
-            .collect())
+        Ok(receipts.into_iter().map(|receipt| receipt.to()).collect())
     }
 }
 
