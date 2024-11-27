@@ -556,6 +556,10 @@ impl VM {
 
         self.increase_account_balance(coinbase_address, coinbase_fee)?;
 
+        // TODO: Filter non-updated accounts. An account could have been updated
+        // twice, but there's no diff between the previous and the current state
+        // is the same.
+        // https://github.com/lambdaclass/ethrex/issues/1316.
         report.new_state.clone_from(&self.cache);
 
         Ok(report)
