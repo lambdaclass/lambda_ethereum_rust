@@ -250,7 +250,7 @@ impl<S: AsyncWrite + AsyncRead + std::marker::Unpin> RLPxConnection<S> {
         }
     }
 
-    pub async fn handle_peer_conn(
+    async fn handle_peer_conn(
         &mut self,
         sender: mpsc::Sender<rlpx::Message>,
         mut receiver: mpsc::Receiver<rlpx::Message>,
@@ -330,7 +330,7 @@ impl<S: AsyncWrite + AsyncRead + std::marker::Unpin> RLPxConnection<S> {
     async fn handle_message(
         &mut self,
         message: Message,
-        backend_send: mpsc::Sender<Message>,
+        sender: mpsc::Sender<Message>,
     ) -> Result<(), RLPxError> {
         let peer_supports_eth = self.capabilities.contains(&CAP_ETH);
         match message {
@@ -392,7 +392,7 @@ impl<S: AsyncWrite + AsyncRead + std::marker::Unpin> RLPxConnection<S> {
             | message @ Message::TrieNodes(_)
             | message @ Message::BlockBodies(_)
             | message @ Message::BlockHeaders(_)
-            | message @ Message::Receipts(_) => backend_send.send(message).await?,
+            | message @ Message::Receipts(_) => sender.send(message).await?,
             // TODO: Add new message types and handlers as they are implemented
             message => return Err(RLPxError::MessageNotHandled(format!("{message}"))),
         };

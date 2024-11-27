@@ -8,7 +8,7 @@ use super::message::Message;
 
 // TODO improve errors
 #[derive(Debug, Error)]
-pub enum RLPxError {
+pub(crate) enum RLPxError {
     #[error("{0}")]
     HandshakeError(String),
     #[error("{0}")]
@@ -37,8 +37,6 @@ pub enum RLPxError {
     StoreError(#[from] StoreError),
     #[error("Error in cryptographic library: {0}")]
     CryptographyError(String),
-    #[error(transparent)]
-    Trie(#[from] TrieError),
     #[error("Failed to broadcast msg: {0}")]
     BroadcastError(String),
     #[error(transparent)]

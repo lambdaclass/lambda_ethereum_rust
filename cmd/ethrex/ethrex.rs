@@ -116,6 +116,9 @@ async fn main() {
         .map_or(set_datadir(DEFAULT_DATADIR), |datadir| set_datadir(datadir));
 
     let snap_sync = is_snap_sync(&matches);
+    if !snap_sync {
+        info!("snap-sync not available, defaulting to full-sync");
+    }
 
     let store = Store::new(&data_dir, EngineType::Libmdbx).expect("Failed to create Store");
 
@@ -176,7 +179,7 @@ async fn main() {
     // Create Kademlia Table here so we can access it from rpc server (for syncing)
     let peer_table = peer_table(signer.clone());
     // Create SyncManager
-    let syncer = SyncManager::new(peer_table.clone(), is_snap_sync);
+    let syncer = SyncManager::new(peer_table.clone(), snap_sync);
 
     // TODO: Check every module starts properly.
     let tracker = TaskTracker::new();
@@ -293,14 +296,11 @@ fn is_snap_sync(matches: &clap::ArgMatches) -> bool {
     if let Some(syncmode) = syncmode {
         match &**syncmode {
             "full" => false,
-            "snap" => {
-                info!("snap-sync not available, defaulting to full-sync")
-            },
+            "snap" => true,
             other => panic!("Invalid syncmode {other} expected either snap or full"),
         }
     } else {
-        info!("snap-sync not available, defaulting to full-sync");
-        false
+        true
     }
 }
 
