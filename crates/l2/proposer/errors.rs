@@ -1,5 +1,6 @@
 use std::sync::mpsc::SendError;
 
+use crate::utils::merkle_tree::MerkleError;
 use crate::utils::{config::errors::ConfigError, eth_client::errors::EthClientError};
 use ethereum_types::FromStrRadixErr;
 use ethrex_core::types::BlobsBundleError;
@@ -92,6 +93,10 @@ pub enum CommitterError {
     FailedToReExecuteBlock(#[from] EvmError),
     #[error("Committer failed to send transaction: {0}")]
     FailedToSendCommitment(String),
+    #[error("Commiter failed to decode deposit hash")]
+    FailedToDecodeDepositHash,
+    #[error("Commiter failed to merkelize: {0}")]
+    FailedToMerkelize(#[from] MerkleError),
     #[error("Withdrawal transaction was invalid")]
     InvalidWithdrawalTransaction,
     #[error("Blob estimation failed: {0}")]
