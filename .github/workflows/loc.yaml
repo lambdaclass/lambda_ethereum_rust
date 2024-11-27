@@ -2,7 +2,7 @@ name: Weekly LoC
 
 on:
   schedule:
-    # Every Friday at midnight
+    # Every day at midnight
     - cron: "0 0 * * *"
   workflow_dispatch:
 
