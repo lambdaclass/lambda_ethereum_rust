@@ -9,7 +9,7 @@ use tracing::{info, warn};
 
 use crate::{
     types::{
-        fork_choice::{ForkChoiceResponse, ForkChoiceState, PayloadAttributesV3},
+        fork_choice::{ForkChoiceResponse, ForkChoiceState, PayloadAttributes},
         payload::PayloadStatus,
     },
     utils::RpcRequest,
@@ -20,7 +20,7 @@ use crate::{
 pub struct ForkChoiceUpdatedV3 {
     pub fork_choice_state: ForkChoiceState,
     #[allow(unused)]
-    pub payload_attributes: Result<Option<PayloadAttributesV3>, String>,
+    pub payload_attributes: Result<Option<PayloadAttributes>, String>,
 }
 
 impl TryFrom<ForkChoiceUpdatedV3> for RpcRequest {
@@ -102,6 +102,11 @@ impl RpcHandler for ForkChoiceUpdatedV3 {
             Ok(Some(attributes)) => {
                 info!("Fork choice updated includes payload attributes. Creating a new payload.");
                 let chain_config = storage.get_chain_config()?;
+                if attributes.parent_beacon_block_root.is_none() {
+                    return Err(RpcErr::InvalidPayloadAttributes(
+                        "Null Parent Beacon Root".to_string(),
+                    ));
+                }
                 if !chain_config.is_cancun_activated(attributes.timestamp) {
                     return Err(RpcErr::UnsuportedFork(
                         "forkChoiceV3 used to build pre-Cancun payload".to_string(),
@@ -118,7 +123,7 @@ impl RpcHandler for ForkChoiceUpdatedV3 {
                     fee_recipient: attributes.suggested_fee_recipient,
                     random: attributes.prev_randao,
                     withdrawals: attributes.withdrawals.clone(),
-                    beacon_root: Some(attributes.parent_beacon_block_root),
+                    beacon_root: attributes.parent_beacon_block_root,
                     version: 3,
                 };
                 let payload_id = args.id();
