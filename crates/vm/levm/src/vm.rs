@@ -366,11 +366,6 @@ impl VM {
         Ok(())
     }
 
-    // If transaction is Type 2 then it returns max fee per gas, otherwise it returns gas price
-    pub fn gas_price_or_max_fee_per_gas(&self) -> U256 {
-        self.env.tx_max_fee_per_gas.unwrap_or(self.env.gas_price)
-    }
-
     /// Adds intrinsic gas to the consumed gas of the current call frame and the environment.
     // Intrinsic gas is the gas consumed by the transaction before the execution of the opcodes. Section 6.2 in the Yellow Paper.
     pub fn add_intrinsic_gas(&mut self, initial_call_frame: &mut CallFrame) -> Result<(), VMError> {
@@ -452,12 +447,13 @@ impl VM {
         let mut sender_account = self.get_account(&sender_address);
 
         // (1) GASLIMIT_PRICE_PRODUCT_OVERFLOW
-        let gaslimit_price_product = self
-            .gas_price_or_max_fee_per_gas()
-            .checked_mul(self.env.gas_limit)
-            .ok_or(VMError::TxValidation(
-                TxValidationError::GasLimitPriceProductOverflow,
-            ))?;
+        let gaslimit_price_product =
+            self.env
+                .gas_price
+                .checked_mul(self.env.gas_limit)
+                .ok_or(VMError::TxValidation(
+                    TxValidationError::GasLimitPriceProductOverflow,
+                ))?;
 
         // Up front cost is the maximum amount of wei that a user is willing to pay for.
         let up_front_cost = gaslimit_price_product
@@ -476,7 +472,7 @@ impl VM {
             ))?;
 
         // (3) INSUFFICIENT_MAX_FEE_PER_GAS
-        if self.gas_price_or_max_fee_per_gas() < self.env.base_fee_per_gas {
+        if self.env.gas_price < self.env.base_fee_per_gas {
             return Err(VMError::TxValidation(
                 TxValidationError::InsufficientMaxFeePerGas,
             ));
