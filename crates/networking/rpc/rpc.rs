@@ -7,8 +7,7 @@ use axum_extra::{
 use bytes::Bytes;
 use engine::{
     exchange_transition_config::ExchangeTransitionConfigV1Req,
-    fork_choice_v2::ForkChoiceUpdatedV2,
-    fork_choice_v3::ForkChoiceUpdatedV3,
+    fork_choice::{ForkChoiceUpdatedV2, ForkChoiceUpdatedV3},
     payload_v3::{GetPayloadV3Request, NewPayloadV3Request},
     ExchangeCapabilitiesRequest,
 };
