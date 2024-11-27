@@ -1,4 +1,4 @@
-name: L2 Contracts CI
+name: CI (L2)
 on:
   push:
     branches: ["main"]
@@ -6,26 +6,33 @@ on:
   pull_request:
     branches: ["**"]
     paths:
-      - "crates/l2/contracts/**"
+      - "crates/l2/**"
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.head_ref || github.run_id }}
   cancel-in-progress: true
 
+env:
+  RUST_VERSION: 1.80.1
+
 jobs:
-  test_compilation:
-    name: Compile Contracts
+  test:
+    name: Test
     runs-on: ubuntu-latest
     steps:
       - name: Checkout sources
         uses: actions/checkout@v4
-      - name: Rust toolchain install
+
+      - name: Rustup toolchain install
         uses: dtolnay/rust-toolchain@stable
-      - name: Install solc
-        uses: pontem-network/get-solc@master
+        with:
+          toolchain: ${{ env.RUST_VERSION }}
+
       - name: Caching
         uses: Swatinem/rust-cache@v2
-      - name: Run test of deployer.rs
+
+      - name: Run L2 integration test
         run: |
-          cd crates/l2/contracts
-          cargo test
+          cd crates/l2
+          cp .env.example .env
+          make test

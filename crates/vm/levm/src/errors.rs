@@ -1,11 +1,12 @@
 use crate::account::Account;
 use bytes::Bytes;
 use ethrex_core::{types::Log, Address};
+use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use thiserror;
 
 /// Errors that halt the program
-#[derive(Debug, Clone, PartialEq, Eq, thiserror::Error)]
+#[derive(Debug, Clone, PartialEq, Eq, thiserror::Error, Serialize, Deserialize)]
 pub enum VMError {
     #[error("Stack Underflow")]
     StackUnderflow,
@@ -77,7 +78,7 @@ pub enum VMError {
     Internal(#[from] InternalError),
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Hash, thiserror::Error)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, thiserror::Error, Serialize, Deserialize)]
 pub enum OutOfGasError {
     #[error("Gas Cost Overflow")]
     GasCostOverflow,
@@ -95,7 +96,7 @@ pub enum OutOfGasError {
     MemoryExpansionCostOverflow,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, thiserror::Error)]
+#[derive(Debug, Clone, PartialEq, Eq, thiserror::Error, Serialize, Deserialize)]
 pub enum InternalError {
     #[error("Overflowed when incrementing program counter")]
     PCOverflowed,
@@ -147,13 +148,13 @@ pub enum ResultReason {
     SelfDestruct,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub enum TxResult {
     Success,
     Revert(VMError),
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct TransactionReport {
     pub result: TxResult,
     pub new_state: HashMap<Address, Account>,

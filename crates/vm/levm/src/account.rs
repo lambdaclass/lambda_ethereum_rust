@@ -2,9 +2,10 @@ use crate::constants::EMPTY_CODE_HASH;
 use bytes::Bytes;
 use ethrex_core::{H256, U256};
 use keccak_hash::keccak;
+use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
-#[derive(Clone, Default, Debug, PartialEq, Eq)]
+#[derive(Clone, Default, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct AccountInfo {
     pub balance: U256,
     pub bytecode: Bytes,
@@ -25,13 +26,13 @@ impl AccountInfo {
     }
 }
 
-#[derive(Clone, Default, Debug, PartialEq, Eq)]
+#[derive(Clone, Default, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Account {
     pub info: AccountInfo,
     pub storage: HashMap<H256, StorageSlot>,
 }
 
-#[derive(Debug, Clone, Default, PartialEq, Eq)]
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
 pub struct StorageSlot {
     pub original_value: U256,
     pub current_value: U256,

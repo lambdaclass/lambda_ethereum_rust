@@ -1,6 +1,6 @@
 use crate::{
     report::{EFTestReport, TestVector},
-    runner::EFTestRunnerError,
+    runner::{EFTestRunnerError, InternalError},
     types::EFTest,
     utils,
 };
@@ -9,7 +9,7 @@ use ethrex_core::{
     H256, U256,
 };
 use ethrex_levm::{
-    db::CacheDB,
+    db::Cache,
     errors::{TransactionReport, VMError},
     vm::VM,
     Environment,
@@ -20,7 +20,11 @@ use keccak_hash::keccak;
 use std::{collections::HashMap, sync::Arc};
 
 pub fn run_ef_test(test: &EFTest) -> Result<EFTestReport, EFTestRunnerError> {
-    let mut ef_test_report = EFTestReport::new(test.name.clone(), test.fork());
+    let mut ef_test_report = EFTestReport::new(
+        test.name.clone(),
+        test._info.generated_test_hash,
+        test.fork(),
+    );
     for (vector, _tx) in test.transactions.iter() {
         match run_ef_test_tx(vector, test) {
             Ok(_) => continue,
@@ -41,10 +45,10 @@ pub fn run_ef_test(test: &EFTest) -> Result<EFTestReport, EFTestRunnerError> {
                 );
             }
             Err(EFTestRunnerError::VMExecutionMismatch(_)) => {
-                return Err(EFTestRunnerError::Internal(
+                return Err(EFTestRunnerError::Internal(InternalError::FirstRunInternal(
                     "VM execution mismatch errors should only happen when running with revm. This failed during levm's execution."
                         .to_owned(),
-                ));
+                )));
             }
             Err(EFTestRunnerError::Internal(reason)) => {
                 return Err(EFTestRunnerError::Internal(reason));
@@ -94,7 +98,7 @@ pub fn prepare_vm_for_tx(vector: &TestVector, test: &EFTest) -> Result<VM, EFTes
         test.transactions.get(vector).unwrap().value,
         test.transactions.get(vector).unwrap().data.clone(),
         db,
-        CacheDB::default(),
+        Cache::default(),
     )
     .map_err(|err| EFTestRunnerError::VMInitializationFailed(err.to_string()))
 }

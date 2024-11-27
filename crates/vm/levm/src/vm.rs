@@ -153,7 +153,7 @@ impl VM {
                     new_contract_address,
                     code,
                     value,
-                    calldata.clone(),
+                    Bytes::new(),
                     false,
                     env.gas_limit.min(MAX_BLOCK_GAS_LIMIT),
                     TX_BASE_COST,
@@ -173,7 +173,7 @@ impl VM {
                 })
             }
         }
-        // TODO: https://github.com/lambdaclass/lambda_ethrex/issues/1088
+        // TODO: https://github.com/lambdaclass/ethrex/issues/1088
     }
 
     pub fn execute(&mut self, current_call_frame: &mut CallFrame) -> TransactionReport {
@@ -567,7 +567,7 @@ impl VM {
         ))
     }
 
-    // TODO: Improve and test REVERT behavior for XCALL opcodes. Issue: https://github.com/lambdaclass/lambda_ethrex/issues/1061
+    // TODO: Improve and test REVERT behavior for XCALL opcodes. Issue: https://github.com/lambdaclass/ethrex/issues/1061
     #[allow(clippy::too_many_arguments)]
     pub fn generic_call(
         &mut self,
@@ -733,7 +733,7 @@ impl VM {
     /// Common behavior for CREATE and CREATE2 opcodes
     ///
     /// Could be used for CREATE type transactions
-    // TODO: Improve and test REVERT behavior for CREATE. Issue: https://github.com/lambdaclass/lambda_ethrex/issues/1061
+    // TODO: Improve and test REVERT behavior for CREATE. Issue: https://github.com/lambdaclass/ethrex/issues/1061
     pub fn create(
         &mut self,
         value_in_wei_to_send: U256,

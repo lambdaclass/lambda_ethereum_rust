@@ -162,12 +162,12 @@ impl VM {
             return Ok(OpcodeSuccess::Continue);
         }
 
-        let mut data = [0u8; 32];
+        let mut data = vec![0u8; size];
         for (i, byte) in current_call_frame
             .calldata
             .iter()
             .skip(calldata_offset)
-            .take(32)
+            .take(size)
             .enumerate()
         {
             if let Some(data_byte) = data.get_mut(i) {
@@ -302,9 +302,13 @@ impl VM {
 
         let (account_info, address_was_cold) = self.access_account(address);
 
-        let new_memory_size = dest_offset.checked_add(size).ok_or(VMError::Internal(
+        let new_memory_size = (((!size).checked_add(1).ok_or(VMError::Internal(
             InternalError::ArithmeticOperationOverflow,
-        ))?;
+        ))?) & 31)
+            .checked_add(size)
+            .ok_or(VMError::Internal(
+                InternalError::ArithmeticOperationOverflow,
+            ))?;
         let current_memory_size = current_call_frame.memory.data.len();
 
         self.increase_consumed_gas(
@@ -315,6 +319,10 @@ impl VM {
                 address_was_cold,
             )?,
         )?;
+
+        if size == 0 {
+            return Ok(OpcodeSuccess::Continue);
+        }
 
         if current_memory_size < new_memory_size {
             current_call_frame
@@ -394,19 +402,19 @@ impl VM {
         }
 
         let sub_return_data_len = current_call_frame.sub_return_data.len();
-        let data = if returndata_offset < sub_return_data_len {
-            current_call_frame.sub_return_data.slice(
-                returndata_offset
-                    ..(returndata_offset
-                        .checked_add(size)
-                        .ok_or(VMError::Internal(
-                            InternalError::ArithmeticOperationOverflow,
-                        ))?)
-                    .min(sub_return_data_len),
-            )
-        } else {
-            vec![0u8; size].into()
-        };
+
+        if returndata_offset >= sub_return_data_len {
+            return Err(VMError::VeryLargeNumber); // Maybe can create a new error instead of using this one
+        }
+        let data = current_call_frame.sub_return_data.slice(
+            returndata_offset
+                ..(returndata_offset
+                    .checked_add(size)
+                    .ok_or(VMError::Internal(
+                        InternalError::ArithmeticOperationOverflow,
+                    ))?)
+                .min(sub_return_data_len),
+        );
 
         current_call_frame.memory.store_bytes(dest_offset, &data)?;
 

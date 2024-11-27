@@ -1,12 +1,14 @@
-use crate::runner::EFTestRunnerError;
+use crate::runner::{EFTestRunnerError, InternalError};
 use colored::Colorize;
-use ethrex_core::Address;
+use ethrex_core::{Address, H256};
 use ethrex_levm::errors::{TransactionReport, TxResult, VMError};
-use ethrex_storage::AccountUpdate;
+use ethrex_storage::{error::StoreError, AccountUpdate};
 use ethrex_vm::SpecId;
-use revm::primitives::{ExecutionResult as RevmExecutionResult, HashSet};
+use revm::primitives::{EVMError, ExecutionResult as RevmExecutionResult};
+use serde::{Deserialize, Serialize};
+use spinoff::{spinners::Dots, Color, Spinner};
 use std::{
-    collections::HashMap,
+    collections::{HashMap, HashSet},
     fmt::{self, Display},
     path::PathBuf,
     time::Duration,
@@ -60,20 +62,61 @@ pub fn summary(reports: &[EFTestReport]) -> String {
     )
 }
 
-pub fn write(reports: Vec<EFTestReport>) -> Result<PathBuf, EFTestRunnerError> {
+pub fn write(reports: &[EFTestReport]) -> Result<PathBuf, EFTestRunnerError> {
     let report_file_path = PathBuf::from("./levm_ef_tests_report.txt");
     let failed_test_reports = EFTestsReport(
         reports
-            .into_iter()
-            .filter(|report| !report.passed())
+            .iter()
+            .filter(|&report| !report.passed())
+            .cloned()
             .collect(),
     );
     std::fs::write(
         "./levm_ef_tests_report.txt",
         failed_test_reports.to_string(),
     )
-    .map_err(|err| EFTestRunnerError::Internal(format!("Failed to write report to file: {err}")))?;
+    .map_err(|err| {
+        EFTestRunnerError::Internal(InternalError::MainRunnerInternal(format!(
+            "Failed to write report to file: {err}"
+        )))
+    })?;
     Ok(report_file_path)
+}
+
+pub const EF_TESTS_CACHE_FILE_PATH: &str = "./levm_ef_tests_cache.json";
+
+pub fn cache(reports: &[EFTestReport]) -> Result<PathBuf, EFTestRunnerError> {
+    let cache_file_path = PathBuf::from(EF_TESTS_CACHE_FILE_PATH);
+    let cache = serde_json::to_string_pretty(&reports).map_err(|err| {
+        EFTestRunnerError::Internal(InternalError::MainRunnerInternal(format!(
+            "Failed to serialize cache: {err}"
+        )))
+    })?;
+    std::fs::write(&cache_file_path, cache).map_err(|err| {
+        EFTestRunnerError::Internal(InternalError::MainRunnerInternal(format!(
+            "Failed to write cache to file: {err}"
+        )))
+    })?;
+    Ok(cache_file_path)
+}
+
+pub fn load() -> Result<Vec<EFTestReport>, EFTestRunnerError> {
+    let mut reports_loading_spinner =
+        Spinner::new(Dots, "Loading reports...".to_owned(), Color::Cyan);
+    match std::fs::read_to_string(EF_TESTS_CACHE_FILE_PATH).ok() {
+        Some(cache) => {
+            reports_loading_spinner.success("Reports loaded");
+            serde_json::from_str(&cache).map_err(|err| {
+                EFTestRunnerError::Internal(InternalError::MainRunnerInternal(format!(
+                    "Cache exists but there was an error loading it: {err}"
+                )))
+            })
+        }
+        None => {
+            reports_loading_spinner.success("No cache found");
+            Ok(Vec::default())
+        }
+    }
 }
 
 pub fn format_duration_as_mm_ss(duration: Duration) -> String {
@@ -120,7 +163,7 @@ impl Display for EFTestsReport {
             if report.failed_vectors.is_empty() {
                 continue;
             }
-            writeln!(f, "{}", report.name.bold())?;
+            writeln!(f, "{}", format!("Test: {}", report.name).bold())?;
             writeln!(f)?;
             for (failed_vector, error) in &report.failed_vectors {
                 writeln!(
@@ -133,6 +176,46 @@ impl Display for EFTestsReport {
                 )?;
                 writeln!(f, "{} {}", "Error:".bold(), error.to_string().red())?;
                 if let Some(re_run_report) = &report.re_run_report {
+                    if let Some(execution_report) =
+                        re_run_report.execution_report.get(failed_vector)
+                    {
+                        if let Some((levm_result, revm_result)) =
+                            &execution_report.execution_result_mismatch
+                        {
+                            writeln!(
+                                f,
+                                "{}: LEVM: {levm_result:?}, REVM: {revm_result:?}",
+                                "Execution result mismatch".bold()
+                            )?;
+                        }
+                        if let Some((levm_gas_used, revm_gas_used)) =
+                            &execution_report.gas_used_mismatch
+                        {
+                            writeln!(
+                                f,
+                                "{}: LEVM: {levm_gas_used}, REVM: {revm_gas_used} (diff: {})",
+                                "Gas used mismatch".bold(),
+                                levm_gas_used.abs_diff(*revm_gas_used)
+                            )?;
+                        }
+                        if let Some((levm_gas_refunded, revm_gas_refunded)) =
+                            &execution_report.gas_refunded_mismatch
+                        {
+                            writeln!(
+                                f,
+                                "{}: LEVM: {levm_gas_refunded}, REVM: {revm_gas_refunded} (diff: {})",
+                                "Gas refunded mismatch".bold(), levm_gas_refunded.abs_diff(*revm_gas_refunded)
+                            )?;
+                        }
+                        if let Some((levm_result, revm_error)) = &execution_report.re_runner_error {
+                            writeln!(
+                                f,
+                                "{}: LEVM: {levm_result:?}, REVM: {revm_error}",
+                                "Re-run error".bold()
+                            )?;
+                        }
+                    }
+
                     if let Some(account_update) =
                         re_run_report.account_updates_report.get(failed_vector)
                     {
@@ -170,9 +253,10 @@ fn fork_summary(reports: &[EFTestReport], fork: SpecId) -> String {
     )
 }
 
-#[derive(Debug, Default, Clone)]
+#[derive(Debug, Default, Clone, Serialize, Deserialize)]
 pub struct EFTestReport {
     pub name: String,
+    pub test_hash: H256,
     pub fork: SpecId,
     pub skipped: bool,
     pub failed_vectors: HashMap<TestVector, EFTestRunnerError>,
@@ -180,9 +264,10 @@ pub struct EFTestReport {
 }
 
 impl EFTestReport {
-    pub fn new(name: String, fork: SpecId) -> Self {
+    pub fn new(name: String, test_hash: H256, fork: SpecId) -> Self {
         EFTestReport {
             name,
+            test_hash,
             fork,
             ..Default::default()
         }
@@ -253,7 +338,7 @@ impl EFTestReport {
     }
 }
 
-#[derive(Debug, Default, Clone)]
+#[derive(Debug, Default, Clone, Serialize, Deserialize)]
 pub struct AccountUpdatesReport {
     pub levm_account_updates: Vec<AccountUpdate>,
     pub revm_account_updates: Vec<AccountUpdate>,
@@ -387,16 +472,17 @@ impl fmt::Display for AccountUpdatesReport {
     }
 }
 
-#[derive(Debug, Default, Clone)]
+#[derive(Debug, Default, Clone, Serialize, Deserialize)]
 pub struct TestReRunExecutionReport {
     pub execution_result_mismatch: Option<(TxResult, RevmExecutionResult)>,
     pub gas_used_mismatch: Option<(u64, u64)>,
     pub gas_refunded_mismatch: Option<(u64, u64)>,
+    pub re_runner_error: Option<(TxResult, String)>,
 }
 
-#[derive(Debug, Default, Clone)]
+#[derive(Debug, Default, Clone, Serialize, Deserialize)]
 pub struct TestReRunReport {
-    pub execution_report: TestReRunExecutionReport,
+    pub execution_report: HashMap<TestVector, TestReRunExecutionReport>,
     pub account_updates_report: HashMap<TestVector, AccountUpdatesReport>,
 }
 
@@ -407,22 +493,56 @@ impl TestReRunReport {
 
     pub fn register_execution_result_mismatch(
         &mut self,
+        vector: TestVector,
         levm_result: TxResult,
         revm_result: RevmExecutionResult,
     ) {
-        self.execution_report.execution_result_mismatch = Some((levm_result, revm_result));
+        let value = Some((levm_result, revm_result));
+        self.execution_report
+            .entry(vector)
+            .and_modify(|report| {
+                report.execution_result_mismatch = value.clone();
+            })
+            .or_insert(TestReRunExecutionReport {
+                execution_result_mismatch: value,
+                ..Default::default()
+            });
     }
 
-    pub fn register_gas_used_mismatch(&mut self, levm_gas_used: u64, revm_gas_used: u64) {
-        self.execution_report.gas_used_mismatch = Some((levm_gas_used, revm_gas_used));
+    pub fn register_gas_used_mismatch(
+        &mut self,
+        vector: TestVector,
+        levm_gas_used: u64,
+        revm_gas_used: u64,
+    ) {
+        let value = Some((levm_gas_used, revm_gas_used));
+        self.execution_report
+            .entry(vector)
+            .and_modify(|report| {
+                report.gas_used_mismatch = value;
+            })
+            .or_insert(TestReRunExecutionReport {
+                gas_used_mismatch: value,
+                ..Default::default()
+            });
     }
 
     pub fn register_gas_refunded_mismatch(
         &mut self,
+        vector: TestVector,
         levm_gas_refunded: u64,
         revm_gas_refunded: u64,
     ) {
-        self.execution_report.gas_refunded_mismatch = Some((levm_gas_refunded, revm_gas_refunded));
+        let value = Some((levm_gas_refunded, revm_gas_refunded));
+        self.execution_report
+            .entry(vector)
+            .and_modify(|report| {
+                report.gas_refunded_mismatch = value;
+            })
+            .or_insert(TestReRunExecutionReport {
+                gas_refunded_mismatch: value,
+                ..Default::default()
+            });
     }
 
     pub fn register_account_updates_report(
@@ -431,5 +551,23 @@ impl TestReRunReport {
         report: AccountUpdatesReport,
     ) {
         self.account_updates_report.insert(vector, report);
+    }
+
+    pub fn register_re_run_failure(
+        &mut self,
+        vector: TestVector,
+        levm_result: TxResult,
+        revm_error: EVMError<StoreError>,
+    ) {
+        let value = Some((levm_result, revm_error.to_string()));
+        self.execution_report
+            .entry(vector)
+            .and_modify(|report| {
+                report.re_runner_error = value.clone();
+            })
+            .or_insert(TestReRunExecutionReport {
+                re_runner_error: value,
+                ..Default::default()
+            });
     }
 }
