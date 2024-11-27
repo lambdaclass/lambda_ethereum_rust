@@ -1,8 +1,9 @@
-name: Publish docker image to Github Packages
+name: Publish Docker
 
 on:
   push:
     branches: ["main"]
+  workflow_dispatch:
 
 env:
   REGISTRY: ghcr.io
@@ -10,6 +11,7 @@ env:
 
 jobs:
   build-and-push-image:
+    name: Build and push Docker image
     runs-on: ubuntu-latest
 
     # Sets the permissions granted to the `GITHUB_TOKEN` for the actions in this job.
