@@ -91,9 +91,9 @@ pub fn re_run_failed_ef_test_tx(
 pub fn effective_gas_price(test: &EFTest, tx: &&EFTestTransaction) -> U256 {
     match tx.gas_price {
         None => {
-            let current_base_fee = test.env.current_base_fee.unwrap_or_default();
-            let priority_fee = tx.max_priority_fee_per_gas.unwrap_or_default();
-            let max_fee_per_gas = tx.max_fee_per_gas.unwrap_or_default();
+            let current_base_fee = test.env.current_base_fee.unwrap();
+            let priority_fee = tx.max_priority_fee_per_gas.unwrap();
+            let max_fee_per_gas = tx.max_fee_per_gas.unwrap();
             std::cmp::min(max_fee_per_gas, current_base_fee + priority_fee)
         }
         Some(price) => price,
@@ -129,7 +129,6 @@ pub fn prepare_revm_for_tx<'state>(
             test.name
         )))?;
 
-    // println!("Transaction access list: {:?}", tx.access_list);
     let revm_access_list: Vec<AccessListItem> = tx
         .access_list
         .iter()
@@ -158,7 +157,7 @@ pub fn prepare_revm_for_tx<'state>(
         access_list: revm_access_list,
         gas_priority_fee: tx
             .max_priority_fee_per_gas
-            .map(|fee| RevmU256::from_limbs(fee.0)), // It is max priority fee per gas, right?
+            .map(|fee| RevmU256::from_limbs(fee.0)),
         blob_hashes: tx
             .blob_versioned_hashes
             .iter()
@@ -324,7 +323,7 @@ pub fn compare_levm_revm_account_updates(
     }
 }
 
-pub fn run_ef_test(test: &EFTest) -> Result<EFTestReport, EFTestRunnerError> {
+pub fn run_ef_test_revm(test: &EFTest) -> Result<EFTestReport, EFTestRunnerError> {
     dbg!(&test.name);
     let mut ef_test_report = EFTestReport::new(
         test.name.clone(),
@@ -332,7 +331,7 @@ pub fn run_ef_test(test: &EFTest) -> Result<EFTestReport, EFTestRunnerError> {
         test.fork(),
     );
     for (vector, _tx) in test.transactions.iter() {
-        match run_ef_test_tx(vector, test) {
+        match run_ef_test_tx_revm(vector, test) {
             Ok(_) => continue,
             Err(EFTestRunnerError::VMInitializationFailed(reason)) => {
                 ef_test_report.register_vm_initialization_failure(reason, *vector);
@@ -364,7 +363,7 @@ pub fn run_ef_test(test: &EFTest) -> Result<EFTestReport, EFTestRunnerError> {
     Ok(ef_test_report)
 }
 
-pub fn run_ef_test_tx(vector: &TestVector, test: &EFTest) -> Result<(), EFTestRunnerError> {
+pub fn run_ef_test_tx_revm(vector: &TestVector, test: &EFTest) -> Result<(), EFTestRunnerError> {
     // dbg!(vector);
     let (mut state, _block_hash) = load_initial_state(test);
     let mut revm = prepare_revm_for_tx(&mut state, vector, test)?;
@@ -433,21 +432,19 @@ pub fn ensure_post_state_revm(
             }
         }
         Err(err) => {
-            // println!(
-            //     "Exception. Name: {}, vector: {:?}, error: {:?}",
-            //     &test.name, vector, err
-            // );
-            // store error name in variable
-            let error_reason = format!("{err}");
             match test.post.vector_post_value(vector).expect_exception {
                 // Execution result was unsuccessful and an exception was expected.
-                // TODO: Check that the exception matches the expected exception.
+                // TODO: See if we want to map revm exceptions to expected exceptions, probably not.
                 Some(_expected_exception) => {}
                 // Execution result was unsuccessful but no exception was expected.
                 None => {
+                    println!(
+                        "Unexpected exception. Name: {}, vector: {:?}, error: {:?}",
+                        &test.name, vector, err
+                    );
                     return Err(EFTestRunnerError::ExecutionFailedUnexpectedly(
-                        ethrex_levm::errors::VMError::TestingOnly(error_reason),
-                        //TODO: This is for testing. Remove this from VMError afterwards!
+                        ethrex_levm::errors::VMError::AddressAlreadyOccupied,
+                        //TODO: Use another kind of error for this.
                     ));
                 }
             }

@@ -107,7 +107,7 @@ fn run_with_revm(
             idx + 1,
             format_duration_as_mm_ss(revm_run_time.elapsed())
         ));
-        let ef_test_report = match revm_runner::run_ef_test(test) {
+        let ef_test_report = match revm_runner::run_ef_test_revm(test) {
             Ok(ef_test_report) => ef_test_report,
             Err(EFTestRunnerError::Internal(err)) => return Err(EFTestRunnerError::Internal(err)),
             non_internal_errors => {
