@@ -60,6 +60,8 @@ pub enum EstimateGasPriceError {
     RPCError(String),
     #[error("{0}")]
     ParseIntError(#[from] std::num::ParseIntError),
+    #[error("{0}")]
+    Custom(String),
 }
 
 #[derive(Debug, thiserror::Error)]

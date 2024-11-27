@@ -37,6 +37,10 @@ contract OnChainProposer is IOnChainProposer, ReentrancyGuard {
     /// @dev In the initialize function, `lastCommittedBlock` is set to u64::MAX == 0xFFFFFFFFFFFFFFFF, this value is used to allow the block 0 to be committed.
     uint256 public lastCommittedBlock;
 
+    /// @dev The sequencer addresses that are authorized to commit and verify blocks.
+    mapping(address _authorizedAddress => bool)
+        public authorizedSequencerAddresses;
+
     address public BRIDGE;
     address public R0VERIFIER;
 
@@ -45,10 +49,19 @@ contract OnChainProposer is IOnChainProposer, ReentrancyGuard {
     /// @dev Used only in dev mode.
     address public constant DEV_MODE = address(0xAA);
 
+    modifier onlySequencer() {
+        require(
+            authorizedSequencerAddresses[msg.sender],
+            "OnChainProposer: caller is not the sequencer"
+        );
+        _;
+    }
+
     /// @inheritdoc IOnChainProposer
     function initialize(
         address bridge,
-        address r0verifier
+        address r0verifier,
+        address[] calldata sequencerAddresses
     ) public nonReentrant {
         require(
             BRIDGE == address(0),
@@ -78,6 +91,10 @@ contract OnChainProposer is IOnChainProposer, ReentrancyGuard {
         );
         R0VERIFIER = r0verifier;
 
+        for (uint256 i = 0; i < sequencerAddresses.length; i++) {
+            authorizedSequencerAddresses[sequencerAddresses[i]] = true;
+        }
+
         lastCommittedBlock = 0xFFFFFFFFFFFFFFFF;
     }
 
@@ -87,7 +104,7 @@ contract OnChainProposer is IOnChainProposer, ReentrancyGuard {
         bytes32 commitment,
         bytes32 withdrawalsLogsMerkleRoot,
         bytes32 depositLogs
-    ) external override {
+    ) external override onlySequencer {
         require(
             blockNumber == lastCommittedBlock + 1 ||
                 (blockNumber == 0 && lastCommittedBlock == 0xFFFFFFFFFFFFFFFF),
@@ -122,19 +139,25 @@ contract OnChainProposer is IOnChainProposer, ReentrancyGuard {
     }
 
     /// @inheritdoc IOnChainProposer
+    /// @notice The first `require` checks that the block number is the subsequent block.
+    /// @notice The second `require` checks if the block has been committed.
+    /// @notice The order of these `require` statements is important.
+    /// Ordering Reason: After the verification process, we delete the `blockCommitments` for `blockNumber - 1`. This means that when checking the block,
+    /// we might get an error indicating that the block hasn’t been committed, even though it was committed but deleted. Therefore, it has already been verified.
     function verify(
         uint256 blockNumber,
         bytes calldata blockProof,
         bytes32 imageId,
         bytes32 journalDigest
-    ) external override {
-        require(
-            blockCommitments[blockNumber].commitmentHash != bytes32(0),
-            "OnChainProposer: block not committed"
-        );
+    ) external override onlySequencer {
         require(
             blockNumber == lastVerifiedBlock + 1,
             "OnChainProposer: block already verified"
+        );
+
+        require(
+            blockCommitments[blockNumber].commitmentHash != bytes32(0),
+            "OnChainProposer: block not committed"
         );
 
         if (R0VERIFIER != DEV_MODE) {
