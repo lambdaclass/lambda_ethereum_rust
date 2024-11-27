@@ -371,6 +371,67 @@ impl VM {
         self.env.tx_max_fee_per_gas.unwrap_or(self.env.gas_price)
     }
 
+    /// Adds intrinsic gas to the consumed gas of the current call frame and the environment.
+    // Intrinsic gas is the gas consumed by the transaction before the execution of the opcodes. Section 6.2 in the Yellow Paper.
+    pub fn add_intrinsic_gas(&mut self, initial_call_frame: &mut CallFrame) -> Result<(), VMError> {
+        // Intrinsic Gas = Calldata cost + Create cost + Base cost + Access list cost
+        let mut intrinsic_gas: U256 = U256::zero();
+
+        // Calldata Cost
+        // 4 gas for each zero byte in the transaction data 16 gas for each non-zero byte in the transaction.
+        let mut calldata_cost: U256 = U256::zero();
+        for byte in &initial_call_frame.calldata {
+            if *byte != 0 {
+                calldata_cost = calldata_cost
+                    .checked_add(U256::from(16))
+                    .ok_or(VMError::OutOfGas(OutOfGasError::ConsumedGasOverflow))?;
+            } else {
+                calldata_cost = calldata_cost
+                    .checked_add(U256::from(4))
+                    .ok_or(VMError::OutOfGas(OutOfGasError::ConsumedGasOverflow))?;
+            }
+        }
+
+        intrinsic_gas = intrinsic_gas
+            .checked_add(calldata_cost)
+            .ok_or(VMError::OutOfGas(OutOfGasError::ConsumedGasOverflow))?;
+
+        // Base Cost
+        intrinsic_gas = intrinsic_gas
+            .checked_add(TX_BASE_COST)
+            .ok_or(VMError::OutOfGas(OutOfGasError::ConsumedGasOverflow))?;
+
+        // Create Cost
+        if self.is_create() {
+            intrinsic_gas = intrinsic_gas
+                .checked_add(CREATE_BASE_COST)
+                .ok_or(VMError::OutOfGas(OutOfGasError::ConsumedGasOverflow))?;
+
+            let number_of_words: u64 = initial_call_frame
+                .calldata
+                .chunks(WORD_SIZE)
+                .len()
+                .try_into()
+                .map_err(|_| VMError::Internal(InternalError::ConversionError))?;
+
+            intrinsic_gas = intrinsic_gas
+                .checked_add(
+                    U256::from(number_of_words)
+                        .checked_mul(U256::from(2))
+                        .ok_or(VMError::OutOfGas(OutOfGasError::ConsumedGasOverflow))?,
+                )
+                .ok_or(VMError::OutOfGas(OutOfGasError::ConsumedGasOverflow))?;
+        }
+
+        // Access List Cost
+        // TODO: Implement access list cost.
+
+        self.increase_consumed_gas(initial_call_frame, intrinsic_gas)
+            .map_err(|_| VMError::TxValidation(TxValidationError::IntrinsicGasTooLow))?;
+
+        Ok(())
+    }
+
     /// ## Description
     /// This method performs validations and returns an error if any of the validations fail.
     /// It also makes initial changes alongside the validations:
