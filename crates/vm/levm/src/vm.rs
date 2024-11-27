@@ -337,73 +337,6 @@ impl VM {
         self.env.refunded_gas = backup_refunded_gas;
     }
 
-    // let account = self.db.accounts.get(&self.env.origin).ok_or(VMError::FatalUnwrap)?;
-    /// Based on Ethereum yellow paper's initial tests of intrinsic validity (Section 6). The last version is
-    /// Shanghai, so there are probably missing Cancun validations. The intrinsic validations are:
-    ///
-    /// (1) The transaction is well-formed RLP, with no additional trailing bytes;
-    /// (2) The transaction signature is valid;
-    /// (3) The transaction nonce is valid (equivalent to the sender account's
-    /// current nonce);
-    /// (4) The sender account has no contract code deployed (see EIP-3607).
-    /// (5) The gas limit is no smaller than the intrinsic gas, used by the
-    /// transaction;
-    /// (6) The sender account balance contains at least the cost, required in
-    /// up-front payment;
-    /// (7) The max fee per gas, in the case of type 2 transactions, or gasPrice,
-    /// in the case of type 0 and type 1 transactions, is greater than or equal to
-    /// the block’s base fee;
-    /// (8) For type 2 transactions, max priority fee per fas, must be no larger
-    /// than max fee per fas.
-    fn validate_transaction(&mut self) -> Result<(), VMError> {
-        // Validations (1), (2), (3), (5), and (8) are assumed done in upper layers.
-
-        let call_frame = self
-            .call_frames
-            .last()
-            .ok_or(VMError::Internal(
-                InternalError::CouldNotAccessLastCallframe,
-            ))?
-            .clone();
-
-        if self.is_create() {
-            // If address is already in db, there's an error
-            let new_address_acc = self.db.get_account_info(call_frame.to);
-            if !new_address_acc.is_empty() {
-                return Err(VMError::AddressAlreadyOccupied);
-            }
-        }
-
-        let origin = self.env.origin;
-
-        let mut sender_account = self.get_account(&origin);
-
-        // See if it's raised in upper layers
-        sender_account.info.nonce = sender_account
-            .info
-            .nonce
-            .checked_add(1)
-            .ok_or(VMError::Internal(InternalError::NonceOverflowed))?;
-
-        // (4)
-        if sender_account.has_code()? {
-            return Err(VMError::SenderAccountShouldNotHaveBytecode);
-        }
-
-        // (6)
-        if sender_account.info.balance < call_frame.msg_value {
-            return Err(VMError::SenderBalanceShouldContainTransferValue);
-        }
-
-        self.cache.add_account(&origin, &sender_account);
-
-        // (7)
-        if self.env.gas_price < self.env.base_fee_per_gas {
-            return Err(VMError::GasPriceIsLowerThanBaseFee);
-        }
-        Ok(())
-    }
-
     fn is_create(&self) -> bool {
         matches!(self.tx_kind, TxKind::Create)
     }
@@ -440,8 +373,6 @@ impl VM {
     }
 
     pub fn transact(&mut self) -> Result<TransactionReport, VMError> {
-        self.validate_transaction()?;
-
         let initial_gas = Default::default();
 
         self.env.consumed_gas = initial_gas;
