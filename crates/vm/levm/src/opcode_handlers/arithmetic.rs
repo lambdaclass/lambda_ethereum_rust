@@ -169,20 +169,13 @@ impl VM {
 
         let augend = current_call_frame.stack.pop()?;
         let addend = current_call_frame.stack.pop()?;
-        let divisor = current_call_frame.stack.pop()?;
-        if divisor.is_zero() {
-            current_call_frame.stack.push(U256::zero())?;
-            return Ok(OpcodeSuccess::Continue);
-        }
-        let (sum, overflow) = augend.overflowing_add(addend);
-        let mut remainder = sum.checked_rem(divisor).ok_or(VMError::Internal(
-            InternalError::ArithmeticOperationDividedByZero,
-        ))?; // Cannot be zero bc if above;
-        if overflow || remainder > divisor {
-            remainder = remainder.overflowing_sub(divisor).0;
-        }
+        let modulus = current_call_frame.stack.pop()?;
 
-        current_call_frame.stack.push(remainder)?;
+        let (sum, _overflowed) = augend.overflowing_add(addend);
+
+        let sum_mod = sum.checked_rem(modulus).unwrap_or_default();
+
+        current_call_frame.stack.push(sum_mod)?;
 
         Ok(OpcodeSuccess::Continue)
     }
