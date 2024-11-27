@@ -1,14 +1,16 @@
 name: CI
 on:
+  push:
+    branches: ["main"]
   merge_group:
   pull_request:
     branches: ["**"]
-    paths-ignore:
-      - "README.md"
-      - "LICENSE"
-      - "**/README.md"
-      - "**/docs/**"
-      - "crates/vm/levm/**" # We ran this in a separate workflow
+    # paths-ignore:
+    #   - "README.md"
+    #   - "LICENSE"
+    #   - "**/README.md"
+    #   - "**/docs/**"
+    #   - "crates/vm/levm/**" # We run this in a separate workflow
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.head_ref || github.run_id }}
@@ -71,17 +73,3 @@ jobs:
       - name: Run tests
         run: |
           make test
-
-  docker_build:
-    name: Build Docker image
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
-      - name: Build Docker image
-        uses: docker/build-push-action@v5
-        with:
-          context: .
-          file: ./Dockerfile
-          load: true # Important for building without pushing
