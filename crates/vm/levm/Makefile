@@ -6,7 +6,7 @@ help: ## 📚 Show help for each of the Makefile recipes
 	@grep -E '^[a-zA-Z0-9_-]+:.*?## .*$$' $(MAKEFILE_LIST) | sort | awk 'BEGIN {FS = ":.*?## "}; {printf "\033[36m%-30s\033[0m %s\n", $$1, $$2}'
 
 test: ## 🧪 Runs all tests except Ethereum tests
-	cargo test -p ethereum_rust-levm
+	cargo test -p ethrex-levm
 
 lint: ## 🧹 Linter check
 	cargo clippy --all-targets --all-features -- -D warnings
@@ -29,13 +29,13 @@ $(SPECTEST_VECTORS_DIR): $(SPECTEST_ARTIFACT)
 	tar -xzf $(SPECTEST_ARTIFACT) -C tmp
 	mv tmp/tests-14.1/GeneralStateTests $(SPECTEST_VECTORS_DIR)
 
-download-ef-tests: $(SPECTEST_VECTORS_DIR) ## 📥 Download EF Tests
+download-evm-ef-tests: $(SPECTEST_VECTORS_DIR) ## 📥 Download EF Tests
 
-run-ef-tests: ## 🏃‍♂️ Run EF Tests
+run-evm-ef-tests: ## 🏃‍♂️ Run EF Tests
 	cd ../../../ && \
-	cargo test -p ef_tests-levm --tests test
+	time cargo test -p ef_tests-levm --test ef_tests_levm
 
-clean-ef-tests: ## 🗑️  Clean test vectors
+clean-evm-ef-tests: ## 🗑️  Clean test vectors
 	rm -rf $(SPECTEST_VECTORS_DIR)
 
 ###### Benchmarks ######

@@ -3,10 +3,10 @@ use crate::utils::eth_client::{
     EthClient, RpcResponse,
 };
 use bytes::Bytes;
-use ethereum_rust_core::types::{GenericTransaction, TxKind};
-use ethereum_rust_rlp::encode::RLPEncode;
-use ethereum_rust_rpc::utils::{RpcRequest, RpcRequestId};
 use ethereum_types::{Address, U256};
+use ethrex_core::types::{GenericTransaction, TxKind};
+use ethrex_rlp::encode::RLPEncode;
+use ethrex_rpc::utils::{RpcRequest, RpcRequestId};
 use keccak_hash::{keccak, H256};
 use secp256k1::SecretKey;
 use serde_json::json;
@@ -80,11 +80,11 @@ impl EthClient {
         overrides: Overrides,
     ) -> Result<(H256, Address), EthClientError> {
         let mut deploy_tx = self
-            .build_eip1559_transaction(Address::zero(), init_code, overrides)
+            .build_eip1559_transaction(Address::zero(), deployer, init_code, overrides, 10)
             .await?;
         deploy_tx.to = TxKind::Create;
         let deploy_tx_hash = self
-            .send_eip1559_transaction(deploy_tx, &deployer_private_key)
+            .send_eip1559_transaction(&deploy_tx, &deployer_private_key)
             .await?;
 
         let encoded_from = deployer.encode_to_vec();

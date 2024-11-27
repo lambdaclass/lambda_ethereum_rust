@@ -1,4 +1,4 @@
-use ethereum_rust_rpc::utils::RpcRequest;
+use ethrex_rpc::utils::RpcRequest;
 
 #[derive(Debug, thiserror::Error)]
 pub enum EthClientError {
@@ -58,6 +58,8 @@ pub enum EstimateGasPriceError {
     RPCError(String),
     #[error("{0}")]
     ParseIntError(#[from] std::num::ParseIntError),
+    #[error("{0}")]
+    Custom(String),
 }
 
 #[derive(Debug, thiserror::Error)]

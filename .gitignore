@@ -13,7 +13,7 @@ Cargo.lock
 # MSVC Windows builds of rustc generate these, which store debugging information
 *.pdb
 
-cmd/ef_tests/ethereum_rust/vectors
+cmd/ef_tests/ethrex/vectors
 cmd/ef_tests/levm/vectors
 
 # Repos checked out by make target
@@ -36,7 +36,7 @@ crates/levm_mlir/output
 crates/levm_mlir/ethtests
 crates/levm_mlir/*.tar.gz
 
-# Ethereum Rust L2 stuff
+# ethrex L2 stuff
 volumes
 jwt.hex
 
@@ -46,3 +46,7 @@ jwt.hex
 tests_v3.0.0.tar.gz
 
 .env
+
+levm_ef_tests_report.txt
+
+loc_report.md

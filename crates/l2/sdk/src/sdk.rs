@@ -1,5 +1,6 @@
-use ethereum_rust_core::types::{PrivilegedTxType, Transaction};
-use ethereum_rust_l2::utils::{
+use ethereum_types::{Address, H160, H256, U256};
+use ethrex_core::types::{PrivilegedTxType, Transaction};
+use ethrex_l2::utils::{
     eth_client::{
         errors::{EthClientError, GetTransactionReceiptError},
         eth_sender::Overrides,
@@ -7,8 +8,7 @@ use ethereum_rust_l2::utils::{
     },
     merkle_tree::merkle_proof,
 };
-use ethereum_rust_rpc::types::{block::BlockBodyWrapper, receipt::RpcReceipt};
-use ethereum_types::{Address, H160, H256, U256};
+use ethrex_rpc::types::{block::BlockBodyWrapper, receipt::RpcReceipt};
 use itertools::Itertools;
 use keccak_hash::keccak;
 use secp256k1::SecretKey;
@@ -71,15 +71,16 @@ pub async fn transfer(
     let tx = client
         .build_eip1559_transaction(
             to,
+            from,
             Default::default(),
             Overrides {
                 value: Some(amount),
-                from: Some(from),
                 ..Default::default()
             },
+            10,
         )
         .await?;
-    client.send_eip1559_transaction(tx, &private_key).await
+    client.send_eip1559_transaction(&tx, &private_key).await
 }
 
 pub async fn deposit(
@@ -102,19 +103,20 @@ pub async fn withdraw(
         .build_privileged_transaction(
             PrivilegedTxType::Withdrawal,
             from,
+            from,
             Default::default(),
             Overrides {
                 value: Some(amount),
-                from: Some(from),
                 gas_price: Some(800000000),
                 gas_limit: Some(21000 * 2),
                 ..Default::default()
             },
+            10,
         )
         .await?;
 
     proposer_client
-        .send_privileged_l2_transaction(withdraw_transaction, &from_pk)
+        .send_privileged_l2_transaction(&withdraw_transaction, &from_pk)
         .await
 }
 
@@ -194,16 +196,18 @@ pub async fn claim_withdraw(
     let claim_tx = eth_client
         .build_eip1559_transaction(
             bridge_address(),
+            from,
             claim_withdrawal_data.into(),
             Overrides {
                 from: Some(from),
                 ..Default::default()
             },
+            10,
         )
         .await?;
 
     eth_client
-        .send_eip1559_transaction(claim_tx, &from_pk)
+        .send_eip1559_transaction(&claim_tx, &from_pk)
         .await
 }
 

@@ -4,7 +4,7 @@ use crate::{
     gas_cost,
     vm::VM,
 };
-use ethereum_rust_core::U256;
+use ethrex_core::U256;
 use sha3::{Digest, Keccak256};
 
 // KECCAK256 (1)
@@ -31,14 +31,17 @@ impl VM {
 
         self.increase_consumed_gas(current_call_frame, gas_cost)?;
 
-        let value_bytes = current_call_frame.memory.load_range(offset, size)?;
+        let value_bytes = if size == 0 {
+            vec![]
+        } else {
+            current_call_frame.memory.load_range(offset, size)?
+        };
 
         let mut hasher = Keccak256::new();
         hasher.update(value_bytes);
-        let result = hasher.finalize();
         current_call_frame
             .stack
-            .push(U256::from_big_endian(&result))?;
+            .push(U256::from_big_endian(&hasher.finalize()))?;
 
         Ok(OpcodeSuccess::Continue)
     }
