@@ -44,16 +44,6 @@ lazy_static::lazy_static! {
     static ref SALT: std::sync::Mutex<H256> = std::sync::Mutex::new(H256::zero());
 }
 
-// (
-//     deployer,
-//     deployer_private_key,
-//     committer_private_key,
-//     verifier_private_key,
-//     contract_verifier_address,
-//     eth_client,
-//     contracts_path,
-// )
-
 #[tokio::main]
 async fn main() {
     let Ok(setup_result) = setup() else {
