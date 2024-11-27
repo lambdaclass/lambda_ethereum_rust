@@ -292,7 +292,9 @@ pub fn compare_levm_revm_account_updates(
             (*account_address, account)
         })
         .collect();
-    initial_accounts.insert(test.env.current_coinbase, Account::default());
+    initial_accounts
+        .entry(test.env.current_coinbase)
+        .or_default();
     let levm_updated_accounts = levm_account_updates
         .iter()
         .map(|account_update| account_update.address)
