@@ -76,6 +76,12 @@ pub enum VMError {
     TxValidation(#[from] TxValidationError),
 }
 
+impl VMError {
+    pub fn is_internal(&self) -> bool {
+        matches!(self, VMError::Internal(_))
+    }
+}
+
 #[derive(Debug, Clone, PartialEq, Eq, thiserror::Error, Serialize, Deserialize)]
 pub enum TxValidationError {
     #[error("Sender account should not have bytecode")]
