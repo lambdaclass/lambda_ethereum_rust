@@ -1,3 +1,5 @@
+#![allow(clippy::unwrap_used)]
+
 use ethrex_blockchain::add_block;
 use ethrex_core::types::{Block, Genesis};
 use ethrex_rlp::{decode::RLPDecode, encode::RLPEncode};
