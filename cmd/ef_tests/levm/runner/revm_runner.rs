@@ -4,10 +4,13 @@ use crate::{
     types::EFTest,
     utils::load_initial_state,
 };
-use ethrex_core::{types::TxKind, Address};
-use ethrex_levm::errors::{TransactionReport, TxResult};
+use ethrex_core::{types::TxKind, Address, H256};
+use ethrex_levm::{
+    errors::{TransactionReport, TxResult},
+    Account, StorageSlot,
+};
 use ethrex_storage::{error::StoreError, AccountUpdate};
-use ethrex_vm::{db::StoreWrapper, spec_id, EvmState, RevmAddress, RevmU256};
+use ethrex_vm::{db::StoreWrapper, EvmState, RevmAddress, RevmU256, SpecId};
 use revm::{
     db::State,
     inspectors::TracerEip3155 as RevmTracerEip3155,
@@ -17,7 +20,7 @@ use revm::{
     },
     Evm as Revm,
 };
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
 
 pub fn re_run_failed_ef_test(
     test: &EFTest,
@@ -135,7 +138,7 @@ pub fn prepare_revm_for_tx<'state>(
         .with_block_env(block_env)
         .with_tx_env(tx_env)
         .modify_cfg_env(|cfg| cfg.chain_id = chain_spec.chain_id)
-        .with_spec_id(spec_id(&chain_spec, test.env.current_timestamp.as_u64()))
+        .with_spec_id(SpecId::CANCUN)
         .with_external_context(
             RevmTracerEip3155::new(Box::new(std::io::stderr())).without_summary(),
         );
@@ -245,8 +248,11 @@ pub fn ensure_post_state(
         None => {
             let levm_account_updates = levm_runner::get_state_transitions(levm_execution_report);
             let revm_account_updates = ethrex_vm::get_state_transitions(revm_state);
-            let account_updates_report =
-                compare_levm_revm_account_updates(&levm_account_updates, &revm_account_updates);
+            let account_updates_report = compare_levm_revm_account_updates(
+                test,
+                &levm_account_updates,
+                &revm_account_updates,
+            );
             re_run_report.register_account_updates_report(*vector, account_updates_report);
         }
     }
@@ -255,9 +261,40 @@ pub fn ensure_post_state(
 }
 
 pub fn compare_levm_revm_account_updates(
+    test: &EFTest,
     levm_account_updates: &[AccountUpdate],
     revm_account_updates: &[AccountUpdate],
 ) -> AccountUpdatesReport {
+    let mut initial_accounts: HashMap<Address, Account> = test
+        .pre
+        .0
+        .iter()
+        .map(|(account_address, pre_state_value)| {
+            let account_storage = pre_state_value
+                .storage
+                .iter()
+                .map(|(key, value)| {
+                    let mut temp = [0u8; 32];
+                    key.to_big_endian(&mut temp);
+                    let storage_slot = StorageSlot {
+                        original_value: *value,
+                        current_value: *value,
+                    };
+                    (H256::from_slice(&temp), storage_slot)
+                })
+                .collect();
+            let account = Account::new(
+                pre_state_value.balance,
+                pre_state_value.code.clone(),
+                pre_state_value.nonce.as_u64(),
+                account_storage,
+            );
+            (*account_address, account)
+        })
+        .collect();
+    initial_accounts
+        .entry(test.env.current_coinbase)
+        .or_default();
     let levm_updated_accounts = levm_account_updates
         .iter()
         .map(|account_update| account_update.address)
@@ -268,6 +305,7 @@ pub fn compare_levm_revm_account_updates(
         .collect::<HashSet<Address>>();
 
     AccountUpdatesReport {
+        initial_accounts,
         levm_account_updates: levm_account_updates.to_vec(),
         revm_account_updates: revm_account_updates.to_vec(),
         levm_updated_accounts_only: levm_updated_accounts
