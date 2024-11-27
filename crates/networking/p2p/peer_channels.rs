@@ -4,12 +4,13 @@ use ethrex_core::{
     types::{BlockBody, BlockHeader},
     H256,
 };
-use tokio::sync::{Mutex, mpsc};
+use tokio::sync::{mpsc, Mutex};
 
 use crate::{
     rlpx::eth::blocks::{
         BlockBodies, BlockHeaders, GetBlockBodies, GetBlockHeaders, BLOCK_HEADER_LIMIT,
-    }, RLPxMessage
+    },
+    RLPxMessage,
 };
 
 pub const PEER_REPLY_TIMOUT: Duration = Duration::from_secs(45);
@@ -22,13 +23,14 @@ pub struct PeerChannels {
     pub receiver: Arc<Mutex<mpsc::Receiver<RLPxMessage>>>,
 }
 
-
 impl PeerChannels {
     /// Sets up the communication channels for the peer
     /// Returns the channel endpoints to send to the active connection's listen loop
     pub fn create() -> (Self, mpsc::Sender<RLPxMessage>, mpsc::Receiver<RLPxMessage>) {
-        let (sender, connection_receiver) = mpsc::channel::<RLPxMessage>(MAX_MESSAGES_IN_PEER_CHANNEL);
-        let (connection_sender, receiver) = mpsc::channel::<RLPxMessage>(MAX_MESSAGES_IN_PEER_CHANNEL);
+        let (sender, connection_receiver) =
+            mpsc::channel::<RLPxMessage>(MAX_MESSAGES_IN_PEER_CHANNEL);
+        let (connection_sender, receiver) =
+            mpsc::channel::<RLPxMessage>(MAX_MESSAGES_IN_PEER_CHANNEL);
         (
             Self {
                 sender,
@@ -80,6 +82,7 @@ impl PeerChannels {
     /// - The response timed out
     /// - The response was empty or not valid
     pub async fn request_block_bodies(&self, block_hashes: Vec<H256>) -> Option<Vec<BlockBody>> {
+        let block_hashes_len = block_hashes.len();
         let request_id = rand::random();
         let request = RLPxMessage::GetBlockBodies(GetBlockBodies {
             id: request_id,
@@ -103,6 +106,7 @@ impl PeerChannels {
         })
         .await
         .ok()??;
-        (!block_bodies.is_empty()).then_some(block_bodies)
+        // Check that the response is not empty and does not contain more bodies than the ones requested
+        (!block_bodies.is_empty() && block_bodies.len() <= block_hashes_len).then_some(block_bodies)
     }
 }
