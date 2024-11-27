@@ -611,20 +611,20 @@ mod test {
 
         if let Err(e) = std::fs::remove_dir_all(&solc_out) {
             if e.kind() != std::io::ErrorKind::NotFound {
-                panic!();
+                panic!("Failed to remove directory solc_out");
             }
         }
         if let Err(e) = std::fs::remove_dir_all(&lib) {
             if e.kind() != std::io::ErrorKind::NotFound {
-                panic!();
+                panic!("failed to remove directory lib");
             }
         }
 
         if download_contract_deps(Path::new("contracts")).is_err() {
-            panic!()
+            panic!("failed to download contract deps");
         };
         if compile_contracts(Path::new("contracts")).is_err() {
-            panic!()
+            panic!("failed to compile contracts");
         };
 
         std::fs::remove_dir_all(solc_out).unwrap();
