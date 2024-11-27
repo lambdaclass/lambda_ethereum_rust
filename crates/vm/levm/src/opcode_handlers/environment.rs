@@ -361,8 +361,6 @@ impl VM {
             }
         }
 
-        dbg!("Post memory copy");
-
         Ok(OpcodeSuccess::Continue)
     }
 
