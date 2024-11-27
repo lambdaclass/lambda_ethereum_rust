@@ -171,7 +171,10 @@ impl VM {
         let addend = current_call_frame.stack.pop()?;
         let modulus = current_call_frame.stack.pop()?;
 
-        let (sum, _overflowed) = augend.overflowing_add(addend);
+        let new_augend = augend.checked_rem(modulus).unwrap_or_default();
+        let new_addend = addend.checked_rem(modulus).unwrap_or_default();
+
+        let (sum, _overflowed) = new_augend.overflowing_add(new_addend);
 
         let sum_mod = sum.checked_rem(modulus).unwrap_or_default();
 
