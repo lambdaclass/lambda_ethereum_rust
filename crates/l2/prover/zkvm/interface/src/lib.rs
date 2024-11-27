@@ -69,10 +69,7 @@ pub mod io {
 }
 
 pub mod trie {
-    use std::{
-        collections::{hash_map::Entry, HashMap},
-        default,
-    };
+    use std::collections::HashMap;
 
     use ethrex_core::{types::AccountState, H160};
     use ethrex_rlp::{decode::RLPDecode, encode::RLPEncode, error::RLPDecodeError};
@@ -135,9 +132,9 @@ pub mod trie {
                     };
                     for (storage_key, storage_value) in &update.added_storage {
                         let hashed_key = hash_key(storage_key);
-                        if storage_value.is_zero() {
+                        if storage_value.is_zero() && !is_account_new {
                             storage_trie.remove(hashed_key)?;
-                        } else {
+                        } else if !storage_value.is_zero() {
                             storage_trie.insert(hashed_key, storage_value.encode_to_vec())?;
                         }
                     }
