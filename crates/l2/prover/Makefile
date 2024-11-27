@@ -26,14 +26,14 @@ rsp_comparison: $(ETHREX_L2_BIN) $(RSP_BIN)
 		--chain-id 1 \
 		--block-number 21272632 \
 		--cache-dir $(RSP_CACHE) \
-		>/dev/null 2>/dev/null
+		>/dev/null
 	@echo ""
 	@echo "ethrex_l2 times (L2 block, 25 MGas):"
 	@RISC0_DEV_MODE=false time $(ETHREX_L2_BIN) prove \
 		--genesis $(GENESIS_FILE) \
 		--chain $(CHAIN_FILE) \
 		--block-number 2 \
-		>/dev/null 2>/dev/null
+		>/dev/null
 
 $(ETHREX_L2_BIN):
 	CARGO_TARGET_DIR=target cargo build -r --manifest-path $(ROOT_DIRECTORY)/Cargo.toml --bin ethrex_l2 --features "build_zkvm,gpu,disable-dev-mode"
