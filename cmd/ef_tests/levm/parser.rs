@@ -53,12 +53,6 @@ pub fn parse_ef_test_dir(
     directory_parsing_spinner: &mut Spinner,
 ) -> Result<Vec<EFTest>, EFTestParseError> {
     directory_parsing_spinner.update_text(format!("Parsing directory {:?}", test_dir.file_name()));
-    // println!("Parsing directory {:?}", test_dir.file_name());
-
-    // // Skip directory stTimeConsuming and Pyspecs
-    // if test_dir.file_name() == "stTimeConsuming" || test_dir.file_name() == "Pyspecs" {
-    //     return Ok(Vec::new());
-    // }
 
     let mut directory_tests = Vec::new();
     for test in std::fs::read_dir(test_dir.path())

@@ -170,14 +170,11 @@ pub fn prepare_revm_for_tx<'state>(
         authorization_list: None,
     };
 
-    // dbg!(&block_env);
-    // dbg!(&tx_env);
-
     let evm_builder = Revm::builder()
         .with_block_env(block_env)
         .with_tx_env(tx_env)
         .modify_cfg_env(|cfg| cfg.chain_id = chain_spec.chain_id)
-        .with_spec_id(SpecId::CANCUN)
+        .with_spec_id(SpecId::CANCUN) //TODO: In the future replace cancun for the actual spec id
         .with_external_context(
             RevmTracerEip3155::new(Box::new(std::io::stderr())).without_summary(),
         );
