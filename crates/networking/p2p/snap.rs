@@ -152,14 +152,14 @@ pub fn process_trie_nodes_request(
 // Helper method to convert proof to RLP-encodable format
 #[inline]
 fn proof_to_encodable(proof: Vec<Vec<u8>>) -> Vec<Bytes> {
-    proof.into_iter().map(|bytes| Bytes::from(bytes)).collect()
+    proof.into_iter().map(Bytes::from).collect()
 }
 
 // Helper method to obtain proof from RLP-encodable format
 #[inline]
 #[allow(unused)]
-fn encodable_to_proof(proof: &Vec<Bytes>) -> Vec<Vec<u8>> {
-    proof.into_iter().map(|bytes| bytes.to_vec()).collect()
+fn encodable_to_proof(proof: &[Bytes]) -> Vec<Vec<u8>> {
+    proof.iter().map(|bytes| bytes.to_vec()).collect()
 }
 
 #[cfg(test)]

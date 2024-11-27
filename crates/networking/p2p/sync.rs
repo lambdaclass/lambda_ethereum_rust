@@ -54,7 +54,7 @@ impl SyncManager {
                 // Check if we already reached our sync head or if we need to fetch more blocks
                 if !block_hashes.contains(&sync_head) {
                     // Update the request to fetch the next batch
-                    current_head = (*block_hashes.last().unwrap()).into();
+                    current_head = *block_hashes.last().unwrap();
                 } else {
                     // No more headers to request
                     break;
