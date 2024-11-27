@@ -75,7 +75,7 @@ impl VM {
 
         let dividend = current_call_frame.stack.pop()?;
         let divisor = current_call_frame.stack.pop()?;
-        if divisor.is_zero() {
+        if divisor.is_zero() || dividend.is_zero() {
             current_call_frame.stack.push(U256::zero())?;
             return Ok(OpcodeSuccess::Continue);
         }
@@ -92,15 +92,16 @@ impl VM {
         } else {
             divisor
         };
-        let Some(quotient) = dividend.checked_div(divisor) else {
-            current_call_frame.stack.push(U256::zero())?;
-            return Ok(OpcodeSuccess::Continue);
-        };
-        let quotient_is_negative = dividend_is_negative ^ divisor_is_negative;
-        let quotient = if quotient_is_negative {
-            negate(quotient)
-        } else {
-            quotient
+        let quotient = match dividend.checked_div(divisor) {
+            Some(quot) => {
+                let quotient_is_negative = dividend_is_negative ^ divisor_is_negative;
+                if quotient_is_negative {
+                    negate(quot)
+                } else {
+                    quot
+                }
+            }
+            None => U256::zero(),
         };
 
         current_call_frame.stack.push(quotient)?;
@@ -168,20 +169,16 @@ impl VM {
 
         let augend = current_call_frame.stack.pop()?;
         let addend = current_call_frame.stack.pop()?;
-        let divisor = current_call_frame.stack.pop()?;
-        if divisor.is_zero() {
-            current_call_frame.stack.push(U256::zero())?;
-            return Ok(OpcodeSuccess::Continue);
-        }
-        let (sum, overflow) = augend.overflowing_add(addend);
-        let mut remainder = sum.checked_rem(divisor).ok_or(VMError::Internal(
-            InternalError::ArithmeticOperationDividedByZero,
-        ))?; // Cannot be zero bc if above;
-        if overflow || remainder > divisor {
-            remainder = remainder.overflowing_sub(divisor).0;
-        }
+        let modulus = current_call_frame.stack.pop()?;
 
-        current_call_frame.stack.push(remainder)?;
+        let new_augend = augend.checked_rem(modulus).unwrap_or_default();
+        let new_addend = addend.checked_rem(modulus).unwrap_or_default();
+
+        let (sum, _overflowed) = new_augend.overflowing_add(new_addend);
+
+        let sum_mod = sum.checked_rem(modulus).unwrap_or_default();
+
+        current_call_frame.stack.push(sum_mod)?;
 
         Ok(OpcodeSuccess::Continue)
     }
