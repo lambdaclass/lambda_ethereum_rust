@@ -16,6 +16,16 @@ use std::{
 };
 use tracing::warn;
 
+type SetupResult = (
+    Address,
+    SecretKey,
+    Address,
+    Address,
+    Address,
+    EthClient,
+    PathBuf,
+);
+
 #[derive(Debug, thiserror::Error)]
 pub enum DeployError {
     #[error("Failed to lock SALT: {0}")]
@@ -99,18 +109,7 @@ async fn main() {
     write_env(wr_lines).expect("Failed to write changes to the .env file.");
 }
 
-fn setup() -> Result<
-    (
-        Address,
-        SecretKey,
-        Address,
-        Address,
-        Address,
-        EthClient,
-        PathBuf,
-    ),
-    DeployError,
-> {
+fn setup() -> Result<SetupResult, DeployError> {
     if let Err(e) = read_env_file() {
         warn!("Failed to read .env file: {e}");
     }
