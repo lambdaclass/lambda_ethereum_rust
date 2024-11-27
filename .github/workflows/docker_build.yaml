@@ -3,6 +3,13 @@ name: Docker build
 on:
   workflow_call:
   merge_group:
+  pull_request:
+    branches: ["**"]
+    paths-ignore:
+      - "README.md"
+      - "LICENSE"
+      - "**/README.md"
+      - "**/docs/**"
 
 jobs:
   docker_build:
