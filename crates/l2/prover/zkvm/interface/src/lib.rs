@@ -141,7 +141,6 @@ pub mod trie {
                     account_state.storage_root = storage_trie.hash_no_commit();
                 }
                 state_trie.insert(hashed_address, account_state.encode_to_vec())?;
-                println!("inserted new state");
             }
         }
         Ok(())
