@@ -1,5 +1,14 @@
 name: Assertoor
 on:
+  pull_request:
+    branches: ["**"]
+    paths-ignore:
+      - "README.md"
+      - "LICENSE"
+      - "**/README.md"
+      - "**/docs/**"
+      - "crates/vm/levm/**"
+      - "crates/l2/**"
   workflow_run:
     workflows: [Docker build]
     types: [completed]
