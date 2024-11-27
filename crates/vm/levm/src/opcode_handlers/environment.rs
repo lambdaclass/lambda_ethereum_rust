@@ -1,5 +1,6 @@
 use crate::{
     call_frame::CallFrame,
+    constants::WORD_SIZE_IN_BYTES_USIZE,
     errors::{InternalError, OpcodeSuccess, OutOfGasError, VMError},
     gas_cost,
     vm::{word_to_address, VM},
@@ -302,10 +303,12 @@ impl VM {
 
         let (account_info, address_was_cold) = self.access_account(address);
 
-        let new_memory_size = (((!size).checked_add(1).ok_or(VMError::Internal(
-            InternalError::ArithmeticOperationOverflow,
-        ))?) & 31)
+        let new_memory_size = dest_offset
             .checked_add(size)
+            .ok_or(VMError::Internal(
+                InternalError::ArithmeticOperationOverflow,
+            ))?
+            .checked_next_multiple_of(WORD_SIZE_IN_BYTES_USIZE)
             .ok_or(VMError::Internal(
                 InternalError::ArithmeticOperationOverflow,
             ))?;
@@ -353,6 +356,8 @@ impl VM {
                     .unwrap_or(&0u8);
             }
         }
+
+        dbg!("Post memory copy");
 
         Ok(OpcodeSuccess::Continue)
     }
