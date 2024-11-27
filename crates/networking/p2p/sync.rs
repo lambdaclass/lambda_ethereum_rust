@@ -7,7 +7,7 @@ use ethrex_core::{
 };
 use ethrex_storage::Store;
 use tokio::{sync::Mutex, time::Instant};
-use tracing::{info, debug, warn};
+use tracing::{debug, info, warn};
 
 use crate::kademlia::KademliaTable;
 
