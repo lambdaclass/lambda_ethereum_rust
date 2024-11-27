@@ -115,8 +115,7 @@ async fn main() {
         .get_one::<String>("datadir")
         .map_or(set_datadir(DEFAULT_DATADIR), |datadir| set_datadir(datadir));
 
-    // TODO: Use snap as default
-    let is_snap_sync = is_snap_sync(&matches);
+    let snap_sync = is_snap_sync(&matches);
 
     let store = Store::new(&data_dir, EngineType::Libmdbx).expect("Failed to create Store");
 
@@ -294,10 +293,13 @@ fn is_snap_sync(matches: &clap::ArgMatches) -> bool {
     if let Some(syncmode) = syncmode {
         match &**syncmode {
             "full" => false,
-            "snap" => true,
+            "snap" => {
+                info!("snap-sync not available, defaulting to full-sync")
+            },
             other => panic!("Invalid syncmode {other} expected either snap or full"),
         }
     } else {
+        info!("snap-sync not available, defaulting to full-sync");
         false
     }
 }
