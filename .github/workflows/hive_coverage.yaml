@@ -16,8 +16,8 @@ jobs:
     steps:
       - name: Pull image
         run: |
-          docker pull ghcr.io/lambdaclass/ethrex:main
-          docker tag ghcr.io/lambdaclass/ethrex:main ethrex:latest
+          docker pull ghcr.io/lambdaclass/ethrex:latest
+          docker tag ghcr.io/lambdaclass/ethrex:latest ethrex:latest
 
       - name: Checkout sources
         uses: actions/checkout@v3
