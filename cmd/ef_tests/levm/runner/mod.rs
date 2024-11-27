@@ -51,11 +51,11 @@ pub fn run_ef_tests(
     _opts: &EFTestRunnerOptions,
 ) -> Result<(), EFTestRunnerError> {
     let mut reports = report::load()?;
-    if reports.is_empty() {
-        run_with_levm(&mut reports, &ef_tests)?;
-    }
-    re_run_with_revm(&mut reports, &ef_tests)?;
-    // run_with_revm(&mut reports, &ef_tests)?;
+    // if reports.is_empty() {
+    //     run_with_levm(&mut reports, &ef_tests)?;
+    // }
+    // re_run_with_revm(&mut reports, &ef_tests)?;
+    run_with_revm(&mut reports, &ef_tests)?;
     write_report(&reports)
 }
 

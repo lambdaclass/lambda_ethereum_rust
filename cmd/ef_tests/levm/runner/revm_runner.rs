@@ -433,10 +433,10 @@ pub fn ensure_post_state_revm(
             }
         }
         Err(err) => {
-            println!(
-                "Test failed. Name: {}, vector: {:?}, error: {:?}",
-                &test.name, vector, err
-            );
+            // println!(
+            //     "Exception. Name: {}, vector: {:?}, error: {:?}",
+            //     &test.name, vector, err
+            // );
             // store error name in variable
             let error_reason = format!("{err}");
             match test.post.vector_post_value(vector).expect_exception {
