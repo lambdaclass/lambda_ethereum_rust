@@ -98,7 +98,7 @@ impl VM {
                     value,
                     calldata.clone(),
                     false,
-                    env.gas_limit.min(MAX_BLOCK_GAS_LIMIT),
+                    env.gas_limit,
                     TX_BASE_COST,
                     0,
                 );
@@ -136,7 +136,7 @@ impl VM {
                     value,
                     Bytes::new(),
                     false,
-                    env.gas_limit.min(MAX_BLOCK_GAS_LIMIT),
+                    env.gas_limit,
                     TX_BASE_COST,
                     0,
                 );
