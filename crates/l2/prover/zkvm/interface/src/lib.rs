@@ -102,15 +102,13 @@ pub mod trie {
                 // Fetch current state or create a new state to be inserted
                 let account_state = state_trie.get(&hashed_address);
 
-                let mut account_state = if matches!(account_state, Err(TrieError::InconsistentTree))
-                {
-                    // if there isn't a path into the account, then it's potentially a new account.
-                    // This is because we're using pruned tries so the path into a new account
-                    // might not be included in the pruned state trie.
-                    AccountState::default()
-                } else {
-                    let encoded_state = account_state?.unwrap_or_default();
-                    AccountState::decode(&encoded_state)?
+                // if there isn't a path into the account (inconsistent tree error), then
+                // it's potentially a new account. This is because we're using pruned tries
+                // so the path into a new account might not be included in the pruned state trie.
+                let mut account_state = match account_state {
+                    Ok(Some(encoded_state)) => AccountState::decode(&encoded_state)?,
+                    Ok(None) | Err(TrieError::InconsistentTree) => AccountState::default(),
+                    Err(err) => return Err(err.into()),
                 };
                 let is_account_new = account_state == AccountState::default();
 
