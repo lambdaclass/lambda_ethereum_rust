@@ -6,7 +6,7 @@ use ethrex_core::{
 };
 use ethrex_storage::Store;
 use tokio::sync::Mutex;
-use tracing::info;
+use tracing::{info, warn};
 
 use crate::kademlia::KademliaTable;
 
@@ -40,7 +40,12 @@ impl SyncManager {
             info!("Requesting Block Headers from {current_head}");
             // Request Block Headers from Peer
             if let Some(block_headers) = peer.request_block_headers(current_head).await {
-                info!("Received block headers {}..{}", block_headers.first().unwrap(), block_headers.last().unwrap());
+                // We already checked that the range is not empty
+                info!(
+                    "Received block headers {}..{}",
+                    block_headers.first().unwrap(),
+                    block_headers.last().unwrap()
+                );
                 // Keep headers so we can process them later
                 // Discard the first header as we already have it
                 all_block_headers.extend_from_slice(&block_headers[1..]);
@@ -61,14 +66,24 @@ impl SyncManager {
         // We finished fetching all headers, now we can process them
         // TODO: snap-sync: launch tasks to fetch blocks and state in parallel
         // full-sync: Fetch all block bodies and execute them sequentially to build the state
-        tokio::spawn(download_and_run_blocks(
+        match tokio::spawn(download_and_run_blocks(
             all_block_hashes,
             all_block_headers,
             self.peers.clone(),
             store.clone(),
         ))
-        .await;
-        info!("Sync finished, time elapsed: {} ", start_time.elapsed());
+        .await
+        {
+            Ok(Ok(())) => info!("Sync finished, time elapsed: {} ", start_time.elapsed()),
+            Ok(Err(error)) => warn!(
+                "Sync failed due to {error}, time elapsed: {} ",
+                start_time.elapsed()
+            ),
+            _ => warn!(
+                "Sync failed due to internal error, time elapsed: {} ",
+                start_time.elapsed()
+            ),
+        }
     }
 
     /// Creates a dummy SyncManager for tests where syncing is not needed
@@ -82,12 +97,14 @@ impl SyncManager {
     }
 }
 
+/// Requests block bodies from peers via p2p, executes and stores them
+/// Returns an error if there was a problem while executing or validating the blocks
 async fn download_and_run_blocks(
     mut block_hashes: Vec<BlockHash>,
     mut block_headers: Vec<BlockHeader>,
     peers: Arc<Mutex<KademliaTable>>,
     store: Store,
-) -> Resu{
+) -> Result<(), ChainError> {
     loop {
         let peer = peers.lock().await.get_peer_channels().await;
         info!("Requesting Block Bodies ");
@@ -99,7 +116,10 @@ async fn download_and_run_blocks(
                 let header = block_headers.remove(0);
                 let hash = block_hashes.remove(0);
                 let block = Block::new(header, body);
-                ethrex_blockchain::add_block(&block, &store);
+                if let Err(error) = ethrex_blockchain::add_block(&block, &store) {
+                    warn!("Failed to add block during FullSync: {error}");
+                    return Err(error);
+                }
             }
             info!("Executed & stored {} blocks", block_bodies.len());
             // Check if we need to ask for another batch
@@ -109,4 +129,5 @@ async fn download_and_run_blocks(
         }
         info!("Peer response timeout(Blocks)");
     }
+    Ok(())
 }
