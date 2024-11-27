@@ -94,24 +94,15 @@ pub fn deserialize_access_lists<'de, D>(
 where
     D: serde::Deserializer<'de>,
 {
-    // Deserialize as an optional vector, defaulting to an empty vector if `null` or missing
     let access_lists: Option<Vec<Option<Vec<EFTestAccessListItem>>>> =
-        Option::<Vec<Option<Vec<EFTestAccessListItem>>>>::deserialize(deserializer)
-            .unwrap_or_default();
+        Option::<Vec<Option<Vec<EFTestAccessListItem>>>>::deserialize(deserializer)?;
 
     let mut final_access_lists: Vec<Vec<EFTestAccessListItem>> = Vec::new();
 
-    // Process each access list (handling nested `null` values)
     if let Some(access_lists) = access_lists {
         for access_list in access_lists {
             // Treat `null` as an empty vector
-            let access_list = access_list.unwrap_or_default();
-
-            let mut final_access_list: Vec<EFTestAccessListItem> = Vec::new();
-            for access_list_element in access_list {
-                final_access_list.push(access_list_element);
-            }
-            final_access_lists.push(final_access_list);
+            final_access_lists.push(access_list.unwrap_or_default());
         }
     }
 
