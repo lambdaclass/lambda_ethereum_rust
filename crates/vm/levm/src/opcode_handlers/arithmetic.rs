@@ -144,16 +144,14 @@ impl VM {
 
         let divisor_is_negative = unchecked_divisor.bit(255);
         let divisor = if divisor_is_negative {
-            let (divisor, _overflowed) = (!unchecked_divisor).overflowing_add(U256::one());
-            divisor
+            negate(unchecked_divisor)
         } else {
             unchecked_divisor
         };
 
         let dividend_is_negative = unchecked_dividend.bit(255);
         let dividend = if dividend_is_negative {
-            let (dividend, _overflowed) = (!unchecked_dividend).overflowing_add(U256::one());
-            dividend
+            negate(unchecked_dividend)
         } else {
             unchecked_dividend
         };
@@ -167,8 +165,7 @@ impl VM {
         };
 
         let remainder = if dividend_is_negative {
-            let (remainder, _overflowed) = (!unchecked_remainder).overflowing_add(U256::one());
-            remainder
+            negate(unchecked_remainder)
         } else {
             unchecked_remainder
         };
@@ -313,6 +310,6 @@ fn is_negative(value: U256) -> bool {
 
 /// Negates a number in two's complement
 fn negate(value: U256) -> U256 {
-    let inverted = !value;
-    inverted.saturating_add(U256::one())
+    let (dividend, _overflowed) = (!value).overflowing_add(U256::one());
+    dividend
 }
