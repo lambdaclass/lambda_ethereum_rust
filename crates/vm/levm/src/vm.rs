@@ -47,7 +47,7 @@ pub struct VM {
     pub tx_kind: TxKind,
 
     pub touched_accounts: HashSet<Address>,
-    pub touched_storage_slots: HashSet<H256>,
+    pub touched_storage_slots: HashMap<Address, HashSet<H256>>,
 }
 
 pub fn address_to_word(address: Address) -> U256 {
@@ -127,7 +127,7 @@ impl VM {
                     cache,
                     tx_kind: to,
                     touched_accounts: HashSet::new(),
-                    touched_storage_slots: HashSet::new(),
+                    touched_storage_slots: HashMap::new(),
                 })
             }
             TxKind::Create => {
@@ -168,7 +168,7 @@ impl VM {
                     tx_kind: TxKind::Create,
                     // FIXME
                     touched_accounts: HashSet::new(),
-                    touched_storage_slots: HashSet::new(),
+                    touched_storage_slots: HashMap::new(),
                 })
             }
         }
@@ -888,7 +888,7 @@ impl VM {
     /// Accessed storage slots take place in some gas cost computation.
     #[must_use]
     pub fn access_storage_slot(&mut self, address: Address, key: H256) -> (StorageSlot, bool) {
-        let storage_slot_was_cold = self.touched_storage_slots.insert(key);
+        let storage_slot_was_cold = self.touched_storage_slots.entry(address).or_default().insert(key);
         let storage_slot = match cache::get_account(&self.cache, &address) {
             Some(account) => match account.storage.get(&key) {
                 Some(storage_slot) => storage_slot.clone(),
