@@ -39,6 +39,6 @@ $(ETHREX_L2_BIN):
 	CARGO_TARGET_DIR=target cargo build -r --manifest-path $(ROOT_DIRECTORY)/Cargo.toml --bin ethrex_l2 --features "build_zkvm,gpu,disable-dev-mode"
 
 $(RSP_BIN):
-	git clone https://github.com/succinctlabs/rsp.git
+	- git clone https://github.com/succinctlabs/rsp.git
 	cd rsp; \
 	CARGO_TARGET_DIR=../target cargo build -r --bin rsp --features cuda
