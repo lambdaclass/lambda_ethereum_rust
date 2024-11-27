@@ -29,14 +29,14 @@ rsp_comparison: $(ETHREX_L2_BIN) $(RSP_BIN)
 		> /dev/null 2>&1
 	@echo ""
 	@echo "ethrex_l2 times (L2 block, 25 MGas):"
-	@RISC0_DEV_MODE=1 time $(ETHREX_L2_BIN) prove \
+	@RISC0_DEV_MODE=false time $(ETHREX_L2_BIN) prove \
 		--genesis $(GENESIS_FILE) \
 		--chain $(CHAIN_FILE) \
 		--block-number 2 \
 		> /dev/null 2>&1
 
 $(ETHREX_L2_BIN):
-	CARGO_TARGET_DIR=target cargo build -r --manifest-path $(ROOT_DIRECTORY)/Cargo.toml --bin ethrex_l2 --features "build_zkvm,gpu"
+	CARGO_TARGET_DIR=target cargo build -r --manifest-path $(ROOT_DIRECTORY)/Cargo.toml --bin ethrex_l2 --features "build_zkvm,gpu,disable-dev-mode"
 
 $(RSP_BIN):
 	git clone https://github.com/succinctlabs/rsp.git
