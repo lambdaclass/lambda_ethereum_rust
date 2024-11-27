@@ -323,7 +323,7 @@ pub fn compare_levm_revm_account_updates(
     }
 }
 
-pub fn run_ef_test_revm(test: &EFTest) -> Result<EFTestReport, EFTestRunnerError> {
+pub fn _run_ef_test_revm(test: &EFTest) -> Result<EFTestReport, EFTestRunnerError> {
     dbg!(&test.name);
     let mut ef_test_report = EFTestReport::new(
         test.name.clone(),
@@ -331,7 +331,7 @@ pub fn run_ef_test_revm(test: &EFTest) -> Result<EFTestReport, EFTestRunnerError
         test.fork(),
     );
     for (vector, _tx) in test.transactions.iter() {
-        match run_ef_test_tx_revm(vector, test) {
+        match _run_ef_test_tx_revm(vector, test) {
             Ok(_) => continue,
             Err(EFTestRunnerError::VMInitializationFailed(reason)) => {
                 ef_test_report.register_vm_initialization_failure(reason, *vector);
@@ -363,19 +363,19 @@ pub fn run_ef_test_revm(test: &EFTest) -> Result<EFTestReport, EFTestRunnerError
     Ok(ef_test_report)
 }
 
-pub fn run_ef_test_tx_revm(vector: &TestVector, test: &EFTest) -> Result<(), EFTestRunnerError> {
+pub fn _run_ef_test_tx_revm(vector: &TestVector, test: &EFTest) -> Result<(), EFTestRunnerError> {
     // dbg!(vector);
     let (mut state, _block_hash) = load_initial_state(test);
     let mut revm = prepare_revm_for_tx(&mut state, vector, test)?;
     let revm_execution_result = revm.transact_commit();
     drop(revm); // Need to drop the state mutable reference.
 
-    ensure_post_state_revm(revm_execution_result, vector, test, &mut state)?;
+    _ensure_post_state_revm(revm_execution_result, vector, test, &mut state)?;
 
     Ok(())
 }
 
-pub fn ensure_post_state_revm(
+pub fn _ensure_post_state_revm(
     revm_execution_result: Result<RevmExecutionResult, REVMError<StoreError>>,
     vector: &TestVector,
     test: &EFTest,

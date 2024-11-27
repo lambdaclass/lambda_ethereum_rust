@@ -51,11 +51,11 @@ pub fn run_ef_tests(
     _opts: &EFTestRunnerOptions,
 ) -> Result<(), EFTestRunnerError> {
     let mut reports = report::load()?;
-    // if reports.is_empty() {
-    //     run_with_levm(&mut reports, &ef_tests)?;
-    // }
-    // re_run_with_revm(&mut reports, &ef_tests)?;
-    run_with_revm(&mut reports, &ef_tests)?;
+    if reports.is_empty() {
+        run_with_levm(&mut reports, &ef_tests)?;
+    }
+    re_run_with_revm(&mut reports, &ef_tests)?;
+    // _run_with_revm(&mut reports, &ef_tests)?;
     write_report(&reports)
 }
 
@@ -89,7 +89,7 @@ fn run_with_levm(
     Ok(())
 }
 
-fn run_with_revm(
+fn _run_with_revm(
     reports: &mut Vec<EFTestReport>,
     ef_tests: &[EFTest],
 ) -> Result<(), EFTestRunnerError> {
@@ -107,7 +107,7 @@ fn run_with_revm(
             idx + 1,
             format_duration_as_mm_ss(revm_run_time.elapsed())
         ));
-        let ef_test_report = match revm_runner::run_ef_test_revm(test) {
+        let ef_test_report = match revm_runner::_run_ef_test_revm(test) {
             Ok(ef_test_report) => ef_test_report,
             Err(EFTestRunnerError::Internal(err)) => return Err(EFTestRunnerError::Internal(err)),
             non_internal_errors => {
