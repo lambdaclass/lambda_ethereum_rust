@@ -118,12 +118,15 @@ async fn download_and_run_blocks(
             for body in block_bodies.into_iter() {
                 // We already validated that there are no more block bodies than the ones requested
                 let header = block_headers.remove(0);
-                let _hash = block_hashes.remove(0);
+                let hash = block_hashes.remove(0);
+                let number = header.number;
                 let block = Block::new(header, body);
                 if let Err(error) = ethrex_blockchain::add_block(&block, &store) {
                     warn!("Failed to add block during FullSync: {error}");
                     return Err(error);
                 }
+                store.set_canonical_block(number, hash)?;
+                store.update_latest_block_number(number)?;
             }
             info!("Executed & stored {} blocks", block_bodies_len);
             // Check if we need to ask for another batch

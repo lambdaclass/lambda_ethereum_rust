@@ -151,35 +151,6 @@ pub fn process_trie_nodes_request(
     })
 }
 
-// Response Processing
-
-#[allow(unused)]
-pub fn validate_account_range_response(
-    request: &GetAccountRange,
-    response: &AccountRange,
-) -> Result<(), RLPxError> {
-    // Verify Range Proof
-    let (keys, accounts): (Vec<_>, Vec<_>) = response
-        .accounts
-        .iter()
-        .map(|unit| {
-            (
-                unit.hash,
-                AccountState::from(unit.account.clone()).encode_to_vec(),
-            )
-        })
-        .unzip();
-    let proof = encodable_to_proof(&response.proof);
-    verify_range(
-        request.root_hash,
-        &request.starting_hash,
-        &keys,
-        &accounts,
-        &proof,
-    )?;
-    Ok(())
-}
-
 // Helper method to convert proof to RLP-encodable format
 #[inline]
 fn proof_to_encodable(proof: Vec<Vec<u8>>) -> Vec<Bytes> {
