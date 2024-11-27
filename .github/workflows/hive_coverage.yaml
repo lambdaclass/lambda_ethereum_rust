@@ -3,7 +3,7 @@ name: Daily Hive Coverage
 on:
   schedule:
     # Every day at UTC midnight
-    - cron: '0 0 * * *'
+    - cron: "0 0 * * *"
   workflow_dispatch:
 
 env:
@@ -11,9 +11,16 @@ env:
 
 jobs:
   hive-coverage:
-    name: Run engine hive simulator to gather coverage information.
+    name: Daily Hive Coverage
     runs-on: ubuntu-latest
     steps:
+      - name: Login to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
       - name: Pull image
         run: |
           docker pull ghcr.io/lambdaclass/ethrex:main
