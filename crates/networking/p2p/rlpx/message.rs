@@ -3,7 +3,7 @@ use ethrex_rlp::error::{RLPDecodeError, RLPEncodeError};
 use std::fmt::Display;
 
 use super::eth::blocks::{BlockBodies, BlockHeaders, GetBlockBodies, GetBlockHeaders};
-use super::eth::receipts::GetReceipts;
+use super::eth::receipts::{GetReceipts, Receipts};
 use super::eth::status::StatusMessage;
 use super::eth::transactions::Transactions;
 use super::p2p::{DisconnectMessage, HelloMessage, PingMessage, PongMessage};
@@ -33,6 +33,7 @@ pub(crate) enum Message {
     GetBlockBodies(GetBlockBodies),
     BlockBodies(BlockBodies),
     GetReceipts(GetReceipts),
+    Receipts(Receipts),
     // snap capability
     GetAccountRange(GetAccountRange),
     AccountRange(AccountRange),
@@ -127,6 +128,10 @@ impl Message {
                 0x1F_u8.encode(buf);
                 msg.encode(buf)
             }
+            Message::Receipts(msg) => {
+                0x20_u8.encode(buf);
+                msg.encode(buf)
+            }
             Message::GetAccountRange(msg) => {
                 0x21_u8.encode(buf);
                 msg.encode(buf)
@@ -175,6 +180,7 @@ impl Display for Message {
             Message::BlockHeaders(_) => "eth:BlockHeaders".fmt(f),
             Message::BlockBodies(_) => "eth:BlockBodies".fmt(f),
             Message::GetReceipts(_) => "eth:GetReceipts".fmt(f),
+            Message::Receipts(_) => "eth:Receipts".fmt(f),
             Message::Transactions(_) => "eth:TransactionsMessage".fmt(f),
             Message::GetBlockBodies(_) => "eth:GetBlockBodies".fmt(f),
             Message::GetAccountRange(_) => "snap:GetAccountRange".fmt(f),

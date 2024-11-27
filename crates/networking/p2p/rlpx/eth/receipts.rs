@@ -48,11 +48,12 @@ impl RLPxMessage for GetReceipts {
 }
 
 // https://github.com/ethereum/devp2p/blob/master/caps/eth.md#receipts-0x10
+#[derive(Debug)]
 pub(crate) struct Receipts {
     // id is a u64 chosen by the requesting peer, the responding peer must mirror the value for the response
     // https://github.com/ethereum/devp2p/blob/master/caps/eth.md#protocol-messages
-    id: u64,
-    receipts: Vec<Vec<Receipt>>,
+    pub id: u64,
+    pub receipts: Vec<Vec<Receipt>>,
 }
 
 impl Receipts {

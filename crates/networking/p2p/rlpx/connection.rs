@@ -5,6 +5,7 @@ use crate::{
         eth::{
             backend,
             blocks::{BlockBodies, BlockHeaders},
+            receipts::Receipts,
             transactions::Transactions,
         },
         handshake::encode_ack_message,
@@ -351,11 +352,13 @@ impl<S: AsyncWrite + AsyncRead + std::marker::Unpin> RLPxConnection<S> {
                 self.send(Message::BlockBodies(response)).await?;
             }
             Message::GetReceipts(GetReceipts { id, block_hashes }) if peer_supports_eth => {
-                // FIXME: Implement this
-                todo!()
-                // block_hashes
-                //     .into_iter()
-                //     .map(|hash| )
+                // FIXME: Remove unwrap
+                let receipts = block_hashes
+                    .iter()
+                    .map(|hash| self.storage.get_receipts_for_block(hash).unwrap())
+                    .collect();
+                let response = Receipts { id, receipts };
+                self.send(Message::Receipts(response)).await?;
             }
             Message::GetStorageRanges(req) => {
                 let response = process_storage_ranges_request(req, self.storage.clone())?;
