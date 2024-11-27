@@ -1,6 +1,5 @@
 use ethrex_rlp::error::{RLPDecodeError, RLPEncodeError};
 use ethrex_storage::error::StoreError;
-use ethrex_trie::TrieError;
 use thiserror::Error;
 use tokio::sync::broadcast::error::RecvError;
 

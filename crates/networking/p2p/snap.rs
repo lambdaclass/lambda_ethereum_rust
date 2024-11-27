@@ -1,8 +1,6 @@
 use bytes::Bytes;
-use ethrex_core::types::AccountState;
 use ethrex_rlp::encode::RLPEncode;
 use ethrex_storage::{error::StoreError, Store};
-use ethrex_trie::verify_range;
 
 use crate::rlpx::{
     error::RLPxError,
@@ -159,6 +157,7 @@ fn proof_to_encodable(proof: Vec<Vec<u8>>) -> Vec<Bytes> {
 
 // Helper method to obtain proof from RLP-encodable format
 #[inline]
+#[allow(unused)]
 fn encodable_to_proof(proof: &Vec<Bytes>) -> Vec<Vec<u8>> {
     proof.into_iter().map(|bytes| bytes.to_vec()).collect()
 }

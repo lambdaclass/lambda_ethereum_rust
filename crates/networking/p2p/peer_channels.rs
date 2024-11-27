@@ -20,13 +20,13 @@ pub const MAX_MESSAGES_IN_PEER_CHANNEL: usize = 25;
 /// Holds the respective sender and receiver ends of the communication channels bewteen the peer data and its active connection
 pub struct PeerChannels {
     sender: mpsc::Sender<RLPxMessage>,
-    pub receiver: Arc<Mutex<mpsc::Receiver<RLPxMessage>>>,
+    receiver: Arc<Mutex<mpsc::Receiver<RLPxMessage>>>,
 }
 
 impl PeerChannels {
     /// Sets up the communication channels for the peer
     /// Returns the channel endpoints to send to the active connection's listen loop
-    pub fn create() -> (Self, mpsc::Sender<RLPxMessage>, mpsc::Receiver<RLPxMessage>) {
+    pub (crate) fn create() -> (Self, mpsc::Sender<RLPxMessage>, mpsc::Receiver<RLPxMessage>) {
         let (sender, connection_receiver) =
             mpsc::channel::<RLPxMessage>(MAX_MESSAGES_IN_PEER_CHANNEL);
         let (connection_sender, receiver) =

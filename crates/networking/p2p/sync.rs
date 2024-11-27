@@ -2,7 +2,7 @@ use std::sync::Arc;
 
 use ethrex_blockchain::error::ChainError;
 use ethrex_core::{
-    types::{validate_block_header, Block, BlockHash, BlockHeader, InvalidBlockHeaderError},
+    types::{Block, BlockHash, BlockHeader},
     H256,
 };
 use ethrex_storage::Store;
