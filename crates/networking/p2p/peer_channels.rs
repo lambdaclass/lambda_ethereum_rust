@@ -26,7 +26,7 @@ pub struct PeerChannels {
 impl PeerChannels {
     /// Sets up the communication channels for the peer
     /// Returns the channel endpoints to send to the active connection's listen loop
-    pub(crate) fn create() -> (Self, mpsc::Sender<RLPxMessage>, mpsc::Receiver<RLPxMessage>) {
+    pub (crate) fn create() -> (Self, mpsc::Sender<RLPxMessage>, mpsc::Receiver<RLPxMessage>) {
         let (sender, connection_receiver) =
             mpsc::channel::<RLPxMessage>(MAX_MESSAGES_IN_PEER_CHANNEL);
         let (connection_sender, receiver) =
