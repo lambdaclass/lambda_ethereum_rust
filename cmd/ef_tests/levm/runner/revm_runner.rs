@@ -391,8 +391,8 @@ pub fn ensure_post_state_revm(
                     return Err(EFTestRunnerError::FailedToEnsurePostState(
                         TransactionReport {
                             result: TxResult::Success,
-                            gas_used: 0,
-                            gas_refunded: 0,
+                            gas_used: 42,
+                            gas_refunded: 42,
                             logs: vec![],
                             output: Bytes::new(),
                             new_state: HashMap::new(),
@@ -417,8 +417,8 @@ pub fn ensure_post_state_revm(
                         return Err(EFTestRunnerError::FailedToEnsurePostState(
                             TransactionReport {
                                 result: TxResult::Success,
-                                gas_used: 0,
-                                gas_refunded: 0,
+                                gas_used: 42,
+                                gas_refunded: 42,
                                 logs: vec![],
                                 output: Bytes::new(),
                                 new_state: HashMap::new(),
