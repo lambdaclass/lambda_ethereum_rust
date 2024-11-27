@@ -7,11 +7,11 @@ on:
   merge_group:
   pull_request:
     branches: ["**"]
-    paths-ignore:
-      - "README.md"
-      - "LICENSE"
-      - "**/README.md"
-      - "**/docs/**"
+    # paths-ignore:
+    #   - "README.md"
+    #   - "LICENSE"
+    #   - "**/README.md"
+    #   - "**/docs/**"
 
 jobs:
   docker_build:
