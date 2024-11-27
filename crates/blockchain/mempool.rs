@@ -160,7 +160,7 @@ Stateful validations
 4. In case of transaction reorg, ensure the transactor has enough funds to cover for transaction replacements without overdrafts.
 - This is done by comparing the total spent gas of the transactor from all pooled transactions, and accounting for the necessary gas spenditure if any of those transactions is replaced.
 5. Ensure the transactor is able to add a new transaction. The number of transactions sent by an account may be limited by a certain configured value
-6.
+
 */
 
 fn validate_transaction(tx: &Transaction, store: Store) -> Result<(), MempoolError> {
