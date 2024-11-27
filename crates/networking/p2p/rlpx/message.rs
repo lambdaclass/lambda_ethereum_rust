@@ -19,7 +19,7 @@ pub trait RLPxMessage: Sized {
 
     fn decode(msg_data: &[u8]) -> Result<Self, RLPDecodeError>;
 }
-#[derive(Debug, Clone)]
+#[derive(Debug)]
 pub(crate) enum Message {
     Hello(HelloMessage),
     Disconnect(DisconnectMessage),
