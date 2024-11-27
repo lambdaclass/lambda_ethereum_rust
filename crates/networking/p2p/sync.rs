@@ -7,7 +7,7 @@ use ethrex_core::{
 };
 use ethrex_storage::Store;
 use tokio::{sync::Mutex, time::Instant};
-use tracing::{info, warn};
+use tracing::{info, debug, warn};
 
 use crate::kademlia::KademliaTable;
 
@@ -38,10 +38,10 @@ impl SyncManager {
         let mut all_block_hashes = vec![];
         loop {
             let peer = self.peers.lock().await.get_peer_channels().await;
-            info!("Requesting Block Headers from {current_head}");
+            debug!("Requesting Block Headers from {current_head}");
             // Request Block Headers from Peer
             if let Some(block_headers) = peer.request_block_headers(current_head).await {
-                info!("Received {} block headers", block_headers.len());
+                debug!("Received {} block headers", block_headers.len());
                 let block_hashes = block_headers
                     .iter()
                     .map(|header| header.compute_block_hash())
@@ -60,9 +60,7 @@ impl SyncManager {
                     break;
                 }
             }
-            info!("Peer response timeout (Headers)");
         }
-        info!("All headers fetched");
         // We finished fetching all headers, now we can process them
         // TODO: snap-sync: launch tasks to fetch blocks and state in parallel
         // full-sync: Fetch all block bodies and execute them sequentially to build the state
@@ -110,10 +108,10 @@ async fn download_and_run_blocks(
 ) -> Result<(), ChainError> {
     loop {
         let peer = peers.lock().await.get_peer_channels().await;
-        info!("Requesting Block Bodies ");
+        debug!("Requesting Block Bodies ");
         if let Some(block_bodies) = peer.request_block_bodies(block_hashes.clone()).await {
             let block_bodies_len = block_bodies.len();
-            info!("Received {} Block Bodies", block_bodies_len);
+            debug!("Received {} Block Bodies", block_bodies_len);
             // Execute and store blocks
             for body in block_bodies.into_iter() {
                 // We already validated that there are no more block bodies than the ones requested
@@ -128,13 +126,12 @@ async fn download_and_run_blocks(
                 store.set_canonical_block(number, hash)?;
                 store.update_latest_block_number(number)?;
             }
-            info!("Executed & stored {} blocks", block_bodies_len);
+            debug!("Executed & stored {} blocks", block_bodies_len);
             // Check if we need to ask for another batch
             if block_hashes.is_empty() {
                 break;
             }
         }
-        info!("Peer response timeout(Blocks)");
     }
     Ok(())
 }
