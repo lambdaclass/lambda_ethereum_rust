@@ -71,7 +71,9 @@ async fn testito() {
     println!("Waiting for deposit transaction receipt");
 
     let _deposit_tx_receipt =
-        ethrex_l2_sdk::wait_for_transaction_receipt(deposit_tx, &eth_client, 5).await;
+        ethrex_l2_sdk::wait_for_transaction_receipt(deposit_tx, &eth_client, 5)
+            .await
+            .unwrap();
 
     // 3. Check balances on L1 and L2
 
@@ -141,7 +143,9 @@ async fn testito() {
     .await
     .unwrap();
     let _transfer_tx_receipt =
-        ethrex_l2_sdk::wait_for_transaction_receipt(transfer_tx, &proposer_client, 30).await;
+        ethrex_l2_sdk::wait_for_transaction_receipt(transfer_tx, &proposer_client, 30)
+            .await
+            .unwrap();
 
     // 5. Check balances on L2
 
@@ -185,7 +189,9 @@ async fn testito() {
     .await
     .unwrap();
     let withdraw_tx_receipt =
-        ethrex_l2_sdk::wait_for_transaction_receipt(withdraw_tx, &proposer_client, 30).await;
+        ethrex_l2_sdk::wait_for_transaction_receipt(withdraw_tx, &proposer_client, 30)
+            .await
+            .unwrap();
 
     // 7. Check balances on L1 and L2
 
@@ -251,8 +257,9 @@ async fn testito() {
     .await
     .unwrap();
 
-    let _claim_tx_receipt =
-        ethrex_l2_sdk::wait_for_transaction_receipt(claim_tx, &eth_client, 15).await;
+    let _claim_tx_receipt = ethrex_l2_sdk::wait_for_transaction_receipt(claim_tx, &eth_client, 15)
+        .await
+        .unwrap();
 
     // 9. Check balances on L1 and L2
 
