@@ -16,15 +16,15 @@ use std::{
 };
 use tracing::warn;
 
-type SetupResult = (
-    Address,
-    SecretKey,
-    Address,
-    Address,
-    Address,
-    EthClient,
-    PathBuf,
-);
+struct SetupResult {
+    deployer_address: Address,
+    deployer_private_key: SecretKey,
+    committer_address: Address,
+    verifier_address: Address,
+    contract_verifier_address: Address,
+    eth_client: EthClient,
+    contracts_path: PathBuf,
+}
 
 #[derive(Debug, thiserror::Error)]
 pub enum DeployError {
@@ -44,30 +44,38 @@ lazy_static::lazy_static! {
     static ref SALT: std::sync::Mutex<H256> = std::sync::Mutex::new(H256::zero());
 }
 
+// (
+//     deployer,
+//     deployer_private_key,
+//     committer_private_key,
+//     verifier_private_key,
+//     contract_verifier_address,
+//     eth_client,
+//     contracts_path,
+// )
+
 #[tokio::main]
 async fn main() {
-    let Ok((
-        deployer,
-        deployer_private_key,
-        committer_private_key,
-        verifier_private_key,
-        contract_verifier_address,
-        eth_client,
-        contracts_path,
-    )) = setup()
-    else {
+    let Ok(setup_result) = setup() else {
         panic!("Failed on setup");
     };
-    if let Err(e) = download_contract_deps(&contracts_path) {
+    if let Err(e) = download_contract_deps(&setup_result.contracts_path) {
         panic!("Failed to download contracts {e}");
     };
-    if let Err(e) = compile_contracts(&contracts_path) {
+    if let Err(e) = compile_contracts(&setup_result.contracts_path) {
         panic!("Failed to compile contracts {e}");
     };
 
     let on_chain_proposer;
     let bridge_address;
-    match deploy_contracts(deployer, deployer_private_key, &eth_client, &contracts_path).await {
+    match deploy_contracts(
+        setup_result.deployer_address,
+        setup_result.deployer_private_key,
+        &setup_result.eth_client,
+        &setup_result.contracts_path,
+    )
+    .await
+    {
         Ok((ocp, ba)) => {
             on_chain_proposer = ocp;
             bridge_address = ba;
@@ -76,14 +84,14 @@ async fn main() {
     };
 
     initialize_contracts(
-        deployer,
-        deployer_private_key,
-        committer_private_key,
-        verifier_private_key,
+        setup_result.deployer_address,
+        setup_result.deployer_private_key,
+        setup_result.committer_address,
+        setup_result.verifier_address,
         on_chain_proposer,
         bridge_address,
-        contract_verifier_address,
-        &eth_client,
+        setup_result.contract_verifier_address,
+        &setup_result.eth_client,
     )
     .await;
 
@@ -115,7 +123,7 @@ fn setup() -> Result<SetupResult, DeployError> {
     }
 
     let eth_client = EthClient::new(&std::env::var("ETH_RPC_URL").expect("ETH_RPC_URL not set"));
-    let deployer = std::env::var("DEPLOYER_ADDRESS")
+    let deployer_address = std::env::var("DEPLOYER_ADDRESS")
         .expect("DEPLOYER_ADDRESS not set")
         .parse()
         .expect("Malformed DEPLOYER_ADDRESS");
@@ -131,11 +139,11 @@ fn setup() -> Result<SetupResult, DeployError> {
     )
     .expect("Malformed DEPLOYER_PRIVATE_KEY (SecretKey::parse)");
 
-    let committer = std::env::var("COMMITTER_L1_ADDRESS")
+    let committer_address = std::env::var("COMMITTER_L1_ADDRESS")
         .expect("COMMITTER_L1_ADDRESS not set")
         .parse()
         .expect("Malformed COMMITTER_L1_ADDRESS");
-    let verifier = std::env::var("PROVER_SERVER_VERIFIER_ADDRESS")
+    let verifier_address = std::env::var("PROVER_SERVER_VERIFIER_ADDRESS")
         .expect("PROVER_SERVER_VERIFIER_ADDRESS not set")
         .parse()
         .expect("Malformed PROVER_SERVER_VERIFIER_ADDRESS");
@@ -163,15 +171,15 @@ fn setup() -> Result<SetupResult, DeployError> {
         .expect("DEPLOYER_CONTRACT_VERIFIER not set")
         .parse()
         .expect("Malformed DEPLOYER_CONTRACT_VERIFIER");
-    Ok((
-        deployer,
+    Ok(SetupResult {
+        deployer_address,
         deployer_private_key,
-        committer,
-        verifier,
+        committer_address,
+        verifier_address,
         contract_verifier_address,
         eth_client,
         contracts_path,
-    ))
+    })
 }
 
 fn download_contract_deps(contracts_path: &Path) -> Result<(), DeployError> {
