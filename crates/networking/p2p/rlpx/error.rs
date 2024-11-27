@@ -45,8 +45,6 @@ pub enum RLPxError {
     RecvError(#[from] RecvError),
     #[error(transparent)]
     Send(#[from] tokio::sync::mpsc::error::SendError<Message>),
-    #[error("No peers to interact with yet")]
-    NoPeers,
 }
 
 // Grouping all cryptographic related errors in a single CryptographicError variant
