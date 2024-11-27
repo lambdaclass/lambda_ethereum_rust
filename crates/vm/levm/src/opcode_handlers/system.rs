@@ -48,11 +48,17 @@ impl VM {
         let new_memory_size_for_args = (args_start_offset
             .checked_add(args_size)
             .ok_or(InternalError::ArithmeticOperationOverflow)?)
-        .next_multiple_of(WORD_SIZE_IN_BYTES_USIZE);
+        .checked_next_multiple_of(WORD_SIZE_IN_BYTES_USIZE)
+        .ok_or(VMError::Internal(
+            InternalError::ArithmeticOperationOverflow,
+        ))?;
         let new_memory_size_for_return_data = (return_data_start_offset
             .checked_add(return_data_size)
             .ok_or(InternalError::ArithmeticOperationOverflow)?)
-        .next_multiple_of(WORD_SIZE_IN_BYTES_USIZE);
+        .checked_next_multiple_of(WORD_SIZE_IN_BYTES_USIZE)
+        .ok_or(VMError::Internal(
+            InternalError::ArithmeticOperationOverflow,
+        ))?;
         let new_memory_size = new_memory_size_for_args.max(new_memory_size_for_return_data);
         let current_memory_size = current_call_frame.memory.data.len();
 
@@ -122,11 +128,17 @@ impl VM {
         let new_memory_size_for_args = (args_start_offset
             .checked_add(args_size)
             .ok_or(InternalError::ArithmeticOperationOverflow)?)
-        .next_multiple_of(WORD_SIZE_IN_BYTES_USIZE);
+        .checked_next_multiple_of(WORD_SIZE_IN_BYTES_USIZE)
+        .ok_or(VMError::Internal(
+            InternalError::ArithmeticOperationOverflow,
+        ))?;
         let new_memory_size_for_return_data = (return_data_start_offset
             .checked_add(return_data_size)
             .ok_or(InternalError::ArithmeticOperationOverflow)?)
-        .next_multiple_of(WORD_SIZE_IN_BYTES_USIZE);
+        .checked_next_multiple_of(WORD_SIZE_IN_BYTES_USIZE)
+        .ok_or(VMError::Internal(
+            InternalError::ArithmeticOperationOverflow,
+        ))?;
         let new_memory_size = new_memory_size_for_args.max(new_memory_size_for_return_data);
         let current_memory_size = current_call_frame.memory.data.len();
 
@@ -236,11 +248,17 @@ impl VM {
         let new_memory_size_for_args = (args_start_offset
             .checked_add(args_size)
             .ok_or(InternalError::ArithmeticOperationOverflow)?)
-        .next_multiple_of(WORD_SIZE_IN_BYTES_USIZE);
+        .checked_next_multiple_of(WORD_SIZE_IN_BYTES_USIZE)
+        .ok_or(VMError::Internal(
+            InternalError::ArithmeticOperationOverflow,
+        ))?;
         let new_memory_size_for_return_data = (return_data_start_offset
             .checked_add(return_data_size)
             .ok_or(InternalError::ArithmeticOperationOverflow)?)
-        .next_multiple_of(WORD_SIZE_IN_BYTES_USIZE);
+        .checked_next_multiple_of(WORD_SIZE_IN_BYTES_USIZE)
+        .ok_or(VMError::Internal(
+            InternalError::ArithmeticOperationOverflow,
+        ))?;
         let new_memory_size = new_memory_size_for_args.max(new_memory_size_for_return_data);
         let current_memory_size = current_call_frame.memory.data.len();
 
@@ -303,11 +321,17 @@ impl VM {
         let new_memory_size_for_args = (args_start_offset
             .checked_add(args_size)
             .ok_or(InternalError::ArithmeticOperationOverflow)?)
-        .next_multiple_of(WORD_SIZE_IN_BYTES_USIZE);
+        .checked_next_multiple_of(WORD_SIZE_IN_BYTES_USIZE)
+        .ok_or(VMError::Internal(
+            InternalError::ArithmeticOperationOverflow,
+        ))?;
         let new_memory_size_for_return_data = (return_data_start_offset
             .checked_add(return_data_size)
             .ok_or(InternalError::ArithmeticOperationOverflow)?)
-        .next_multiple_of(WORD_SIZE_IN_BYTES_USIZE);
+        .checked_next_multiple_of(WORD_SIZE_IN_BYTES_USIZE)
+        .ok_or(VMError::Internal(
+            InternalError::ArithmeticOperationOverflow,
+        ))?;
         let new_memory_size = new_memory_size_for_args.max(new_memory_size_for_return_data);
         let current_memory_size = current_call_frame.memory.data.len();
 
