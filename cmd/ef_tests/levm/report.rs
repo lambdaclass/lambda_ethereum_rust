@@ -360,7 +360,8 @@ impl fmt::Display for AccountUpdatesReport {
             let initial_account = self
                 .initial_accounts
                 .get(levm_updated_account_only)
-                .unwrap();
+                .cloned()
+                .unwrap_or_default();
             let updated_account_update = self
                 .levm_account_updates
                 .iter()
