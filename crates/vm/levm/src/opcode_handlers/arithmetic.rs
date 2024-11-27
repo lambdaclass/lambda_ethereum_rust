@@ -142,19 +142,8 @@ impl VM {
             return Ok(OpcodeSuccess::Continue);
         }
 
-        let divisor_is_negative = unchecked_divisor.bit(255);
-        let divisor = if divisor_is_negative {
-            negate(unchecked_divisor)
-        } else {
-            unchecked_divisor
-        };
-
-        let dividend_is_negative = unchecked_dividend.bit(255);
-        let dividend = if dividend_is_negative {
-            negate(unchecked_dividend)
-        } else {
-            unchecked_dividend
-        };
+        let divisor = abs(unchecked_divisor);
+        let dividend = abs(unchecked_dividend);
 
         let unchecked_remainder = match dividend.checked_rem(divisor) {
             Some(remainder) => remainder,
@@ -164,7 +153,7 @@ impl VM {
             }
         };
 
-        let remainder = if dividend_is_negative {
+        let remainder = if is_negative(unchecked_dividend) {
             negate(unchecked_remainder)
         } else {
             unchecked_remainder
@@ -312,4 +301,12 @@ fn is_negative(value: U256) -> bool {
 fn negate(value: U256) -> U256 {
     let (dividend, _overflowed) = (!value).overflowing_add(U256::one());
     dividend
+}
+
+fn abs(value: U256) -> U256 {
+    if is_negative(value) {
+        negate(value)
+    } else {
+        value
+    }
 }
