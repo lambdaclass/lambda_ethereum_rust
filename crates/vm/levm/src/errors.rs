@@ -112,6 +112,8 @@ pub enum TxValidationError {
     Type3TxContractCreation,
     #[error("Undefined state")]
     UndefinedState(i32), // This error is temporarily for things that cause an undefined state.
+    #[error("Gas limit price product overflow")]
+    GasLimitPriceProductOverflow,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash, thiserror::Error, Serialize, Deserialize)]

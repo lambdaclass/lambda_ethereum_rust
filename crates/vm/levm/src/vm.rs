@@ -6,7 +6,7 @@ use crate::{
     environment::Environment,
     errors::{
         InternalError, OpcodeSuccess, OutOfGasError, ResultReason, TransactionReport, TxResult,
-        VMError,
+        TxValidationError, VMError,
     },
     gas_cost,
     opcodes::Opcode,
@@ -362,6 +362,162 @@ impl VM {
 
         // Should revert this?
         // sender_account.info.balance -= self.call_frames.first().ok_or(VMError::FatalUnwrap)?.msg_value;
+
+        Ok(())
+    }
+
+    // If transaction is Type 2 then it returns max fee per gas, otherwise it returns gas price
+    pub fn gas_price_or_max_fee_per_gas(&self) -> U256 {
+        self.env.tx_max_fee_per_gas.unwrap_or(self.env.gas_price)
+    }
+
+    /// ## Description
+    /// This method performs validations and returns an error if any of the validations fail.
+    /// It also makes initial changes alongside the validations:
+    /// - It increases sender nonce
+    /// - It substracts up-front-cost from sender balance.
+    /// - It calculates and adds intrinsic gas to the 'gas used' of callframe and environment.
+    ///   See 'docs' for more information about validations.
+    fn validate_transaction(&mut self, initial_call_frame: &mut CallFrame) -> Result<(), VMError> {
+        //TODO: This should revert the transaction, not throw an error. And I don't know if it should be done here...
+        // if self.is_create() {
+        //     // If address is already in db, there's an error
+        //     let new_address_acc = self.db.get_account_info(call_frame.to);
+        //     if !new_address_acc.is_empty() {
+        //         return Err(VMError::AddressAlreadyOccupied);
+        //     }
+        // }
+        let sender_address = self.env.origin;
+        let mut sender_account = self.get_account(&sender_address);
+
+        // (1) GASLIMIT_PRICE_PRODUCT_OVERFLOW
+        let gaslimit_price_product = self
+            .gas_price_or_max_fee_per_gas()
+            .checked_mul(self.env.gas_limit)
+            .ok_or(VMError::TxValidation(
+                TxValidationError::GasLimitPriceProductOverflow,
+            ))?;
+
+        // Up front cost is the maximum amount of wei that a user is willing to pay for.
+        let up_front_cost = gaslimit_price_product
+            .checked_add(initial_call_frame.msg_value)
+            .ok_or(VMError::TxValidation(
+                TxValidationError::InsufficientAccountFunds,
+            ))?;
+
+        // (2) INSUFFICIENT_ACCOUNT_FUNDS
+        sender_account.info.balance = sender_account
+            .info
+            .balance
+            .checked_sub(up_front_cost)
+            .ok_or(VMError::TxValidation(
+                TxValidationError::InsufficientAccountFunds,
+            ))?;
+
+        // (3) INSUFFICIENT_MAX_FEE_PER_GAS
+        if self.gas_price_or_max_fee_per_gas() < self.env.base_fee_per_gas {
+            return Err(VMError::TxValidation(
+                TxValidationError::InsufficientMaxFeePerGas,
+            ));
+        }
+
+        // (4) INITCODE_SIZE_EXCEEDED
+        if self.is_create() {
+            // INITCODE_SIZE_EXCEEDED
+            if initial_call_frame.calldata.len() > INIT_CODE_MAX_SIZE {
+                return Err(VMError::TxValidation(
+                    TxValidationError::InitcodeSizeExceeded,
+                ));
+            }
+        }
+
+        // (5) INTRINSIC_GAS_TOO_LOW
+        self.add_intrinsic_gas(initial_call_frame)?;
+
+        // (6) NONCE_IS_MAX
+        sender_account.info.nonce = sender_account
+            .info
+            .nonce
+            .checked_add(1)
+            .ok_or(VMError::TxValidation(TxValidationError::NonceIsMax))?;
+
+        // Update cache with account with incremented nonce
+        self.cache.add_account(&sender_address, &sender_account);
+
+        // (7) PRIORITY_GREATER_THAN_MAX_FEE_PER_GAS
+        if let (Some(tx_max_priority_fee), Some(tx_max_fee_per_gas)) = (
+            self.env.tx_max_priority_fee_per_gas,
+            self.env.tx_max_fee_per_gas,
+        ) {
+            if tx_max_priority_fee > tx_max_fee_per_gas {
+                return Err(VMError::TxValidation(
+                    TxValidationError::PriorityGreaterThanMaxFeePerGas,
+                ));
+            }
+        }
+
+        // (8) SENDER_NOT_EOA
+        if sender_account.has_code() {
+            return Err(VMError::TxValidation(TxValidationError::SenderNotEOA));
+        }
+
+        // (9) GAS_ALLOWANCE_EXCEEDED
+        if self.env.gas_limit > self.env.block_gas_limit {
+            return Err(VMError::TxValidation(
+                TxValidationError::GasAllowanceExceeded,
+            ));
+        }
+
+        // (10) INSUFFICIENT_MAX_FEE_PER_BLOB_GAS
+        if let Some(tx_max_fee_per_blob_gas) = self.env.tx_max_fee_per_blob_gas {
+            if tx_max_fee_per_blob_gas < self.env.base_fee_per_gas {
+                return Err(VMError::TxValidation(
+                    TxValidationError::InsufficientMaxFeePerGas,
+                ));
+            }
+        }
+
+        //TODO: Implement the rest of the validations (TYPE_3)
+
+        // (11) TYPE_3_TX_ZERO_BLOBS
+        if let Some(tx_blob_hashes) = &self.env.tx_blob_hashes {
+            if tx_blob_hashes.is_empty() {
+                return Err(VMError::TxValidation(TxValidationError::Type3TxZeroBlobs));
+            }
+        }
+
+        // (12) TYPE_3_TX_INVALID_BLOB_VERSIONED_HASH
+        if let Some(tx_blob_hashes) = &self.env.tx_blob_hashes {
+            for blob_hash in tx_blob_hashes {
+                let blob_hash = blob_hash.as_bytes();
+                if let Some(first_byte) = blob_hash.first() {
+                    if !VALID_BLOB_PREFIXES.contains(first_byte) {
+                        return Err(VMError::TxValidation(
+                            TxValidationError::Type3TxInvalidBlobVersionedHash,
+                        ));
+                    }
+                }
+            }
+        }
+
+        // (13) TYPE_3_TX_PRE_FORK -> This is not necessary for now because we are not supporting pre-cancun transactions yet. But we should somehow be able to tell the current context.
+
+        // (14) TYPE_3_TX_BLOB_COUNT_EXCEEDED
+        if let Some(tx_blob_hashes) = &self.env.tx_blob_hashes {
+            if tx_blob_hashes.len() > MAX_BLOB_COUNT {
+                return Err(VMError::TxValidation(
+                    TxValidationError::Type3TxBlobCountExceeded,
+                ));
+            }
+        }
+
+        // (15) TYPE_3_TX_CONTRACT_CREATION
+        // The current way of checking if the transaction is a Type 3 Tx is by checking if the tx_blob_hashes is Some.
+        if self.env.tx_blob_hashes.is_some() && self.is_create() {
+            return Err(VMError::TxValidation(
+                TxValidationError::Type3TxContractCreation,
+            ));
+        }
 
         Ok(())
     }
