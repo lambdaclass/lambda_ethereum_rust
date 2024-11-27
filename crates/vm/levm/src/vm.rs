@@ -81,22 +81,13 @@ impl VM {
         // Maybe this decision should be made in an upper layer
 
         // Add sender, coinbase and recipient (in the case of a Call) to cache [https://www.evm.codes/about#access_list]
-        let sender_account_info = db.get_account_info(env.origin);
-        cache::insert_account(
-            &mut cache,
-            env.origin,
-            Account::from(sender_account_info.clone()),
-        );
-
-        let coinbase_account_info = db.get_account_info(env.coinbase);
-        cache::insert_account(
-            &mut cache,
-            env.coinbase,
-            Account::from(coinbase_account_info),
-        );
+        let mut default_touched_accounts =
+            HashSet::from_iter([env.origin, env.coinbase].iter().cloned());
 
         match to {
             TxKind::Call(address_to) => {
+                default_touched_accounts.insert(address_to);
+
                 // add address_to to cache
                 let recipient_account_info = db.get_account_info(address_to);
                 cache::insert_account(
@@ -135,9 +126,12 @@ impl VM {
 
                 // (2)
                 let new_contract_address =
-                    VM::calculate_create_address(env.origin, sender_account_info.nonce).map_err(
-                        |_| VMError::Internal(InternalError::CouldNotComputeCreateAddress),
-                    )?; // TODO: Remove after merging the PR that removes unwraps.
+                    VM::calculate_create_address(env.origin, db.get_account_info(env.origin).nonce)
+                        .map_err(|_| {
+                            VMError::Internal(InternalError::CouldNotComputeCreateAddress)
+                        })?;
+
+                default_touched_accounts.insert(new_contract_address);
 
                 // (3)
                 let created_contract = Account::new(value, calldata.clone(), 1, HashMap::new());
@@ -166,8 +160,7 @@ impl VM {
                     accrued_substate: Substate::default(),
                     cache,
                     tx_kind: TxKind::Create,
-                    // FIXME
-                    touched_accounts: HashSet::new(),
+                    touched_accounts: default_touched_accounts,
                     touched_storage_slots: HashMap::new(),
                 })
             }
@@ -888,7 +881,11 @@ impl VM {
     /// Accessed storage slots take place in some gas cost computation.
     #[must_use]
     pub fn access_storage_slot(&mut self, address: Address, key: H256) -> (StorageSlot, bool) {
-        let storage_slot_was_cold = self.touched_storage_slots.entry(address).or_default().insert(key);
+        let storage_slot_was_cold = self
+            .touched_storage_slots
+            .entry(address)
+            .or_default()
+            .insert(key);
         let storage_slot = match cache::get_account(&self.cache, &address) {
             Some(account) => match account.storage.get(&key) {
                 Some(storage_slot) => storage_slot.clone(),
