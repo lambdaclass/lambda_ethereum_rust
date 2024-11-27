@@ -148,19 +148,9 @@ impl ExecutionDB {
             let address = H160::from_slice(revm_address.as_slice());
 
             // check account is in state trie
-            //
-            // we're catching a panic because the Trie library assumes that tries are
-            // well-formed, but we're using pruned tries so this hypothesis doesn't hold, and
-            // so the get() call panics in the case of a missing value (because there're
-            // nodes missing in the path from the root into the missing value).
-            match std::panic::catch_unwind(|| state_trie.get(&hash_address(&address))) {
-                Ok(result) => {
-                    if result?.is_none() {
-                        return Err(ExecutionDBError::MissingAccountInStateTrie(address));
-                    }
-                }
-                Err(_) => return Err(ExecutionDBError::MissingAccountInStateTrie(address)),
-            };
+            if state_trie.get(&hash_address(&address))?.is_none() {
+                return Err(ExecutionDBError::MissingAccountInStateTrie(address));
+            }
 
             let (storage_trie_root, storage_trie_nodes) =
                 self.pruned_storage_tries
@@ -181,17 +171,9 @@ impl ExecutionDB {
             for (key, value) in storage {
                 let key = H256::from_slice(&key.to_be_bytes_vec());
                 let value = H256::from_slice(&value.to_be_bytes_vec());
-
-                // catching panic here because of the same reason as above
-                let retrieved_value = match std::panic::catch_unwind(|| {
-                    storage_trie.get(&hash_key(&key))
-                }) {
-                    Ok(result) => {
-                        result?.ok_or(ExecutionDBError::MissingKeyInStorageTrie(address, key))?
-                    }
-                    Err(_) => return Err(ExecutionDBError::MissingKeyInStorageTrie(address, key)),
-                };
-
+                let retrieved_value = storage_trie
+                    .get(&hash_key(&key))?
+                    .ok_or(ExecutionDBError::MissingKeyInStorageTrie(address, key))?;
                 if value.encode_to_vec() != retrieved_value {
                     return Err(ExecutionDBError::InvalidStorageTrieValue(address, key));
                 }
