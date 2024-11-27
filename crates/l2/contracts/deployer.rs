@@ -584,6 +584,7 @@ async fn wait_for_transaction_receipt(tx_hash: H256, eth_client: &EthClient) -> 
 }
 
 #[allow(clippy::unwrap_used)]
+#[allow(clippy::expect_used)]
 #[cfg(test)]
 mod test {
     use crate::{compile_contracts, download_contract_deps};
