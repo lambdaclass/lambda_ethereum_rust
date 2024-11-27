@@ -316,15 +316,6 @@ fn is_negative(value: U256) -> bool {
 }
 
 /// Negates a number in two's complement
-fn abs(value: U256) -> U256 {
-    if is_negative(value) {
-        negate(value)
-    } else {
-        value
-    }
-}
-
-/// Negates a number in two's complement
 fn negate(value: U256) -> U256 {
     let inverted = !value;
     inverted.saturating_add(U256::one())
