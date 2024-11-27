@@ -14,16 +14,10 @@ jobs:
     name: Daily Hive Coverage
     runs-on: ubuntu-latest
     steps:
-      - name: Login to GitHub Container Registry
-        uses: docker/login-action@v3
-        with:
-          registry: ghcr.io
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
-
       - name: Pull image
         run: |
           docker pull ghcr.io/lambdaclass/ethrex:main
+          docker tag ghcr.io/lambdaclass/ethrex:main ethrex:latest
 
       - name: Checkout sources
         uses: actions/checkout@v3
