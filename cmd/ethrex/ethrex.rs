@@ -117,7 +117,8 @@ async fn main() {
         .get_one::<String>("datadir")
         .map_or(set_datadir(DEFAULT_DATADIR), |datadir| set_datadir(datadir));
 
-    let store = Store::new(&data_dir, EngineType::Libmdbx).expect("Failed to create Store");
+    // let store = Store::new(&data_dir, EngineType::Libmdbx).expect("Failed to create Store");
+    let store = Store::new(&data_dir, EngineType::RedB).expect("Failed to create Store");
 
     let genesis = read_genesis_file(genesis_file_path);
     store

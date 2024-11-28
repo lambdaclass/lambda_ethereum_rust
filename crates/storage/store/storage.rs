@@ -4,6 +4,7 @@ use self::engines::libmdbx::Store as LibmdbxStore;
 use self::error::StoreError;
 use bytes::Bytes;
 use engines::api::StoreEngine;
+use engines::redb::RedBStore;
 use ethereum_types::{Address, H256, U256};
 use ethrex_core::types::{
     code_hash, AccountInfo, AccountState, BlobsBundle, Block, BlockBody, BlockHash, BlockHeader,
@@ -38,6 +39,7 @@ pub enum EngineType {
     InMemory,
     #[cfg(feature = "libmdbx")]
     Libmdbx,
+    RedB,
 }
 
 #[derive(Default, Debug, Clone, Serialize, Deserialize)]
@@ -82,6 +84,11 @@ impl Store {
             },
             EngineType::InMemory => Self {
                 engine: Arc::new(InMemoryStore::new()),
+                mempool: Arc::new(Mutex::new(HashMap::new())),
+                blobs_bundle_pool: Arc::new(Mutex::new(HashMap::new())),
+            },
+            EngineType::RedB => Self {
+                engine: Arc::new(RedBStore::new().unwrap()),
                 mempool: Arc::new(Mutex::new(HashMap::new())),
                 blobs_bundle_pool: Arc::new(Mutex::new(HashMap::new())),
             },

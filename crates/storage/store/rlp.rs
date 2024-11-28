@@ -1,4 +1,5 @@
-use std::marker::PhantomData;
+use std::fmt::Debug;
+use std::{any::type_name, marker::PhantomData};
 
 use bytes::Bytes;
 use ethereum_types::U256;
@@ -9,6 +10,7 @@ use ethrex_core::{
 use ethrex_rlp::{decode::RLPDecode, encode::RLPEncode};
 #[cfg(feature = "libmdbx")]
 use libmdbx::orm::{Decodable, Encodable};
+use redb::TypeName;
 
 // Account types
 pub type AccountCodeHashRLP = Rlp<H256>;
@@ -61,5 +63,45 @@ impl<T: Send + Sync> Encodable for Rlp<T> {
 
     fn encode(self) -> Self::Encoded {
         self.0
+    }
+}
+
+impl<T: Send + Sync + Debug> redb::Value for Rlp<T> {
+    type SelfType<'a> = Rlp<T>
+    where
+        Self: 'a;
+
+    type AsBytes<'a> = Vec<u8>
+    where
+        Self: 'a;
+
+    fn fixed_width() -> Option<usize> {
+        None
+    }
+
+    fn from_bytes<'a>(data: &'a [u8]) -> Self::SelfType<'a>
+    where
+        Self: 'a,
+    {
+        Rlp(data.to_vec(), Default::default())
+    }
+
+    fn as_bytes<'a, 'b: 'a>(value: &'a Self::SelfType<'b>) -> Self::AsBytes<'a>
+    where
+        Self: 'a,
+        Self: 'b,
+    {
+        value.0.clone()
+    }
+
+    fn type_name() -> redb::TypeName {
+        TypeName::new(&format!("RLP<{}>", type_name::<T>()))
+    }
+}
+
+impl<T: Send + Sync + Debug> redb::Key for Rlp<T> {
+    fn compare(data1: &[u8], data2: &[u8]) -> std::cmp::Ordering {
+        // TODO: Is this correct?
+        data1.cmp(data2)
     }
 }
