@@ -73,7 +73,12 @@ pub fn prepare_vm_for_tx(vector: &TestVector, test: &EFTest) -> Result<VM, EFTes
         block_hash,
     });
 
-    let tx = test.transactions.get(vector).unwrap();
+    let tx = test
+        .transactions
+        .get(vector)
+        .ok_or(EFTestRunnerError::Internal(
+            InternalError::FirstRunInternal("Failed to get transaction".to_owned()),
+        ))?;
 
     VM::new(
         tx.to.clone(),
