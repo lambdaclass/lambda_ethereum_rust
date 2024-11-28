@@ -516,29 +516,18 @@ impl VM {
     }
 
     pub fn transact(&mut self) -> Result<TransactionReport, VMError> {
-        let initial_gas = Default::default();
-
-        self.env.consumed_gas = initial_gas;
-
-        let mut current_call_frame = self
+        let mut initial_call_frame = self
             .call_frames
             .pop()
             .ok_or(VMError::Internal(InternalError::CouldNotPopCallframe))?;
 
-        self.validate_transaction(&mut current_call_frame)?;
+        self.validate_transaction(&mut initial_call_frame)?;
 
-        let mut report = self.execute(&mut current_call_frame)?;
-
-        let initial_call_frame = self
-            .call_frames
-            .last()
-            .ok_or(VMError::Internal(
-                InternalError::CouldNotAccessLastCallframe,
-            ))?
-            .clone();
+        let mut report = self.execute(&mut initial_call_frame)?;
 
         let sender = initial_call_frame.msg_sender;
 
+        //TODO: Calldata cost is part of intrinsic gas, so it should be calculated before executing the transaction. Not added to report.
         let calldata_cost =
             gas_cost::tx_calldata(&initial_call_frame.calldata).map_err(VMError::OutOfGas)?;
 
@@ -546,6 +535,7 @@ impl VM {
             .gas_used
             .checked_add(calldata_cost)
             .ok_or(VMError::OutOfGas(OutOfGasError::GasUsedOverflow))?;
+        // End TODO
 
         if self.is_create() {
             // If create should check if transaction failed. If failed should revert (delete created contract, )
