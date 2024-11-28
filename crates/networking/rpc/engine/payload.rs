@@ -10,11 +10,13 @@ use crate::types::payload::{ExecutionPayload, ExecutionPayloadResponse, PayloadS
 use crate::utils::RpcRequest;
 use crate::{RpcApiContext, RpcErr, RpcHandler};
 
-pub struct NewPayloadRequest {
-}
+pub struct NewPayloadRequest {}
 
 impl NewPayloadRequest {
-    fn handle(request: &dyn NewPayloadRequestImpl, context: RpcApiContext) -> Result<Value, RpcErr> {
+    fn handle(
+        request: &dyn NewPayloadRequestImpl,
+        context: RpcApiContext,
+    ) -> Result<Value, RpcErr> {
         let storage = &context.storage;
 
         let block_hash = request.payload().block_hash;
@@ -114,7 +116,7 @@ trait NewPayloadRequestImpl {
     fn are_blob_versioned_hashes_invalid(&self, block: &Block) -> bool;
 }
 
-pub struct NewPayloadV3Request{
+pub struct NewPayloadV3Request {
     pub payload: ExecutionPayload,
     pub expected_blob_versioned_hashes: Vec<H256>,
     pub parent_beacon_block_root: H256,
@@ -124,7 +126,7 @@ impl NewPayloadRequestImpl for NewPayloadV3Request {
     fn method(&self) -> String {
         "engine_newPayloadV3".to_string()
     }
-    
+
     fn payload(&self) -> &ExecutionPayload {
         &self.payload
     }
@@ -132,7 +134,7 @@ impl NewPayloadRequestImpl for NewPayloadV3Request {
     fn parent_beacon_block_root(&self) -> Option<H256> {
         Some(self.parent_beacon_block_root)
     }
-    
+
     fn valid_fork(&self) -> Fork {
         Fork::Cancun
     }
@@ -217,9 +219,7 @@ impl From<NewPayloadV2Request> for RpcRequest {
     fn from(val: NewPayloadV2Request) -> Self {
         RpcRequest {
             method: val.method(),
-            params: Some(vec![
-                serde_json::json!(val.payload),
-            ]),
+            params: Some(vec![serde_json::json!(val.payload)]),
             ..Default::default()
         }
     }
