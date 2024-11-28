@@ -454,7 +454,8 @@ impl VM {
         current_account.info.balance = U256::zero();
 
         // Update cache after modifying current account
-        self.cache.add_account(&current_call_frame.to, &current_account);
+        self.cache
+            .add_account(&current_call_frame.to, &current_account);
 
         let is_cached = self.cache.is_account_cached(&target_address);
 

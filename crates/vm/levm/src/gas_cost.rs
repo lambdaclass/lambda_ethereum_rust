@@ -195,7 +195,7 @@ fn copy_behavior(
         current_call_frame.memory.expansion_cost(
             offset
                 .checked_add(size)
-                .ok_or(OutOfGasError::GasCostOverflow)?
+                .ok_or(OutOfGasError::GasCostOverflow)?,
         )?
     } else {
         U256::zero()

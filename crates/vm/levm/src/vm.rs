@@ -179,10 +179,16 @@ impl VM {
             };
 
             // Note: This is commented because it's used for debugging purposes in development.
-            //dbg!(&current_call_frame.gas_used);
-            //println!("Memory: {:?}", &current_call_frame.memory);
-            //dbg!(&current_call_frame.stack);
-            //dbg!(&opcode);
+            /*             dbg!(&current_call_frame.gas_used);
+            let hex_memory: String = current_call_frame.memory.data
+                .clone()
+                .iter()
+                .map(|b| format!("{:02x}", b))
+                .collect::<Vec<String>>()
+                .join("");
+            println!("Memory: {:?}", hex_memory);
+            dbg!(&current_call_frame.stack);
+            dbg!(&opcode); */
             let op_result: Result<OpcodeSuccess, VMError> = match opcode {
                 Opcode::STOP => Ok(OpcodeSuccess::Result(ResultReason::Stop)),
                 Opcode::ADD => self.op_add(current_call_frame),
@@ -593,7 +599,7 @@ impl VM {
         if coinbase_fee.is_zero() {
             self.cache.accounts.remove(&coinbase_address);
         }
-        
+
         report.new_state.clone_from(&self.cache.accounts);
 
         Ok(report)
@@ -726,6 +732,7 @@ impl VM {
                     .push(U256::from(SUCCESS_FOR_CALL))?;
             }
             TxResult::Revert(_) => {
+                // self.env.refunded_gas = self.env.refunded_gas.checked_sub(tx_report.gas_refunded.into()).ok_or(VMError::Internal(InternalError::ArithmeticOperationUnderflow))?;
                 // Push 0 to stack
                 current_call_frame.stack.push(U256::from(REVERT_FOR_CALL))?;
             }
