@@ -1,4 +1,5 @@
 #![allow(clippy::unwrap_used)]
+#![allow(clippy::expect_used)]
 
 use ethrex_blockchain::add_block;
 use ethrex_core::types::{Block, Genesis};

@@ -1,4 +1,4 @@
-name: Weekly LoC
+name: Daily LEVM Reporter
 
 on:
   schedule:
@@ -10,8 +10,8 @@ env:
   RUST_VERSION: 1.80.1
 
 jobs:
-  loc:
-    name: Count ethrex loc and generate report
+  ef-test:
+    name: Generate Report for EF Tests
     runs-on: ubuntu-latest
     steps:
       - name: Checkout sources
@@ -22,29 +22,35 @@ jobs:
         with:
           toolchain: ${{ env.RUST_VERSION }}
 
-      - name: Add Rust Cache
+      - name: Caching
         uses: Swatinem/rust-cache@v2
 
-      - name: Generate the loc report
+      - name: Download EF Tests
         run: |
-          make loc
+          cd crates/vm/levm
+          make download-evm-ef-tests
+
+      - name: Run tests
+        run: |
+          cd crates/vm/levm
+          make generate-evm-ef-tests-report
 
       - name: Post results in summary
         run: |
-          echo "# `ethrex` lines of code report" >> $GITHUB_STEP_SUMMARY
-          cat loc_report_github.txt >> $GITHUB_STEP_SUMMARY
+          echo "# Daily LEVM EF Tests Run Report" >> $GITHUB_STEP_SUMMARY
+          cat levm_ef_tests_summary_github.txt >> $GITHUB_STEP_SUMMARY
 
       - name: Post results to ethrex L1 slack channel
         env:
           url: ${{ secrets.ETHREX_L1_SLACK_WEBHOOK }}
-        run: sh .github/scripts/publish_loc.sh
+        run: sh .github/scripts/publish_levm_ef_tests_summary.sh
 
       - name: Post results to ethrex L2 slack channel
         env:
           url: ${{ secrets.ETHREX_L2_SLACK_WEBHOOK }}
-        run: sh .github/scripts/publish_loc.sh
+        run: sh .github/scripts/publish_levm_ef_tests_summary.sh
 
       - name: Post results to levm slack channel
         env:
           url: ${{ secrets.LEVM_SLACK_WEBHOOK }}
-        run: sh .github/scripts/publish_loc.sh
+        run: sh .github/scripts/publish_levm_ef_tests_summary.sh
