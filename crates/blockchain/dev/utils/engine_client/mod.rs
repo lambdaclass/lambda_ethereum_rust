@@ -7,7 +7,7 @@ use ethereum_types::H256;
 use ethrex_rpc::{
     engine::{
         fork_choice::{ForkChoiceUpdated, ForkChoiceUpdatedV3},
-        payload_v3::{GetPayloadV3Request, NewPayloadV3Request},
+        payload::{GetPayloadRequest, GetPayloadV3Request, NewPayloadV3Request},
         ExchangeCapabilitiesRequest,
     },
     types::{
@@ -104,7 +104,7 @@ impl EngineClient {
         &self,
         payload_id: u64,
     ) -> Result<ExecutionPayloadResponse, EngineClientError> {
-        let request = GetPayloadV3Request { payload_id }.into();
+        let request = GetPayloadV3Request(GetPayloadRequest { payload_id }).into();
 
         match self.send_request(request).await {
             Ok(RpcResponse::Success(result)) => serde_json::from_value(result.result)

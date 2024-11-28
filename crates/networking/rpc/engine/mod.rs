@@ -1,7 +1,6 @@
 pub mod exchange_transition_config;
 pub mod fork_choice;
-pub mod payload_v2;
-pub mod payload_v3;
+pub mod payload;
 
 use crate::{utils::RpcRequest, RpcApiContext, RpcErr, RpcHandler};
 use serde_json::{json, Value};
