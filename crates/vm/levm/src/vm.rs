@@ -1013,22 +1013,4 @@ impl VM {
             }
         }
     }
-
-    // /// Gets storage slot, first checking the cache and then the database (caching in the second case)
-    // pub fn get_storage_slot(&mut self, address: Address, key: H256) -> StorageSlot {
-    //     match cache::get_storage_slot(&self.cache, &address, &key) {
-    //         Some(slot) => slot.clone(),
-    //         None => {
-    //             let value = self.db.get_storage_slot(address, key);
-    //             let slot = StorageSlot {
-    //                 original_value: value,
-    //                 current_value: value,
-    //             };
-    //             let mut account = self.get_account(address);
-    //             account.storage.insert(key, slot.clone());
-    //             cache::insert_account(&mut self.cache, address, account);
-    //             slot
-    //         }
-    //     }
-    // }
 }
