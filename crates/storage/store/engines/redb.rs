@@ -120,10 +120,7 @@ impl RedBStore {
     {
         let read_txn = self.db.begin_read().unwrap();
         let table = read_txn.open_table(table).unwrap();
-        let result = match table.get(key).unwrap() {
-            Some(value) => Some(value),
-            None => None,
-        };
+        let result = table.get(key).unwrap();
 
         Ok(result)
     }
@@ -321,7 +318,6 @@ impl StoreEngine for RedBStore {
         Ok(table
             .get(<H256 as Into<TransactionHashRLP>>::into(transaction_hash))
             .unwrap()
-            .into_iter()
             .map_while(|res| res.ok().map(|t| t.value().to()))
             .find(|(number, hash, _index)| {
                 self.get_block_hash_by_block_number(*number)
@@ -367,7 +363,7 @@ impl StoreEngine for RedBStore {
         self.write(
             ACCOUNT_CODES_TABLE,
             <H256 as Into<AccountCodeHashRLP>>::into(code_hash),
-            <bytes::Bytes as Into<AccountCodeRLP>>::into(code.into()),
+            <bytes::Bytes as Into<AccountCodeRLP>>::into(code),
         )
     }
 

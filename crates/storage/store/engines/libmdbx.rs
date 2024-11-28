@@ -574,9 +574,30 @@ pub enum ChainDataIndex {
     LatestTotalDifficulty = 6,
 }
 
-impl From<u8> for ChainDataIndex {
-    fn from(value: u8) -> Self {
-        value.into()
+impl TryFrom<u8> for ChainDataIndex {
+    type Error = ();
+
+    fn try_from(value: u8) -> Result<Self, Self::Error> {
+        match value {
+            x if x == ChainDataIndex::ChainConfig as u8 => Ok(ChainDataIndex::ChainConfig),
+            x if x == ChainDataIndex::EarliestBlockNumber as u8 => {
+                Ok(ChainDataIndex::EarliestBlockNumber)
+            }
+            x if x == ChainDataIndex::FinalizedBlockNumber as u8 => {
+                Ok(ChainDataIndex::FinalizedBlockNumber)
+            }
+            x if x == ChainDataIndex::SafeBlockNumber as u8 => Ok(ChainDataIndex::SafeBlockNumber),
+            x if x == ChainDataIndex::LatestBlockNumber as u8 => {
+                Ok(ChainDataIndex::LatestBlockNumber)
+            }
+            x if x == ChainDataIndex::PendingBlockNumber as u8 => {
+                Ok(ChainDataIndex::PendingBlockNumber)
+            }
+            x if x == ChainDataIndex::LatestTotalDifficulty as u8 => {
+                Ok(ChainDataIndex::LatestTotalDifficulty)
+            }
+            _ => Err(()),
+        }
     }
 }
 
@@ -605,7 +626,7 @@ impl redb::Value for ChainDataIndex {
     where
         Self: 'a,
     {
-        data[0].into()
+        data[0].try_into().unwrap()
     }
 
     fn as_bytes<'a, 'b: 'a>(value: &'a Self::SelfType<'b>) -> Self::AsBytes<'a>
@@ -617,7 +638,7 @@ impl redb::Value for ChainDataIndex {
     }
 
     fn type_name() -> redb::TypeName {
-        TypeName::new(&format!("ChainDataIndex"))
+        TypeName::new("ChainDataIndex")
     }
 }
 

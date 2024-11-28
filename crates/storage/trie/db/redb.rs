@@ -20,12 +20,10 @@ impl TrieDB for RedBTrie {
     fn get(&self, key: Vec<u8>) -> Result<Option<Vec<u8>>, crate::TrieError> {
         let read_txn = self.db.begin_read().unwrap();
         let table = read_txn.open_table(TABLE).unwrap();
-        let result = match table.get(&*key).unwrap() {
-            Some(value) => Some(value.value().to_vec()),
-            None => None,
-        };
-
-        Ok(result)
+        Ok(table
+            .get(&*key)
+            .unwrap()
+            .map(|value| value.value().to_vec()))
     }
 
     fn put(&self, key: Vec<u8>, value: Vec<u8>) -> Result<(), crate::TrieError> {

@@ -31,9 +31,8 @@ impl TrieDB for RedBMultiTableTrieDB {
             .unwrap();
 
         let values = table
-            .get((self.fixed_key.clone(), node_hash_to_fixed_size(key)))
-            .unwrap()
-            .into_iter();
+            .get((self.fixed_key, node_hash_to_fixed_size(key)))
+            .unwrap();
 
         let mut ret = vec![];
         for value in values {
@@ -58,10 +57,7 @@ impl TrieDB for RedBMultiTableTrieDB {
                 .open_multimap_table(STORAGE_TRIE_NODES_TABLE)
                 .unwrap();
             table
-                .insert(
-                    (self.fixed_key.clone(), node_hash_to_fixed_size(key)),
-                    value_fixed,
-                )
+                .insert((self.fixed_key, node_hash_to_fixed_size(key)), value_fixed)
                 .unwrap();
         }
         write_txn.commit().unwrap();
