@@ -96,6 +96,9 @@ pub const SLOAD_COLD_DYNAMIC: U256 = U256([2100, 0, 0, 0]);
 pub const SLOAD_WARM_DYNAMIC: U256 = U256([100, 0, 0, 0]);
 
 pub const SSTORE_STATIC: U256 = U256::zero();
+pub const SSTORE_DEFAULT_DYNAMIC: U256 = U256([100, 0, 0, 0]);
+pub const SSTORE_STORAGE_CREATION: U256 = U256([20000, 0, 0, 0]);
+pub const SSTORE_STORAGE_MODIFICATION: U256 = U256([5000, 0, 0, 0]);
 
 pub const BALANCE_STATIC: U256 = DEFAULT_STATIC;
 pub const BALANCE_COLD_DYNAMIC: U256 = DEFAULT_COLD_DYNAMIC;
@@ -322,15 +325,15 @@ pub fn sstore(
     let static_gas = SSTORE_STATIC;
 
     let mut base_dynamic_gas = if new_value == storage_slot.current_value {
-        U256::from(100)
+        SSTORE_DEFAULT_DYNAMIC
     } else if storage_slot.current_value == storage_slot.original_value {
         if storage_slot.original_value.is_zero() {
-            U256::from(20000)
+            SSTORE_STORAGE_CREATION
         } else {
-            U256::from(5000)
+            SSTORE_STORAGE_MODIFICATION
         }
     } else {
-        U256::from(100)
+        SSTORE_DEFAULT_DYNAMIC
     };
 
     if storage_slot_was_cold {
