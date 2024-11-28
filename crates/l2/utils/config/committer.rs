@@ -13,7 +13,6 @@ pub struct CommitterConfig {
     pub l1_private_key: SecretKey,
     pub interval_ms: u64,
     pub arbitrary_base_blob_gas_price: u64,
-    pub max_blob_gas_price: u64,
 }
 
 impl CommitterConfig {

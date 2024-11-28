@@ -102,8 +102,6 @@ pub enum CommitterError {
 pub enum BlobEstimationError {
     #[error("Overflow error while estimating blob gas")]
     OverflowError,
-    #[error("Gas limit exceeded during blob gas estimation")]
-    GasLimitExceeded,
     #[error("Failed to calculate blob gas due to invalid parameters")]
     CalculationError,
     #[error("Blob gas estimation resulted in an infinite or undefined value. Outside valid or expected ranges")]

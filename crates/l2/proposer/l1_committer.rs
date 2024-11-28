@@ -38,7 +38,6 @@ pub struct Committer {
     l1_private_key: SecretKey,
     interval_ms: u64,
     arbitrary_base_blob_gas_price: u64,
-    max_blob_gas_price: u64,
 }
 
 pub async fn start_l1_commiter(store: Store) {
@@ -62,7 +61,6 @@ impl Committer {
             l1_private_key: committer_config.l1_private_key,
             interval_ms: committer_config.interval_ms,
             arbitrary_base_blob_gas_price: committer_config.arbitrary_base_blob_gas_price,
-            max_blob_gas_price: committer_config.max_blob_gas_price,
         }
     }
 
@@ -325,7 +323,6 @@ impl Committer {
         let le_bytes = estimate_blob_gas(
             &self.eth_client,
             self.arbitrary_base_blob_gas_price,
-            self.max_blob_gas_price,
             1.2, // 20% of headroom
         )
         .await?
@@ -383,7 +380,6 @@ impl Committer {
 async fn estimate_blob_gas(
     eth_client: &EthClient,
     arbitrary_base_blob_gas_price: u64,
-    max_blob_gas_price: u64,
     headroom: f64,
 ) -> Result<u64, CommitterError> {
     let latest_block = eth_client
@@ -424,11 +420,6 @@ async fn estimate_blob_gas(
         Some(gas) => gas,
         None => return Err(BlobEstimationError::OverflowError.into()),
     };
-
-    // We can set a gas_limit in wei to avoid wasting too much gas.
-    if blob_gas > max_blob_gas_price {
-        return Err(BlobEstimationError::GasLimitExceeded.into());
-    }
 
     Ok(blob_gas)
 }
