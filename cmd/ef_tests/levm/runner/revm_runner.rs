@@ -1,5 +1,5 @@
 use crate::{
-    report::{AccountUpdatesReport, EFTestReport, TestReRunReport, TestVector},
+    report::{ComparisonReport, EFTestReport, TestReRunReport, TestVector},
     runner::{
         levm_runner::{self, post_state_root},
         EFTestRunnerError, InternalError,
@@ -302,7 +302,9 @@ pub fn compare_levm_revm_account_updates(
     test: &EFTest,
     levm_account_updates: &[AccountUpdate],
     revm_account_updates: &[AccountUpdate],
-) -> AccountUpdatesReport {
+) -> ComparisonReport {
+    let levm_post_state_root = post_state_root(levm_account_updates, test);
+    let revm_post_state_root = post_state_root(revm_account_updates, test);
     let mut initial_accounts: HashMap<Address, Account> = test
         .pre
         .0
@@ -342,7 +344,9 @@ pub fn compare_levm_revm_account_updates(
         .map(|account_update| account_update.address)
         .collect::<HashSet<Address>>();
 
-    AccountUpdatesReport {
+    ComparisonReport {
+        levm_post_state_root,
+        revm_post_state_root,
         initial_accounts,
         levm_account_updates: levm_account_updates.to_vec(),
         revm_account_updates: revm_account_updates.to_vec(),

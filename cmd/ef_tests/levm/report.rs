@@ -443,7 +443,9 @@ impl EFTestReport {
 }
 
 #[derive(Debug, Default, Clone, Serialize, Deserialize)]
-pub struct AccountUpdatesReport {
+pub struct ComparisonReport {
+    pub levm_post_state_root: H256,
+    pub revm_post_state_root: H256,
     pub initial_accounts: HashMap<Address, Account>,
     pub levm_account_updates: Vec<AccountUpdate>,
     pub revm_account_updates: Vec<AccountUpdate>,
@@ -452,8 +454,22 @@ pub struct AccountUpdatesReport {
     pub shared_updated_accounts: HashSet<Address>,
 }
 
-impl fmt::Display for AccountUpdatesReport {
+impl fmt::Display for ComparisonReport {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        if self.levm_post_state_root != self.revm_post_state_root {
+            writeln!(
+                f,
+                "Post-state roots mismatch: LEVM: {levm_post_state_root:#x}, REVM: {revm_post_state_root:#x}",
+                levm_post_state_root = self.levm_post_state_root,
+                revm_post_state_root = self.revm_post_state_root
+            )?;
+        } else {
+            writeln!(
+                f,
+                "Post-state roots match to: {levm_post_state_root:#x}",
+                levm_post_state_root = self.levm_post_state_root
+            )?;
+        }
         writeln!(f, "Account Updates:")?;
         for levm_updated_account_only in self.levm_updated_accounts_only.iter() {
             writeln!(f, "  {levm_updated_account_only:#x}:")?;
@@ -630,7 +646,7 @@ pub struct TestReRunExecutionReport {
 #[derive(Debug, Default, Clone, Serialize, Deserialize)]
 pub struct TestReRunReport {
     pub execution_report: HashMap<TestVector, TestReRunExecutionReport>,
-    pub account_updates_report: HashMap<TestVector, AccountUpdatesReport>,
+    pub account_updates_report: HashMap<TestVector, ComparisonReport>,
 }
 
 impl TestReRunReport {
@@ -695,7 +711,7 @@ impl TestReRunReport {
     pub fn register_account_updates_report(
         &mut self,
         vector: TestVector,
-        report: AccountUpdatesReport,
+        report: ComparisonReport,
     ) {
         self.account_updates_report.insert(vector, report);
     }
