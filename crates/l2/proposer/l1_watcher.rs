@@ -72,16 +72,16 @@ impl L1Watcher {
         loop {
             sleep(self.check_interval).await;
 
-            let (logs, new_block_to_fetch) = self.get_logs().await?;
+            let logs = self.get_logs().await?;
 
             // We may not have a deposit nor a withdrawal, that means no events -> no logs.
             if logs.is_empty() {
                 continue;
             }
 
-            let pending_deposits_logs = self.get_pending_deposit_logs().await?;
+            let pending_deposit_logs = self.get_pending_deposit_logs().await?;
             let _deposit_txs = self
-                .process_logs(logs, &pending_deposits_logs, new_block_to_fetch, &store)
+                .process_logs(logs, &pending_deposit_logs, &store)
                 .await?;
         }
     }
@@ -106,7 +106,7 @@ impl L1Watcher {
         .to_vec())
     }
 
-    pub async fn get_logs(&self) -> Result<(Vec<RpcLog>, U256), L1WatcherError> {
+    pub async fn get_logs(&mut self) -> Result<Vec<RpcLog>, L1WatcherError> {
         let current_block = self.eth_client.get_block_number().await?;
 
         debug!(
@@ -123,13 +123,15 @@ impl L1Watcher {
 
         // We may get an error if the RPC doesn't has the logs for the requested
         // block interval. For example, Light Nodes.
+        let topic = keccak(b"DepositInitiated(uint256,address,uint256)");
         let logs = match self
             .eth_client
             .get_logs(
                 self.last_block_fetched + 1,
                 new_last_block,
                 self.address,
-                self.topics[0],
+                //self.topics[0],
+                topic,
             )
             .await
         {
@@ -142,14 +144,17 @@ impl L1Watcher {
 
         debug!("Logs: {:#?}", logs);
 
-        Ok((logs, new_last_block))
+        // If we have an error adding the tx to the mempool we may assign it to the next
+        // block to fetch, but we may lose a deposit tx.
+        self.last_block_fetched = new_last_block;
+
+        Ok(logs)
     }
 
     pub async fn process_logs(
-        &mut self,
+        &self,
         logs: Vec<RpcLog>,
-        l1_deposit_logs: &[H256],
-        new_block_to_fetch: U256,
+        pending_deposit_logs: &[H256],
         store: &Store,
     ) -> Result<Vec<H256>, L1WatcherError> {
         let mut deposit_txs = Vec::new();
@@ -183,14 +188,27 @@ impl L1Watcher {
                     ))
                 })?;
 
+            let deposit_id = format!("{:#x}", log.log.topics[3])
+                .parse::<U256>()
+                .map_err(|e| {
+                    L1WatcherError::FailedToDeserializeLog(format!(
+                        "Failed to parse depositId value from log: {e:#?}"
+                    ))
+                })?;
+
             let mut value_bytes = [0u8; 32];
             mint_value.to_big_endian(&mut value_bytes);
-            if !l1_deposit_logs.contains(&keccak([beneficiary.as_bytes(), &value_bytes].concat())) {
-                warn!("Deposit already processed (to: {beneficiary:#x}, value: {mint_value}), skipping.");
+
+            let mut id_bytes = [0u8; 32];
+            deposit_id.to_big_endian(&mut id_bytes);
+            if !pending_deposit_logs.contains(&keccak(
+                [beneficiary.as_bytes(), &value_bytes, &id_bytes].concat(),
+            )) {
+                warn!("Deposit already processed (to: {beneficiary:#x}, value: {mint_value}, depositId: {deposit_id}), skipping.");
                 continue;
             }
 
-            info!("Initiating mint transaction for {beneficiary:#x} with value {mint_value:#x}",);
+            info!("Initiating mint transaction for {beneficiary:#x} with value {mint_value:#x} and depositId: {deposit_id:#}",);
 
             let mut mint_transaction = self
                 .eth_client
@@ -240,9 +258,6 @@ impl L1Watcher {
             }
         }
 
-        // If we have an error adding the tx to the mempool we may assign it to the next
-        // block to fetch, but we may lose a deposit tx.
-        self.last_block_fetched = new_block_to_fetch;
         Ok(deposit_txs)
     }
 }

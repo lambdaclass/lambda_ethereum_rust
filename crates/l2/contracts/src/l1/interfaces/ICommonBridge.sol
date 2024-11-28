@@ -10,14 +10,16 @@ interface ICommonBridge {
     /// @dev Event emitted when a deposit is initiated.
     /// @param amount the amount of tokens being deposited.
     /// @param to the address in L2 to which the tokens will be minted to.
-    /// @param l2MintTxHash the hash of the transaction that will finalize the
+    /// @param depositId Id used to differentiate deposits with same amount and recipient.
+    /// TODO: check if we need l2MintTxHash
+    /// l2MintTxHash the hash of the transaction that will finalize the
     /// deposit in L2. Could be used to track the status of the deposit finalization
     /// on L2. You can use this hash to retrive the tx data.
     /// It is the result of keccak(abi.encode(transaction)).
     event DepositInitiated(
         uint256 indexed amount,
         address indexed to,
-        bytes32 indexed l2MintTxHash
+        uint256 indexed depositId
     );
 
     /// @notice L2 withdrawals have been published on L1.

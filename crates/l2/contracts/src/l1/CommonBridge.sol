@@ -30,6 +30,8 @@ contract CommonBridge is ICommonBridge, Ownable, ReentrancyGuard {
 
     uint256 public lastFetchedL1Block;
 
+    uint256 public depositId;
+
     modifier onlyOnChainProposer() {
         require(
             msg.sender == ON_CHAIN_PROPOSER,
@@ -57,6 +59,7 @@ contract CommonBridge is ICommonBridge, Ownable, ReentrancyGuard {
         ON_CHAIN_PROPOSER = onChainProposer;
 
         lastFetchedL1Block = block.number;
+        depositId = 0;
     }
 
     /// @inheritdoc ICommonBridge
@@ -68,12 +71,23 @@ contract CommonBridge is ICommonBridge, Ownable, ReentrancyGuard {
     function deposit(address to) public payable {
         require(msg.value > 0, "CommonBridge: amount to deposit is zero");
 
+        // TODO: check if we need l2MintTxHash.
+        // if we do, build the tx to get the tx_hash.
+        // maybe we can keep track of each deposit tx just with the depositId.
         // TODO: Build the tx.
-        bytes32 l2MintTxHash = keccak256(abi.encodePacked("dummyl2MintTxHash"));
+        // bytes32 _l2MintTxHash = keccak256(abi.encodePacked("dummyl2MintTxHash"));
         depositLogs.push(
-            keccak256(bytes.concat(bytes20(to), bytes32(msg.value)))
+            keccak256(
+                bytes.concat(
+                    bytes20(to),
+                    bytes32(msg.value),
+                    bytes32(depositId)
+                )
+            )
         );
-        emit DepositInitiated(msg.value, to, l2MintTxHash);
+        // emit DepositInitiated(msg.value, to, l2MintTxHash);
+        emit DepositInitiated(msg.value, to, depositId);
+        depositId += 1;
     }
 
     receive() external payable {
