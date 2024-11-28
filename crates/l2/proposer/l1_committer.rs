@@ -211,9 +211,13 @@ impl Committer {
 
     pub fn get_deposit_hash(&self, deposit_hashes: Vec<H256>) -> Result<H256, CommitterError> {
         if !deposit_hashes.is_empty() {
+            let deposit_hashes_len: u16 = deposit_hashes
+                .len()
+                .try_into()
+                .map_err(CommitterError::from)?;
             Ok(H256::from_slice(
                 [
-                    &(deposit_hashes.len() as u16).to_be_bytes(),
+                    &deposit_hashes_len.to_be_bytes(),
                     keccak(
                         deposit_hashes
                             .iter()
@@ -270,7 +274,9 @@ impl Committer {
                         .clone()
                         .ok_or(CommitterError::FailedToRetrieveDataFromStorage)?
                         .nonce
-                        - prev_nonce) as u16,
+                        - prev_nonce)
+                        .try_into()
+                        .map_err(CommitterError::from)?,
                     storage: account_update.added_storage.clone().into_iter().collect(),
                     bytecode: account_update.code.clone(),
                     bytecode_hash: None,
