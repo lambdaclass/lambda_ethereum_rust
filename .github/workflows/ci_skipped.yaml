@@ -23,7 +23,8 @@ jobs:
     steps: [run: true]
 
   docker-build:
-    name: Build Docker image
+    # "Build Docker" is a required check, don't change the name
+    name: Build Docker
     runs-on: ubuntu-latest
     if: false
     steps: [run: true]

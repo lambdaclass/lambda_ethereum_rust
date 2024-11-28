@@ -77,7 +77,8 @@ jobs:
           make test
   
   docker_build:
-    name: Build Docker image
+    # "Build Docker" is a required check, don't change the name
+    name: Build Docker
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
