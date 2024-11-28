@@ -193,7 +193,7 @@ async fn testito() {
     let withdraw_tx_receipt =
         ethrex_l2_sdk::wait_for_transaction_receipt(withdraw_tx, &proposer_client, 30)
             .await
-            .unwrap();
+            .expect("Withdraw tx receipt not found");
 
     // 7. Check balances on L1 and L2
 
@@ -242,11 +242,7 @@ async fn testito() {
         16,
     )
     .unwrap()
-        < withdraw_tx_receipt
-            .as_ref()
-            .expect("Receipt is None")
-            .block_info
-            .block_number
+        < withdraw_tx_receipt.block_info.block_number
     {
         println!("Withdrawal is not verified on L1 yet");
         std::thread::sleep(Duration::from_secs(2));
