@@ -90,11 +90,12 @@ fn run_with_levm(
     levm_run_spinner.success(&report::progress(reports, levm_run_time.elapsed()));
 
     if opts.summary {
-        report::write_summary(reports)?;
+        report::write_summary_for_slack(reports)?;
+        report::write_summary_for_github(reports)?;
     }
 
     let mut summary_spinner = Spinner::new(Dots, "Loading summary...".to_owned(), Color::Cyan);
-    summary_spinner.success(&report::summary_pretty(reports));
+    summary_spinner.success(&report::summary_for_shell(reports));
     Ok(())
 }
 
