@@ -27,7 +27,7 @@ pub struct ExecutionPayload {
     #[serde(with = "serde_utils::u64::hex_str")]
     gas_used: u64,
     #[serde(with = "serde_utils::u64::hex_str")]
-    timestamp: u64,
+    pub timestamp: u64,
     #[serde(with = "serde_utils::bytes")]
     extra_data: Bytes,
     #[serde(with = "serde_utils::u64::hex_str")]
@@ -41,13 +41,13 @@ pub struct ExecutionPayload {
         with = "serde_utils::u64::hex_str_opt",
         default = "Option::default"
     )]
-    blob_gas_used: Option<u64>,
+    pub blob_gas_used: Option<u64>,
     #[serde(
         skip_serializing_if = "Option::is_none",
         with = "serde_utils::u64::hex_str_opt",
         default = "Option::default"
     )]
-    excess_blob_gas: Option<u64>,
+    pub excess_blob_gas: Option<u64>,
 }
 
 #[derive(Clone, Debug)]

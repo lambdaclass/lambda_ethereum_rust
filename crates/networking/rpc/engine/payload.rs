@@ -36,6 +36,7 @@ impl NewPayloadRequest {
         };
 
         // Payload Validation
+        request.validate_execution_payload()?;
 
         // Check timestamp is post valid fork
         let chain_config = storage.get_chain_config()?;
@@ -112,6 +113,7 @@ trait NewPayloadRequestImpl {
     fn method(&self) -> String;
     fn payload(&self) -> &ExecutionPayload;
     fn parent_beacon_block_root(&self) -> Option<H256>;
+    fn validate_execution_payload(&self) -> Result<(), RpcErr>;
     fn valid_fork(&self) -> Fork;
     fn are_blob_versioned_hashes_invalid(&self, block: &Block) -> bool;
 }
@@ -149,6 +151,16 @@ impl NewPayloadRequestImpl for NewPayloadV3Request {
             .flat_map(|tx| tx.blob_versioned_hashes())
             .collect();
         self.expected_blob_versioned_hashes != blob_versioned_hashes
+    }
+
+    fn validate_execution_payload(&self) -> Result<(), RpcErr> {
+        if self.payload().excess_blob_gas.is_none() {
+            return Err(RpcErr::WrongParam("excess_blob_gas".to_string()));
+        }
+        if self.payload().blob_gas_used.is_none() {
+            return Err(RpcErr::WrongParam("blob_gas_used".to_string()));
+        }
+        Ok(())
     }
 }
 
@@ -212,6 +224,10 @@ impl NewPayloadRequestImpl for NewPayloadV2Request {
 
     fn are_blob_versioned_hashes_invalid(&self, _block: &Block) -> bool {
         false
+    }
+
+    fn validate_execution_payload(&self) -> Result<(), RpcErr> {
+        Ok(())
     }
 }
 
@@ -294,9 +310,18 @@ impl GetPayloadRequest {
                 request.payload_id
             )));
         };
+        // Check timestamp matches valid fork
+        let chain_config = &context.storage.get_chain_config()?;
+        let current_fork = chain_config.get_fork(payload.header.timestamp);
+        info!("Current Fork: {:?}", current_fork);
+        if current_fork != get_payload_request.valid_fork() {
+            return Err(RpcErr::UnsuportedFork(format!("{current_fork:?}")));
+        }
+
         let (blobs_bundle, block_value) = build_payload(&mut payload, &context.storage)
             .map_err(|err| RpcErr::Internal(err.to_string()))?;
         let execution_payload = ExecutionPayload::from_block(payload);
+
         serde_json::to_value(get_payload_request.build_response(
             execution_payload,
             blobs_bundle,
@@ -308,6 +333,7 @@ impl GetPayloadRequest {
 trait GetPayloadRequestImpl {
     fn method(&self) -> String;
     fn request(&self) -> &GetPayloadRequest;
+    fn valid_fork(&self) -> Fork;
     fn build_response(
         &self,
         execution_payload: ExecutionPayload,
@@ -325,6 +351,10 @@ impl GetPayloadRequestImpl for GetPayloadV3Request {
 
     fn request(&self) -> &GetPayloadRequest {
         &self.0
+    }
+
+    fn valid_fork(&self) -> Fork {
+        Fork::Cancun
     }
 
     fn build_response(
@@ -367,6 +397,10 @@ impl GetPayloadRequestImpl for GetPayloadV2Request {
 
     fn request(&self) -> &GetPayloadRequest {
         &self.0
+    }
+
+    fn valid_fork(&self) -> Fork {
+        Fork::Shanghai
     }
 
     fn build_response(
