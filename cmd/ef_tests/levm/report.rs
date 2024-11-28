@@ -1,7 +1,10 @@
 use crate::runner::{EFTestRunnerError, InternalError};
 use colored::Colorize;
 use ethrex_core::{Address, H256};
-use ethrex_levm::errors::{TransactionReport, TxResult, VMError};
+use ethrex_levm::{
+    errors::{TransactionReport, TxResult, VMError},
+    Account, StorageSlot,
+};
 use ethrex_storage::{error::StoreError, AccountUpdate};
 use ethrex_vm::SpecId;
 use revm::primitives::{EVMError, ExecutionResult as RevmExecutionResult};
@@ -13,6 +16,10 @@ use std::{
     path::PathBuf,
     time::Duration,
 };
+
+pub const LEVM_EF_TESTS_SUMMARY_SLACK_FILE_PATH: &str = "./levm_ef_tests_summary_slack.txt";
+pub const LEVM_EF_TESTS_SUMMARY_GITHUB_FILE_PATH: &str = "./levm_ef_tests_summary_slack.txt";
+pub const EF_TESTS_CACHE_FILE_PATH: &str = "./levm_ef_tests_cache.json";
 
 pub type TestVector = (usize, usize, usize);
 
@@ -36,30 +43,12 @@ pub fn progress(reports: &[EFTestReport], time: Duration) -> String {
         format_duration_as_mm_ss(time)
     )
 }
-pub fn summary(reports: &[EFTestReport]) -> String {
-    let total_passed = reports.iter().filter(|report| report.passed()).count();
-    let total_run = reports.len();
-    format!(
-        "{} {}/{total_run}\n\n{}\n{}\n{}\n{}\n{}\n{}\n{}\n{}\n{}\n{}\n",
-        "Summary:".bold(),
-        if total_passed == total_run {
-            format!("{}", total_passed).green()
-        } else if total_passed > 0 {
-            format!("{}", total_passed).yellow()
-        } else {
-            format!("{}", total_passed).red()
-        },
-        fork_summary(reports, SpecId::CANCUN),
-        fork_summary(reports, SpecId::SHANGHAI),
-        fork_summary(reports, SpecId::HOMESTEAD),
-        fork_summary(reports, SpecId::ISTANBUL),
-        fork_summary(reports, SpecId::LONDON),
-        fork_summary(reports, SpecId::BYZANTIUM),
-        fork_summary(reports, SpecId::BERLIN),
-        fork_summary(reports, SpecId::CONSTANTINOPLE),
-        fork_summary(reports, SpecId::MERGE),
-        fork_summary(reports, SpecId::FRONTIER),
-    )
+
+pub fn format_duration_as_mm_ss(duration: Duration) -> String {
+    let total_seconds = duration.as_secs();
+    let minutes = total_seconds / 60;
+    let seconds = total_seconds % 60;
+    format!("{minutes:02}:{seconds:02}")
 }
 
 pub fn write(reports: &[EFTestReport]) -> Result<PathBuf, EFTestRunnerError> {
@@ -82,8 +71,6 @@ pub fn write(reports: &[EFTestReport]) -> Result<PathBuf, EFTestRunnerError> {
     })?;
     Ok(report_file_path)
 }
-
-pub const EF_TESTS_CACHE_FILE_PATH: &str = "./levm_ef_tests_cache.json";
 
 pub fn cache(reports: &[EFTestReport]) -> Result<PathBuf, EFTestRunnerError> {
     let cache_file_path = PathBuf::from(EF_TESTS_CACHE_FILE_PATH);
@@ -119,11 +106,135 @@ pub fn load() -> Result<Vec<EFTestReport>, EFTestRunnerError> {
     }
 }
 
-pub fn format_duration_as_mm_ss(duration: Duration) -> String {
-    let total_seconds = duration.as_secs();
-    let minutes = total_seconds / 60;
-    let seconds = total_seconds % 60;
-    format!("{minutes:02}:{seconds:02}")
+pub fn summary_for_slack(reports: &[EFTestReport]) -> String {
+    let total_passed = reports.iter().filter(|report| report.passed()).count();
+    let total_run = reports.len();
+    let success_percentage = (total_passed as f64 / total_run as f64) * 100.0;
+    format!(
+        r#"*Summary*: {total_passed}/{total_run} ({success_percentage:.2}%)\n\n{}\n{}\n{}\n{}\n{}\n{}\n{}\n{}\n{}\n{}\n"#,
+        fork_summary_for_slack(reports, SpecId::CANCUN),
+        fork_summary_for_slack(reports, SpecId::SHANGHAI),
+        fork_summary_for_slack(reports, SpecId::HOMESTEAD),
+        fork_summary_for_slack(reports, SpecId::ISTANBUL),
+        fork_summary_for_slack(reports, SpecId::LONDON),
+        fork_summary_for_slack(reports, SpecId::BYZANTIUM),
+        fork_summary_for_slack(reports, SpecId::BERLIN),
+        fork_summary_for_slack(reports, SpecId::CONSTANTINOPLE),
+        fork_summary_for_slack(reports, SpecId::MERGE),
+        fork_summary_for_slack(reports, SpecId::FRONTIER),
+    )
+}
+
+fn fork_summary_for_slack(reports: &[EFTestReport], fork: SpecId) -> String {
+    let fork_str: &str = fork.into();
+    let (fork_tests, fork_passed_tests, fork_success_percentage) = fork_statistics(reports, fork);
+    format!(r#"*{fork_str}:* {fork_passed_tests}/{fork_tests} ({fork_success_percentage:.2}%)"#)
+}
+
+pub fn write_summary_for_slack(reports: &[EFTestReport]) -> Result<PathBuf, EFTestRunnerError> {
+    let summary_file_path = PathBuf::from(LEVM_EF_TESTS_SUMMARY_SLACK_FILE_PATH);
+    std::fs::write(
+        LEVM_EF_TESTS_SUMMARY_SLACK_FILE_PATH,
+        summary_for_slack(reports),
+    )
+    .map_err(|err| {
+        EFTestRunnerError::Internal(InternalError::MainRunnerInternal(format!(
+            "Failed to write summary to file: {err}"
+        )))
+    })?;
+    Ok(summary_file_path)
+}
+
+pub fn summary_for_github(reports: &[EFTestReport]) -> String {
+    let total_passed = reports.iter().filter(|report| report.passed()).count();
+    let total_run = reports.len();
+    let success_percentage = (total_passed as f64 / total_run as f64) * 100.0;
+    format!(
+        r#"Summary: {total_passed}/{total_run} ({success_percentage:.2}%)\n\n{}\n{}\n{}\n{}\n{}\n{}\n{}\n{}\n{}\n{}\n"#,
+        fork_summary_for_github(reports, SpecId::CANCUN),
+        fork_summary_for_github(reports, SpecId::SHANGHAI),
+        fork_summary_for_github(reports, SpecId::HOMESTEAD),
+        fork_summary_for_github(reports, SpecId::ISTANBUL),
+        fork_summary_for_github(reports, SpecId::LONDON),
+        fork_summary_for_github(reports, SpecId::BYZANTIUM),
+        fork_summary_for_github(reports, SpecId::BERLIN),
+        fork_summary_for_github(reports, SpecId::CONSTANTINOPLE),
+        fork_summary_for_github(reports, SpecId::MERGE),
+        fork_summary_for_github(reports, SpecId::FRONTIER),
+    )
+}
+
+fn fork_summary_for_github(reports: &[EFTestReport], fork: SpecId) -> String {
+    let fork_str: &str = fork.into();
+    let (fork_tests, fork_passed_tests, fork_success_percentage) = fork_statistics(reports, fork);
+    format!("{fork_str}: {fork_passed_tests}/{fork_tests} ({fork_success_percentage:.2}%)")
+}
+
+pub fn write_summary_for_github(reports: &[EFTestReport]) -> Result<PathBuf, EFTestRunnerError> {
+    let summary_file_path = PathBuf::from(LEVM_EF_TESTS_SUMMARY_GITHUB_FILE_PATH);
+    std::fs::write(
+        LEVM_EF_TESTS_SUMMARY_GITHUB_FILE_PATH,
+        summary_for_github(reports),
+    )
+    .map_err(|err| {
+        EFTestRunnerError::Internal(InternalError::MainRunnerInternal(format!(
+            "Failed to write summary to file: {err}"
+        )))
+    })?;
+    Ok(summary_file_path)
+}
+
+pub fn summary_for_shell(reports: &[EFTestReport]) -> String {
+    let total_passed = reports.iter().filter(|report| report.passed()).count();
+    let total_run = reports.len();
+    let success_percentage = (total_passed as f64 / total_run as f64) * 100.0;
+    format!(
+        "{} {}/{total_run} ({success_percentage:.2})\n\n{}\n{}\n{}\n{}\n{}\n{}\n{}\n{}\n{}\n{}\n",
+        "Summary:".bold(),
+        if total_passed == total_run {
+            format!("{}", total_passed).green()
+        } else if total_passed > 0 {
+            format!("{}", total_passed).yellow()
+        } else {
+            format!("{}", total_passed).red()
+        },
+        fork_summary_shell(reports, SpecId::CANCUN),
+        fork_summary_shell(reports, SpecId::SHANGHAI),
+        fork_summary_shell(reports, SpecId::HOMESTEAD),
+        fork_summary_shell(reports, SpecId::ISTANBUL),
+        fork_summary_shell(reports, SpecId::LONDON),
+        fork_summary_shell(reports, SpecId::BYZANTIUM),
+        fork_summary_shell(reports, SpecId::BERLIN),
+        fork_summary_shell(reports, SpecId::CONSTANTINOPLE),
+        fork_summary_shell(reports, SpecId::MERGE),
+        fork_summary_shell(reports, SpecId::FRONTIER),
+    )
+}
+
+fn fork_summary_shell(reports: &[EFTestReport], fork: SpecId) -> String {
+    let fork_str: &str = fork.into();
+    let (fork_tests, fork_passed_tests, fork_success_percentage) = fork_statistics(reports, fork);
+    format!(
+        "{}: {}/{fork_tests} ({fork_success_percentage:.2}%)",
+        fork_str.bold(),
+        if fork_passed_tests == fork_tests {
+            format!("{}", fork_passed_tests).green()
+        } else if fork_passed_tests > 0 {
+            format!("{}", fork_passed_tests).yellow()
+        } else {
+            format!("{}", fork_passed_tests).red()
+        },
+    )
+}
+
+fn fork_statistics(reports: &[EFTestReport], fork: SpecId) -> (usize, usize, f64) {
+    let fork_tests = reports.iter().filter(|report| report.fork == fork).count();
+    let fork_passed_tests = reports
+        .iter()
+        .filter(|report| report.fork == fork && report.passed())
+        .count();
+    let fork_success_percentage = (fork_passed_tests as f64 / fork_tests as f64) * 100.0;
+    (fork_tests, fork_passed_tests, fork_success_percentage)
 }
 
 #[derive(Debug, Default, Clone)]
@@ -146,16 +257,16 @@ impl Display for EFTestsReport {
             },
         )?;
         writeln!(f)?;
-        writeln!(f, "{}", fork_summary(&self.0, SpecId::CANCUN))?;
-        writeln!(f, "{}", fork_summary(&self.0, SpecId::SHANGHAI))?;
-        writeln!(f, "{}", fork_summary(&self.0, SpecId::HOMESTEAD))?;
-        writeln!(f, "{}", fork_summary(&self.0, SpecId::ISTANBUL))?;
-        writeln!(f, "{}", fork_summary(&self.0, SpecId::LONDON))?;
-        writeln!(f, "{}", fork_summary(&self.0, SpecId::BYZANTIUM))?;
-        writeln!(f, "{}", fork_summary(&self.0, SpecId::BERLIN))?;
-        writeln!(f, "{}", fork_summary(&self.0, SpecId::CONSTANTINOPLE))?;
-        writeln!(f, "{}", fork_summary(&self.0, SpecId::MERGE))?;
-        writeln!(f, "{}", fork_summary(&self.0, SpecId::FRONTIER))?;
+        writeln!(f, "{}", fork_summary_shell(&self.0, SpecId::CANCUN))?;
+        writeln!(f, "{}", fork_summary_shell(&self.0, SpecId::SHANGHAI))?;
+        writeln!(f, "{}", fork_summary_shell(&self.0, SpecId::HOMESTEAD))?;
+        writeln!(f, "{}", fork_summary_shell(&self.0, SpecId::ISTANBUL))?;
+        writeln!(f, "{}", fork_summary_shell(&self.0, SpecId::LONDON))?;
+        writeln!(f, "{}", fork_summary_shell(&self.0, SpecId::BYZANTIUM))?;
+        writeln!(f, "{}", fork_summary_shell(&self.0, SpecId::BERLIN))?;
+        writeln!(f, "{}", fork_summary_shell(&self.0, SpecId::CONSTANTINOPLE))?;
+        writeln!(f, "{}", fork_summary_shell(&self.0, SpecId::MERGE))?;
+        writeln!(f, "{}", fork_summary_shell(&self.0, SpecId::FRONTIER))?;
         writeln!(f)?;
         writeln!(f, "{}", "Failed tests:".bold())?;
         writeln!(f)?;
@@ -231,26 +342,6 @@ impl Display for EFTestsReport {
         }
         Ok(())
     }
-}
-
-fn fork_summary(reports: &[EFTestReport], fork: SpecId) -> String {
-    let fork_str: &str = fork.into();
-    let fork_tests = reports.iter().filter(|report| report.fork == fork).count();
-    let fork_passed_tests = reports
-        .iter()
-        .filter(|report| report.fork == fork && report.passed())
-        .count();
-    format!(
-        "{}: {}/{fork_tests}",
-        fork_str.bold(),
-        if fork_passed_tests == fork_tests {
-            format!("{}", fork_passed_tests).green()
-        } else if fork_passed_tests > 0 {
-            format!("{}", fork_passed_tests).yellow()
-        } else {
-            format!("{}", fork_passed_tests).red()
-        },
-    )
 }
 
 #[derive(Debug, Default, Clone, Serialize, Deserialize)]
@@ -340,6 +431,7 @@ impl EFTestReport {
 
 #[derive(Debug, Default, Clone, Serialize, Deserialize)]
 pub struct AccountUpdatesReport {
+    pub initial_accounts: HashMap<Address, Account>,
     pub levm_account_updates: Vec<AccountUpdate>,
     pub revm_account_updates: Vec<AccountUpdate>,
     pub levm_updated_accounts_only: HashSet<Address>,
@@ -353,6 +445,89 @@ impl fmt::Display for AccountUpdatesReport {
         for levm_updated_account_only in self.levm_updated_accounts_only.iter() {
             writeln!(f, "  {levm_updated_account_only:#x}:")?;
             writeln!(f, "{}", "    Was updated in LEVM but not in REVM".red())?;
+            let initial_account = self
+                .initial_accounts
+                .get(levm_updated_account_only)
+                .cloned()
+                .unwrap_or_default();
+            let updated_account_update = self
+                .levm_account_updates
+                .iter()
+                .find(|account_update| &account_update.address == levm_updated_account_only)
+                .unwrap();
+            let updated_account_storage = updated_account_update
+                .added_storage
+                .iter()
+                .map(|(key, value)| {
+                    let storage_slot = StorageSlot {
+                        original_value: *value,
+                        current_value: *value,
+                    };
+                    (*key, storage_slot)
+                })
+                .collect();
+            let updated_account_info = updated_account_update.info.clone().unwrap();
+            let updated_account = Account::new(
+                updated_account_info.balance,
+                updated_account_update.code.clone().unwrap_or_default(),
+                updated_account_info.nonce,
+                updated_account_storage,
+            );
+            let mut updates = 0;
+            if initial_account.info.balance != updated_account.info.balance {
+                writeln!(
+                    f,
+                    "{}",
+                    format!(
+                        "      Balance updated: {initial_balance} -> {updated_balance}",
+                        initial_balance = initial_account.info.balance,
+                        updated_balance = updated_account.info.balance
+                    )
+                    .red()
+                )?;
+                updates += 1;
+            }
+            if initial_account.info.nonce != updated_account.info.nonce {
+                writeln!(
+                    f,
+                    "{}",
+                    format!(
+                        "      Nonce updated: {initial_nonce} -> {updated_nonce}",
+                        initial_nonce = initial_account.info.nonce,
+                        updated_nonce = updated_account.info.nonce
+                    )
+                    .red()
+                )?;
+                updates += 1;
+            }
+            if initial_account.info.bytecode != updated_account.info.bytecode {
+                writeln!(
+                    f,
+                    "{}",
+                    format!(
+                        "      Code updated: {initial_code}, {updated_code}",
+                        initial_code = hex::encode(&initial_account.info.bytecode),
+                        updated_code = hex::encode(&updated_account.info.bytecode)
+                    )
+                    .red()
+                )?;
+                updates += 1;
+            }
+            for (added_storage_address, added_storage_slot) in updated_account.storage.iter() {
+                writeln!(
+                    f,
+                    "{}",
+                    format!(
+                        "      Storage slot added: {added_storage_address}: {} -> {}",
+                        added_storage_slot.original_value, added_storage_slot.current_value
+                    )
+                    .red()
+                )?;
+                updates += 1;
+            }
+            if updates == 0 {
+                writeln!(f, "{}", "      No changes".green())?;
+            }
         }
         for revm_updated_account_only in self.revm_updated_accounts_only.iter() {
             writeln!(f, "  {revm_updated_account_only:#x}:")?;

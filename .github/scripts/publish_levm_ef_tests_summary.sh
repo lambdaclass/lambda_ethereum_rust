@@ -1,14 +1,17 @@
 curl -X POST $url \
 -H 'Content-Type: application/json; charset=utf-8' \
 --data @- <<EOF
-$(jq -n --arg text "$(cat results.md)" '{
+$(jq -n --arg text "$(cat levm_ef_tests_summary_slack.txt)" '{
     "blocks": [
         {
             "type": "header",
             "text": {
                 "type": "plain_text",
-                "text": "Daily report"
+                "text": "Daily LEVM EF Tests Run Report"
             }
+        },
+        {
+            "type": "divider"
         },
         {
             "type": "section",
