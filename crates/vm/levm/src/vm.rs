@@ -706,8 +706,7 @@ impl VM {
         current_call_frame.sub_return_data_size = ret_size;
 
         // Update sender account and recipient in cache
-        self.cache
-            .add_account(&msg_sender, &sender_account);
+        self.cache.add_account(&msg_sender, &sender_account);
         self.cache.add_account(&to, &recipient_account);
 
         // self.call_frames.push(new_call_frame.clone());
