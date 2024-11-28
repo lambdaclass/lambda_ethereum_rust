@@ -67,30 +67,30 @@ fn slack_message(old_report: LinesOfCodeReport, new_report: LinesOfCodeReport) -
     let ethrex_diff_total = ethrex_l1_diff + ethrex_l2_diff + levm_diff;
 
     format!(
-        r#"*ethrex L1:* {} ({})\n*ethrex L2:* {} ({})\n*levm:* {} ({})\n*ethrex (total):* {} ({})"#,
+        r#"*ethrex L1:* {} {}\n*ethrex L2:* {} {}\n*levm:* {} {}\n*ethrex (total):* {} {}"#,
         new_report.ethrex_l1,
         if new_report.ethrex > old_report.ethrex {
-            format!("+{ethrex_l1_diff}")
+            format!("(+{ethrex_l1_diff})")
         } else {
-            format!("-{ethrex_l1_diff}")
+            format!("(-{ethrex_l1_diff})")
         },
         new_report.ethrex_l2,
         if new_report.ethrex_l2 > old_report.ethrex_l2 {
-            format!("+{ethrex_l2_diff}")
+            format!("(+{ethrex_l2_diff})")
         } else {
-            format!("-{ethrex_l2_diff}")
+            format!("(-{ethrex_l2_diff})")
         },
         new_report.levm,
         if new_report.levm > old_report.levm {
-            format!("+{levm_diff}")
+            format!("(+{levm_diff})")
         } else {
-            format!("-{levm_diff}")
+            format!("(-{levm_diff})")
         },
         new_report.ethrex,
         if new_report.ethrex > old_report.ethrex {
-            format!("+{ethrex_diff_total}")
+            format!("(+{ethrex_diff_total})")
         } else {
-            format!("-{ethrex_diff_total}")
+            format!("(-{ethrex_diff_total})")
         },
     )
 }
@@ -105,34 +105,34 @@ fn github_step_summary(old_report: LinesOfCodeReport, new_report: LinesOfCodeRep
         r#"```
 ethrex loc summary
 ====================
-ethrex L1: {} ({})
-ethrex L2: {} ({})
+ethrex L1: {} {}
+ethrex L2: {} {}
 levm: {} ({})
-ethrex (total): {} ({})
+ethrex (total): {} {}
 ```"#,
         new_report.ethrex_l1,
         if new_report.ethrex > old_report.ethrex {
-            format!("+{ethrex_l1_diff}")
+            format!("(+{ethrex_l1_diff})")
         } else {
-            format!("-{ethrex_l1_diff}")
+            format!("(-{ethrex_l1_diff})")
         },
         new_report.ethrex_l2,
         if new_report.ethrex_l2 > old_report.ethrex_l2 {
-            format!("+{ethrex_l2_diff}")
+            format!("(+{ethrex_l2_diff})")
         } else {
-            format!("-{ethrex_l2_diff}")
+            format!("(-{ethrex_l2_diff})")
         },
         new_report.levm,
         if new_report.levm > old_report.levm {
-            format!("+{levm_diff}")
+            format!("(+{levm_diff})")
         } else {
-            format!("-{levm_diff}")
+            format!("(-{levm_diff})")
         },
         new_report.ethrex,
         if new_report.ethrex > old_report.ethrex {
-            format!("+{ethrex_diff_total}")
+            format!("(+{ethrex_diff_total})")
         } else {
-            format!("-{ethrex_diff_total}")
+            format!("(-{ethrex_diff_total})")
         },
     )
 }
