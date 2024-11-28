@@ -23,19 +23,12 @@ fn main() {
     let ethrex_l2_loc = &languages.get(&LanguageType::Rust).unwrap();
 
     let report = format!(
-        r#"```
-ethrex loc summary
-====================
-ethrex L1: {}
-ethrex L2: {}
-levm: {}
-ethrex (total): {}
-```"#,
+        r#"*ethrex L1:* {}\n*ethrex L2:* {}\n*levm:* {}\n*ethrex (total):* {}"#,
         ethrex_loc.code - ethrex_l2_loc.code - levm_loc.code,
         ethrex_l2_loc.code,
         levm_loc.code,
         ethrex_loc.code,
     );
 
-    std::fs::write("loc_report.md", report).unwrap();
+    std::fs::write("loc_report.txt", report).unwrap();
 }
