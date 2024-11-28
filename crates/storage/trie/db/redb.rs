@@ -1,6 +1,6 @@
 use std::sync::Arc;
 
-use redb::{Database, Error, ReadableTable, TableDefinition};
+use redb::{Database, TableDefinition};
 
 use super::TrieDB;
 
