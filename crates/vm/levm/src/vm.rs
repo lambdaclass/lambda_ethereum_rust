@@ -12,7 +12,10 @@ use crate::{
     opcodes::Opcode,
 };
 use bytes::Bytes;
-use ethrex_core::{types::TxKind, Address, H256, U256};
+use ethrex_core::{
+    types::{blobs_bundle, TxKind},
+    Address, H256, U256,
+};
 use ethrex_rlp;
 use ethrex_rlp::encode::RLPEncode;
 use keccak_hash::keccak;
@@ -536,16 +539,17 @@ impl VM {
 
         //TODO: Implement the rest of the validations (TYPE_3)
 
-        // (11) TYPE_3_TX_ZERO_BLOBS
-        if let Some(tx_blob_hashes) = &self.env.tx_blob_hashes {
-            if tx_blob_hashes.is_empty() {
+        // Transaction is type 3 if tx_max_fee_per_blob_gas is Some
+        if self.env.tx_max_fee_per_blob_gas.is_some() {
+            let blob_hashes = &self.env.tx_blob_hashes;
+            
+            // (11) TYPE_3_TX_ZERO_BLOBS
+            if blob_hashes.is_empty() {
                 return Err(VMError::TxValidation(TxValidationError::Type3TxZeroBlobs));
             }
-        }
 
-        // (12) TYPE_3_TX_INVALID_BLOB_VERSIONED_HASH
-        if let Some(tx_blob_hashes) = &self.env.tx_blob_hashes {
-            for blob_hash in tx_blob_hashes {
+            // (12) TYPE_3_TX_INVALID_BLOB_VERSIONED_HASH
+            for blob_hash in blob_hashes {
                 let blob_hash = blob_hash.as_bytes();
                 if let Some(first_byte) = blob_hash.first() {
                     if !VALID_BLOB_PREFIXES.contains(first_byte) {
@@ -555,25 +559,22 @@ impl VM {
                     }
                 }
             }
-        }
 
-        // (13) TYPE_3_TX_PRE_FORK -> This is not necessary for now because we are not supporting pre-cancun transactions yet. But we should somehow be able to tell the current context.
+            // (13) TYPE_3_TX_PRE_FORK -> This is not necessary for now because we are not supporting pre-cancun transactions yet. But we should somehow be able to tell the current context.
 
-        // (14) TYPE_3_TX_BLOB_COUNT_EXCEEDED
-        if let Some(tx_blob_hashes) = &self.env.tx_blob_hashes {
-            if tx_blob_hashes.len() > MAX_BLOB_COUNT {
+            // (14) TYPE_3_TX_BLOB_COUNT_EXCEEDED
+            if blob_hashes.len() > MAX_BLOB_COUNT {
                 return Err(VMError::TxValidation(
                     TxValidationError::Type3TxBlobCountExceeded,
                 ));
             }
-        }
 
-        // (15) TYPE_3_TX_CONTRACT_CREATION
-        // The current way of checking if the transaction is a Type 3 Tx is by checking if the tx_blob_hashes is Some.
-        if self.env.tx_blob_hashes.is_some() && self.is_create() {
-            return Err(VMError::TxValidation(
-                TxValidationError::Type3TxContractCreation,
-            ));
+            // (15) TYPE_3_TX_CONTRACT_CREATION
+            if self.is_create() {
+                return Err(VMError::TxValidation(
+                    TxValidationError::Type3TxContractCreation,
+                ));
+            }
         }
 
         Ok(())
