@@ -114,4 +114,4 @@ jobs:
         run: make setup-hive
 
       - name: Run Hive Simulation
-        run: ./hive/hive --client ethrex --sim ${{ matrix.simulation }} --sim.limit "${{ matrix.test_pattern }}" --sim.parallelism 4
+        run: cd hive && ./hive --client ethrex --sim ${{ matrix.simulation }} --sim.limit "${{ matrix.test_pattern }}" --sim.parallelism 4
