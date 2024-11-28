@@ -501,7 +501,6 @@ impl VM {
         let (current_account_info, _current_account_is_cold) =
             self.access_account(current_call_frame.to);
 
-        self.increase_account_balance(target_address, current_account_info.balance)?;
         self.decrease_account_balance(current_call_frame.to, current_account_info.balance)?;
 
         if self.tx_kind == TxKind::Create {
