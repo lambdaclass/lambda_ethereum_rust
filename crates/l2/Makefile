@@ -1,6 +1,6 @@
 .DEFAULT_GOAL := help
 
-.PHONY: help init down clean init-local-l1 down-local-l1 clean-local-l1 init-l2 down-l2 deploy-l1 deploy-block-executor deploy-inbox setup-prover ci_test test update-cli
+.PHONY: help init down clean init-local-l1 down-local-l1 clean-local-l1 init-l2 down-l2 deploy-l1 deploy-block-executor deploy-inbox setup-prover ci_test test update-cli update-cli-contracts
 
 L2_GENESIS_FILE_PATH=../../test_data/genesis-l2.json
 L1_GENESIS_FILE_PATH=../../test_data/genesis-l1.json
