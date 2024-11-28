@@ -546,12 +546,15 @@ impl fmt::Display for AccountUpdatesReport {
                 .find(|account_update| &account_update.address == shared_updated_account)
                 .unwrap();
 
+            let mut diffs = 0;
             match (levm_updated_account.removed, revm_updated_account.removed) {
                 (true, false) => {
-                    writeln!(f, "    Removed in LEVM but not in REVM")?;
+                    writeln!(f, "      Removed in LEVM but not in REVM")?;
+                    diffs += 1;
                 }
                 (false, true) => {
-                    writeln!(f, "    Removed in REVM but not in LEVM")?;
+                    writeln!(f, "      Removed in REVM but not in LEVM")?;
+                    diffs += 1;
                 }
                 // Account was removed in both VMs.
                 (false, false) | (true, true) => {}
@@ -559,15 +562,17 @@ impl fmt::Display for AccountUpdatesReport {
 
             match (&levm_updated_account.code, &revm_updated_account.code) {
                 (None, Some(_)) => {
-                    writeln!(f, "    Has code in REVM but not in LEVM")?;
+                    writeln!(f, "      Has code in REVM but not in LEVM")?;
+                    diffs += 1;
                 }
                 (Some(_), None) => {
-                    writeln!(f, "    Has code in LEVM but not in REVM")?;
+                    writeln!(f, "      Has code in LEVM but not in REVM")?;
+                    diffs += 1;
                 }
                 (Some(levm_account_code), Some(revm_account_code)) => {
                     if levm_account_code != revm_account_code {
                         writeln!(f,
-                            "    Code mismatch: LEVM: {levm_account_code}, REVM: {revm_account_code}",
+                            "      Code mismatch: LEVM: {levm_account_code}, REVM: {revm_account_code}",
                             levm_account_code = hex::encode(levm_account_code),
                             revm_account_code = hex::encode(revm_account_code)
                         )?;
@@ -580,27 +585,34 @@ impl fmt::Display for AccountUpdatesReport {
                 (None, Some(_)) => {
                     writeln!(
                         f,
-                        "    Account {shared_updated_account:#x} has info in REVM but not in LEVM"
+                        "      Account {shared_updated_account:#x} has info in REVM but not in LEVM"
                     )?;
+                    diffs += 1;
                 }
                 (Some(levm_account_info), Some(revm_account_info)) => {
                     if levm_account_info.balance != revm_account_info.balance {
                         writeln!(f,
-                            "    Balance mismatch: LEVM: {levm_account_balance}, REVM: {revm_account_balance}",
+                            "      Balance mismatch: LEVM: {levm_account_balance}, REVM: {revm_account_balance}",
                             levm_account_balance = levm_account_info.balance,
                             revm_account_balance = revm_account_info.balance
                         )?;
+                        diffs += 1;
                     }
                     if levm_account_info.nonce != revm_account_info.nonce {
                         writeln!(f,
-                                "    Nonce mismatch: LEVM: {levm_account_nonce}, REVM: {revm_account_nonce}",
+                                "      Nonce mismatch: LEVM: {levm_account_nonce}, REVM: {revm_account_nonce}",
                                 levm_account_nonce = levm_account_info.nonce,
                                 revm_account_nonce = revm_account_info.nonce
                         )?;
+                        diffs += 1;
                     }
                 }
                 // We ignore the case (Some(_), None) because we always add the account info to the account update.
                 (Some(_), None) | (None, None) => {}
+            }
+
+            if diffs == 0 {
+                writeln!(f, "      Same changes")?;
             }
         }
         Ok(())
