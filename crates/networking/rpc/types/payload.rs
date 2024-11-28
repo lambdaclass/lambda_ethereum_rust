@@ -27,7 +27,7 @@ pub struct ExecutionPayload {
     #[serde(with = "serde_utils::u64::hex_str")]
     gas_used: u64,
     #[serde(with = "serde_utils::u64::hex_str")]
-    pub timestamp: u64,
+    timestamp: u64,
     #[serde(with = "serde_utils::bytes")]
     extra_data: Bytes,
     #[serde(with = "serde_utils::u64::hex_str")]
