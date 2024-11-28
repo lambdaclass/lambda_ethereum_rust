@@ -1,6 +1,6 @@
 use crate::{
     call_frame::CallFrame,
-    errors::{InternalError, OpcodeSuccess, ResultReason, VMError},
+    errors::{OpcodeSuccess, ResultReason, VMError},
     gas_cost,
     vm::{word_to_address, VM},
 };
@@ -172,12 +172,7 @@ impl VM {
             .try_into()
             .map_err(|_| VMError::VeryLargeNumber)?;
 
-        let gas_cost =
-            current_call_frame
-                .memory
-                .expansion_cost(offset.checked_add(size).ok_or(VMError::Internal(
-                    InternalError::ArithmeticOperationOverflow,
-                ))?)?;
+        let gas_cost = current_call_frame.memory.expansion_cost(offset, size)?;
 
         self.increase_consumed_gas(current_call_frame, gas_cost)?;
 
@@ -404,12 +399,7 @@ impl VM {
             .try_into()
             .map_err(|_err| VMError::VeryLargeNumber)?;
 
-        let gas_cost =
-            current_call_frame
-                .memory
-                .expansion_cost(offset.checked_add(size).ok_or(VMError::Internal(
-                    InternalError::ArithmeticOperationOverflow,
-                ))?)?;
+        let gas_cost = current_call_frame.memory.expansion_cost(offset, size)?;
 
         self.increase_consumed_gas(current_call_frame, gas_cost)?;
 
