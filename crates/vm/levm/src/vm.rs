@@ -542,7 +542,7 @@ impl VM {
         // Transaction is type 3 if tx_max_fee_per_blob_gas is Some
         if self.env.tx_max_fee_per_blob_gas.is_some() {
             let blob_hashes = &self.env.tx_blob_hashes;
-            
+
             // (11) TYPE_3_TX_ZERO_BLOBS
             if blob_hashes.is_empty() {
                 return Err(VMError::TxValidation(TxValidationError::Type3TxZeroBlobs));
