@@ -190,7 +190,7 @@ pub fn summary_for_shell(reports: &[EFTestReport]) -> String {
     let total_run = reports.len();
     let success_percentage = (total_passed as f64 / total_run as f64) * 100.0;
     format!(
-        "{} {}/{total_run} ({success_percentage:.2})\n\n{}\n{}\n{}\n{}\n{}\n{}\n{}\n{}\n{}\n{}\n",
+        "{} {}/{total_run} ({success_percentage:.2})\n\n{}\n{}\n{}\n{}\n{}\n{}\n{}\n{}\n{}\n{}\n\n\n{}\n",
         "Summary:".bold(),
         if total_passed == total_run {
             format!("{}", total_passed).green()
@@ -209,6 +209,7 @@ pub fn summary_for_shell(reports: &[EFTestReport]) -> String {
         fork_summary_shell(reports, SpecId::CONSTANTINOPLE),
         fork_summary_shell(reports, SpecId::MERGE),
         fork_summary_shell(reports, SpecId::FRONTIER),
+        test_dir_summary_for_shell(reports),
     )
 }
 
@@ -236,6 +237,34 @@ fn fork_statistics(reports: &[EFTestReport], fork: SpecId) -> (usize, usize, f64
         .count();
     let fork_success_percentage = (fork_passed_tests as f64 / fork_tests as f64) * 100.0;
     (fork_tests, fork_passed_tests, fork_success_percentage)
+}
+
+pub fn test_dir_summary_for_shell(reports: &[EFTestReport]) -> String {
+    let mut test_dirs_summary = String::new();
+    reports
+        .iter()
+        .into_group_map_by(|report| report.dir.clone())
+        .iter()
+        .for_each(|(dir, reports)| {
+            let total_passed = reports.iter().filter(|report| report.passed()).count();
+            let total_run = reports.len();
+            let success_percentage = (total_passed as f64 / total_run as f64) * 100.0;
+            let test_dir_summary = format!(
+                "{}: {}/{} ({:.2}%)\n",
+                dir.bold(),
+                if total_passed == total_run {
+                    format!("{}", total_passed).green()
+                } else if total_passed > 0 {
+                    format!("{}", total_passed).yellow()
+                } else {
+                    format!("{}", total_passed).red()
+                },
+                total_run,
+                success_percentage
+            );
+            test_dirs_summary.push_str(&test_dir_summary);
+        });
+    test_dirs_summary
 }
 
 #[derive(Debug, Default, Clone)]
