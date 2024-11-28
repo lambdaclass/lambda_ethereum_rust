@@ -11,6 +11,9 @@ $(jq -n --arg text "$(cat levm_ef_tests_summary.txt)" '{
             }
         },
         {
+            "type": "divider"
+        },
+        {
             "type": "section",
             "text": {
                 "type": "mrkdwn",
