@@ -19,8 +19,6 @@ use ethrex_vm::db::StoreWrapper;
 use keccak_hash::keccak;
 use std::{collections::HashMap, sync::Arc};
 
-use super::revm_runner::effective_gas_price;
-
 pub fn run_ef_test(test: &EFTest) -> Result<EFTestReport, EFTestRunnerError> {
     let mut ef_test_report = EFTestReport::new(
         test.name.clone(),
