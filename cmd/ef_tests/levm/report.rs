@@ -7,6 +7,7 @@ use ethrex_levm::{
 };
 use ethrex_storage::{error::StoreError, AccountUpdate};
 use ethrex_vm::SpecId;
+use itertools::Itertools;
 use revm::primitives::{EVMError, ExecutionResult as RevmExecutionResult};
 use serde::{Deserialize, Serialize};
 use spinoff::{spinners::Dots, Color, Spinner};
@@ -270,6 +271,29 @@ impl Display for EFTestsReport {
         writeln!(f)?;
         writeln!(f, "{}", "Failed tests:".bold())?;
         writeln!(f)?;
+        self.0
+            .iter()
+            .into_group_map_by(|report| report.dir.clone())
+            .iter()
+            .try_for_each(|(dir, reports)| {
+                let total_passed = reports.iter().filter(|report| report.passed()).count();
+                let total_run = reports.len();
+                let success_percentage = (total_passed as f64 / total_run as f64) * 100.0;
+                writeln!(
+                    f,
+                    "{}: {}/{} ({:.2}%)",
+                    dir.bold(),
+                    if total_passed == total_run {
+                        format!("{}", total_passed).green()
+                    } else if total_passed > 0 {
+                        format!("{}", total_passed).yellow()
+                    } else {
+                        format!("{}", total_passed).red()
+                    },
+                    total_run,
+                    success_percentage
+                )
+            })?;
         for report in self.0.iter() {
             if report.failed_vectors.is_empty() {
                 continue;
@@ -347,6 +371,7 @@ impl Display for EFTestsReport {
 #[derive(Debug, Default, Clone, Serialize, Deserialize)]
 pub struct EFTestReport {
     pub name: String,
+    pub dir: String,
     pub test_hash: H256,
     pub fork: SpecId,
     pub skipped: bool,
@@ -355,9 +380,10 @@ pub struct EFTestReport {
 }
 
 impl EFTestReport {
-    pub fn new(name: String, test_hash: H256, fork: SpecId) -> Self {
+    pub fn new(name: String, dir: String, test_hash: H256, fork: SpecId) -> Self {
         EFTestReport {
             name,
+            dir,
             test_hash,
             fork,
             ..Default::default()
