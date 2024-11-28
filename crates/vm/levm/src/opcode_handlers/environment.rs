@@ -351,10 +351,12 @@ impl VM {
 
         let bytecode = self.get_account(&address).info.bytecode;
 
-        let new_memory_size = (((!size).checked_add(1).ok_or(VMError::Internal(
-            InternalError::ArithmeticOperationOverflow,
-        ))?) & 31)
+        let new_memory_size = dest_offset
             .checked_add(size)
+            .ok_or(VMError::Internal(
+                InternalError::ArithmeticOperationOverflow,
+            ))?
+            .checked_next_multiple_of(WORD_SIZE)
             .ok_or(VMError::Internal(
                 InternalError::ArithmeticOperationOverflow,
             ))?;
