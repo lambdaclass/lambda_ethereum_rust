@@ -11,15 +11,15 @@ fn main() {
     let config = Config::default();
 
     let mut languages = Languages::new();
-    languages.get_statistics(&[ethrex.clone()], &[], &config);
+    languages.get_statistics(&[ethrex.clone()], &["tests"], &config);
     let ethrex_loc = &languages.get(&LanguageType::Rust).unwrap();
 
     let mut languages = Languages::new();
-    languages.get_statistics(&[levm], &[], &config);
+    languages.get_statistics(&[levm], &["tests"], &config);
     let levm_loc = &languages.get(&LanguageType::Rust).unwrap();
 
     let mut languages = Languages::new();
-    languages.get_statistics(&[ethrex_l2], &[], &config);
+    languages.get_statistics(&[ethrex_l2], &["tests"], &config);
     let ethrex_l2_loc = &languages.get(&LanguageType::Rust).unwrap();
 
     let report = format!(
