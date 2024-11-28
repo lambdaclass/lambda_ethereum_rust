@@ -116,8 +116,9 @@ jobs:
       - name: Run Hive Simulation
         run: cd hive && ./hive --client ethrex --sim ${{ matrix.simulation }} --sim.limit "${{ matrix.test_pattern }}" --sim.parallelism 4
 
+  # The purpose of this job is to add it as a required check in GitHub so that we don't have to add every individual job as a required check
   all-tests:
-    name: All integration tests passed
+    name: All integration tests
     runs-on: ubuntu-latest
     needs: [run-assertoor, run-hive]
     # Make sure this job runs even if the previous jobs failed or were skipped  
