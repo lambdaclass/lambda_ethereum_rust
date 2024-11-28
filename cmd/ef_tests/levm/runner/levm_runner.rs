@@ -73,12 +73,30 @@ pub fn prepare_vm_for_tx(vector: &TestVector, test: &EFTest) -> Result<VM, EFTes
         block_hash,
     });
     VM::new(
-        test.transactions.get(vector).unwrap().to.clone(),
+        test.transactions
+            .get(vector)
+            .ok_or(EFTestRunnerError::VMInitializationFailed(
+                "Failed to get the tx from vector".to_string(),
+            ))?
+            .to
+            .clone(),
         Environment {
-            origin: test.transactions.get(vector).unwrap().sender,
+            origin: test
+                .transactions
+                .get(vector)
+                .ok_or(EFTestRunnerError::VMInitializationFailed(
+                    "Failed to get the tx from vector".to_string(),
+                ))?
+                .sender,
             consumed_gas: U256::default(),
             refunded_gas: U256::default(),
-            gas_limit: test.transactions.get(vector).unwrap().gas_limit,
+            gas_limit: test
+                .transactions
+                .get(vector)
+                .ok_or(EFTestRunnerError::VMInitializationFailed(
+                    "Failed to get the tx from vector".to_string(),
+                ))?
+                .gas_limit,
             block_number: test.env.current_number,
             coinbase: test.env.current_coinbase,
             timestamp: test.env.current_timestamp,
@@ -88,15 +106,28 @@ pub fn prepare_vm_for_tx(vector: &TestVector, test: &EFTest) -> Result<VM, EFTes
             gas_price: test
                 .transactions
                 .get(vector)
-                .unwrap()
+                .ok_or(EFTestRunnerError::VMInitializationFailed(
+                    "Failed to get the tx from vector".to_string(),
+                ))?
                 .gas_price
                 .unwrap_or_default(), // or max_fee_per_gas?
             block_excess_blob_gas: test.env.current_excess_blob_gas,
             block_blob_gas_used: None,
             tx_blob_hashes: None,
         },
-        test.transactions.get(vector).unwrap().value,
-        test.transactions.get(vector).unwrap().data.clone(),
+        test.transactions
+            .get(vector)
+            .ok_or(EFTestRunnerError::VMInitializationFailed(
+                "Failed to get the tx from vector".to_string(),
+            ))?
+            .value,
+        test.transactions
+            .get(vector)
+            .ok_or(EFTestRunnerError::VMInitializationFailed(
+                "Failed to get the tx from vector".to_string(),
+            ))?
+            .data
+            .clone(),
         db,
         Cache::default(),
     )

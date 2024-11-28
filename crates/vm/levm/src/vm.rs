@@ -722,7 +722,7 @@ impl VM {
             TxResult::Revert(_) => {
                 // TODO: Revert gas refunds in case the called callframe reverts
                 // self.env.refunded_gas = self.env.refunded_gas.checked_sub(tx_report.gas_refunded.into()).ok_or(VMError::Internal(InternalError::ArithmeticOperationUnderflow))?;
-                
+
                 // Push 0 to stack
                 current_call_frame.stack.push(U256::from(REVERT_FOR_CALL))?;
             }
