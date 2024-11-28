@@ -30,7 +30,6 @@ pub async fn start_l1_watcher(store: Store) {
 pub struct L1Watcher {
     eth_client: EthClient,
     address: Address,
-    topics: Vec<H256>,
     max_block_step: U256,
     last_block_fetched: U256,
     l2_proposer_pk: SecretKey,
@@ -50,7 +49,6 @@ impl L1Watcher {
         Ok(Self {
             eth_client,
             address: watcher_config.bridge_address,
-            topics: watcher_config.topics,
             max_block_step: watcher_config.max_block_step,
             last_block_fetched,
             l2_proposer_pk: watcher_config.l2_proposer_private_key,
@@ -87,12 +85,18 @@ impl L1Watcher {
     }
 
     pub async fn get_pending_deposit_logs(&self) -> Result<Vec<H256>, L1WatcherError> {
+        let selector = keccak(b"getDepositLogs()")
+            .as_bytes()
+            .get(..4)
+            .ok_or(EthClientError::Custom("Failed to get selector.".to_owned()))?
+            .to_vec();
+
         Ok(hex::decode(
             &self
                 .eth_client
                 .call(
                     self.address,
-                    Bytes::copy_from_slice(&[0x35, 0x6d, 0xa2, 0x49]),
+                    Bytes::copy_from_slice(&selector),
                     Overrides::default(),
                 )
                 .await?[2..],
@@ -121,22 +125,22 @@ impl L1Watcher {
             self.last_block_fetched, new_last_block
         );
 
-        // We may get an error if the RPC doesn't has the logs for the requested
-        // block interval. For example, Light Nodes.
-        let topic = keccak(b"DepositInitiated(uint256,address,uint256)");
+        // Matches the event DepositInitiated from ICommonBridge.sol
+        let topic = keccak(b"DepositInitiated(uint256,address,uint256,bytes32)");
         let logs = match self
             .eth_client
             .get_logs(
                 self.last_block_fetched + 1,
                 new_last_block,
                 self.address,
-                //self.topics[0],
                 topic,
             )
             .await
         {
             Ok(logs) => logs,
             Err(error) => {
+                // We may get an error if the RPC doesn't has the logs for the requested
+                // block interval. For example, Light Nodes.
                 warn!("Error when getting logs from L1: {}", error);
                 vec![]
             }
@@ -158,19 +162,6 @@ impl L1Watcher {
         store: &Store,
     ) -> Result<Vec<H256>, L1WatcherError> {
         let mut deposit_txs = Vec::new();
-        let mut operator_nonce = store
-            .get_account_info(
-                store
-                    .get_latest_block_number()
-                    .map_err(|e| L1WatcherError::FailedToRetrieveChainConfig(e.to_string()))?
-                    .ok_or(L1WatcherError::FailedToRetrieveChainConfig(
-                        "Last block is None".to_string(),
-                    ))?,
-                Address::zero(),
-            )
-            .map_err(|e| L1WatcherError::FailedToRetrieveDepositorAccountInfo(e.to_string()))?
-            .map(|info| info.nonce)
-            .unwrap_or_default();
 
         for log in logs {
             let mint_value = format!("{:#x}", log.log.topics[1])
@@ -226,7 +217,10 @@ impl L1Watcher {
                                 })?
                                 .chain_id,
                         ),
-                        nonce: Some(operator_nonce),
+                        // Using the deposit_id as nonce.
+                        // If we make a transaction on the L2 with this address, we may break the
+                        // deposit workflow.
+                        nonce: Some(deposit_id.as_u64()),
                         value: Some(mint_value),
                         // TODO(IMPORTANT): gas_limit should come in the log and must
                         // not be calculated in here. The reason for this is that the
@@ -239,8 +233,6 @@ impl L1Watcher {
                 )
                 .await?;
             mint_transaction.sign_inplace(&self.l2_proposer_pk);
-
-            operator_nonce += 1;
 
             match mempool::add_transaction(
                 Transaction::PrivilegedL2Transaction(mint_transaction),

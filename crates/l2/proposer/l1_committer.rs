@@ -266,6 +266,7 @@ impl Committer {
                         TxKind::Create => Address::zero(),
                     },
                     amount: tx.value,
+                    nonce: tx.nonce,
                 })
                 .collect(),
         };

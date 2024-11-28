@@ -71,11 +71,8 @@ contract CommonBridge is ICommonBridge, Ownable, ReentrancyGuard {
     function deposit(address to) public payable {
         require(msg.value > 0, "CommonBridge: amount to deposit is zero");
 
-        // TODO: check if we need l2MintTxHash.
-        // if we do, build the tx to get the tx_hash.
-        // maybe we can keep track of each deposit tx just with the depositId.
         // TODO: Build the tx.
-        // bytes32 _l2MintTxHash = keccak256(abi.encodePacked("dummyl2MintTxHash"));
+        bytes32 l2MintTxHash = keccak256(abi.encodePacked("dummyl2MintTxHash"));
         depositLogs.push(
             keccak256(
                 bytes.concat(
@@ -85,8 +82,7 @@ contract CommonBridge is ICommonBridge, Ownable, ReentrancyGuard {
                 )
             )
         );
-        // emit DepositInitiated(msg.value, to, l2MintTxHash);
-        emit DepositInitiated(msg.value, to, depositId);
+        emit DepositInitiated(msg.value, to, depositId, l2MintTxHash);
         depositId += 1;
     }
 
