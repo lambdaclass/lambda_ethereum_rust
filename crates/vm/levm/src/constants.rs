@@ -1,5 +1,8 @@
 use ethrex_core::{H256, U256};
 
+pub const WORD_SIZE_IN_BYTES: U256 = U256([32, 0, 0, 0]);
+pub const WORD_SIZE_IN_BYTES_USIZE: usize = 32;
+
 pub const SUCCESS_FOR_CALL: i32 = 1;
 pub const REVERT_FOR_CALL: i32 = 0;
 pub const HALT_FOR_CALL: i32 = 2;

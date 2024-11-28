@@ -9,7 +9,7 @@ use ethrex_core::{
     H256, U256,
 };
 use ethrex_levm::{
-    db::Cache,
+    db::CacheDB,
     errors::{TransactionReport, VMError},
     vm::VM,
     Environment,
@@ -100,7 +100,7 @@ pub fn prepare_vm_for_tx(vector: &TestVector, test: &EFTest) -> Result<VM, EFTes
         tx.value,
         tx.data.clone(),
         db,
-        Cache::default(),
+        CacheDB::default(),
     )
     .map_err(|err| EFTestRunnerError::VMInitializationFailed(err.to_string()))
 }
