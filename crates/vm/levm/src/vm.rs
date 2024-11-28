@@ -785,15 +785,11 @@ impl VM {
     pub fn create(
         &mut self,
         value_in_wei_to_send: U256,
-        code_offset_in_memory: U256,
-        code_size_in_memory: U256,
+        code_offset_in_memory: usize,
+        code_size_in_memory: usize,
         salt: Option<U256>,
         current_call_frame: &mut CallFrame,
     ) -> Result<OpcodeSuccess, VMError> {
-        let code_size_in_memory = code_size_in_memory
-            .try_into()
-            .map_err(|_err| VMError::VeryLargeNumber)?;
-
         if code_size_in_memory > MAX_CODE_SIZE * 2 {
             current_call_frame
                 .stack
@@ -830,10 +826,6 @@ impl VM {
             return Ok(OpcodeSuccess::Result(ResultReason::Revert));
         };
         sender_account.info.nonce = new_nonce;
-
-        let code_offset_in_memory = code_offset_in_memory
-            .try_into()
-            .map_err(|_err| VMError::VeryLargeNumber)?;
 
         let code = Bytes::from(
             current_call_frame
