@@ -6,7 +6,7 @@ use crate::TrieError;
 
 use super::TrieDB;
 
-const STORAGE_TRIE_NODES_TABLE: MultimapTableDefinition<([u8; 32], [u8; 33]), [u8; 32]> =
+const STORAGE_TRIE_NODES_TABLE: MultimapTableDefinition<([u8; 32], [u8; 33]), &[u8]> =
     MultimapTableDefinition::new("StorageTrieNodes");
 
 /// RedB implementation for the TrieDB trait for a dupsort table with a fixed primary key.
@@ -51,13 +51,11 @@ impl TrieDB for RedBMultiTableTrieDB {
     fn put(&self, key: Vec<u8>, value: Vec<u8>) -> Result<(), TrieError> {
         let write_txn = self.db.begin_write().unwrap();
         {
-            let mut value_fixed: [u8; 32] = [0; 32];
-            value_fixed.copy_from_slice(&value);
             let mut table = write_txn
                 .open_multimap_table(STORAGE_TRIE_NODES_TABLE)
                 .unwrap();
             table
-                .insert((self.fixed_key, node_hash_to_fixed_size(key)), value_fixed)
+                .insert((self.fixed_key, node_hash_to_fixed_size(key)), &*value)
                 .unwrap();
         }
         write_txn.commit().unwrap();
