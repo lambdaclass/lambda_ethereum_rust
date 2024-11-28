@@ -315,7 +315,7 @@ pub struct PeerData {
     pub liveness: u16,
     /// if a revalidation was sent to the peer, the bool marks if it has answered
     pub revalidation: Option<bool>,
-    /// communication channels bewteen the peer data and its active connection
+    /// communication channels between the peer data and its active connection
     pub channels: Option<PeerChannels>,
 }
 
