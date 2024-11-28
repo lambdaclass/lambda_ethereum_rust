@@ -2187,6 +2187,7 @@ dependencies = [
  "ethrex-core",
  "ethrex-rlp",
  "ethrex-storage",
+ "ethrex-trie",
  "hex",
  "hex-literal",
  "hmac",
@@ -3610,7 +3611,8 @@ checksum = "4ee93343901ab17bd981295f2cf0026d4ad018c7c31ba84549a4ddbb47a45104"
 name = "loc"
 version = "0.1.0"
 dependencies = [
- "colored",
+ "serde",
+ "serde_json",
  "tokei",
 ]
 
