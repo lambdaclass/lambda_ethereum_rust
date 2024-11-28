@@ -1,16 +1,16 @@
-name: CI
+name: L1
 on:
   push:
     branches: ["main"]
   merge_group:
   pull_request:
     branches: ["**"]
-    # paths-ignore:
-    #   - "README.md"
-    #   - "LICENSE"
-    #   - "**/README.md"
-    #   - "**/docs/**"
-    #   - "crates/vm/levm/**" # We run this in a separate workflow
+    paths-ignore:
+      - "README.md"
+      - "LICENSE"
+      - "**/README.md"
+      - "**/docs/**"
+      - "crates/vm/levm/**" # We run this in a separate workflow
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.head_ref || github.run_id }}
@@ -21,6 +21,7 @@ env:
 
 jobs:
   lint:
+    # "Lint" is a required check, don't change the name
     name: Lint
     runs-on: ubuntu-latest
     steps:
@@ -52,6 +53,7 @@ jobs:
           cargo fmt --all -- --check
 
   test:
+    # "Test" is a required check, don't change the name
     name: Test
     runs-on: ubuntu-latest
     steps:
