@@ -352,26 +352,6 @@ impl VM {
         matches!(self.tx_kind, TxKind::Create)
     }
 
-    fn revert_create(&mut self) -> Result<(), VMError> {
-        // Note: currently working with copies
-        let call_frame = self
-            .call_frames
-            .last()
-            .ok_or(VMError::Internal(
-                InternalError::CouldNotAccessLastCallframe,
-            ))?
-            .clone();
-
-        self.decrement_account_nonce(call_frame.msg_sender)?;
-
-        let new_contract_address = call_frame.to;
-        if cache::remove_account(&mut self.cache, &new_contract_address).is_none() {
-            return Err(VMError::AddressDoesNotMatchAnAccount); // Should not be this error
-        }
-
-        Ok(())
-    }
-
     fn add_intrinsic_gas(&mut self, initial_call_frame: &mut CallFrame) -> Result<(), VMError> {
         // Intrinsic gas is the gas consumed by the transaction before the execution of the opcodes. Section 6.2 in the Yellow Paper.
 
