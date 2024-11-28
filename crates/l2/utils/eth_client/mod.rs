@@ -366,7 +366,7 @@ impl EthClient {
         // Add the nonce just if present, otherwise the RPC will use the latest nonce
         if let Some(nonce) = transaction.nonce {
             if let Value::Object(ref mut map) = data {
-                map.insert("nonce".to_owned(), json!(format!("{:#x}", nonce)));
+                map.insert("nonce".to_owned(), json!(format!("{nonce:#x}")));
             }
         }
 

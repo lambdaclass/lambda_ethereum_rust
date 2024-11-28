@@ -129,7 +129,7 @@ impl L1Watcher {
             {
                 Ok(logs) => logs,
                 Err(error) => {
-                    warn!("Error when getting logs from L1: {}", error);
+                    warn!("Error when getting logs from L1: {error}");
                     vec![]
                 }
             };
@@ -191,7 +191,7 @@ impl L1Watcher {
                     "Failed to parse beneficiary from log: log.topics[2] out of bounds".to_owned(),
                 ))?
                 .into_uint();
-            let beneficiary = format!("{:#x}", beneficiary_uint)
+            let beneficiary = format!("{beneficiary_uint:#x}")
                 .parse::<Address>()
                 .map_err(|e| {
                     L1WatcherError::FailedToDeserializeLog(format!(

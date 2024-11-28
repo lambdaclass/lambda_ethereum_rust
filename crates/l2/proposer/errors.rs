@@ -93,9 +93,9 @@ pub enum CommitterError {
     FailedToReExecuteBlock(#[from] EvmError),
     #[error("Committer failed to send transaction: {0}")]
     FailedToSendCommitment(String),
-    #[error("Commiter failed to decode deposit hash")]
+    #[error("Committer failed to decode deposit hash")]
     FailedToDecodeDepositHash,
-    #[error("Commiter failed to merkelize: {0}")]
+    #[error("Committer failed to merkelize: {0}")]
     FailedToMerkelize(#[from] MerkleError),
     #[error("Withdrawal transaction was invalid")]
     InvalidWithdrawalTransaction,

@@ -31,7 +31,7 @@ pub fn get_address_from_secret_key(secret_key: &SecretKey) -> Result<Address, Et
         .serialize_uncompressed();
     let hash = keccak(&public_key[1..]);
 
-    // Get the lat 20 bytes of the hash
+    // Get the last 20 bytes of the hash
     let address_bytes: [u8; 20] = hash
         .as_ref()
         .get(12..32)
