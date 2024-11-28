@@ -628,7 +628,7 @@ impl VM {
         ret_offset: usize,
         ret_size: usize,
     ) -> Result<OpcodeSuccess, VMError> {
-        let mut sender_account = self.get_account(&current_call_frame.to);
+        let mut sender_account = self.get_account(&msg_sender);
 
         if sender_account.info.balance < value {
             current_call_frame.stack.push(U256::from(REVERT_FOR_CALL))?;
@@ -707,7 +707,7 @@ impl VM {
 
         // Update sender account and recipient in cache
         self.cache
-            .add_account(&current_call_frame.to, &sender_account);
+            .add_account(&msg_sender, &sender_account);
         self.cache.add_account(&to, &recipient_account);
 
         // self.call_frames.push(new_call_frame.clone());
