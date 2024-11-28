@@ -434,8 +434,8 @@ impl VM {
     /// This method performs validations and returns an error if any of the validations fail.
     /// It also makes initial changes alongside the validations:
     /// - It increases sender nonce
-    /// - It substracts up-front-cost from sender balance.
-    /// - It calculates and adds intrinsic gas to the 'gas used' of callframe and environment.
+    /// - It substracts up-front-cost from sender balance. (Not doing this for now)
+    /// - It calculates and adds intrinsic gas to the 'gas used' of callframe and environment. (Not doing this for now)
     ///   See 'docs' for more information about validations.
     fn validate_transaction(&mut self, initial_call_frame: &mut CallFrame) -> Result<(), VMError> {
         //TODO: This should revert the transaction, not throw an error. And I don't know if it should be done here...
@@ -466,13 +466,14 @@ impl VM {
             ))?;
 
         // (2) INSUFFICIENT_ACCOUNT_FUNDS
-        sender_account.info.balance = sender_account
-            .info
-            .balance
-            .checked_sub(up_front_cost)
-            .ok_or(VMError::TxValidation(
-                TxValidationError::InsufficientAccountFunds,
-            ))?;
+        // NOT DOING THIS FOR NOW
+        // sender_account.info.balance = sender_account
+        //     .info
+        //     .balance
+        //     .checked_sub(up_front_cost)
+        //     .ok_or(VMError::TxValidation(
+        //         TxValidationError::InsufficientAccountFunds,
+        //     ))?;
 
         // (3) INSUFFICIENT_MAX_FEE_PER_GAS
         if self.env.gas_price < self.env.base_fee_per_gas {
@@ -492,7 +493,8 @@ impl VM {
         }
 
         // (5) INTRINSIC_GAS_TOO_LOW
-        self.add_intrinsic_gas(initial_call_frame)?;
+        // TODO: Not doing this for now
+        // self.add_intrinsic_gas(initial_call_frame)?;
 
         // (6) NONCE_IS_MAX
         sender_account.info.nonce = sender_account
@@ -589,6 +591,8 @@ impl VM {
             .call_frames
             .pop()
             .ok_or(VMError::Internal(InternalError::CouldNotPopCallframe))?;
+
+        self.validate_transaction(&mut current_call_frame)?;
 
         let mut report = self.execute(&mut current_call_frame)?;
 
