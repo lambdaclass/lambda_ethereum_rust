@@ -1,4 +1,4 @@
-name: Weekly LoC
+name: Daily Lines of Code Report
 
 on:
   schedule:
