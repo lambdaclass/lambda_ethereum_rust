@@ -9,7 +9,7 @@ use ethrex_core::{
     H256, U256,
 };
 use ethrex_levm::{
-    db::Cache,
+    db::CacheDB,
     errors::{TransactionReport, VMError},
     vm::VM,
     Environment,
@@ -22,6 +22,7 @@ use std::{collections::HashMap, sync::Arc};
 pub fn run_ef_test(test: &EFTest) -> Result<EFTestReport, EFTestRunnerError> {
     let mut ef_test_report = EFTestReport::new(
         test.name.clone(),
+        test.dir.clone(),
         test._info.generated_test_hash,
         test.fork(),
     );
@@ -129,7 +130,7 @@ pub fn prepare_vm_for_tx(vector: &TestVector, test: &EFTest) -> Result<VM, EFTes
             .data
             .clone(),
         db,
-        Cache::default(),
+        CacheDB::default(),
     )
     .map_err(|err| EFTestRunnerError::VMInitializationFailed(err.to_string()))
 }
