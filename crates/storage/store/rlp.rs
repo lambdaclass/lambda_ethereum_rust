@@ -101,7 +101,6 @@ impl<T: Send + Sync + Debug> redb::Value for Rlp<T> {
 
 impl<T: Send + Sync + Debug> redb::Key for Rlp<T> {
     fn compare(data1: &[u8], data2: &[u8]) -> std::cmp::Ordering {
-        // TODO: Is this correct?
         data1.cmp(data2)
     }
 }
