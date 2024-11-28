@@ -96,10 +96,13 @@ rm_db_l2: ## 🛑 Removes the DB used by the L2
 	cargo run --release --manifest-path ../../Cargo.toml --bin ethrex -- removedb --datadir ${ethrex_L2_DEV_LIBMDBX}
 
 
-# CI Testing
+# Testing
 
-test: ## 🚧 Runs the L2's integration test
+ci_test: ## 🚧 Runs the L2's integration test
 	docker compose -f ${ethrex_L2_DOCKER_COMPOSE_PATH} down
 	docker compose -f ${ethrex_L2_DOCKER_COMPOSE_PATH} up -d --build
 	BRIDGE_ADDRESS=$$(grep 'L1_WATCHER_BRIDGE_ADDRESS' .env | cut -d= -f2) ON_CHAIN_PROPOSER_ADDRESS=$$(grep 'COMMITTER_ON_CHAIN_PROPOSER_ADDRESS' .env | cut -d= -f2) cargo test --release testito -- --nocapture
 	docker compose -f ${ethrex_L2_DOCKER_COMPOSE_PATH} down
+
+test:
+	BRIDGE_ADDRESS=$$(grep 'L1_WATCHER_BRIDGE_ADDRESS' .env | cut -d= -f2) ON_CHAIN_PROPOSER_ADDRESS=$$(grep 'COMMITTER_ON_CHAIN_PROPOSER_ADDRESS' .env | cut -d= -f2) cargo test --release testito -- --nocapture
