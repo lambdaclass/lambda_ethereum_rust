@@ -245,7 +245,7 @@ fn test_non_compliance_extcodecopy_size_and_destoffset() {
     ]))
     .unwrap();
     let mut current_call_frame = vm.call_frames.pop().unwrap();
-    vm.execute(&mut current_call_frame);
+    vm.execute(&mut current_call_frame).unwrap();
     assert_eq!(
         current_call_frame.stack.stack.first().unwrap(),
         &U256::from(64)
