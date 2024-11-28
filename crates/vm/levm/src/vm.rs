@@ -2,7 +2,10 @@ use crate::{
     account::{Account, StorageSlot},
     call_frame::CallFrame,
     constants::*,
-    db::{cache, CacheDB, Database},
+    db::{
+        cache::{self, remove_account},
+        CacheDB, Database,
+    },
     environment::Environment,
     errors::{
         InternalError, OpcodeSuccess, OutOfGasError, ResultReason, TransactionReport, TxResult,
@@ -571,62 +574,26 @@ impl VM {
             .pop()
             .ok_or(VMError::Internal(InternalError::CouldNotPopCallframe))?;
 
+        let cache_before_execution = self.cache.clone();
         self.validate_transaction(&mut initial_call_frame)?;
 
         let mut report = self.execute(&mut initial_call_frame)?;
 
         let sender = initial_call_frame.msg_sender;
 
-        if self.is_create() {
-            // If create should check if transaction failed. If failed should revert (delete created contract, )
-            if let TxResult::Revert(error) = report.result {
-                self.revert_create()?;
-                return Err(error);
-            }
-            let contract_code = report.clone().output;
-
-            // TODO: Is this the expected behavior?
-            if !contract_code.is_empty() {
-                // (6)
-                if contract_code.len() > MAX_CODE_SIZE {
-                    return Err(VMError::ContractOutputTooBig);
-                }
-                // Supposing contract code has contents
-                if *contract_code
-                    .first()
-                    .ok_or(VMError::Internal(InternalError::TriedToIndexEmptyCode))?
-                    == INVALID_CONTRACT_PREFIX
-                {
-                    return Err(VMError::InvalidInitialByte);
+        match self.create_post_execution(&mut initial_call_frame, &mut report) {
+            Ok(_) => {}
+            Err(error) => {
+                if error.is_internal() {
+                    return Err(error);
+                } else {
+                    report.result = TxResult::Revert(error);
+                    report.gas_used = self.env.gas_limit.low_u64();
+                    self.cache = cache_before_execution;
+                    remove_account(&mut self.cache, &initial_call_frame.to);
                 }
             }
-
-            // If the initialization code completes successfully, a final contract-creation cost is paid,
-            // the code-deposit cost, c, proportional to the size of the created contract’s code
-            let number_of_words: u64 = initial_call_frame
-                .calldata
-                .chunks(WORD_SIZE)
-                .len()
-                .try_into()
-                .map_err(|_| VMError::Internal(InternalError::ConversionError))?;
-
-            let code_length: u64 = contract_code
-                .len()
-                .try_into()
-                .map_err(|_| VMError::Internal(InternalError::ConversionError))?;
-
-            let creation_cost =
-                gas_cost::tx_creation(code_length, number_of_words).map_err(VMError::OutOfGas)?;
-            report.gas_used = report
-                .gas_used
-                .checked_add(creation_cost)
-                .ok_or(VMError::OutOfGas(OutOfGasError::GasUsedOverflow))?;
-            // Charge 22100 gas for each storage variable set
-
-            let contract_address = initial_call_frame.to;
-
-            self.update_account_bytecode(contract_address, contract_code)?;
-        }
+        };
 
         let coinbase_address = self.env.coinbase;
 
