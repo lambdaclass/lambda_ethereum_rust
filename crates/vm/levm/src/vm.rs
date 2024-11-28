@@ -543,13 +543,9 @@ impl VM {
             .checked_mul(priority_fee_per_gas)
             .ok_or(VMError::BalanceOverflow)?;
 
-        self.increase_account_balance(coinbase_address, coinbase_fee)?;
-
-        /*
-        if coinbase_fee.is_zero() {
-            self.cache.accounts.remove(&coinbase_address);
-        }
-         */
+        if !coinbase_fee.is_zero() {
+            self.increase_account_balance(coinbase_address, coinbase_fee)?;
+        }        
 
         report.new_state.clone_from(&self.cache);
 
