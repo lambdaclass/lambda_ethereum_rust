@@ -41,7 +41,7 @@ const RECEIPTS_TABLE: TableDefinition<TupleRLP<BlockHash, Index>, ReceiptRLP> =
     TableDefinition::new("Receipts");
 const CANONICAL_BLOCK_HASHES_TABLE: TableDefinition<BlockNumber, BlockHashRLP> =
     TableDefinition::new("CanonicalBlockHashes");
-const STORAGE_TRIE_NODES_TABLE: MultimapTableDefinition<([u8; 32], [u8; 32]), [u8; 32]> =
+pub const STORAGE_TRIE_NODES_TABLE: MultimapTableDefinition<([u8; 32], [u8; 33]), &[u8]> =
     MultimapTableDefinition::new("StorageTrieNodes");
 const CHAIN_DATA_TABLE: TableDefinition<ChainDataIndex, Vec<u8>> =
     TableDefinition::new("ChainData");
