@@ -377,8 +377,8 @@ pub fn mcopy(
 
 pub fn create(
     current_call_frame: &CallFrame,
-    code_offset_in_memory: U256,
-    code_size_in_memory: U256,
+    code_offset_in_memory: usize,
+    code_size_in_memory: usize,
 ) -> Result<U256, OutOfGasError> {
     compute_gas_create(
         current_call_frame,
@@ -390,8 +390,8 @@ pub fn create(
 
 pub fn create_2(
     current_call_frame: &CallFrame,
-    code_offset_in_memory: U256,
-    code_size_in_memory: U256,
+    code_offset_in_memory: usize,
+    code_size_in_memory: usize,
 ) -> Result<U256, OutOfGasError> {
     compute_gas_create(
         current_call_frame,
@@ -403,8 +403,8 @@ pub fn create_2(
 
 fn compute_gas_create(
     current_call_frame: &CallFrame,
-    code_offset_in_memory: U256,
-    code_size_in_memory: U256,
+    code_offset_in_memory: usize,
+    code_size_in_memory: usize,
     is_create_2: bool,
 ) -> Result<U256, OutOfGasError> {
     let minimum_word_size = (code_size_in_memory
