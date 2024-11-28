@@ -211,8 +211,13 @@ pub struct TransactionReport {
 
 impl TransactionReport {
     /// Function to add gas to report without exceeding the maximum gas limit
-    pub fn add_gas_with_max(&mut self, gas: u64, max: u64) {
-        self.gas_used = self.gas_used.saturating_add(gas).min(max);
+    pub fn add_gas_with_max(&mut self, gas: u64, max: u64) -> Result<(), VMError> {
+        self.gas_used = self
+            .gas_used
+            .checked_add(gas)
+            .ok_or(VMError::OutOfGas(OutOfGasError::MaxGasLimitExceeded))?
+            .min(max);
+        Ok(())
     }
 
     pub fn is_success(&self) -> bool {
