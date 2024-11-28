@@ -72,7 +72,7 @@ async fn transfer_from(
     let client = EthClient::new(&cfg.network.l2_rpc_url);
     let private_key = SecretKey::from_slice(pk.parse::<H256>().unwrap().as_bytes()).unwrap();
 
-    let mut buffer = [0u8; 64];
+    let mut buffer = [0u8; 32];
     let public_key = private_key.public_key(secp256k1::SECP256K1).serialize();
     buffer.copy_from_slice(&public_key[1..]);
 
@@ -89,6 +89,7 @@ async fn transfer_from(
         let tx = client
             .build_eip1559_transaction(
                 to_address,
+                address,
                 Bytes::new(),
                 Overrides {
                     chain_id: Some(cfg.network.l2_chain_id),
@@ -99,14 +100,12 @@ async fn transfer_from(
                     gas_limit: Some(TX_GAS_COST),
                     ..Default::default()
                 },
+                10,
             )
             .await
             .unwrap();
 
-        while let Err(e) = client
-            .send_eip1559_transaction(tx.clone(), &private_key)
-            .await
-        {
+        while let Err(e) = client.send_eip1559_transaction(&tx, &private_key).await {
             println!("Transaction failed (PK: {pk} - Nonce: {}): {e}", tx.nonce);
             retries += 1;
             sleep(std::time::Duration::from_secs(2));

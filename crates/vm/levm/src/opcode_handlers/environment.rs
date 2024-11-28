@@ -167,12 +167,12 @@ impl VM {
             return Ok(OpcodeSuccess::Continue);
         }
 
-        let mut data = [0u8; 32];
+        let mut data = vec![0u8; size];
         for (i, byte) in current_call_frame
             .calldata
             .iter()
             .skip(calldata_offset)
-            .take(32)
+            .take(size)
             .enumerate()
         {
             if let Some(data_byte) = data.get_mut(i) {
@@ -234,6 +234,10 @@ impl VM {
             gas_cost::codecopy(current_call_frame, size, dest_offset).map_err(VMError::OutOfGas)?;
 
         self.increase_consumed_gas(current_call_frame, gas_cost)?;
+
+        if size == 0 {
+            return Ok(OpcodeSuccess::Continue);
+        }
 
         let bytecode_len = current_call_frame.bytecode.len();
         let code = if offset < bytecode_len {
