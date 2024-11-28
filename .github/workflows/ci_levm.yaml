@@ -19,7 +19,8 @@ env:
 
 jobs:
   ef-test:
-    name: EF Tests
+    # "Integration Test" is a required check, don't change the name
+    name: Integration Test
     runs-on: ubuntu-latest
     steps:
       - name: Checkout sources

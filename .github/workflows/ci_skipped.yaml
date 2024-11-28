@@ -7,15 +7,16 @@ on:
       - 'LICENSE'
       - "**/README.md"
       - "**/docs/**"
-      - "crates/vm/levm/**"
 jobs:
   lint:
+    # "Lint" is a required check, don't change the name
     name: Lint
     runs-on: ubuntu-latest
     if: false
     steps: [run: true]
 
   test:
+    # "Test" is a required check, don't change the name
     name: Test
     runs-on: ubuntu-latest
     if: false
@@ -28,7 +29,8 @@ jobs:
     steps: [run: true]
 
   all-tests:
-    name: All integration tests
+    # "Integration Test" is a required check, don't change the name
+    name: Integration Test
     runs-on: ubuntu-latest
     if: false
     steps: [run: true]

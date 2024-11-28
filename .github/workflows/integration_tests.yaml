@@ -1,4 +1,4 @@
-name: Integration Test
+name: L1 Integration Test
 on:
   push:
     branches: ["main"]
@@ -10,7 +10,6 @@ on:
       - "LICENSE"
       - "**/README.md"
       - "**/docs/**"
-      - "crates/vm/levm/**"
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.head_ref || github.run_id }}
@@ -124,20 +123,21 @@ jobs:
 
   # The purpose of this job is to add it as a required check in GitHub so that we don't have to add every individual job as a required check
   all-tests:
-    name: All integration tests
+    # "Integration Test" is a required check, don't change the name
+    name: Integration Test
     runs-on: ubuntu-latest
     needs: [run-assertoor, run-hive]
     # Make sure this job runs even if the previous jobs failed or were skipped  
-    if: ${{ always() }}
+    if: ${{ always() && needs.run-assertoor.result != 'skipped' && needs.run-hive.result != 'skipped' }}
     steps:
       - name: Check if any job failed
         run: |
-          if [ "${{ needs.run-assertoor.result }}" != "success" ] && [ "${{ needs.run-assertoor.result }}" != "skipped" ]; then
+          if [ "${{ needs.run-assertoor.result }}" != "success" ]; then
             echo "Job Assertoor failed"
             exit 1
           fi
 
-          if [ "${{ needs.run-hive.result }}" != "success" ] && [ "${{ needs.run-hive.result }}" != "skipped" ]; then
+          if [ "${{ needs.run-hive.result }}" != "success" ]; then
             echo "Job Hive failed"
             exit 1
           fi
