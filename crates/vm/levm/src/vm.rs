@@ -366,9 +366,6 @@ impl VM {
             return Err(VMError::AddressDoesNotMatchAnAccount); // Should not be this error
         }
 
-        // Should revert this?
-        // sender_account.info.balance -= self.call_frames.first().ok_or(VMError::FatalUnwrap)?.msg_value;
-
         Ok(())
     }
 
