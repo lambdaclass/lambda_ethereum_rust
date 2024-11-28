@@ -8,7 +8,7 @@ use crate::{
         InternalError, OpcodeSuccess, OutOfGasError, ResultReason, TransactionReport, TxResult,
         TxValidationError, VMError,
     },
-    gas_cost::{self},
+    gas_cost::{self, CREATE_BASE_COST},
     opcodes::Opcode,
     AccountInfo,
 };
@@ -106,7 +106,7 @@ impl VM {
                     calldata.clone(),
                     false,
                     env.gas_limit.min(MAX_BLOCK_GAS_LIMIT),
-                    TX_BASE_COST,
+                    U256::zero(),
                     0,
                 );
 
@@ -149,7 +149,7 @@ impl VM {
                     Bytes::new(),
                     false,
                     env.gas_limit.min(MAX_BLOCK_GAS_LIMIT),
-                    TX_BASE_COST,
+                    U256::zero(),
                     0,
                 );
 
@@ -369,12 +369,63 @@ impl VM {
         Ok(())
     }
 
+    fn add_intrinsic_gas(&mut self, initial_call_frame: &mut CallFrame) -> Result<(), VMError> {
+        // Intrinsic gas is the gas consumed by the transaction before the execution of the opcodes. Section 6.2 in the Yellow Paper.
+
+        // Intrinsic Gas = Calldata cost + Create cost + Base cost + Access list cost
+        let mut intrinsic_gas: U256 = U256::zero();
+
+        // Calldata Cost
+        // 4 gas for each zero byte in the transaction data 16 gas for each non-zero byte in the transaction.
+        let calldata_cost =
+            gas_cost::tx_calldata(&initial_call_frame.calldata).map_err(VMError::OutOfGas)?;
+
+        intrinsic_gas = intrinsic_gas
+            .checked_add(calldata_cost)
+            .ok_or(VMError::OutOfGas(OutOfGasError::ConsumedGasOverflow))?;
+
+        // Base Cost
+        intrinsic_gas = intrinsic_gas
+            .checked_add(TX_BASE_COST)
+            .ok_or(VMError::OutOfGas(OutOfGasError::ConsumedGasOverflow))?;
+
+        // Create Cost
+        if self.is_create() {
+            intrinsic_gas = intrinsic_gas
+                .checked_add(CREATE_BASE_COST)
+                .ok_or(VMError::OutOfGas(OutOfGasError::ConsumedGasOverflow))?;
+
+            let number_of_words: u64 = initial_call_frame
+                .calldata
+                .chunks(WORD_SIZE)
+                .len()
+                .try_into()
+                .map_err(|_| VMError::Internal(InternalError::ConversionError))?;
+
+            intrinsic_gas = intrinsic_gas
+                .checked_add(
+                    U256::from(number_of_words)
+                        .checked_mul(U256::from(2))
+                        .ok_or(VMError::OutOfGas(OutOfGasError::ConsumedGasOverflow))?,
+                )
+                .ok_or(VMError::OutOfGas(OutOfGasError::ConsumedGasOverflow))?;
+        }
+
+        // Access List Cost
+        // TODO: Implement access list cost.
+
+        self.increase_consumed_gas(initial_call_frame, intrinsic_gas)
+            .map_err(|_| VMError::TxValidation(TxValidationError::IntrinsicGasTooLow))?;
+
+        Ok(())
+    }
+
     /// ## Description
     /// This method performs validations and returns an error if any of the validations fail.
     /// It also makes initial changes alongside the validations:
     /// - It increases sender nonce
     /// - It substracts up-front-cost from sender balance. (Not doing this for now)
-    /// - It calculates and adds intrinsic gas to the 'gas used' of callframe and environment. (Not doing this for now)
+    /// - It calculates and adds intrinsic gas to the 'gas used' of callframe and environment.
     ///   See 'docs' for more information about validations.
     fn validate_transaction(&mut self, initial_call_frame: &mut CallFrame) -> Result<(), VMError> {
         //TODO: This should revert the transaction, not throw an error. And I don't know if it should be done here...
@@ -433,8 +484,7 @@ impl VM {
         }
 
         // (5) INTRINSIC_GAS_TOO_LOW
-        // TODO: Not doing this for now
-        // self.add_intrinsic_gas(initial_call_frame)?;
+        self.add_intrinsic_gas(initial_call_frame)?;
 
         // (6) NONCE_IS_MAX
         self.increment_account_nonce(sender_address)?;
@@ -526,16 +576,6 @@ impl VM {
         let mut report = self.execute(&mut initial_call_frame)?;
 
         let sender = initial_call_frame.msg_sender;
-
-        //TODO: Calldata cost is part of intrinsic gas, so it should be calculated before executing the transaction. Not added to report.
-        let calldata_cost =
-            gas_cost::tx_calldata(&initial_call_frame.calldata).map_err(VMError::OutOfGas)?;
-
-        report.gas_used = report
-            .gas_used
-            .checked_add(calldata_cost)
-            .ok_or(VMError::OutOfGas(OutOfGasError::GasUsedOverflow))?;
-        // End TODO
 
         if self.is_create() {
             // If create should check if transaction failed. If failed should revert (delete created contract, )

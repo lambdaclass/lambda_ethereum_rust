@@ -471,18 +471,18 @@ pub fn selfdestruct(address_was_cold: bool, account_is_empty: bool) -> Result<U2
     Ok(gas_cost)
 }
 
-pub fn tx_calldata(calldata: &Bytes) -> Result<u64, OutOfGasError> {
+pub fn tx_calldata(calldata: &Bytes) -> Result<U256, OutOfGasError> {
     // This cost applies both for call and create
     // 4 gas for each zero byte in the transaction data 16 gas for each non-zero byte in the transaction.
-    let mut calldata_cost: u64 = 0;
+    let mut calldata_cost: U256 = U256::zero();
     for byte in calldata {
         if *byte != 0 {
             calldata_cost = calldata_cost
-                .checked_add(16)
+                .checked_add(U256::from(16))
                 .ok_or(OutOfGasError::GasUsedOverflow)?;
         } else {
             calldata_cost = calldata_cost
-                .checked_add(4)
+                .checked_add(U256::from(4))
                 .ok_or(OutOfGasError::GasUsedOverflow)?;
         }
     }
