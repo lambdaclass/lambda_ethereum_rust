@@ -96,6 +96,7 @@ pub const SLOAD_COLD_DYNAMIC: U256 = U256([2100, 0, 0, 0]);
 pub const SLOAD_WARM_DYNAMIC: U256 = U256([100, 0, 0, 0]);
 
 pub const SSTORE_STATIC: U256 = U256::zero();
+pub const SSTORE_COLD_DYNAMIC: U256 = U256([2100, 0, 0, 0]);
 pub const SSTORE_DEFAULT_DYNAMIC: U256 = U256([100, 0, 0, 0]);
 pub const SSTORE_STORAGE_CREATION: U256 = U256([20000, 0, 0, 0]);
 pub const SSTORE_STORAGE_MODIFICATION: U256 = U256([5000, 0, 0, 0]);
@@ -338,7 +339,7 @@ pub fn sstore(
 
     if storage_slot_was_cold {
         base_dynamic_gas = base_dynamic_gas
-            .checked_add(U256::from(2100))
+            .checked_add(SSTORE_COLD_DYNAMIC)
             .ok_or(OutOfGasError::GasCostOverflow)?;
     }
 
