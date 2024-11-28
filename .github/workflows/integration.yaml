@@ -81,7 +81,7 @@ jobs:
             test_pattern: /AccountRange|StorageRanges|ByteCodes|TrieNodes
           - name: "Devp2p eth tests"
             simulation: devp2p
-            test_pattern: eth/Status|GetBlockHeaders|SimultaneousRequests|SameRequestID|ZeroRequestID|GetBlockBodies|MaliciousHandshake|MaliciousStatus|Transaction
+            test_pattern: eth/Status|GetBlockHeaders|SimultaneousRequests|SameRequestID|ZeroRequestID|GetBlockBodies|MaliciousHandshake|MaliciousStatus|Transaction|InvalidTxs
           - name: "Engine Auth and EC tests"
             simulation: ethereum/engine
             test_pattern: engine-(auth|exchange-capabilities)/
@@ -115,3 +115,22 @@ jobs:
 
       - name: Run Hive Simulation
         run: cd hive && ./hive --client ethrex --sim ${{ matrix.simulation }} --sim.limit "${{ matrix.test_pattern }}" --sim.parallelism 4
+
+  all-tests:
+    name: All integration tests passed
+    runs-on: ubuntu-latest
+    needs: [run-assertoor, run-hive]
+    # Make sure this job runs even if the previous jobs failed or were skipped  
+    if: ${{ always() }}
+    steps:
+      - name: Check if any job failed
+        run: |
+          if [ "${{ needs.run-assertoor.result }}" != "success" ] && [ "${{ needs.run-assertoor.result }}" != "skipped" ]; then
+            echo "Job Assertoor failed"
+            exit 1
+          fi
+
+          if [ "${{ needs.run-hive.result }}" != "success" ] && [ "${{ needs.run-hive.result }}" != "skipped" ]; then
+            echo "Job Hive failed"
+            exit 1
+          fi
