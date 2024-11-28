@@ -349,6 +349,10 @@ impl<S: AsyncWrite + AsyncRead + std::marker::Unpin> RLPxConnection<S> {
                 };
                 self.send(Message::BlockBodies(response)).await?;
             }
+            Message::NewPooledTransactionHashes(msg) if peer_supports_eth => {
+                // For now we always ask for the transactions we don't know. We might want to add checks to avoid
+                // repetitions in the future.
+            }
             Message::GetStorageRanges(req) => {
                 let response = process_storage_ranges_request(req, self.storage.clone())?;
                 self.send(Message::StorageRanges(response)).await?
