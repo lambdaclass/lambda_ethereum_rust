@@ -195,9 +195,9 @@ async fn fetch_blocks_and_receipts(
     // Fetch Block Bodies
     loop {
         let peer = peers.lock().await.get_peer_channels().await;
-        info!("[Sync] Requesting Block Headers ");
+        debug!("Requesting Block Headers ");
         if let Some(block_bodies) = peer.request_block_bodies(block_hashes.clone()).await {
-            info!("[SYNC] Received {} Block Bodies", block_bodies.len());
+            debug!(" Received {} Block Bodies", block_bodies.len());
             // Track which bodies we have already fetched
             let (fetched_hashes, remaining_hashes) = block_hashes.split_at(block_bodies.len());
             // Store Block Bodies
@@ -213,7 +213,6 @@ async fn fetch_blocks_and_receipts(
                 block_hashes = remaining_hashes.to_vec();
             }
         }
-        info!("[Sync] Peer response timeout( Blocks & Receipts)");
     }
     // TODO: Fetch Receipts and store them
     Ok(())
@@ -224,6 +223,7 @@ async fn fetch_snap_state(
     peers: Arc<Mutex<KademliaTable>>,
     store: Store,
 ) -> Result<(), ChainError> {
+    info!("Syncing state roots: {}", state_roots.len());
     for state_root in state_roots {
         fetch_snap_state_inner(state_root, peers.clone(), store.clone()).await?
     }
@@ -243,7 +243,7 @@ async fn fetch_snap_state_inner(
     // Fetch Account Ranges
     loop {
         let peer = peers.lock().await.get_peer_channels().await;
-        info!("[Sync] Requesting Account Range for state root {state_root}, starting hash: {start_account_hash}");
+        debug!("Requesting Account Range for state root {state_root}, starting hash: {start_account_hash}");
         if let Some((account_hashes, accounts, should_continue)) = peer
             .request_account_range(state_root, start_account_hash)
             .await
@@ -270,8 +270,8 @@ async fn fetch_snap_state_inner(
         }
     }
     if current_state_root != state_root {
-        info!("[Sync] State sync failed for hash {state_root}");
+        warn!("[Sync] State sync failed for hash {state_root}");
     }
-    info!("[Sync] Completed state sync for hash {state_root}");
+    debug!("[Sync] Completed state sync for hash {state_root}");
     Ok(())
 }
