@@ -161,3 +161,104 @@ fn test_non_compliance_extcodecopy_memory_resize() {
     vm.execute(&mut current_call_frame);
     assert_eq!(current_call_frame.stack.pop().unwrap(), U256::from(32));
 }
+
+#[test]
+fn test_non_compliance_calldatacopy_memory_resize() {
+    let mut vm =
+        new_vm_with_bytecode(Bytes::copy_from_slice(&[0x60, 34, 0x5f, 0x5f, 55, 89])).unwrap();
+    let mut current_call_frame = vm.call_frames.pop().unwrap();
+    vm.execute(&mut current_call_frame);
+    assert_eq!(
+        *current_call_frame.stack.stack.first().unwrap(),
+        U256::from(64)
+    );
+}
+
+#[test]
+fn test_non_compliance_addmod() {
+    let mut vm = new_vm_with_bytecode(Bytes::copy_from_slice(&[
+        0x60, 0x01, 0x60, 5, 0x7f, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
+        0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
+        0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 8,
+    ]))
+    .unwrap();
+    let mut current_call_frame = vm.call_frames.pop().unwrap();
+    vm.execute(&mut current_call_frame);
+    assert_eq!(
+        current_call_frame.stack.stack.first().unwrap(),
+        &U256::zero()
+    );
+}
+
+#[test]
+fn test_non_compliance_addmod2() {
+    let mut vm = new_vm_with_bytecode(Bytes::copy_from_slice(&[
+        // PUSH20 divisor
+        0x73, 0x12, 0x34, 0x56, 0x78, 0x90, 0x12, 0x34, 0x56, 0x78, 0x90, 0x12, 0x34, 0x56, 0x78,
+        0x90, 0x12, 0x34, 0x56, 0x78, 0x90, // PUSH1 addend
+        0x60, 0x08, // PUSH32 augend
+        0x7F, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
+        0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
+        0xff, 0xff, 0xfd, // ADDMOD opcode
+        0x08, // STOP opcode
+        0x00,
+    ]))
+    .unwrap();
+    let mut current_call_frame = vm.call_frames.pop().unwrap();
+    vm.execute(&mut current_call_frame);
+    assert_eq!(
+        current_call_frame.stack.stack.first().unwrap(),
+        &U256::from("0xfc7490ee00fc74a0ee00fc7490ee00fc7490ee5")
+    );
+}
+
+#[test]
+fn test_non_compliance_codecopy() {
+    let mut vm = new_vm_with_bytecode(Bytes::copy_from_slice(&[
+        0x5f, 0x60, 5, 0x60, 5, 0x39, 0x59,
+    ]))
+    .unwrap();
+    let mut current_call_frame = vm.call_frames.pop().unwrap();
+    vm.execute(&mut current_call_frame);
+    assert_eq!(
+        current_call_frame.stack.stack.first().unwrap(),
+        &U256::zero()
+    );
+}
+
+#[test]
+fn test_non_compliance_smod() {
+    let mut vm =
+        new_vm_with_bytecode(Bytes::copy_from_slice(&[0x60, 1, 0x60, 1, 0x19, 0x07])).unwrap();
+    let mut current_call_frame = vm.call_frames.pop().unwrap();
+    vm.execute(&mut current_call_frame);
+    assert_eq!(
+        current_call_frame.stack.stack.first().unwrap(),
+        &U256::zero()
+    );
+}
+
+#[test]
+fn test_non_compliance_extcodecopy_size_and_destoffset() {
+    let mut vm = new_vm_with_bytecode(Bytes::copy_from_slice(&[
+        0x60, 17, 0x60, 17, 0x60, 17, 0x60, 17, 0x3c, 0x59,
+    ]))
+    .unwrap();
+    let mut current_call_frame = vm.call_frames.pop().unwrap();
+    vm.execute(&mut current_call_frame);
+    assert_eq!(
+        current_call_frame.stack.stack.first().unwrap(),
+        &U256::from(64)
+    );
+}
+
+#[test]
+fn test_non_compliance_log() {
+    let mut vm = new_vm_with_bytecode(Bytes::copy_from_slice(&[95, 97, 89, 0, 160, 89])).unwrap();
+    let mut current_call_frame = vm.call_frames.pop().unwrap();
+    vm.execute(&mut current_call_frame);
+    assert_eq!(
+        current_call_frame.stack.stack.first().unwrap(),
+        &U256::zero()
+    );
+}

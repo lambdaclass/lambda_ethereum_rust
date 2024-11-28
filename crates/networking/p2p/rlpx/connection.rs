@@ -30,6 +30,7 @@ use super::{
     utils::{ecdh_xchng, pubkey2id},
 };
 use aes::cipher::KeyIvInit;
+use ethrex_blockchain::mempool;
 use ethrex_core::{H256, H512};
 use ethrex_rlp::decode::RLPDecode;
 use ethrex_storage::Store;
@@ -47,7 +48,7 @@ use tokio::{
     task,
     time::{sleep, Instant},
 };
-use tracing::{error, info};
+use tracing::{debug, error};
 const CAP_P2P: (Capability, u8) = (Capability::P2p, 5);
 const CAP_ETH: (Capability, u8) = (Capability::Eth, 68);
 const CAP_SNAP: (Capability, u8) = (Capability::Snap, 1);
@@ -169,13 +170,13 @@ impl<S: AsyncWrite + AsyncRead + std::marker::Unpin> RLPxConnection<S> {
             reason: self.match_disconnect_reason(&error),
         }))
         .await
-        .unwrap_or_else(|e| info!("Could not send Disconnect message: ({e})"));
+        .unwrap_or_else(|e| debug!("Could not send Disconnect message: ({e})"));
         if let Ok(node_id) = self.get_remote_node_id() {
             // Discard peer from kademlia table
-            info!("{error_text}: ({error}), discarding peer {node_id}");
+            debug!("{error_text}: ({error}), discarding peer {node_id}");
             table.lock().await.replace_peer(node_id);
         } else {
-            info!("{error_text}: ({error}), unknown peer")
+            debug!("{error_text}: ({error}), unknown peer")
         }
     }
 
@@ -203,7 +204,7 @@ impl<S: AsyncWrite + AsyncRead + std::marker::Unpin> RLPxConnection<S> {
                 ))
             }
         };
-        info!("Completed handshake!");
+        debug!("Completed handshake!");
 
         self.exchange_hello_messages().await?;
         Ok(())
@@ -242,7 +243,7 @@ impl<S: AsyncWrite + AsyncRead + std::marker::Unpin> RLPxConnection<S> {
     async fn handle_peer_conn(&mut self) -> Result<(), RLPxError> {
         if let RLPxConnectionState::Established(_) = &self.state {
             self.init_peer_conn().await?;
-            info!("Started peer main loop");
+            debug!("Started peer main loop");
             // Wait for eth status message or timeout.
             let mut broadcaster_receive = {
                 if self.capabilities.contains(&CAP_ETH) {
@@ -303,7 +304,7 @@ impl<S: AsyncWrite + AsyncRead + std::marker::Unpin> RLPxConnection<S> {
     async fn check_periodic_tasks(&mut self) -> Result<(), RLPxError> {
         if Instant::now() >= self.next_periodic_task_check {
             self.send(Message::Ping(PingMessage {})).await?;
-            info!("Ping sent");
+            debug!("Ping sent");
             self.next_periodic_task_check = Instant::now() + PERIODIC_TASKS_CHECK_INTERVAL;
         };
         Ok(())
@@ -313,20 +314,20 @@ impl<S: AsyncWrite + AsyncRead + std::marker::Unpin> RLPxConnection<S> {
         let peer_supports_eth = self.capabilities.contains(&CAP_ETH);
         match message {
             Message::Disconnect(msg_data) => {
-                info!("Received Disconnect: {:?}", msg_data.reason);
+                debug!("Received Disconnect: {:?}", msg_data.reason);
                 // Returning a Disonnect error to be handled later at the call stack
                 return Err(RLPxError::Disconnect());
             }
             Message::Ping(_) => {
-                info!("Received Ping");
+                debug!("Received Ping");
                 self.send(Message::Pong(PongMessage {})).await?;
-                info!("Pong sent");
+                debug!("Pong sent");
             }
             Message::Pong(_) => {
                 // We ignore received Pong messages
             }
             Message::Status(msg_data) if !peer_supports_eth => {
-                info!("Received Status");
+                debug!("Received Status");
                 backend::validate_status(msg_data, &self.storage)?
             }
             Message::GetAccountRange(req) => {
@@ -334,8 +335,11 @@ impl<S: AsyncWrite + AsyncRead + std::marker::Unpin> RLPxConnection<S> {
                 self.send(Message::AccountRange(response)).await?
             }
             // TODO(#1129) Add the transaction to the mempool once received.
-            txs_msg @ Message::Transactions(_) if peer_supports_eth => {
-                self.broadcast_message(txs_msg).await?;
+            Message::Transactions(txs) if peer_supports_eth => {
+                for tx in &txs.transactions {
+                    mempool::add_transaction(tx.clone(), &self.storage)?;
+                }
+                self.broadcast_message(Message::Transactions(txs)).await?;
             }
             Message::GetBlockHeaders(msg_data) if peer_supports_eth => {
                 let response = BlockHeaders {
@@ -408,7 +412,7 @@ impl<S: AsyncWrite + AsyncRead + std::marker::Unpin> RLPxConnection<S> {
         // Sending eth Status if peer supports it
         if self.capabilities.contains(&CAP_ETH) {
             let status = backend::get_status(&self.storage)?;
-            info!("Sending status");
+            debug!("Sending status");
             self.send(Message::Status(status)).await?;
             // The next immediate message in the ETH protocol is the
             // status, reference here:
@@ -416,7 +420,7 @@ impl<S: AsyncWrite + AsyncRead + std::marker::Unpin> RLPxConnection<S> {
             match self.receive().await? {
                 Message::Status(msg_data) => {
                     // TODO: Check message status is correct.
-                    info!("Received Status");
+                    debug!("Received Status");
                     backend::validate_status(msg_data, &self.storage)?
                 }
                 _msg => {

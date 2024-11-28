@@ -9,7 +9,7 @@ use ethrex_core::{
     H256, U256,
 };
 use ethrex_levm::{
-    db::Cache,
+    db::CacheDB,
     errors::{TransactionReport, VMError},
     vm::VM,
     Environment,
@@ -22,6 +22,7 @@ use std::{collections::HashMap, sync::Arc};
 pub fn run_ef_test(test: &EFTest) -> Result<EFTestReport, EFTestRunnerError> {
     let mut ef_test_report = EFTestReport::new(
         test.name.clone(),
+        test.dir.clone(),
         test._info.generated_test_hash,
         test.fork(),
     );
@@ -78,7 +79,7 @@ pub fn prepare_vm_for_tx(vector: &TestVector, test: &EFTest) -> Result<VM, EFTes
             origin: test.transactions.get(vector).unwrap().sender,
             consumed_gas: U256::default(),
             refunded_gas: U256::default(),
-            gas_limit: test.env.current_gas_limit,
+            gas_limit: test.env.current_gas_limit, //this should be tx gas limit
             block_number: test.env.current_number,
             coinbase: test.env.current_coinbase,
             timestamp: test.env.current_timestamp,
@@ -98,7 +99,7 @@ pub fn prepare_vm_for_tx(vector: &TestVector, test: &EFTest) -> Result<VM, EFTes
         test.transactions.get(vector).unwrap().value,
         test.transactions.get(vector).unwrap().data.clone(),
         db,
-        Cache::default(),
+        CacheDB::default(),
     )
     .map_err(|err| EFTestRunnerError::VMInitializationFailed(err.to_string()))
 }
