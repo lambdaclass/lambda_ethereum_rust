@@ -5,7 +5,7 @@ use crate::{
     opcode_handlers::bitwise_comparison::checked_shift_left,
     vm::VM,
 };
-use ethrex_core::{U256, U512};
+use ethrex_core::U256;
 
 // Arithmetic Operations (11)
 // Opcodes: ADD, SUB, MUL, DIV, SDIV, MOD, SMOD, ADDMOD, MULMOD, EXP, SIGNEXTEND
@@ -115,13 +115,9 @@ impl VM {
 
         let dividend = current_call_frame.stack.pop()?;
         let divisor = current_call_frame.stack.pop()?;
-        if divisor.is_zero() {
-            current_call_frame.stack.push(U256::zero())?;
-            return Ok(OpcodeSuccess::Continue);
-        }
-        let remainder = dividend.checked_rem(divisor).ok_or(VMError::Internal(
-            InternalError::ArithmeticOperationDividedByZero,
-        ))?; // Cannot be zero bc if above;
+
+        let remainder = dividend.checked_rem(divisor).unwrap_or_default();
+
         current_call_frame.stack.push(remainder)?;
 
         Ok(OpcodeSuccess::Continue)
@@ -134,28 +130,32 @@ impl VM {
     ) -> Result<OpcodeSuccess, VMError> {
         self.increase_consumed_gas(current_call_frame, gas_cost::SMOD)?;
 
-        let dividend = current_call_frame.stack.pop()?;
-        let divisor = current_call_frame.stack.pop()?;
-        if divisor.is_zero() {
+        let unchecked_dividend = current_call_frame.stack.pop()?;
+        let unchecked_divisor = current_call_frame.stack.pop()?;
+
+        if unchecked_divisor.is_zero() {
             current_call_frame.stack.push(U256::zero())?;
-        } else {
-            let normalized_dividend = abs(dividend);
-            let normalized_divisor = abs(divisor);
-
-            let mut remainder =
-                normalized_dividend
-                    .checked_rem(normalized_divisor)
-                    .ok_or(VMError::Internal(
-                        InternalError::ArithmeticOperationDividedByZero,
-                    ))?; // Cannot be zero bc if above;
-
-            // The remainder should have the same sign as the dividend
-            if is_negative(dividend) {
-                remainder = negate(remainder);
-            }
-
-            current_call_frame.stack.push(remainder)?;
+            return Ok(OpcodeSuccess::Continue);
         }
+
+        let divisor = abs(unchecked_divisor);
+        let dividend = abs(unchecked_dividend);
+
+        let unchecked_remainder = match dividend.checked_rem(divisor) {
+            Some(remainder) => remainder,
+            None => {
+                current_call_frame.stack.push(U256::zero())?;
+                return Ok(OpcodeSuccess::Continue);
+            }
+        };
+
+        let remainder = if is_negative(unchecked_dividend) {
+            negate(unchecked_remainder)
+        } else {
+            unchecked_remainder
+        };
+
+        current_call_frame.stack.push(remainder)?;
 
         Ok(OpcodeSuccess::Continue)
     }
@@ -169,20 +169,16 @@ impl VM {
 
         let augend = current_call_frame.stack.pop()?;
         let addend = current_call_frame.stack.pop()?;
-        let divisor = current_call_frame.stack.pop()?;
-        if divisor.is_zero() {
-            current_call_frame.stack.push(U256::zero())?;
-            return Ok(OpcodeSuccess::Continue);
-        }
-        let (sum, overflow) = augend.overflowing_add(addend);
-        let mut remainder = sum.checked_rem(divisor).ok_or(VMError::Internal(
-            InternalError::ArithmeticOperationDividedByZero,
-        ))?; // Cannot be zero bc if above;
-        if overflow || remainder > divisor {
-            remainder = remainder.overflowing_sub(divisor).0;
-        }
+        let modulus = current_call_frame.stack.pop()?;
 
-        current_call_frame.stack.push(remainder)?;
+        let new_augend = augend.checked_rem(modulus).unwrap_or_default();
+        let new_addend = addend.checked_rem(modulus).unwrap_or_default();
+
+        let (sum, _overflowed) = new_augend.overflowing_add(new_addend);
+
+        let sum_mod = sum.checked_rem(modulus).unwrap_or_default();
+
+        current_call_frame.stack.push(sum_mod)?;
 
         Ok(OpcodeSuccess::Continue)
     }
@@ -194,31 +190,22 @@ impl VM {
     ) -> Result<OpcodeSuccess, VMError> {
         self.increase_consumed_gas(current_call_frame, gas_cost::MULMOD)?;
 
-        let multiplicand = U512::from(current_call_frame.stack.pop()?);
-        let multiplier = U512::from(current_call_frame.stack.pop()?);
-        let divisor = U512::from(current_call_frame.stack.pop()?);
-        if divisor.is_zero() {
+        let multiplicand = current_call_frame.stack.pop()?;
+        let multiplier = current_call_frame.stack.pop()?;
+        let modulus = current_call_frame.stack.pop()?;
+
+        if modulus.is_zero() {
             current_call_frame.stack.push(U256::zero())?;
             return Ok(OpcodeSuccess::Continue);
         }
 
-        let (product, overflow) = multiplicand.overflowing_mul(multiplier);
-        let mut remainder = product.checked_rem(divisor).ok_or(VMError::Internal(
-            InternalError::ArithmeticOperationDividedByZero,
-        ))?; // Cannot be zero bc if above
-        if overflow || remainder > divisor {
-            remainder = remainder.overflowing_sub(divisor).0;
-        }
-        let mut result = Vec::new();
-        for byte in remainder.0.iter().take(4) {
-            let bytes = byte.to_le_bytes();
-            result.extend_from_slice(&bytes);
-        }
-        // before reverse we have something like [120, 255, 0, 0....]
-        // after reverse we get the [0, 0, ...., 255, 120] which is the correct order for the little endian u256
-        result.reverse();
-        let remainder = U256::from(result.as_slice());
-        current_call_frame.stack.push(remainder)?;
+        let multiplicand = multiplicand.checked_rem(modulus).unwrap_or_default();
+        let multiplier = multiplier.checked_rem(modulus).unwrap_or_default();
+
+        let (product, _overflowed) = multiplicand.overflowing_mul(multiplier);
+        let product_mod = product.checked_rem(modulus).unwrap_or_default();
+
+        current_call_frame.stack.push(product_mod)?;
 
         Ok(OpcodeSuccess::Continue)
     }
@@ -298,16 +285,15 @@ fn is_negative(value: U256) -> bool {
 }
 
 /// Negates a number in two's complement
+fn negate(value: U256) -> U256 {
+    let (dividend, _overflowed) = (!value).overflowing_add(U256::one());
+    dividend
+}
+
 fn abs(value: U256) -> U256 {
     if is_negative(value) {
         negate(value)
     } else {
         value
     }
-}
-
-/// Negates a number in two's complement
-fn negate(value: U256) -> U256 {
-    let inverted = !value;
-    inverted.saturating_add(U256::one())
 }

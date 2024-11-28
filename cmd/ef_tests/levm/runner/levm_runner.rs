@@ -9,7 +9,7 @@ use ethrex_core::{
     H256, U256,
 };
 use ethrex_levm::{
-    db::Cache,
+    db::CacheDB,
     errors::{TransactionReport, VMError},
     vm::VM,
     Environment,
@@ -22,6 +22,7 @@ use std::{collections::HashMap, sync::Arc};
 pub fn run_ef_test(test: &EFTest) -> Result<EFTestReport, EFTestRunnerError> {
     let mut ef_test_report = EFTestReport::new(
         test.name.clone(),
+        test.dir.clone(),
         test._info.generated_test_hash,
         test.fork(),
     );
@@ -72,33 +73,40 @@ pub fn prepare_vm_for_tx(vector: &TestVector, test: &EFTest) -> Result<VM, EFTes
         store: initial_state.database().unwrap().clone(),
         block_hash,
     });
+
+    let tx = test
+        .transactions
+        .get(vector)
+        .ok_or(EFTestRunnerError::Internal(
+            InternalError::FirstRunInternal("Failed to get transaction".to_owned()),
+        ))?;
+
     VM::new(
-        test.transactions.get(vector).unwrap().to.clone(),
+        tx.to.clone(),
         Environment {
-            origin: test.transactions.get(vector).unwrap().sender,
+            origin: tx.sender,
             consumed_gas: U256::default(),
             refunded_gas: U256::default(),
-            gas_limit: test.env.current_gas_limit,
+            gas_limit: tx.gas_limit,
             block_number: test.env.current_number,
             coinbase: test.env.current_coinbase,
             timestamp: test.env.current_timestamp,
             prev_randao: test.env.current_random,
             chain_id: U256::from(1729),
             base_fee_per_gas: test.env.current_base_fee.unwrap_or_default(),
-            gas_price: test
-                .transactions
-                .get(vector)
-                .unwrap()
-                .gas_price
-                .unwrap_or_default(), // or max_fee_per_gas?
+            gas_price: tx.gas_price.unwrap_or_default(),
             block_excess_blob_gas: test.env.current_excess_blob_gas,
             block_blob_gas_used: None,
-            tx_blob_hashes: None,
+            tx_blob_hashes: tx.blob_versioned_hashes.clone(),
+            tx_max_priority_fee_per_gas: tx.max_priority_fee_per_gas,
+            tx_max_fee_per_gas: tx.max_fee_per_gas,
+            tx_max_fee_per_blob_gas: tx.max_fee_per_blob_gas,
+            block_gas_limit: test.env.current_gas_limit,
         },
-        test.transactions.get(vector).unwrap().value,
-        test.transactions.get(vector).unwrap().data.clone(),
+        tx.value,
+        tx.data.clone(),
         db,
-        Cache::default(),
+        CacheDB::default(),
     )
     .map_err(|err| EFTestRunnerError::VMInitializationFailed(err.to_string()))
 }

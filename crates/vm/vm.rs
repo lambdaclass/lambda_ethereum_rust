@@ -80,7 +80,7 @@ impl From<ExecutionDB> for EvmState {
 cfg_if::cfg_if! {
     if #[cfg(feature = "levm")] {
         use ethrex_levm::{
-            db::{Cache, Database as LevmDatabase},
+            db::{CacheDB, Database as LevmDatabase},
             errors::{TransactionReport, TxResult, VMError},
             vm::VM,
             Environment,
@@ -120,8 +120,7 @@ cfg_if::cfg_if! {
                     transaction.tx_type(),
                     matches!(result.result, TxResult::Success),
                     cumulative_gas_used,
-                    // TODO: https://github.com/lambdaclass/ethrex/issues/1089
-                    vec![],
+                    result.logs,
                 );
                 receipts.push(receipt);
 
@@ -182,7 +181,11 @@ cfg_if::cfg_if! {
                 gas_price,
                 block_excess_blob_gas: block_header.excess_blob_gas.map(U256::from),
                 block_blob_gas_used: block_header.blob_gas_used.map(U256::from),
-                tx_blob_hashes: None,
+                tx_blob_hashes: tx.blob_versioned_hashes(),
+                tx_max_priority_fee_per_gas: tx.max_priority_fee().map(U256::from),
+                tx_max_fee_per_gas: tx.max_fee_per_gas().map(U256::from),
+                tx_max_fee_per_blob_gas: tx.max_fee_per_blob_gas().map(U256::from),
+                block_gas_limit: block_header.gas_limit.into(),
             };
 
             let mut vm = VM::new(
@@ -191,7 +194,7 @@ cfg_if::cfg_if! {
                 tx.value(),
                 tx.data().clone(),
                 db,
-                Cache::default(),
+                CacheDB::default(),
             )?;
 
             vm.transact()

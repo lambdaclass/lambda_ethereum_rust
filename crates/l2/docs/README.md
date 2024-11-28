@@ -20,7 +20,7 @@ Configuration is done through env vars. A detailed list is available in each par
 Load tests are available via L2 CLI. The test take a list of private keys and send a bunch of transactions from each of them to some address. To run them, use the following command on the root of this repo:
 
 ```bash
-l2 test load --path ./test_data/private_keys.txt -i 1000 -v  --value 1
+ethrex_l2 test load --path ./test_data/private_keys.txt -i 1000 -v  --value 1
 ```
 
 The command will, for each private key in the `private_keys.txt` file, send 1000 transactions with a value of `1` to a random account. If you want to send all transfers to the same account, pass
