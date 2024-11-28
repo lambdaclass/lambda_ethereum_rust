@@ -300,29 +300,7 @@ impl Display for EFTestsReport {
         writeln!(f)?;
         writeln!(f, "{}", "Failed tests:".bold())?;
         writeln!(f)?;
-        self.0
-            .iter()
-            .into_group_map_by(|report| report.dir.clone())
-            .iter()
-            .try_for_each(|(dir, reports)| {
-                let total_passed = reports.iter().filter(|report| report.passed()).count();
-                let total_run = reports.len();
-                let success_percentage = (total_passed as f64 / total_run as f64) * 100.0;
-                writeln!(
-                    f,
-                    "{}: {}/{} ({:.2}%)",
-                    dir.bold(),
-                    if total_passed == total_run {
-                        format!("{}", total_passed).green()
-                    } else if total_passed > 0 {
-                        format!("{}", total_passed).yellow()
-                    } else {
-                        format!("{}", total_passed).red()
-                    },
-                    total_run,
-                    success_percentage
-                )
-            })?;
+        writeln!(f, "{}", test_dir_summary_for_shell(&self.0))?;
         for report in self.0.iter() {
             if report.failed_vectors.is_empty() {
                 continue;
