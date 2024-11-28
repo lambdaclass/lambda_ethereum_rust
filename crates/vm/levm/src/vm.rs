@@ -545,7 +545,7 @@ impl VM {
 
         if !coinbase_fee.is_zero() {
             self.increase_account_balance(coinbase_address, coinbase_fee)?;
-        }        
+        }
 
         report.new_state.clone_from(&self.cache);
 
