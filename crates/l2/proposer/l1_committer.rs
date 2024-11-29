@@ -17,7 +17,7 @@ use ethrex_core::{
     },
     Address, H256, U256,
 };
-use ethrex_storage::Store;
+use ethrex_storage::{error::StoreError, Store};
 use ethrex_vm::{evm_state, execute_block, get_state_transitions};
 use keccak_hash::keccak;
 use secp256k1::SecretKey;
@@ -117,13 +117,13 @@ impl Committer {
                 }
 
                 let withdrawal_logs_merkle_root =
-                    self.get_withdrawals_merkle_root(withdrawal_hashes);
+                    self.get_withdrawals_merkle_root(withdrawal_hashes)?;
                 let deposit_logs_hash = self.get_deposit_hash(
                     deposits
                         .iter()
                         .filter_map(|tx| tx.get_deposit_hash())
                         .collect(),
-                );
+                )?;
 
                 let state_diff = self.prepare_state_diff(
                     &block_to_commit,
@@ -132,7 +132,7 @@ impl Committer {
                     deposits,
                 )?;
 
-                let blobs_bundle = self.generate_blobs_bundle(state_diff.clone())?;
+                let blobs_bundle = self.generate_blobs_bundle(&state_diff)?;
 
                 let head_block_hash = block_to_commit.hash();
                 match self
@@ -180,11 +180,14 @@ impl Committer {
         Ok(withdrawals)
     }
 
-    pub fn get_withdrawals_merkle_root(&self, withdrawals_hashes: Vec<H256>) -> H256 {
+    pub fn get_withdrawals_merkle_root(
+        &self,
+        withdrawals_hashes: Vec<H256>,
+    ) -> Result<H256, CommitterError> {
         if !withdrawals_hashes.is_empty() {
-            merkelize(withdrawals_hashes)
+            merkelize(withdrawals_hashes).map_err(CommitterError::FailedToMerkelize)
         } else {
-            H256::zero()
+            Ok(H256::zero())
         }
     }
 
@@ -206,25 +209,27 @@ impl Committer {
         deposits
     }
 
-    pub fn get_deposit_hash(&self, deposit_hashes: Vec<H256>) -> H256 {
+    pub fn get_deposit_hash(&self, deposit_hashes: Vec<H256>) -> Result<H256, CommitterError> {
         if !deposit_hashes.is_empty() {
-            H256::from_slice(
+            Ok(H256::from_slice(
                 [
                     &(deposit_hashes.len() as u16).to_be_bytes(),
-                    &keccak(
+                    keccak(
                         deposit_hashes
                             .iter()
                             .map(H256::as_bytes)
                             .collect::<Vec<&[u8]>>()
                             .concat(),
                     )
-                    .as_bytes()[2..32],
+                    .as_bytes()
+                    .get(2..32)
+                    .ok_or(CommitterError::FailedToDecodeDepositHash)?,
                 ]
                 .concat()
                 .as_slice(),
-            )
+            ))
         } else {
-            H256::zero()
+            Ok(H256::zero())
         }
     }
     /// Prepare the state diff for the block.
@@ -242,18 +247,36 @@ impl Committer {
         let account_updates = get_state_transitions(&mut state);
 
         let mut modified_accounts = HashMap::new();
-        account_updates.iter().for_each(|account_update| {
+        for account_update in &account_updates {
+            let prev_nonce = match state
+                .database()
+                .ok_or(CommitterError::FailedToRetrieveDataFromStorage)?
+                // If we want the state_diff of a batch, we will have to change the -1 with the `batch_size`
+                // and we may have to keep track of the latestCommittedBlock (last block of the batch),
+                // the batch_size and the latestCommittedBatch in the contract.
+                .get_account_info(block.header.number - 1, account_update.address)
+                .map_err(StoreError::from)?
+            {
+                Some(acc) => acc.nonce,
+                None => 0,
+            };
+
             modified_accounts.insert(
                 account_update.address,
                 AccountStateDiff {
                     new_balance: account_update.info.clone().map(|info| info.balance),
-                    nonce_diff: account_update.info.clone().map(|info| info.nonce as u16),
+                    nonce_diff: (account_update
+                        .info
+                        .clone()
+                        .ok_or(CommitterError::FailedToRetrieveDataFromStorage)?
+                        .nonce
+                        - prev_nonce) as u16,
                     storage: account_update.added_storage.clone().into_iter().collect(),
                     bytecode: account_update.code.clone(),
                     bytecode_hash: None,
                 },
             );
-        });
+        }
 
         let state_diff = StateDiff {
             modified_accounts,
@@ -287,7 +310,7 @@ impl Committer {
     /// Generate the blob bundle necessary for the EIP-4844 transaction.
     pub fn generate_blobs_bundle(
         &self,
-        state_diff: StateDiff,
+        state_diff: &StateDiff,
     ) -> Result<BlobsBundle, CommitterError> {
         let blob_data = state_diff.encode().map_err(CommitterError::from)?;
 
