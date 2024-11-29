@@ -78,10 +78,7 @@ impl RedBStore {
         V: Value + 'static,
     {
         let write_txn = self.db.begin_write()?;
-        {
-            let mut table = write_txn.open_table(table)?;
-            table.insert(key, value)?;
-        }
+        write_txn.open_table(table)?.insert(key, value)?;
         write_txn.commit()?;
 
         Ok(())
@@ -99,10 +96,7 @@ impl RedBStore {
         V: Key + 'static,
     {
         let write_txn = self.db.begin_write()?;
-        {
-            let mut table = write_txn.open_multimap_table(table)?;
-            table.insert(key, value)?;
-        }
+        write_txn.open_multimap_table(table)?.insert(key, value)?;
         write_txn.commit()?;
 
         Ok(())
@@ -136,10 +130,7 @@ impl RedBStore {
         V: Value,
     {
         let write_txn = self.db.begin_write()?;
-        {
-            let mut table = write_txn.open_table(table)?;
-            table.remove(key)?;
-        }
+        write_txn.open_table(table)?.remove(key)?;
         write_txn.commit()?;
 
         Ok(())
