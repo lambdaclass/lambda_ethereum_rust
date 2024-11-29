@@ -25,4 +25,6 @@ pub enum TrieError {
     RLPDecode(#[from] RLPDecodeError),
     #[error("Verification Error: {0}")]
     Verify(String),
+    #[error("Inconsistent internal tree structure")]
+    InconsistentTree,
 }
