@@ -67,7 +67,7 @@ fn slack_message(old_report: LinesOfCodeReport, new_report: LinesOfCodeReport) -
     let ethrex_diff_total = ethrex_l1_diff + ethrex_l2_diff + levm_diff;
 
     format!(
-        r#"*ethrex L1:* {} {}\n*ethrex L2:* {} {}\n*levm:* {} {}\n*ethrex (total):* {} {}"#,
+        r#""*ethrex L1:* {} {}\n*ethrex L2:* {} {}\n*levm:* {} {}\n*ethrex (total):* {} {}""#,
         new_report.ethrex_l1,
         if new_report.ethrex > old_report.ethrex {
             format!("(+{ethrex_l1_diff})")
