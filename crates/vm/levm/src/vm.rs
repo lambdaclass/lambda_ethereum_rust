@@ -655,14 +655,14 @@ impl VM {
         ret_size: usize,
     ) -> Result<OpcodeSuccess, VMError> {
         let (sender_account_info, _address_was_cold) =
-            self.access_account(current_call_frame.msg_sender);
+            self.access_account(msg_sender);
 
         if sender_account_info.balance < value {
             current_call_frame.stack.push(U256::from(REVERT_FOR_CALL))?;
             return Ok(OpcodeSuccess::Continue);
         }
 
-        self.decrease_account_balance(current_call_frame.msg_sender, value)?;
+        self.decrease_account_balance(msg_sender, value)?;
         self.increase_account_balance(to, value)?;
 
         let (code_account_info, _address_was_cold) = self.access_account(code_address);
