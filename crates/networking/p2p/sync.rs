@@ -6,9 +6,15 @@ use ethrex_core::{
     H256,
 };
 use ethrex_rlp::encode::RLPEncode;
-use ethrex_storage::Store;
+use ethrex_storage::{error::StoreError, Store};
 use ethrex_trie::EMPTY_TRIE_HASH;
-use tokio::{sync::Mutex, time::Instant};
+use tokio::{
+    sync::{
+        mpsc::{self, Receiver, Sender},
+        Mutex,
+    },
+    time::Instant,
+};
 use tracing::{debug, info, warn};
 
 use crate::kademlia::KademliaTable;
@@ -68,7 +74,16 @@ impl SyncManager {
             // snap-sync: launch tasks to fetch blocks and state in parallel
             // - Fetch each block's state via snap p2p requests
             // - Fetch each blocks and its receipts via eth p2p requests
-            let fetch_blocks_and_receipts_handle = tokio::spawn(fetch_blocks_and_receipts(
+            // TODO: We are currently testing against our implementation that doesn't hold an independant snapchot and can provide all historic state
+            //       We should fetch all available state and then resort to state healing to fetch the rest
+            let (bytecode_sender, bytecode_receiver) = mpsc::channel::<Vec<H256>>(500);
+            let mut set = tokio::task::JoinSet::new();
+            set.spawn(bytecode_fetcher(
+                bytecode_receiver,
+                self.peers.clone(),
+                store.clone(),
+            ));
+            set.spawn(fetch_blocks_and_receipts(
                 all_block_hashes.clone(),
                 self.peers.clone(),
                 store.clone(),
@@ -77,7 +92,7 @@ impl SyncManager {
                 .iter()
                 .map(|header| header.state_root)
                 .collect::<Vec<_>>();
-            let fetch_snap_state_handle = tokio::spawn(fetch_snap_state(
+            set.spawn(fetch_snap_state(
                 state_roots.clone(),
                 self.peers.clone(),
                 store.clone(),
@@ -93,32 +108,29 @@ impl SyncManager {
                 store.set_canonical_block(header.number, hash).unwrap();
                 store.add_block_header(hash, header).unwrap();
             }
-            // TODO: Handle error
-            let result = tokio::join!(fetch_blocks_and_receipts_handle, fetch_snap_state_handle);
+            let result = set.join_all().await;
             // Set latest block number here to avoid reading state that is currently being synced
             store
                 .update_latest_block_number(latest_block_number)
                 .unwrap();
-            // Collapse into one error, if both processes failed then they are likely to have a common cause (such as storage errors)
-            match result {
-                (error @ Err(_), _)
-                | (_, error @ Err(_))
-                | (error @ Ok(Err(_)), _)
-                | (_, error @ Ok(Err(_))) => error,
-                _ => Ok(Ok(())),
-            }
+            // Collapse into one error, if all processes failed then they are likely to have a common cause (such as unaccessible storage)
+            result
+                .into_iter()
+                .find(|res| res.is_err())
+                .unwrap_or(Ok(()))
+                .map_err(ChainError::StoreError)
         } else {
             // full-sync: Fetch all block bodies and execute them sequentially to build the state
-            tokio::spawn(download_and_run_blocks(
+            download_and_run_blocks(
                 all_block_hashes,
                 all_block_headers,
                 self.peers.clone(),
                 store.clone(),
-            ))
+            )
             .await
         };
         match result {
-            Ok(Ok(())) => {
+            Ok(()) => {
                 info!(
                     "Sync finished, time elapsed: {} secs",
                     start_time.elapsed().as_secs()
@@ -126,12 +138,8 @@ impl SyncManager {
                 // Next sync will be full-sync
                 self.snap_mode = false;
             }
-            Ok(Err(error)) => warn!(
+            Err(error) => warn!(
                 "Sync failed due to {error}, time elapsed: {} secs ",
-                start_time.elapsed().as_secs()
-            ),
-            _ => warn!(
-                "Sync failed due to internal error, time elapsed: {} secs",
                 start_time.elapsed().as_secs()
             ),
         }
@@ -190,7 +198,7 @@ async fn fetch_blocks_and_receipts(
     mut block_hashes: Vec<BlockHash>,
     peers: Arc<Mutex<KademliaTable>>,
     store: Store,
-) -> Result<(), ChainError> {
+) -> Result<(), StoreError> {
     // Snap state fetching will take much longer than this so we don't need to paralelize fetching blocks and receipts
     // Fetch Block Bodies
     loop {
@@ -222,27 +230,28 @@ async fn fetch_snap_state(
     state_roots: Vec<BlockHash>,
     peers: Arc<Mutex<KademliaTable>>,
     store: Store,
-) -> Result<(), ChainError> {
+) -> Result<(), StoreError> {
     info!("Syncing state roots: {}", state_roots.len());
-    for state_root in state_roots {
-        fetch_snap_state_inner(state_root, peers.clone(), store.clone()).await?
+    // Fetch newer state first: This will be useful to detect where to switch to healing
+    for state_root in state_roots.into_iter().rev() {
+        rebuild_state_trie(state_root, peers.clone(), store.clone()).await?
     }
     Ok(())
 }
 
-/// Rebuilds a Block's account state by requesting state from peers
-async fn fetch_snap_state_inner(
+/// Rebuilds a Block's state trie by requesting snap state from peers
+async fn rebuild_state_trie(
     state_root: H256,
     peers: Arc<Mutex<KademliaTable>>,
     store: Store,
-) -> Result<(), ChainError> {
+) -> Result<(), StoreError> {
     let mut start_account_hash = H256::zero();
     // Start from an empty state trie
     // We cannot keep an open trie here so we will track the root between lookups
     let mut current_state_root = *EMPTY_TRIE_HASH;
     // Fetch Account Ranges
     loop {
-        let peer = peers.lock().await.get_peer_channels().await;
+        let peer = peers.clone().lock().await.get_peer_channels().await;
         debug!("Requesting Account Range for state root {state_root}, starting hash: {start_account_hash}");
         if let Some((account_hashes, accounts, should_continue)) = peer
             .request_account_range(state_root, start_account_hash)
@@ -252,16 +261,25 @@ async fn fetch_snap_state_inner(
             if should_continue {
                 start_account_hash = *account_hashes.last().unwrap();
             }
-
+            // Fetch Account Storage & Bytecode
+            for (account_hash, account) in account_hashes.iter().zip(accounts.iter()) {
+                // TODO: spawn tasks to fetch storage & bytecodes: Should we create a list of tasks and then await them at after this loop?
+                // The first iteration could await them here as we are only testing the one peer case
+                rebuild_storage_trie(
+                    *account_hash,
+                    account.storage_root,
+                    peers.clone(),
+                    store.clone(),
+                )
+                .await?;
+            }
             // Update trie
             let mut trie = store.open_state_trie(current_state_root);
             for (account_hash, account) in account_hashes.iter().zip(accounts.iter()) {
-                // TODO: Handle
                 trie.insert(account_hash.0.to_vec(), account.encode_to_vec())
-                    .unwrap();
+                    .map_err(StoreError::Trie)?;
             }
-            // TODO: Handle
-            current_state_root = trie.hash().unwrap();
+            current_state_root = trie.hash().map_err(StoreError::Trie)?;
 
             if !should_continue {
                 // All accounts fetched!
@@ -270,8 +288,112 @@ async fn fetch_snap_state_inner(
         }
     }
     if current_state_root != state_root {
-        warn!("[Sync] State sync failed for hash {state_root}");
+        warn!("State sync failed for state root {state_root}");
     }
-    debug!("[Sync] Completed state sync for hash {state_root}");
+    info!("Completed state sync for state root {state_root}");
     Ok(())
+}
+
+/// Rebuilds an Account's storage trie by requesting snap state from peers
+/// First Iteration: Fetch one account storage at a time -> this is inefficient, we should queue them and fetch multiple accounts at once
+async fn rebuild_storage_trie(
+    account_hash: H256,
+    storage_root: H256,
+    peers: Arc<Mutex<KademliaTable>>,
+    store: Store,
+) -> Result<(), StoreError> {
+    let mut start_key_hash = H256::zero();
+    // Start from an empty state trie
+    // We cannot keep an open trie here so we will track the root between lookups
+    let mut current_storage_root = *EMPTY_TRIE_HASH;
+    // Fetch Storage Ranges
+    loop {
+        let peer = peers.lock().await.get_peer_channels().await;
+        debug!("Requesting Storage Range for storage root {storage_root}, starting hash: {start_key_hash}");
+        if let Some((hashed_keys, values, should_continue)) = peer
+            .request_storage_range(storage_root, account_hash, start_key_hash)
+            .await
+        {
+            // Update starting hash for next batch
+            if should_continue {
+                start_key_hash = *hashed_keys.last().unwrap();
+            }
+
+            // Update trie
+            let mut trie = store.open_storage_trie(account_hash, current_storage_root);
+            for (key_hash, value) in hashed_keys.iter().zip(values.iter()) {
+                trie.insert(key_hash.0.to_vec(), value.encode_to_vec())
+                    .map_err(StoreError::Trie)?;
+            }
+            current_storage_root = trie.hash().map_err(StoreError::Trie)?;
+
+            if !should_continue {
+                // All keys fetched!
+                break;
+            }
+        }
+    }
+    if current_storage_root != storage_root {
+        warn!("State sync failed for storage root {storage_root}");
+    }
+    info!("Completed state sync for storage root {storage_root}");
+    Ok(())
+}
+
+/// Waits for incoming code hashes from the receiver channel endpoint, queues them, and fetches and stores their bytecodes in batches
+async fn bytecode_fetcher(
+    mut receiver: Receiver<Vec<H256>>,
+    peers: Arc<Mutex<KademliaTable>>,
+    store: Store,
+) -> Result<(), StoreError> {
+    // Pending list of bytecodes to fetch
+    const BATCH_SIZE: usize = 10;
+    let mut pending_bytecodes: Vec<H256> = vec![];
+    loop {
+        match receiver.recv().await {
+            Some(code_hashes) if !code_hashes.is_empty() => {
+                // Add hashes to the queue
+                pending_bytecodes.extend(code_hashes);
+                // If we have enought pending bytecodes to fill a batch, spawn a fetch process
+                if pending_bytecodes.len() >= 5 {
+                    let next_batch = pending_bytecodes.drain(..BATCH_SIZE).collect::<Vec<_>>();
+                    let remaining =
+                        fetch_bytecode_batch(next_batch, peers.clone(), store.clone()).await?;
+                    // Add unfeched bytecodes back to the queue
+                    pending_bytecodes.extend(remaining);
+                };
+            }
+            // Disconnect / Empty message signaling no more bytecodes to sync
+            _ => break,
+        }
+    }
+    // We have no more incoming requests, process the remaining batches
+    while !pending_bytecodes.is_empty() {
+        let next_batch = pending_bytecodes
+            .drain(..BATCH_SIZE.min(pending_bytecodes.len()))
+            .collect::<Vec<_>>();
+        let remaining = fetch_bytecode_batch(next_batch, peers.clone(), store.clone()).await?;
+        // Add unfeched bytecodes back to the queue
+        pending_bytecodes.extend(remaining);
+    }
+    Ok(())
+}
+
+/// Receives a batch of code hahses, fetches their respective bytecodes via p2p and returns a list of the code hashes that couldn't be fetched in the request (if applicable)
+async fn fetch_bytecode_batch(
+    mut batch: Vec<H256>,
+    peers: Arc<Mutex<KademliaTable>>,
+    store: Store,
+) -> Result<Vec<H256>, StoreError> {
+    loop {
+        let peer = peers.lock().await.get_peer_channels().await;
+        if let Some(bytecodes) = peer.request_bytecodes(batch.clone()).await {
+            // Store the bytecodes
+            for code in bytecodes.into_iter() {
+                store.add_account_code(batch.remove(0), code)?;
+            }
+            // Return remaining code hashes in the batch if we couldn't fetch all of them
+            return Ok(batch);
+        }
+    }
 }

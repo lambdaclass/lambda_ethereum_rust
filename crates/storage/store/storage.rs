@@ -315,7 +315,7 @@ impl Store {
         Ok(txs_by_sender)
     }
 
-    fn add_account_code(&self, code_hash: H256, code: Bytes) -> Result<(), StoreError> {
+    pub fn add_account_code(&self, code_hash: H256, code: Bytes) -> Result<(), StoreError> {
         self.engine.add_account_code(code_hash, code)
     }
 
@@ -893,6 +893,10 @@ impl Store {
 
     pub fn open_state_trie(&self, state_root: H256) -> Trie {
         self.engine.open_state_trie(state_root)
+    }
+
+    pub fn open_storage_trie(&self, account_hash: H256, storage_root: H256) -> Trie {
+        self.engine.open_storage_trie(account_hash, storage_root)
     }
 }
 
