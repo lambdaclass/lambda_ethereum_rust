@@ -115,23 +115,21 @@ hive-stats:
 		git fetch --quiet --shallow-since=$(HIVE_SHALLOW_SINCE) && \
 		git checkout --quiet --detach $(HIVE_REVISION) && go build . ;\
 	fi
-# make xxx FILE_NAM
-E=rpc-compact SIMULATION=ethereum/rpc-compat TEST_PATTERN="/eth_chainId|eth_getTransactionByBlockHashAndIndex|eth_getTransactionByBlockNumberAndIndex|eth_getCode|eth_getStorageAt|eth_call|eth_getTransactionByHash|eth_getBlockByHash|eth_getBlockByNumber|eth_createAccessList|eth_getBlockTransactionCountByNumber|eth_getBlockTransactionCountByHash|eth_getBlockReceipts|eth_getTransactionReceipt|eth_blobGasPrice|eth_blockNumber|ethGetTransactionCount|debug_getRawHeader|debug_getRawBlock|debug_getRawTransaction|debug_getRawReceipts|eth_estimateGas|eth_getBalance|eth_sendRawTransaction|eth_getProof|eth_getLogs"
-# make xxx FILE_NAME=devp2p SIMULATION=devp2p TEST_PATTERN="discv4"
+	make run-hive SIMULATION=ethereum/rpc-compat TEST_PATTERN="/eth_chainId|eth_getTransactionByBlockHashAndIndex|eth_getTransactionByBlockNumberAndIndex|eth_getCode|eth_getStorageAt|eth_call|eth_getTransactionByHash|eth_getBlockByHash|eth_getBlockByNumber|eth_createAccessList|eth_getBlockTransactionCountByNumber|eth_getBlockTransactionCountByHash|eth_getBlockReceipts|eth_getTransactionReceipt|eth_blobGasPrice|eth_blockNumber|ethGetTransactionCount|debug_getRawHeader|debug_getRawBlock|debug_getRawTransaction|debug_getRawReceipts|eth_estimateGas|eth_getBalance|eth_sendRawTransaction|eth_getProof|eth_getLogs"
+	make run-hive SIMULATION=devp2p TEST_PATTERN="discv4"
 	make run-hive SIMULATION=devp2p TEST_PATTERN="/AccountRange|StorageRanges|ByteCodes|TrieNodes"
 	make run-hive SIMULATION=devp2p TEST_PATTERN="eth/Status|GetBlockHeaders|SimultaneousRequests|SameRequestID|ZeroRequestID|GetBlockBodies|MaliciousHandshake|MaliciousStatus|Transaction|InvalidTxs"
 	make run-hive SIMULATION=ethereum/engine TEST_PATTERN="engine-(auth|exchange-capabilities)/"
 	make run-hive SIMULATION=ethereum/sync TEST_PATTERN="engine-cancun/Blob Transactions On Block 1|Blob Transaction Ordering, Single|Blob Transaction Ordering, Multiple Accounts|Replace Blob Transactions|Parallel Blob Transactions|ForkchoiceUpdatedV3 Modifies Payload ID on Different Beacon Root|NewPayloadV3 After Cancun|NewPayloadV3 Versioned Hashes|Incorrect BlobGasUsed|Bad Hash|ParentHash equals BlockHash|RPC:|in ForkchoiceState|Unknown|Invalid PayloadAttributes|Unique|ForkchoiceUpdated Version on Payload Request|Re-Execute Payload|In-Order Consecutive Payload|Multiple New Payloads|Valid NewPayload->|NewPayload with|Payload Build after|Build Payload with|Invalid Missing Ancestor ReOrg, StateRoot|Re-Org Back to|Re-org to Previously|Safe Re-Org to Side Chain|Transaction Re-Org, Re-Org Back In|Re-Org Back into Canonical Chain, Depth=5|Suggested Fee Recipient Test|PrevRandao Opcode|Invalid NewPayload, [^R][^e]|Fork ID Genesis=0, Cancun=0|Fork ID Genesis=0, Cancun=1|Fork ID Genesis=1, Cancun=0|Fork ID Genesis=1, Cancun=2, Shanghai=2"
-
-
-# xxx:
-# 	rm -rf hive/workspace $(FILE_NAME)_logs
-# 	make run-hive SIMULATION="$(SIMULATION)" TEST_PATTERN="$(TEST_PATTERN)"
-# 	mkdir -p $(FILE_NAME)_logs
-# 	mv hive/workspace/logs/*-*.json $(FILE_NAME)_logs
 
 stats: 
 	cargo run --quiet --release -p loc -- --summary && echo
 	cargo test --quiet -p ef_tests-levm --test ef_tests_levm -- --summary && echo
 	make hive-stats
 	cargo run --quiet --release -p hive_report
+
+# hive-sim-stats:
+# 	rm -rf hive/workspace $(FILE_NAME)_logs
+# 	make run-hive SIMULATION="$(SIMULATION)" TEST_PATTERN="$(TEST_PATTERN)"
+# 	mkdir -p $(FILE_NAME)_logs
+# 	mv hive/workspace/logs/*-*.json $(FILE_NAME)_logs
