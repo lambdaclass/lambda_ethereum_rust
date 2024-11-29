@@ -1,7 +1,10 @@
+use ethrex_blockchain::error::MempoolError;
 use ethrex_rlp::error::{RLPDecodeError, RLPEncodeError};
 use ethrex_storage::error::StoreError;
 use thiserror::Error;
 use tokio::sync::broadcast::error::RecvError;
+
+use super::message::Message;
 
 // TODO improve errors
 #[derive(Debug, Error)]
@@ -38,6 +41,10 @@ pub(crate) enum RLPxError {
     BroadcastError(String),
     #[error(transparent)]
     RecvError(#[from] RecvError),
+    #[error(transparent)]
+    Send(#[from] tokio::sync::mpsc::error::SendError<Message>),
+    #[error("Error when inserting transaction in the mempool: {0}")]
+    MempoolError(#[from] MempoolError),
 }
 
 // Grouping all cryptographic related errors in a single CryptographicError variant

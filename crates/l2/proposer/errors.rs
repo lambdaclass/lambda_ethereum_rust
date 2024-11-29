@@ -80,6 +80,8 @@ pub enum CommitterError {
     FailedToParseLastCommittedBlock(#[from] FromStrRadixErr),
     #[error("Committer failed retrieve block from storage: {0}")]
     FailedToRetrieveBlockFromStorage(#[from] StoreError),
+    #[error("Committer failed retrieve data from storage")]
+    FailedToRetrieveDataFromStorage,
     #[error("Committer failed to generate blobs bundle: {0}")]
     FailedToGenerateBlobsBundle(#[from] BlobsBundleError),
     #[error("Committer failed to get information from storage")]
@@ -94,6 +96,18 @@ pub enum CommitterError {
     FailedToSendCommitment(String),
     #[error("Withdrawal transaction was invalid")]
     InvalidWithdrawalTransaction,
+    #[error("Blob estimation failed: {0}")]
+    BlobEstimationError(#[from] BlobEstimationError),
+}
+
+#[derive(Debug, thiserror::Error)]
+pub enum BlobEstimationError {
+    #[error("Overflow error while estimating blob gas")]
+    OverflowError,
+    #[error("Failed to calculate blob gas due to invalid parameters")]
+    CalculationError,
+    #[error("Blob gas estimation resulted in an infinite or undefined value. Outside valid or expected ranges")]
+    NonFiniteResult,
 }
 
 #[derive(Debug, thiserror::Error)]
