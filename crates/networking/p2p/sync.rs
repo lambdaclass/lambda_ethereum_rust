@@ -372,7 +372,7 @@ async fn bytecode_fetcher(
     store: Store,
 ) -> Result<(), StoreError> {
     // Pending list of bytecodes to fetch
-    const BATCH_SIZE: usize = 10;
+    const BATCH_SIZE: usize = 100;
     let mut pending_bytecodes: Vec<H256> = vec![];
     loop {
         match receiver.recv().await {
@@ -380,7 +380,7 @@ async fn bytecode_fetcher(
                 // Add hashes to the queue
                 pending_bytecodes.extend(code_hashes);
                 // If we have enought pending bytecodes to fill a batch, spawn a fetch process
-                while pending_bytecodes.len() >= 5 {
+                while pending_bytecodes.len() >= BATCH_SIZE {
                     let next_batch = pending_bytecodes.drain(..BATCH_SIZE).collect::<Vec<_>>();
                     let remaining =
                         fetch_bytecode_batch(next_batch, peers.clone(), store.clone()).await?;
@@ -413,6 +413,7 @@ async fn fetch_bytecode_batch(
     loop {
         let peer = peers.lock().await.get_peer_channels().await;
         if let Some(bytecodes) = peer.request_bytecodes(batch.clone()).await {
+            info!("Received {} bytecodes", bytecodes.len());
             // Store the bytecodes
             for code in bytecodes.into_iter() {
                 store.add_account_code(batch.remove(0), code)?;
