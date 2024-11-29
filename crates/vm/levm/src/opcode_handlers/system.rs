@@ -480,7 +480,6 @@ impl VM {
         // 3. Get the target account, checking if it is empty and if it is cold. Update gas cost accordingly.
         // 4. Add the balance of the current account to the target account
         // 5. Register account to be destroyed in accrued substate.
-
         // Notes:
         //      If context is Static, return error.
         //      If executed in the same transaction a contract was created, the current account is registered to be destroyed
@@ -490,29 +489,25 @@ impl VM {
 
         let target_address = word_to_address(current_call_frame.stack.pop()?);
 
+        let (target_account_info, target_account_is_cold) = self.access_account(target_address);
+
+        self.increase_consumed_gas(
+            current_call_frame,
+            gas_cost::selfdestruct(target_account_is_cold, target_account_info.is_empty())
+                .map_err(VMError::OutOfGas)?,
+        )?;
+
         let (current_account_info, _current_account_is_cold) =
             self.access_account(current_call_frame.to);
 
-        let current_account_balance = current_account_info.balance;
-
-        self.decrease_account_balance(current_call_frame.to, current_account_balance)?;
-
-        let (target_account_info, target_account_is_cold) = self.access_account(target_address);
-
-        self.increase_account_balance(target_address, current_account_balance)?;
+        self.increase_account_balance(target_address, current_account_info.balance)?;
+        self.decrease_account_balance(current_call_frame.to, current_account_info.balance)?;
 
         if self.tx_kind == TxKind::Create {
             self.accrued_substate
                 .selfdestrutct_set
                 .insert(current_call_frame.to);
         }
-
-        // Don't like to consume the gas after the operation but i need to don't cache both at the same time
-        self.increase_consumed_gas(
-            current_call_frame,
-            gas_cost::selfdestruct(target_account_is_cold, target_account_info.is_empty())
-                .map_err(VMError::OutOfGas)?,
-        )?;
 
         Ok(OpcodeSuccess::Result(ResultReason::SelfDestruct))
     }
