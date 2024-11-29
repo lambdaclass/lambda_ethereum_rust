@@ -125,27 +125,6 @@ impl RedBStore {
     }
 
     // Helper method to write into a redb table
-    fn write_to_multi<'k, 'v, 'a, K, V>(
-        &self,
-        table: MultimapTableDefinition<'a, K, V>,
-        key: impl Borrow<K::SelfType<'k>>,
-        value: impl Borrow<V::SelfType<'v>>,
-    ) -> Result<(), StoreError>
-    where
-        K: Key + 'static,
-        V: Key + 'static,
-    {
-        let write_txn = self.db.begin_write()?;
-        {
-            let mut table = write_txn.open_multimap_table(table)?;
-            table.insert(key, value)?;
-        }
-        write_txn.commit()?;
-
-        Ok(())
-    }
-
-    // Helper method to write into a redb table
     fn write_to_multi_batch<'k, 'v, 'a, K, V>(
         &self,
         table: MultimapTableDefinition<'a, K, V>,
