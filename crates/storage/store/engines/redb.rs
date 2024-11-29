@@ -12,7 +12,7 @@ use ethrex_trie::{
     db::{redb::RedBTrie, redb_multitable::RedBMultiTableTrieDB},
     Trie,
 };
-use redb::{AccessGuard, Database, Key, MultimapTableDefinition, TableDefinition, Value};
+use redb::{AccessGuard, Database, Key, MultimapTableDefinition, TableDefinition, TypeName, Value};
 
 use crate::rlp::{BlockRLP, BlockTotalDifficultyRLP, Rlp, TransactionHashRLP};
 use crate::{
@@ -23,7 +23,7 @@ use crate::{
     },
 };
 
-use super::{api::StoreEngine, libmdbx::ChainDataIndex};
+use super::{api::StoreEngine, utils::ChainDataIndex};
 
 const STATE_TRIE_NODES_TABLE: TableDefinition<&[u8], &[u8]> =
     TableDefinition::new("StateTrieNodes");
@@ -549,6 +549,45 @@ impl StoreEngine for RedBStore {
         Ok(self
             .read(PAYLOADS_TABLE, payload_id)?
             .map(|b| b.value().to()))
+    }
+}
+
+impl redb::Value for ChainDataIndex {
+    type SelfType<'a> = ChainDataIndex
+    where
+        Self: 'a;
+
+    type AsBytes<'a> = [u8; 1]
+    where
+        Self: 'a;
+
+    fn fixed_width() -> Option<usize> {
+        None
+    }
+
+    fn from_bytes<'a>(data: &'a [u8]) -> Self::SelfType<'a>
+    where
+        Self: 'a,
+    {
+        data[0].into()
+    }
+
+    fn as_bytes<'a, 'b: 'a>(value: &'a Self::SelfType<'b>) -> Self::AsBytes<'a>
+    where
+        Self: 'a,
+        Self: 'b,
+    {
+        [*value as u8]
+    }
+
+    fn type_name() -> redb::TypeName {
+        TypeName::new("ChainDataIndex")
+    }
+}
+
+impl redb::Key for ChainDataIndex {
+    fn compare(data1: &[u8], data2: &[u8]) -> std::cmp::Ordering {
+        data1.cmp(data2)
     }
 }
 
