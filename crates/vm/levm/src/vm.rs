@@ -950,11 +950,12 @@ impl VM {
     /// Accessed storage slots take place in some gas cost computation.
     #[must_use]
     pub fn access_storage_slot(&mut self, address: Address, key: H256) -> (StorageSlot, bool) {
+        let account_is_cold = !self.touched_accounts.contains(&address);
         let storage_slot_was_cold = self
             .touched_storage_slots
-            .entry(address)
-            .or_default()
-            .insert(key);
+            .get_mut(&address)
+            .map(|storage| storage.insert(key))
+            .unwrap_or_default();
         let storage_slot = match cache::get_account(&self.cache, &address) {
             Some(account) => match account.storage.get(&key) {
                 Some(storage_slot) => storage_slot.clone(),
@@ -974,7 +975,7 @@ impl VM {
                 }
             }
         };
-        (storage_slot, storage_slot_was_cold)
+        (storage_slot, storage_slot_was_cold || account_is_cold)
     }
 
     pub fn increase_account_balance(
