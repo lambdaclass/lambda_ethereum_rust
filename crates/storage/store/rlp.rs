@@ -1,5 +1,5 @@
 use std::fmt::Debug;
-use std::{any::type_name, marker::PhantomData};
+use std::marker::PhantomData;
 
 use bytes::Bytes;
 use ethereum_types::U256;
@@ -10,7 +10,10 @@ use ethrex_core::{
 use ethrex_rlp::{decode::RLPDecode, encode::RLPEncode};
 #[cfg(feature = "libmdbx")]
 use libmdbx::orm::{Decodable, Encodable};
+#[cfg(feature = "redb")]
 use redb::TypeName;
+#[cfg(feature = "redb")]
+use std::any::type_name;
 
 // Account types
 pub type AccountCodeHashRLP = Rlp<H256>;
@@ -66,6 +69,7 @@ impl<T: Send + Sync> Encodable for Rlp<T> {
     }
 }
 
+#[cfg(feature = "redb")]
 impl<T: Send + Sync + Debug> redb::Value for Rlp<T> {
     type SelfType<'a> = Rlp<T>
     where
@@ -99,6 +103,7 @@ impl<T: Send + Sync + Debug> redb::Value for Rlp<T> {
     }
 }
 
+#[cfg(feature = "redb")]
 impl<T: Send + Sync + Debug> redb::Key for Rlp<T> {
     fn compare(data1: &[u8], data2: &[u8]) -> std::cmp::Ordering {
         data1.cmp(data2)
