@@ -62,7 +62,7 @@ impl RefUnwindSafe for RedBStore {}
 impl RedBStore {
     pub fn new() -> Result<Self, StoreError> {
         Ok(Self {
-            db: Arc::new(init_db()),
+            db: Arc::new(init_db()?),
         })
     }
 
@@ -77,12 +77,12 @@ impl RedBStore {
         K: Key + 'static,
         V: Value + 'static,
     {
-        let write_txn = self.db.begin_write().unwrap();
+        let write_txn = self.db.begin_write()?;
         {
-            let mut table = write_txn.open_table(table).unwrap();
-            table.insert(key, value).unwrap();
+            let mut table = write_txn.open_table(table)?;
+            table.insert(key, value)?;
         }
-        write_txn.commit().unwrap();
+        write_txn.commit()?;
 
         Ok(())
     }
@@ -98,12 +98,12 @@ impl RedBStore {
         K: Key + 'static,
         V: Key + 'static,
     {
-        let write_txn = self.db.begin_write().unwrap();
+        let write_txn = self.db.begin_write()?;
         {
-            let mut table = write_txn.open_multimap_table(table).unwrap();
-            table.insert(key, value).unwrap();
+            let mut table = write_txn.open_multimap_table(table)?;
+            table.insert(key, value)?;
         }
-        write_txn.commit().unwrap();
+        write_txn.commit()?;
 
         Ok(())
     }
@@ -118,9 +118,9 @@ impl RedBStore {
         K: Key + 'static,
         V: Value,
     {
-        let read_txn = self.db.begin_read().unwrap();
-        let table = read_txn.open_table(table).unwrap();
-        let result = table.get(key).unwrap();
+        let read_txn = self.db.begin_read()?;
+        let table = read_txn.open_table(table)?;
+        let result = table.get(key)?;
 
         Ok(result)
     }
@@ -135,12 +135,12 @@ impl RedBStore {
         K: Key + 'static,
         V: Value,
     {
-        let write_txn = self.db.begin_write().unwrap();
+        let write_txn = self.db.begin_write()?;
         {
-            let mut table = write_txn.open_table(table).unwrap();
-            table.remove(key).unwrap();
+            let mut table = write_txn.open_table(table)?;
+            table.remove(key)?;
         }
-        write_txn.commit().unwrap();
+        write_txn.commit()?;
 
         Ok(())
     }
@@ -310,14 +310,11 @@ impl StoreEngine for RedBStore {
         &self,
         transaction_hash: ethrex_core::H256,
     ) -> Result<Option<(BlockNumber, BlockHash, Index)>, StoreError> {
-        let read_txn = self.db.begin_read().unwrap();
-        let table = read_txn
-            .open_multimap_table(TRANSACTION_LOCATIONS_TABLE)
-            .unwrap();
+        let read_txn = self.db.begin_read()?;
+        let table = read_txn.open_multimap_table(TRANSACTION_LOCATIONS_TABLE)?;
 
         Ok(table
-            .get(<H256 as Into<TransactionHashRLP>>::into(transaction_hash))
-            .unwrap()
+            .get(<H256 as Into<TransactionHashRLP>>::into(transaction_hash))?
             .map_while(|res| res.ok().map(|t| t.value().to()))
             .find(|(number, hash, _index)| {
                 self.get_block_hash_by_block_number(*number)
@@ -418,10 +415,7 @@ impl StoreEngine for RedBStore {
     }
 
     fn get_earliest_block_number(&self) -> Result<Option<BlockNumber>, StoreError> {
-        match self
-            .read(CHAIN_DATA_TABLE, ChainDataIndex::EarliestBlockNumber)
-            .unwrap()
-        {
+        match self.read(CHAIN_DATA_TABLE, ChainDataIndex::EarliestBlockNumber)? {
             None => Ok(None),
             Some(ref rlp) => RLPDecode::decode(&rlp.value())
                 .map(Some)
@@ -438,10 +432,7 @@ impl StoreEngine for RedBStore {
     }
 
     fn get_finalized_block_number(&self) -> Result<Option<BlockNumber>, StoreError> {
-        match self
-            .read(CHAIN_DATA_TABLE, ChainDataIndex::FinalizedBlockNumber)
-            .unwrap()
-        {
+        match self.read(CHAIN_DATA_TABLE, ChainDataIndex::FinalizedBlockNumber)? {
             None => Ok(None),
             Some(ref rlp) => RLPDecode::decode(&rlp.value())
                 .map(Some)
@@ -458,10 +449,7 @@ impl StoreEngine for RedBStore {
     }
 
     fn get_safe_block_number(&self) -> Result<Option<BlockNumber>, StoreError> {
-        match self
-            .read(CHAIN_DATA_TABLE, ChainDataIndex::SafeBlockNumber)
-            .unwrap()
-        {
+        match self.read(CHAIN_DATA_TABLE, ChainDataIndex::SafeBlockNumber)? {
             None => Ok(None),
             Some(ref rlp) => RLPDecode::decode(&rlp.value())
                 .map(Some)
@@ -478,10 +466,7 @@ impl StoreEngine for RedBStore {
     }
 
     fn get_latest_block_number(&self) -> Result<Option<BlockNumber>, StoreError> {
-        match self
-            .read(CHAIN_DATA_TABLE, ChainDataIndex::LatestBlockNumber)
-            .unwrap()
-        {
+        match self.read(CHAIN_DATA_TABLE, ChainDataIndex::LatestBlockNumber)? {
             None => Ok(None),
             Some(ref rlp) => RLPDecode::decode(&rlp.value())
                 .map(Some)
@@ -501,10 +486,7 @@ impl StoreEngine for RedBStore {
     }
 
     fn get_latest_total_difficulty(&self) -> Result<Option<ethrex_core::U256>, StoreError> {
-        match self
-            .read(CHAIN_DATA_TABLE, ChainDataIndex::LatestTotalDifficulty)
-            .unwrap()
-        {
+        match self.read(CHAIN_DATA_TABLE, ChainDataIndex::LatestTotalDifficulty)? {
             None => Ok(None),
             Some(ref rlp) => RLPDecode::decode(&rlp.value())
                 .map(Some)
@@ -570,32 +552,22 @@ impl StoreEngine for RedBStore {
     }
 }
 
-pub fn init_db() -> Database {
-    let db = Database::create("ethrex.redb").unwrap();
+pub fn init_db() -> Result<Database, StoreError> {
+    let db = Database::create("ethrex.redb")?;
 
-    let table_creation_txn = db.begin_write().unwrap();
-    table_creation_txn
-        .open_table(STATE_TRIE_NODES_TABLE)
-        .unwrap();
-    table_creation_txn.open_table(BLOCK_NUMBERS_TABLE).unwrap();
-    table_creation_txn
-        .open_table(BLOCK_TOTAL_DIFFICULTIES_TABLE)
-        .unwrap();
-    table_creation_txn
-        .open_table(CANONICAL_BLOCK_HASHES_TABLE)
-        .unwrap();
-    table_creation_txn.open_table(RECEIPTS_TABLE).unwrap();
-    table_creation_txn
-        .open_multimap_table(STORAGE_TRIE_NODES_TABLE)
-        .unwrap();
-    table_creation_txn.open_table(CHAIN_DATA_TABLE).unwrap();
-    table_creation_txn.open_table(BLOCK_BODIES_TABLE).unwrap();
-    table_creation_txn.open_table(PAYLOADS_TABLE).unwrap();
-    table_creation_txn.open_table(PENDING_BLOCKS_TABLE).unwrap();
-    table_creation_txn
-        .open_multimap_table(TRANSACTION_LOCATIONS_TABLE)
-        .unwrap();
-    table_creation_txn.commit().unwrap();
+    let table_creation_txn = db.begin_write()?;
+    table_creation_txn.open_table(STATE_TRIE_NODES_TABLE)?;
+    table_creation_txn.open_table(BLOCK_NUMBERS_TABLE)?;
+    table_creation_txn.open_table(BLOCK_TOTAL_DIFFICULTIES_TABLE)?;
+    table_creation_txn.open_table(CANONICAL_BLOCK_HASHES_TABLE)?;
+    table_creation_txn.open_table(RECEIPTS_TABLE)?;
+    table_creation_txn.open_multimap_table(STORAGE_TRIE_NODES_TABLE)?;
+    table_creation_txn.open_table(CHAIN_DATA_TABLE)?;
+    table_creation_txn.open_table(BLOCK_BODIES_TABLE)?;
+    table_creation_txn.open_table(PAYLOADS_TABLE)?;
+    table_creation_txn.open_table(PENDING_BLOCKS_TABLE)?;
+    table_creation_txn.open_multimap_table(TRANSACTION_LOCATIONS_TABLE)?;
+    table_creation_txn.commit()?;
 
-    db
+    Ok(db)
 }

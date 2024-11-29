@@ -1,10 +1,7 @@
 use std::sync::Arc;
 
-use redb::{Database, TableDefinition};
-
-use crate::TrieError;
-
 use super::TrieDB;
+use redb::{Database, TableDefinition};
 
 const TABLE: TableDefinition<&[u8], &[u8]> = TableDefinition::new("Trie");
 
