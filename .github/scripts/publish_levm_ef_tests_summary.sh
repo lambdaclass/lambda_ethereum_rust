@@ -1,7 +1,7 @@
 curl -X POST $url \
 -H 'Content-Type: application/json; charset=utf-8' \
 --data @- <<EOF
-$(jq -n --arg text "$(cat crates/vm/levm/levm_ef_tests_summary_slack.txt)" '{
+$(jq -n --arg text "$(cat cmd/ef_tests/levm/levm_ef_tests_summary_slack.txt)" '{
     "blocks": [
         {
             "type": "header",
