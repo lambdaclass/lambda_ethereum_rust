@@ -2,7 +2,7 @@ use std::sync::Arc;
 
 use ethrex_blockchain::error::ChainError;
 use ethrex_core::{
-    types::{Block, BlockHash, BlockHeader},
+    types::{Block, BlockHash, BlockHeader, EMPTY_KECCACK_HASH},
     H256,
 };
 use ethrex_rlp::encode::RLPEncode;
@@ -93,6 +93,7 @@ impl SyncManager {
                 .map(|header| header.state_root)
                 .collect::<Vec<_>>();
             set.spawn(fetch_snap_state(
+                bytecode_sender,
                 state_roots.clone(),
                 self.peers.clone(),
                 store.clone(),
@@ -227,6 +228,7 @@ async fn fetch_blocks_and_receipts(
 }
 
 async fn fetch_snap_state(
+    bytecode_sender: Sender<Vec<H256>>,
     state_roots: Vec<BlockHash>,
     peers: Arc<Mutex<KademliaTable>>,
     store: Store,
@@ -234,13 +236,24 @@ async fn fetch_snap_state(
     info!("Syncing state roots: {}", state_roots.len());
     // Fetch newer state first: This will be useful to detect where to switch to healing
     for state_root in state_roots.into_iter().rev() {
-        rebuild_state_trie(state_root, peers.clone(), store.clone()).await?
+        // TODO: maybe spawn taks here instead of awaiting
+        rebuild_state_trie(
+            bytecode_sender.clone(),
+            state_root,
+            peers.clone(),
+            store.clone(),
+        )
+        .await?
     }
+    // We finished syncing the available state, lets make the fetcher processes aware
+    // Send empty batches to signal that no more batches are incoming
+    bytecode_sender.send(vec![]).await.unwrap();
     Ok(())
 }
 
 /// Rebuilds a Block's state trie by requesting snap state from peers
 async fn rebuild_state_trie(
+    bytecode_sender: Sender<Vec<H256>>,
     state_root: H256,
     peers: Arc<Mutex<KademliaTable>>,
     store: Store,
@@ -262,8 +275,15 @@ async fn rebuild_state_trie(
                 start_account_hash = *account_hashes.last().unwrap();
             }
             // Fetch Account Storage & Bytecode
+            let mut code_hashes = vec![];
             for (account_hash, account) in account_hashes.iter().zip(accounts.iter()) {
-                // TODO: spawn tasks to fetch storage & bytecodes: Should we create a list of tasks and then await them at after this loop?
+                // Build the batch of code hashes to send to the bytecode fetcher
+                // Ignoring accounts without code / code we already have stored
+                if account.code_hash != *EMPTY_KECCACK_HASH
+                    && store.get_account_code(account.code_hash)?.is_none()
+                {
+                    code_hashes.push(account.code_hash)
+                }
                 // The first iteration could await them here as we are only testing the one peer case
                 rebuild_storage_trie(
                     *account_hash,
@@ -272,6 +292,11 @@ async fn rebuild_state_trie(
                     store.clone(),
                 )
                 .await?;
+            }
+            // Send code hash batch to the bytecode fetcher
+            if !code_hashes.is_empty() {
+                // TODO: Handle
+                bytecode_sender.send(code_hashes).await.unwrap()
             }
             // Update trie
             let mut trie = store.open_state_trie(current_state_root);
@@ -355,13 +380,13 @@ async fn bytecode_fetcher(
                 // Add hashes to the queue
                 pending_bytecodes.extend(code_hashes);
                 // If we have enought pending bytecodes to fill a batch, spawn a fetch process
-                if pending_bytecodes.len() >= 5 {
+                while pending_bytecodes.len() >= 5 {
                     let next_batch = pending_bytecodes.drain(..BATCH_SIZE).collect::<Vec<_>>();
                     let remaining =
                         fetch_bytecode_batch(next_batch, peers.clone(), store.clone()).await?;
                     // Add unfeched bytecodes back to the queue
                     pending_bytecodes.extend(remaining);
-                };
+                }
             }
             // Disconnect / Empty message signaling no more bytecodes to sync
             _ => break,
