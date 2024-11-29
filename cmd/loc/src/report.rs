@@ -16,42 +16,62 @@ pub struct LinesOfCodeReport {
     pub levm: usize,
 }
 
-pub fn slack_message(old_report: LinesOfCodeReport, new_report: LinesOfCodeReport) -> String {
+fn slack_message(old_report: LinesOfCodeReport, new_report: LinesOfCodeReport) -> String {
     let ethrex_l1_diff = new_report.ethrex_l1.abs_diff(old_report.ethrex_l1);
     let ethrex_l2_diff = new_report.ethrex_l2.abs_diff(old_report.ethrex_l2);
     let levm_diff = new_report.levm.abs_diff(old_report.levm);
     let ethrex_diff_total = ethrex_l1_diff + ethrex_l2_diff + levm_diff;
 
     format!(
-        r#""*ethrex L1:* {} {}\n*ethrex L2:* {} {}\n*levm:* {} {}\n*ethrex (total):* {} {}""#,
+        r#"{{
+    "blocks": [
+        {{
+            "type": "header",
+            "text": {{
+                "type": "plain_text",
+                "text": "Daily Lines of Code Report"
+            }}
+        }},
+        {{
+            "type": "divider"
+        }},
+        {{
+            "type": "section",
+            "text": {{
+                "type": "mrkdwn",
+                "text": "*ethrex L1:* {} {}\n*ethrex L2:* {} {}\n*levm:* {} {}\n*ethrex (total):* {} {}"
+            }}             
+        }}
+    ]
+}}"#,
         new_report.ethrex_l1,
-        if new_report.ethrex > old_report.ethrex {
-            format!("(+{ethrex_l1_diff})")
-        } else {
-            format!("(-{ethrex_l1_diff})")
+        match new_report.ethrex_l1.cmp(&old_report.ethrex_l1) {
+            std::cmp::Ordering::Greater => format!("(+{ethrex_l1_diff})"),
+            std::cmp::Ordering::Less => format!("(-{ethrex_l1_diff})"),
+            std::cmp::Ordering::Equal => "".to_string(),
         },
         new_report.ethrex_l2,
-        if new_report.ethrex_l2 > old_report.ethrex_l2 {
-            format!("(+{ethrex_l2_diff})")
-        } else {
-            format!("(-{ethrex_l2_diff})")
+        match new_report.ethrex_l2.cmp(&old_report.ethrex_l2) {
+            std::cmp::Ordering::Greater => format!("(+{ethrex_l2_diff})"),
+            std::cmp::Ordering::Less => format!("(-{ethrex_l2_diff})"),
+            std::cmp::Ordering::Equal => "".to_string(),
         },
         new_report.levm,
-        if new_report.levm > old_report.levm {
-            format!("(+{levm_diff})")
-        } else {
-            format!("(-{levm_diff})")
+        match new_report.levm.cmp(&old_report.levm) {
+            std::cmp::Ordering::Greater => format!("(+{levm_diff})"),
+            std::cmp::Ordering::Less => format!("(-{levm_diff})"),
+            std::cmp::Ordering::Equal => "".to_string(),
         },
         new_report.ethrex,
-        if new_report.ethrex > old_report.ethrex {
-            format!("(+{ethrex_diff_total})")
-        } else {
-            format!("(-{ethrex_diff_total})")
+        match new_report.ethrex.cmp(&old_report.ethrex) {
+            std::cmp::Ordering::Greater => format!("(+{ethrex_diff_total})"),
+            std::cmp::Ordering::Less => format!("(-{ethrex_diff_total})"),
+            std::cmp::Ordering::Equal => "".to_string(),
         },
     )
 }
 
-pub fn github_step_summary(old_report: LinesOfCodeReport, new_report: LinesOfCodeReport) -> String {
+fn github_step_summary(old_report: LinesOfCodeReport, new_report: LinesOfCodeReport) -> String {
     let ethrex_l1_diff = new_report.ethrex_l1.abs_diff(old_report.ethrex_l1);
     let ethrex_l2_diff = new_report.ethrex_l2.abs_diff(old_report.ethrex_l2);
     let levm_diff = new_report.levm.abs_diff(old_report.levm);
