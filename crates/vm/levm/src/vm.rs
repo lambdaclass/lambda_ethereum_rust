@@ -498,7 +498,7 @@ impl VM {
 
         // (10) INSUFFICIENT_MAX_FEE_PER_BLOB_GAS
         if let Some(tx_max_fee_per_blob_gas) = self.env.tx_max_fee_per_blob_gas {
-            if tx_max_fee_per_blob_gas < self.env.base_fee_per_gas {
+            if tx_max_fee_per_blob_gas.is_zero() {
                 return Err(VMError::TxValidation(
                     TxValidationError::InsufficientMaxFeePerBlobGas,
                 ));
