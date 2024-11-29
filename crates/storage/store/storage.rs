@@ -943,6 +943,11 @@ mod tests {
         test_store_suite(EngineType::Libmdbx);
     }
 
+    #[test]
+    fn test_redb_store() {
+        test_store_suite(EngineType::RedB);
+    }
+
     // Creates an empty store, runs the test and then removes the store (if needed)
     fn run_test(test_func: &dyn Fn(Store), engine_type: EngineType) {
         // Remove preexistent DBs in case of a failed previous test
