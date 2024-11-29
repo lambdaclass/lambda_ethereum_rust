@@ -39,13 +39,13 @@ pub struct ExecutionPayload {
     #[serde(
         skip_serializing_if = "Option::is_none",
         with = "serde_utils::u64::hex_str_opt",
-        default = "Option::default"
+        default
     )]
     pub blob_gas_used: Option<u64>,
     #[serde(
         skip_serializing_if = "Option::is_none",
         with = "serde_utils::u64::hex_str_opt",
-        default = "Option::default"
+        default
     )]
     pub excess_blob_gas: Option<u64>,
 }
