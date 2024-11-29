@@ -60,7 +60,7 @@ impl<'a> Prover<'a> {
 
     pub fn get_gas(&self) -> Result<u64, Box<dyn std::error::Error>> {
         Ok(risc0_zkvm::serde::from_slice(
-            &self.stdout.get(..8).unwrap_or_default(), // first 8 bytes
+            self.stdout.get(..8).unwrap_or_default(), // first 8 bytes
         )?)
     }
 
