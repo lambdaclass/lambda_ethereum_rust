@@ -128,7 +128,7 @@ pub fn summary_for_slack(reports: &[EFTestReport]) -> String {
             "type": "section",
             "text": {{
                 "type": "mrkdwn",
-                "text": *Summary*: {total_passed}/{total_run} ({success_percentage:.2}%)\n\n{}\n{}\n{}\n{}\n{}\n{}\n{}\n{}\n{}\n{}\n"
+                "text": "*Summary*: {total_passed}/{total_run} ({success_percentage:.2}%)\n\n{}\n{}\n{}\n{}\n{}\n{}\n{}\n{}\n{}\n{}\n"
             }}             
         }}
     ]
