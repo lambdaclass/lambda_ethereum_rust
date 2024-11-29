@@ -1,0 +1,18 @@
+[package]
+name = "bench"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+ethrex-core.workspace = true
+ethrex-rlp.workspace = true
+
+#rsp-host-executor = { git = "https://github.com/succinctlabs/rsp" }
+#rsp-client-executor = { git = "https://github.com/succinctlabs/rsp" }
+
+tokio = { version = "1.21", default-features = false, features = ["full"] }
+reqwest = { version = "0.12.9", features = ["json"] }
+clap = { version = "4.5.21", features = ["derive"] }
+serde.workspace = true
+hex.workspace = true
+serde_json.workspace = true
