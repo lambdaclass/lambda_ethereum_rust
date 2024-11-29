@@ -25,18 +25,14 @@ impl RedBMultiTableTrieDB {
 
 impl TrieDB for RedBMultiTableTrieDB {
     fn get(&self, key: Vec<u8>) -> Result<Option<Vec<u8>>, TrieError> {
-        let read_txn = self.db.begin_read().unwrap();
-        let table = read_txn
-            .open_multimap_table(STORAGE_TRIE_NODES_TABLE)
-            .unwrap();
+        let read_txn = self.db.begin_read()?;
+        let table = read_txn.open_multimap_table(STORAGE_TRIE_NODES_TABLE)?;
 
-        let values = table
-            .get((self.fixed_key, node_hash_to_fixed_size(key)))
-            .unwrap();
+        let values = table.get((self.fixed_key, node_hash_to_fixed_size(key)))?;
 
         let mut ret = vec![];
         for value in values {
-            ret.push(value.unwrap().value().to_vec());
+            ret.push(value?.value().to_vec());
         }
 
         let ret_flattened = ret.concat();
@@ -49,16 +45,12 @@ impl TrieDB for RedBMultiTableTrieDB {
     }
 
     fn put(&self, key: Vec<u8>, value: Vec<u8>) -> Result<(), TrieError> {
-        let write_txn = self.db.begin_write().unwrap();
+        let write_txn = self.db.begin_write()?;
         {
-            let mut table = write_txn
-                .open_multimap_table(STORAGE_TRIE_NODES_TABLE)
-                .unwrap();
-            table
-                .insert((self.fixed_key, node_hash_to_fixed_size(key)), &*value)
-                .unwrap();
+            let mut table = write_txn.open_multimap_table(STORAGE_TRIE_NODES_TABLE)?;
+            table.insert((self.fixed_key, node_hash_to_fixed_size(key)), &*value)?;
         }
-        write_txn.commit().unwrap();
+        write_txn.commit()?;
 
         Ok(())
     }
