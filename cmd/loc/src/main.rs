@@ -89,10 +89,10 @@ fn slack_message(old_report: LinesOfCodeReport, new_report: LinesOfCodeReport) -
     ]
 }}"#,
         new_report.ethrex_l1,
-        if new_report.ethrex > old_report.ethrex {
-            format!("(+{ethrex_l1_diff})")
-        } else {
-            format!("(-{ethrex_l1_diff})")
+        match new_report.ethrex_l1.cmp(&old_report.ethrex_l1) {
+            std::cmp::Ordering::Greater => format!("(+{ethrex_l1_diff})"),
+            std::cmp::Ordering::Less => format!("(-{ethrex_l1_diff})"),
+            std::cmp::Ordering::Equal => "".to_string(),
         },
         new_report.ethrex_l2,
         match new_report.ethrex_l2.cmp(&old_report.ethrex_l2) {
