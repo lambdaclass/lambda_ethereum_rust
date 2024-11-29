@@ -264,4 +264,96 @@ impl PeerChannels {
         .ok()??;
         (!codes.is_empty() && codes.len() <= hashes_len).then_some(codes)
     }
+
+    /// Requests storage ranges for accounts given hasheshed address, storage roots,  and the root of their state trie
+    /// account_hashes & storage_roots must have the same length
+    /// Returns true if the last accoun't storage was not completely fetched by the request
+    /// Returns the list of hashed storage keys and values for each account's storage or None if:
+    /// - There are no available peers (the node just started up or was rejected by all other nodes)
+    /// - The response timed out
+    /// - The response was empty or not valid
+    pub async fn request_storage_ranges(
+        &self,
+        state_root: H256,
+        mut storage_roots: Vec<H256>,
+        account_hashes: Vec<H256>,
+        start: H256,
+    ) -> Option<(Vec<Vec<H256>>, Vec<Vec<U256>>, bool)> {
+        let request_id = rand::random();
+        let request = RLPxMessage::GetStorageRanges(GetStorageRanges {
+            id: request_id,
+            root_hash: state_root,
+            account_hashes,
+            starting_hash: start,
+            limit_hash: HASH_MAX,
+            response_bytes: MAX_RESPONSE_BYTES,
+        });
+        self.sender.send(request).await.ok()?;
+        let mut receiver = self.receiver.lock().await;
+        let (mut slots, proof) = tokio::time::timeout(PEER_REPLY_TIMOUT, async move {
+            loop {
+                match receiver.recv().await {
+                    Some(RLPxMessage::StorageRanges(StorageRanges { id, slots, proof }))
+                        if id == request_id =>
+                    {
+                        return Some((slots, proof))
+                    }
+                    // Ignore replies that don't match the expected id (such as late responses)
+                    Some(_) => continue,
+                    None => return None,
+                }
+            }
+        })
+        .await
+        .ok()??;
+        // Check we got a reasonable amount of storages
+        if slots.len() > storage_roots.len() || slots.is_empty() {
+            return None;
+        }
+        // Unzip & validate response
+        let mut proof = encodable_to_proof(&proof);
+        let mut storage_keys = vec![];
+        let mut storage_values = vec![];
+        let mut should_continue = false;
+        // Validate each storage range
+        while !slots.is_empty() {
+            let (hahsed_keys, values): (Vec<_>, Vec<_>) = slots
+                .remove(0)
+                .into_iter()
+                .map(|slot| (slot.hash, slot.data))
+                .unzip();
+            let encoded_values = values
+                .iter()
+                .map(|val| val.encode_to_vec())
+                .collect::<Vec<_>>();
+            let storage_root = storage_roots.remove(0);
+            // We have 3 cases:
+            // - The range is empty: We expect one edge proof
+            // - The range has only 1 element (with key matching the start): We expect one edge proof
+            // - The range has the full storage: We expect no proofs
+            // - The range is not the full storage (last range): We expect 2 edge proofs
+            if hahsed_keys.is_empty() || (hahsed_keys.len() == 1 && hahsed_keys[0] == start) {
+                if proof.len() < 1 {
+                    return None
+                };
+                let first_proof = vec![proof.remove(0)];
+                verify_range(storage_root, &start, &hahsed_keys, &encoded_values, &first_proof).ok()?;
+            }
+            if slots.is_empty() {
+                // Last element
+                if proof.len() < 2 {
+                    return None
+                };
+                let last_proof = vec![proof.remove(0), proof.remove(0)];
+                should_continue = verify_range(storage_root, &start, &hahsed_keys, &encoded_values, &last_proof).ok()?;
+            } else {
+                // Not the last element = Full range
+                verify_range(storage_root, &start, &hahsed_keys, &encoded_values, &vec![]).ok()?;
+            }
+
+            storage_keys.push(hahsed_keys);
+            storage_values.push(values);
+        }
+        Some((storage_keys, storage_values, should_continue))
+    }
 }
