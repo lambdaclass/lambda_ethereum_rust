@@ -73,62 +73,38 @@ pub fn prepare_vm_for_tx(vector: &TestVector, test: &EFTest) -> Result<VM, EFTes
         store: initial_state.database().unwrap().clone(),
         block_hash,
     });
+
+    let tx = test
+        .transactions
+        .get(vector)
+        .ok_or(EFTestRunnerError::Internal(
+            InternalError::FirstRunInternal("Failed to get transaction".to_owned()),
+        ))?;
+
     VM::new(
-        test.transactions
-            .get(vector)
-            .ok_or(EFTestRunnerError::VMInitializationFailed(
-                "Failed to get the tx from vector".to_string(),
-            ))?
-            .to
-            .clone(),
+        tx.to.clone(),
         Environment {
-            origin: test
-                .transactions
-                .get(vector)
-                .ok_or(EFTestRunnerError::VMInitializationFailed(
-                    "Failed to get the tx from vector".to_string(),
-                ))?
-                .sender,
+            origin: tx.sender,
             consumed_gas: U256::default(),
             refunded_gas: U256::default(),
-            gas_limit: test
-                .transactions
-                .get(vector)
-                .ok_or(EFTestRunnerError::VMInitializationFailed(
-                    "Failed to get the tx from vector".to_string(),
-                ))?
-                .gas_limit,
+            gas_limit: tx.gas_limit,
             block_number: test.env.current_number,
             coinbase: test.env.current_coinbase,
             timestamp: test.env.current_timestamp,
             prev_randao: test.env.current_random,
             chain_id: U256::from(1729),
             base_fee_per_gas: test.env.current_base_fee.unwrap_or_default(),
-            gas_price: test
-                .transactions
-                .get(vector)
-                .ok_or(EFTestRunnerError::VMInitializationFailed(
-                    "Failed to get the tx from vector".to_string(),
-                ))?
-                .gas_price
-                .unwrap_or_default(), // or max_fee_per_gas?
+            gas_price: tx.gas_price.unwrap_or_default(),
             block_excess_blob_gas: test.env.current_excess_blob_gas,
             block_blob_gas_used: None,
-            tx_blob_hashes: None,
+            tx_blob_hashes: tx.blob_versioned_hashes.clone(),
+            tx_max_priority_fee_per_gas: tx.max_priority_fee_per_gas,
+            tx_max_fee_per_gas: tx.max_fee_per_gas,
+            tx_max_fee_per_blob_gas: tx.max_fee_per_blob_gas,
+            block_gas_limit: test.env.current_gas_limit,
         },
-        test.transactions
-            .get(vector)
-            .ok_or(EFTestRunnerError::VMInitializationFailed(
-                "Failed to get the tx from vector".to_string(),
-            ))?
-            .value,
-        test.transactions
-            .get(vector)
-            .ok_or(EFTestRunnerError::VMInitializationFailed(
-                "Failed to get the tx from vector".to_string(),
-            ))?
-            .data
-            .clone(),
+        tx.value,
+        tx.data.clone(),
         db,
         CacheDB::default(),
     )
