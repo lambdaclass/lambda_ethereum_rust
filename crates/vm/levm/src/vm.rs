@@ -654,8 +654,7 @@ impl VM {
         ret_offset: usize,
         ret_size: usize,
     ) -> Result<OpcodeSuccess, VMError> {
-        let (sender_account_info, _address_was_cold) =
-            self.access_account(msg_sender);
+        let (sender_account_info, _address_was_cold) = self.access_account(msg_sender);
 
         if sender_account_info.balance < value {
             current_call_frame.stack.push(U256::from(REVERT_FOR_CALL))?;
