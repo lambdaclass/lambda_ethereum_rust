@@ -308,7 +308,7 @@ fn checked_shift_right(value: U256, shift: U256) -> Result<U256, VMError> {
     let mut result = value;
     let mut shifts_left = shift;
 
-    while shifts_left > U256::zero() {
+    while !shifts_left.is_zero() {
         result = result.checked_div(U256::from(2)).ok_or(VMError::Internal(
             InternalError::ArithmeticOperationDividedByZero,
         ))?; // '2' will never be zero
