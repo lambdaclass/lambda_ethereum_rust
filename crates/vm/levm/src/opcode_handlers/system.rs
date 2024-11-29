@@ -501,10 +501,6 @@ impl VM {
                 .insert(current_call_frame.to);
         }
 
-        let (target_account_info, target_account_is_cold) = self.access_account(target_address);
-
-        self.increase_account_balance(target_address, target_account_info.balance)?;
-
         // Don't like to consume the gas after the operation but i need to don't cache both at the same time
         self.increase_consumed_gas(
             current_call_frame,
