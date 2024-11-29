@@ -113,12 +113,12 @@ impl RedBStore {
         K: Key + 'static,
         V: Key + 'static,
     {
-        let write_txn = self.db.begin_write().unwrap();
+        let write_txn = self.db.begin_write()?;
         {
-            let mut table = write_txn.open_multimap_table(table).unwrap();
-            table.insert(key, value).unwrap();
+            let mut table = write_txn.open_multimap_table(table)?;
+            table.insert(key, value)?;
         }
-        write_txn.commit().unwrap();
+        write_txn.commit()?;
 
         Ok(())
     }
