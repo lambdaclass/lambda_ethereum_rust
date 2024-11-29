@@ -12,7 +12,9 @@ use ethrex_trie::{
     db::{redb::RedBTrie, redb_multitable::RedBMultiTableTrieDB},
     Trie,
 };
-use redb::{AccessGuard, Database, Key, MultimapTableDefinition, TableDefinition, TypeName, Value};
+use redb::{
+    AccessGuard, Builder, Database, Key, MultimapTableDefinition, TableDefinition, TypeName, Value,
+};
 
 use crate::rlp::{BlockRLP, BlockTotalDifficultyRLP, Rlp, TransactionHashRLP};
 use crate::{
@@ -103,6 +105,28 @@ impl RedBStore {
     }
 
     // Helper method to write into a redb table
+    fn write_batch<'k, 'v, 'a, K, V>(
+        &self,
+        table: TableDefinition<'a, K, V>,
+        key_values: Vec<(impl Borrow<K::SelfType<'k>>, impl Borrow<V::SelfType<'v>>)>,
+    ) -> Result<(), StoreError>
+    where
+        K: Key + 'static,
+        V: Value + 'static,
+    {
+        let write_txn = self.db.begin_write()?;
+        {
+            let mut table = write_txn.open_table(table)?;
+            for (key, value) in key_values {
+                table.insert(key, value)?;
+            }
+        }
+        write_txn.commit()?;
+
+        Ok(())
+    }
+
+    // Helper method to write into a redb table
     fn write_to_multi<'k, 'v, 'a, K, V>(
         &self,
         table: MultimapTableDefinition<'a, K, V>,
@@ -117,6 +141,28 @@ impl RedBStore {
         {
             let mut table = write_txn.open_multimap_table(table)?;
             table.insert(key, value)?;
+        }
+        write_txn.commit()?;
+
+        Ok(())
+    }
+
+    // Helper method to write into a redb table
+    fn write_to_multi_batch<'k, 'v, 'a, K, V>(
+        &self,
+        table: MultimapTableDefinition<'a, K, V>,
+        key_values: Vec<(impl Borrow<K::SelfType<'k>>, impl Borrow<V::SelfType<'v>>)>,
+    ) -> Result<(), StoreError>
+    where
+        K: Key + 'static,
+        V: Key + 'static,
+    {
+        let write_txn = self.db.begin_write()?;
+        {
+            let mut table = write_txn.open_multimap_table(table)?;
+            for (key, value) in key_values {
+                table.insert(key, value)?;
+            }
         }
         write_txn.commit()?;
 
@@ -561,6 +607,50 @@ impl StoreEngine for RedBStore {
         Ok(self
             .read(PAYLOADS_TABLE, payload_id)?
             .map(|b| b.value().to()))
+    }
+
+    fn add_receipts(
+        &self,
+        block_hash: BlockHash,
+        receipts: Vec<Receipt>,
+    ) -> Result<(), StoreError> {
+        let key_values = receipts
+            .into_iter()
+            .enumerate()
+            .map(|(index, receipt)| {
+                (
+                    <(H256, u64) as Into<TupleRLP<BlockHash, Index>>>::into((
+                        block_hash,
+                        index as u64,
+                    )),
+                    <Receipt as Into<ReceiptRLP>>::into(receipt),
+                )
+            })
+            .collect();
+        self.write_batch(RECEIPTS_TABLE, key_values)
+    }
+
+    fn add_transaction_locations(
+        &self,
+        locations: Vec<(H256, BlockNumber, BlockHash, Index)>,
+    ) -> Result<(), StoreError> {
+        let key_values = locations
+            .into_iter()
+            .map(|(tx_hash, block_number, block_hash, index)| {
+                (
+                    <H256 as Into<TransactionHashRLP>>::into(tx_hash),
+                    <(u64, H256, u64) as Into<Rlp<(BlockNumber, BlockHash, Index)>>>::into((
+                        block_number,
+                        block_hash,
+                        index,
+                    )),
+                )
+            })
+            .collect();
+
+        self.write_to_multi_batch(TRANSACTION_LOCATIONS_TABLE, key_values)?;
+
+        Ok(())
     }
 }
 
