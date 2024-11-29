@@ -88,7 +88,7 @@ impl Store {
                 blobs_bundle_pool: Arc::new(Mutex::new(HashMap::new())),
             },
             EngineType::RedB => Self {
-                engine: Arc::new(RedBStore::new().unwrap()),
+                engine: Arc::new(RedBStore::new()?),
                 mempool: Arc::new(Mutex::new(HashMap::new())),
                 blobs_bundle_pool: Arc::new(Mutex::new(HashMap::new())),
             },

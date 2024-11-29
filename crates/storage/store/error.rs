@@ -21,6 +21,8 @@ pub enum StoreError {
     RedbTransactionError(#[from] TransactionError),
     #[error("Redb Database error: {0}")]
     RedbDatabaseError(#[from] DatabaseError),
+    #[error("Redb Cast error")]
+    RedbCastError,
     #[error("{0}")]
     Custom(String),
     #[error(transparent)]
