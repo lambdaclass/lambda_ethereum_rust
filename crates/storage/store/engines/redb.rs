@@ -12,9 +12,7 @@ use ethrex_trie::{
     db::{redb::RedBTrie, redb_multitable::RedBMultiTableTrieDB},
     Trie,
 };
-use redb::{
-    AccessGuard, Builder, Database, Key, MultimapTableDefinition, TableDefinition, TypeName, Value,
-};
+use redb::{AccessGuard, Database, Key, MultimapTableDefinition, TableDefinition, TypeName, Value};
 
 use crate::rlp::{BlockRLP, BlockTotalDifficultyRLP, Rlp, TransactionHashRLP};
 use crate::{

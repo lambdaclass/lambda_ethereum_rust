@@ -234,7 +234,7 @@ impl Store {
 
     pub fn add_transaction_locations(
         &self,
-        transactions: &Vec<Transaction>,
+        transactions: &[Transaction],
         block_number: BlockNumber,
         block_hash: BlockHash,
     ) -> Result<(), StoreError> {
@@ -515,8 +515,7 @@ impl Store {
         self.add_block_header(hash, header)?;
         self.add_block_number(hash, number)?;
         self.add_block_total_difficulty(hash, block_total_difficulty)?;
-        let res = self.update_latest_total_difficulty(block_total_difficulty);
-        res
+        self.update_latest_total_difficulty(block_total_difficulty)
     }
 
     pub fn add_initial_state(&self, genesis: Genesis) -> Result<(), StoreError> {

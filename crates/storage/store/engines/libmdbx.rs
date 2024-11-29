@@ -441,6 +441,7 @@ impl StoreEngine for Store {
         &self,
         locations: Vec<(H256, BlockNumber, BlockHash, Index)>,
     ) -> std::result::Result<(), StoreError> {
+        #[allow(clippy::type_complexity)]
         let key_values: Vec<(TransactionHashRLP, Rlp<(BlockNumber, BlockHash, Index)>)> = locations
             .into_iter()
             .map(|(tx_hash, block_number, block_hash, index)| {
