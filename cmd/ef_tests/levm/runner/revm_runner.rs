@@ -284,7 +284,9 @@ pub fn ensure_post_state(
         Some(_expected_exception) => {}
         // We only want to compare account updates when no exception is expected.
         None => {
-            let levm_account_updates = levm_runner::get_state_transitions(levm_execution_report);
+            let (initial_state, _block_hash) = load_initial_state(test);
+            let levm_account_updates =
+                levm_runner::get_state_transitions(&initial_state, levm_execution_report);
             let revm_account_updates = ethrex_vm::get_state_transitions(revm_state);
             let account_updates_report = compare_levm_revm_account_updates(
                 test,
