@@ -440,7 +440,7 @@ impl VM {
         let value = initial_call_frame.msg_value;
 
         // blob gas cost = max fee per blob gas * blob gas used
-        // https://www.blocknative.com/blog/blobsplaining
+        // https://eips.ethereum.org/EIPS/eip-4844
         let blob_gas_used = U256::from(self.env.tx_blob_hashes.len())
             .checked_mul(U256::from(131072))
             .unwrap_or_default();
