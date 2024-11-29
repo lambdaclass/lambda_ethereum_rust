@@ -1,5 +1,6 @@
 use std::sync::mpsc::SendError;
 
+use crate::utils::merkle_tree::MerkleError;
 use crate::utils::{config::errors::ConfigError, eth_client::errors::EthClientError};
 use ethereum_types::FromStrRadixErr;
 use ethrex_core::types::BlobsBundleError;
@@ -80,6 +81,8 @@ pub enum CommitterError {
     FailedToParseLastCommittedBlock(#[from] FromStrRadixErr),
     #[error("Committer failed retrieve block from storage: {0}")]
     FailedToRetrieveBlockFromStorage(#[from] StoreError),
+    #[error("Committer failed retrieve data from storage")]
+    FailedToRetrieveDataFromStorage,
     #[error("Committer failed to generate blobs bundle: {0}")]
     FailedToGenerateBlobsBundle(#[from] BlobsBundleError),
     #[error("Committer failed to get information from storage")]
@@ -92,6 +95,10 @@ pub enum CommitterError {
     FailedToReExecuteBlock(#[from] EvmError),
     #[error("Committer failed to send transaction: {0}")]
     FailedToSendCommitment(String),
+    #[error("Committer failed to decode deposit hash")]
+    FailedToDecodeDepositHash,
+    #[error("Committer failed to merkelize: {0}")]
+    FailedToMerkelize(#[from] MerkleError),
     #[error("Withdrawal transaction was invalid")]
     InvalidWithdrawalTransaction,
     #[error("Blob estimation failed: {0}")]

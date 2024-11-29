@@ -71,7 +71,7 @@ stop-localnet-silent:
 	@kurtosis enclave stop lambdanet >/dev/null 2>&1 || true
 	@kurtosis enclave rm lambdanet --force >/dev/null 2>&1 || true
 
-HIVE_REVISION := fc6ddec210095e2369019e7f4ab2f9f38e35a8e8
+HIVE_REVISION := f220e0c55fb222aaaffdf17d66aa0537cd16a67a
 # Shallow clones can't specify a single revision, but at least we avoid working
 # the whole history by making it shallow since a given date (one day before our
 # target revision).
@@ -96,9 +96,6 @@ TEST_PATTERN ?= /
 # `make run-hive SIMULATION=ethereum/rpc-compat TEST_PATTERN="/eth_chainId|eth_blockNumber"`
 run-hive: build-image setup-hive ## 🧪 Run Hive testing suite
 	cd hive && ./hive --sim $(SIMULATION) --client ethrex --sim.limit "$(TEST_PATTERN)"
-
-run-hive-on-latest: setup-hive ## 🧪 Run Hive testing suite with the latest docker image
-	cd hive && ./hive --sim $(SIMULATION) --client ethrex --sim.limit "$(TEST_PATTERN)" $(HIVE_EXTRA_ARGS)
 
 run-hive-debug: build-image setup-hive ## 🐞 Run Hive testing suite in debug mode
 	cd hive && ./hive --sim $(SIMULATION) --client ethrex --sim.limit "$(TEST_PATTERN)" --docker.output
