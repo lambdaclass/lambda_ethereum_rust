@@ -16,7 +16,7 @@ pub struct LinesOfCodeReport {
     pub levm: usize,
 }
 
-fn slack_message(old_report: LinesOfCodeReport, new_report: LinesOfCodeReport) -> String {
+pub fn slack_message(old_report: LinesOfCodeReport, new_report: LinesOfCodeReport) -> String {
     let ethrex_l1_diff = new_report.ethrex_l1.abs_diff(old_report.ethrex_l1);
     let ethrex_l2_diff = new_report.ethrex_l2.abs_diff(old_report.ethrex_l2);
     let levm_diff = new_report.levm.abs_diff(old_report.levm);
@@ -71,7 +71,7 @@ fn slack_message(old_report: LinesOfCodeReport, new_report: LinesOfCodeReport) -
     )
 }
 
-fn github_step_summary(old_report: LinesOfCodeReport, new_report: LinesOfCodeReport) -> String {
+pub fn github_step_summary(old_report: LinesOfCodeReport, new_report: LinesOfCodeReport) -> String {
     let ethrex_l1_diff = new_report.ethrex_l1.abs_diff(old_report.ethrex_l1);
     let ethrex_l2_diff = new_report.ethrex_l2.abs_diff(old_report.ethrex_l2);
     let levm_diff = new_report.levm.abs_diff(old_report.levm);
