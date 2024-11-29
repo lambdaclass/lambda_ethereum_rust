@@ -71,15 +71,8 @@ pub mod io {
 pub mod trie {
     use std::collections::HashMap;
 
-    use ethrex_core::{
-        types::{Account, AccountState},
-        H160,
-    };
-    use ethrex_rlp::{
-        decode::{self, RLPDecode},
-        encode::RLPEncode,
-        error::RLPDecodeError,
-    };
+    use ethrex_core::{types::AccountState, H160};
+    use ethrex_rlp::{decode::RLPDecode, encode::RLPEncode, error::RLPDecodeError};
     use ethrex_storage::{hash_address, hash_key, AccountUpdate};
     use ethrex_trie::{Trie, TrieError};
     use thiserror::Error;
