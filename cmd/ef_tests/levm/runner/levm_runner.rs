@@ -19,6 +19,8 @@ use ethrex_vm::db::StoreWrapper;
 use keccak_hash::keccak;
 use std::{collections::HashMap, sync::Arc};
 
+use super::revm_runner::effective_gas_price;
+
 pub fn run_ef_test(test: &EFTest) -> Result<EFTestReport, EFTestRunnerError> {
     let mut ef_test_report = EFTestReport::new(
         test.name.clone(),
@@ -94,7 +96,7 @@ pub fn prepare_vm_for_tx(vector: &TestVector, test: &EFTest) -> Result<VM, EFTes
             prev_randao: test.env.current_random,
             chain_id: U256::from(1729),
             base_fee_per_gas: test.env.current_base_fee.unwrap_or_default(),
-            gas_price: tx.gas_price.unwrap_or_default(),
+            gas_price: effective_gas_price(test, &tx),
             block_excess_blob_gas: test.env.current_excess_blob_gas,
             block_blob_gas_used: None,
             tx_blob_hashes: tx.blob_versioned_hashes.clone(),

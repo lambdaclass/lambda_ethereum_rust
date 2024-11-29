@@ -403,6 +403,12 @@ impl VM {
         Ok(())
     }
 
+    /// To get the maximum fee per gas that the user is willing to pay, independently of the actual gas price
+    /// For legacy transactions the max fee per gas is the gas price
+    fn max_fee_per_gas_or_gasprice(&self) -> U256 {
+        self.env.tx_max_fee_per_gas.unwrap_or(self.env.gas_price)
+    }
+
     /// ## Description
     /// This method performs validations and returns an error if any of the validations fail.
     /// It also makes initial changes alongside the validations:
@@ -423,20 +429,35 @@ impl VM {
         let sender_account = self.get_account(sender_address);
 
         // (1) GASLIMIT_PRICE_PRODUCT_OVERFLOW
-        let gaslimit_price_product =
-            self.env
-                .gas_price
-                .checked_mul(self.env.gas_limit)
-                .ok_or(VMError::TxValidation(
-                    TxValidationError::GasLimitPriceProductOverflow,
-                ))?;
-
-        // Up front cost is the maximum amount of wei that a user is willing to pay for.
-        let up_front_cost = gaslimit_price_product
-            .checked_add(initial_call_frame.msg_value)
+        let gaslimit_price_product = self
+            .max_fee_per_gas_or_gasprice()
+            .checked_mul(self.env.gas_limit)
             .ok_or(VMError::TxValidation(
-                TxValidationError::InsufficientAccountFunds,
+                TxValidationError::GasLimitPriceProductOverflow,
             ))?;
+
+        // Up front cost is the maximum amount of wei that a user is willing to pay for. Gaslimit * gasprice + value + blob_gas_cost
+        let value = initial_call_frame.msg_value;
+
+        // blob gas cost = max fee per blob gas * blob gas used
+        // https://www.blocknative.com/blog/blobsplaining
+        let blob_gas_used = U256::from(self.env.tx_blob_hashes.len())
+            .checked_mul(U256::from(131072))
+            .unwrap_or_default();
+
+        let blob_gas_cost = self
+            .env
+            .tx_max_fee_per_blob_gas
+            .unwrap_or_default()
+            .checked_mul(blob_gas_used)
+            .ok_or(VMError::TxValidation(TxValidationError::UndefinedState(1)))?;
+
+        let up_front_cost = gaslimit_price_product
+            .checked_add(value)
+            .ok_or(VMError::TxValidation(TxValidationError::UndefinedState(1)))?
+            .checked_add(blob_gas_cost)
+            .ok_or(VMError::TxValidation(TxValidationError::UndefinedState(1)))?;
+        // There is no error specified for overflow in up_front_cost in ef_tests. Maybe we can go with GasLimitPriceProductOverflow or InsufficientAccountFunds.
 
         // (2) INSUFFICIENT_ACCOUNT_FUNDS
         // NOT CHANGING SENDER BALANCE HERE FOR NOW
@@ -450,7 +471,7 @@ impl VM {
             ))?;
 
         // (3) INSUFFICIENT_MAX_FEE_PER_GAS
-        if self.env.gas_price < self.env.base_fee_per_gas {
+        if self.max_fee_per_gas_or_gasprice() < self.env.base_fee_per_gas {
             return Err(VMError::TxValidation(
                 TxValidationError::InsufficientMaxFeePerGas,
             ));
@@ -498,14 +519,13 @@ impl VM {
 
         // (10) INSUFFICIENT_MAX_FEE_PER_BLOB_GAS
         if let Some(tx_max_fee_per_blob_gas) = self.env.tx_max_fee_per_blob_gas {
+            //TODO: This is wrong but I don't know what to compare the max fee per blob gas to. See when it is considered 'insufficient'
             if tx_max_fee_per_blob_gas.is_zero() {
                 return Err(VMError::TxValidation(
                     TxValidationError::InsufficientMaxFeePerBlobGas,
                 ));
             }
         }
-
-        //TODO: Implement the rest of the validations (TYPE_3)
 
         // Transaction is type 3 if tx_max_fee_per_blob_gas is Some
         if self.env.tx_max_fee_per_blob_gas.is_some() {
