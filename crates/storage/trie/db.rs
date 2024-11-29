@@ -7,6 +7,7 @@ pub mod libmdbx_dupsort;
 pub mod redb;
 #[cfg(feature = "redb")]
 pub mod redb_multitable;
+mod utils;
 
 use crate::error::TrieError;
 
