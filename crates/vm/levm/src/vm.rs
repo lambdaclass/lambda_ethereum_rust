@@ -117,7 +117,7 @@ impl VM {
                     accrued_substate: Substate::default(),
                     cache,
                     tx_kind: to,
-                    touched_accounts: HashSet::new(),
+                    touched_accounts: default_touched_accounts,
                     touched_storage_slots: HashMap::new(),
                 })
             }
