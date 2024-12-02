@@ -59,7 +59,7 @@ pub fn run_ef_tests(
     if opts.summary {
         return Ok(());
     }
-    // re_run_with_revm(&mut reports, &ef_tests)?; //TODO: Uncomment before merging
+    re_run_with_revm(&mut reports, &ef_tests)?;
     write_report(&reports)
 }
 
