@@ -2,7 +2,7 @@ use crate::{
     report::{EFTestReport, TestVector},
     runner::{EFTestRunnerError, InternalError},
     types::EFTest,
-    utils,
+    utils::{self, effective_gas_price},
 };
 use ethrex_core::{
     types::{code_hash, AccountInfo},
@@ -18,8 +18,6 @@ use ethrex_storage::AccountUpdate;
 use ethrex_vm::db::StoreWrapper;
 use keccak_hash::keccak;
 use std::{collections::HashMap, sync::Arc};
-
-use super::revm_runner::effective_gas_price;
 
 pub fn run_ef_test(test: &EFTest) -> Result<EFTestReport, EFTestRunnerError> {
     let mut ef_test_report = EFTestReport::new(
