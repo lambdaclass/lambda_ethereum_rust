@@ -4,6 +4,7 @@ use ethrex_rlp::{
     error::{RLPDecodeError, RLPEncodeError},
     structs::{Decoder, Encoder},
 };
+use ethrex_storage::{error::StoreError, Store};
 
 use crate::rlpx::{
     message::RLPxMessage,
@@ -92,6 +93,10 @@ impl NewPooledTransactionHashes {
             transaction_sizes,
             transaction_hashes,
         }
+    }
+
+    pub fn get_transactions_to_request(&self, storage: &Store) -> Result<Vec<H256>, StoreError> {
+        Ok(storage.get_unknown_transactions(&self.transaction_hashes)?)
     }
 }
 

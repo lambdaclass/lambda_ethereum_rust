@@ -21,6 +21,7 @@ use crate::{
 
 use super::{
     error::RLPxError,
+    eth::transactions::GetPooledTransactions,
     frame,
     handshake::{decode_ack_message, decode_auth_message, encode_auth_message},
     message as rlpx,
@@ -28,7 +29,7 @@ use super::{
     utils::{ecdh_xchng, pubkey2id},
 };
 use aes::cipher::KeyIvInit;
-use ethrex_blockchain::mempool;
+use ethrex_blockchain::mempool::{self};
 use ethrex_core::{H256, H512};
 use ethrex_rlp::decode::RLPDecode;
 use ethrex_storage::Store;
@@ -36,6 +37,7 @@ use k256::{
     ecdsa::{RecoveryId, Signature, SigningKey, VerifyingKey},
     PublicKey, SecretKey,
 };
+use rand::random;
 use sha3::{Digest, Keccak256};
 use tokio::{
     io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt},
@@ -353,9 +355,15 @@ impl<S: AsyncWrite + AsyncRead + std::marker::Unpin> RLPxConnection<S> {
                 };
                 self.send(Message::BlockBodies(response)).await?;
             }
-            Message::NewPooledTransactionHashes(msg) if peer_supports_eth => {
+            Message::NewPooledTransactionHashes(new_pooled_transaction_hashes)
+                if peer_supports_eth =>
+            {
                 // For now we always ask for the transactions we don't know. We might want to add checks to avoid
-                // repetitions in the future.
+                // repetitions in the future (that is, if there's already an ongoing request for any of those transactions).
+                let hashes =
+                    new_pooled_transaction_hashes.get_transactions_to_request(&self.storage)?;
+                let request = GetPooledTransactions::new(random(), hashes);
+                self.send(Message::GetPooledTransactions(request)).await?;
             }
             Message::GetStorageRanges(req) => {
                 let response = process_storage_ranges_request(req, self.storage.clone())?;
