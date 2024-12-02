@@ -152,24 +152,22 @@ impl CallFrame {
             .try_into()
             .map_err(|_err| VMError::VeryLargeNumber)?;
 
-        if !self.valid_jump(jump_address_usize) {
+        if !self.valid_jump(jump_address_usize)? {
             return Ok(false);
         }
         self.pc = jump_address_usize;
         Ok(true)
     }
 
-    fn valid_jump(&self, jump_address: usize) -> bool {
-        self.opcode_at(jump_address)
-            .map(|opcode| opcode.eq(&Opcode::JUMPDEST))
-            .is_some_and(|is_jumpdest| is_jumpdest)
-    }
-
-    fn opcode_at(&self, offset: usize) -> Option<Opcode> {
-        self.bytecode
-            .get(offset)
-            .copied()
-            .map(Opcode::try_from)?
-            .ok()
+    fn valid_jump(&self, to_jump_address: usize) -> Result<bool, VMError> {
+        matches!(
+            self.bytecode
+                .get(to_jump_address)
+                .copied()
+                .map(Opcode::try_from),
+            Some(Ok(Opcode::JUMPDEST))
+        )
+        .then(|| true)
+        .ok_or(VMError::InvalidJump)
     }
 }
