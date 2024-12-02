@@ -325,7 +325,6 @@ impl EthClient {
 
     /// Increase max fee per gas by percentage% (set it to (100+percentage)% of the original)
     pub fn bump_privileged_l2(&self, tx: &mut PrivilegedL2Transaction, percentage: u64) {
-        // TODO: handle as conversions
         tx.max_fee_per_gas = (tx.max_fee_per_gas * (100 + percentage)) / 100;
         tx.max_priority_fee_per_gas += (tx.max_priority_fee_per_gas * (100 + percentage)) / 100;
     }
