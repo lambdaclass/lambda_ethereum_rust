@@ -330,7 +330,7 @@ impl PeerChannels {
             // We have 3 cases:
             // - The range is empty (and start != 0): We expect one edge proof
             // - The range has only 1 element (with key matching the start): We expect one edge proof
-            // - The range has the full storage: We expect no proofs
+            // - The range has the full storage (empty range but start = 0 fits here): We expect no proofs
             // - The range is not the full storage (last range): We expect 2 edge proofs
             if hahsed_keys.is_empty() && !start.is_zero()
                 || (hahsed_keys.len() == 1 && hahsed_keys[0] == start)
@@ -348,7 +348,7 @@ impl PeerChannels {
                 )
                 .ok()?;
             }
-            if slots.is_empty() {
+            if slots.is_empty() && !(slots.is_empty() && start.is_zero()) {
                 // Last element
                 if proof.len() < 2 {
                     return None;
