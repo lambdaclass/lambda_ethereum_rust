@@ -107,3 +107,32 @@ pub async fn get_account(
             .map_err(|_| "failed to parse code hash".to_string())?,
     })
 }
+
+#[cfg(test)]
+mod test {
+    use ethrex_core::Address;
+
+    use crate::{get_account, get_block};
+
+    const BLOCK_NUMBER: usize = 21315830;
+    const RPC_URL: &str = "<to complete>";
+    const VITALIK_ADDR: &str = "d8dA6BF26964aF9D7eEd9e03E53415D37aA96045";
+
+    #[ignore = "Needs to manually set RPC_URL"]
+    #[tokio::test]
+    async fn get_block_works() {
+        get_block(RPC_URL, BLOCK_NUMBER).await.unwrap();
+    }
+
+    #[ignore = "Needs to manually set RPC_URL"]
+    #[tokio::test]
+    async fn get_account_works() {
+        get_account(
+            RPC_URL,
+            BLOCK_NUMBER,
+            Address::from_slice(&hex::decode(VITALIK_ADDR).unwrap()),
+        )
+        .await
+        .unwrap();
+    }
+}
