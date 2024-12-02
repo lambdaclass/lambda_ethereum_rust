@@ -120,14 +120,12 @@ impl CallFrame {
     }
 
     pub fn next_opcode(&mut self) -> Result<Opcode, VMError> {
-        let opcode = self
-            .bytecode
-            .get(self.pc)
-            .copied()
-            .map(Opcode::try_from)
-            .unwrap_or(Ok(Opcode::STOP))?;
-        self.increment_pc()?;
-        Ok(opcode)
+        if let Some(opcode) = self.bytecode.get(self.pc).copied().map(Opcode::try_from) {
+            self.increment_pc()?;
+            opcode
+        } else {
+            Ok(Opcode::STOP)
+        }
     }
 
     pub fn increment_pc_by(&mut self, count: usize) -> Result<(), VMError> {
