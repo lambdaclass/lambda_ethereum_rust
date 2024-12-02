@@ -354,6 +354,7 @@ impl VM {
 
         // Intrinsic Gas = Calldata cost + Create cost + Base cost + Access list cost
         let mut intrinsic_gas: U256 = U256::zero();
+        //TODO: Determine whether blob cost should be added to intrinsic gas or not. The thing is that I don't know where to get the actual blob gas cost from. I only have the max blob gas cost that the user is willing to pay.
 
         // Calldata Cost
         // 4 gas for each zero byte in the transaction data 16 gas for each non-zero byte in the transaction.
@@ -406,6 +407,22 @@ impl VM {
         self.env.tx_max_fee_per_gas.unwrap_or(self.env.gas_price)
     }
 
+    /// Gets the max blob gas cost for a transaction that a user is willing to pay.
+    fn get_max_blob_gas_cost(&self) -> Result<U256, VMError> {
+        let blob_gas_used = U256::from(self.env.tx_blob_hashes.len())
+            .checked_mul(U256::from(131072))
+            .unwrap_or_default();
+
+        let blob_gas_cost = self
+            .env
+            .tx_max_fee_per_blob_gas
+            .unwrap_or_default()
+            .checked_mul(blob_gas_used)
+            .ok_or(VMError::TxValidation(TxValidationError::UndefinedState(1)))?;
+
+        Ok(blob_gas_cost)
+    }
+
     /// ## Description
     /// This method performs validations and returns an error if any of the validations fail.
     /// It also makes initial changes alongside the validations:
@@ -438,16 +455,7 @@ impl VM {
 
         // blob gas cost = max fee per blob gas * blob gas used
         // https://eips.ethereum.org/EIPS/eip-4844
-        let blob_gas_used = U256::from(self.env.tx_blob_hashes.len())
-            .checked_mul(U256::from(131072))
-            .unwrap_or_default();
-
-        let blob_gas_cost = self
-            .env
-            .tx_max_fee_per_blob_gas
-            .unwrap_or_default()
-            .checked_mul(blob_gas_used)
-            .ok_or(VMError::TxValidation(TxValidationError::UndefinedState(1)))?;
+        let blob_gas_cost = self.get_max_blob_gas_cost()?;
 
         let up_front_cost = gaslimit_price_product
             .checked_add(value)
