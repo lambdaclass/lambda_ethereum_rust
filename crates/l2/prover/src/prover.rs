@@ -8,8 +8,6 @@ use zkvm_interface::{
 
 use risc0_zkvm::{default_prover, ExecutorEnv, ProverOpts};
 
-use ethrex_l2::utils::config::prover_client::ProverClientConfig;
-
 pub struct Prover<'a> {
     elf: &'a [u8],
     pub id: [u32; 8],
@@ -18,7 +16,6 @@ pub struct Prover<'a> {
 
 impl<'a> Default for Prover<'a> {
     fn default() -> Self {
-        let _config = ProverClientConfig::from_env().unwrap();
         Self::new()
     }
 }
@@ -59,6 +56,12 @@ impl<'a> Prover<'a> {
         // Verify the proof.
         receipt.verify(self.id)?;
         Ok(())
+    }
+
+    pub fn get_gas(&self) -> Result<u64, Box<dyn std::error::Error>> {
+        Ok(risc0_zkvm::serde::from_slice(
+            self.stdout.get(..8).unwrap_or_default(), // first 8 bytes
+        )?)
     }
 
     pub fn get_commitment(
