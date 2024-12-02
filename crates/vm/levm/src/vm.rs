@@ -662,9 +662,9 @@ impl VM {
                 current_call_frame.stack.push(U256::from(REVERT_FOR_CALL))?;
                 return Ok(OpcodeSuccess::Continue);
             }
-    
+
             self.decrease_account_balance(msg_sender, value)?;
-            self.increase_account_balance(to, value)?;    
+            self.increase_account_balance(to, value)?;
         }
 
         let (code_account_info, _address_was_cold) = self.access_account(code_address);
@@ -886,7 +886,7 @@ impl VM {
             code_size_in_memory,
             code_offset_in_memory,
             code_size_in_memory,
-            true
+            true,
         )?;
 
         // Erases the success value in the stack result of calling generic call, probably this should be refactored soon...

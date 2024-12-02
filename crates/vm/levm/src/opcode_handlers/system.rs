@@ -92,7 +92,7 @@ impl VM {
             args_size,
             return_data_start_offset,
             return_data_size,
-            true
+            true,
         )
     }
 
@@ -173,7 +173,7 @@ impl VM {
             args_size,
             return_data_start_offset,
             return_data_size,
-            true
+            true,
         )
     }
 
@@ -278,7 +278,7 @@ impl VM {
             args_size,
             return_data_start_offset,
             return_data_size,
-            false
+            false,
         )
     }
 
@@ -356,7 +356,7 @@ impl VM {
             args_size,
             return_data_start_offset,
             return_data_size,
-            true
+            true,
         )
     }
 
