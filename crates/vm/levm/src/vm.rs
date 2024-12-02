@@ -20,7 +20,7 @@ use ethrex_core::{types::TxKind, Address, H256, U256};
 use ethrex_rlp;
 use ethrex_rlp::encode::RLPEncode;
 use keccak_hash::keccak;
-use sha3::{digest::consts::U2, Digest, Keccak256};
+use sha3::{Digest, Keccak256};
 use std::{
     collections::{HashMap, HashSet},
     sync::Arc,
@@ -423,11 +423,11 @@ impl VM {
     }
 
     pub fn get_base_fee_per_blob_gas(&self) -> Result<U256, VMError> {
-        Ok(fake_exponential(
+        fake_exponential(
             MIN_BASE_FEE_PER_BLOB_GAS,
             self.env.block_excess_blob_gas.unwrap_or_default().low_u64(), //Maybe replace unwrap_or_default for sth else later.
             BLOB_BASE_FEE_UPDATE_FRACTION,
-        )?)
+        )
     }
 
     /// ## Description

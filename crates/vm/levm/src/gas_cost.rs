@@ -1,8 +1,6 @@
 use crate::{
     call_frame::CallFrame,
-    constants::{
-        BLOB_BASE_FEE_UPDATE_FRACTION, MIN_BASE_FEE_PER_BLOB_GAS, WORD_SIZE, WORD_SIZE_IN_BYTES,
-    },
+    constants::{WORD_SIZE, WORD_SIZE_IN_BYTES},
     errors::{InternalError, OutOfGasError, VMError},
     memory, StorageSlot,
 };
