@@ -354,7 +354,6 @@ impl VM {
 
         // Intrinsic Gas = Calldata cost + Create cost + Base cost + Access list cost
         let mut intrinsic_gas: U256 = U256::zero();
-        //TODO: Determine whether blob cost should be added to intrinsic gas or not. The thing is that I don't know where to get the actual blob gas cost from. I only have the max blob gas cost that the user is willing to pay.
 
         // Calldata Cost
         // 4 gas for each zero byte in the transaction data 16 gas for each non-zero byte in the transaction.
