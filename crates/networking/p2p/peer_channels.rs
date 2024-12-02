@@ -306,8 +306,8 @@ impl PeerChannels {
         })
         .await
         .ok()??;
-        // Check we got a reasonable amount of storages
-        if slots.len() > storage_roots.len() || slots.is_empty() {
+        // Check we got a reasonable amount of storage ranges
+        if slots.len() > storage_roots.len() || (slots.is_empty() && proof.is_empty()) {
             return None;
         }
         // Unzip & validate response
@@ -328,11 +328,13 @@ impl PeerChannels {
                 .collect::<Vec<_>>();
             let storage_root = storage_roots.remove(0);
             // We have 3 cases:
-            // - The range is empty: We expect one edge proof
+            // - The range is empty (and start != 0): We expect one edge proof
             // - The range has only 1 element (with key matching the start): We expect one edge proof
             // - The range has the full storage: We expect no proofs
             // - The range is not the full storage (last range): We expect 2 edge proofs
-            if hahsed_keys.is_empty() || (hahsed_keys.len() == 1 && hahsed_keys[0] == start) {
+            if hahsed_keys.is_empty() && !start.is_zero()
+                || (hahsed_keys.len() == 1 && hahsed_keys[0] == start)
+            {
                 if proof.len() < 1 {
                     return None;
                 };
