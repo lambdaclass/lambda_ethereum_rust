@@ -2,7 +2,7 @@ use crate::account::Account;
 use bytes::Bytes;
 use ethrex_core::{types::Log, Address};
 use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
+use std::{collections::HashMap, ops::{Add, AddAssign}};
 use thiserror;
 
 /// Errors that halt the program
@@ -212,11 +212,16 @@ pub struct TransactionReport {
 impl TransactionReport {
     /// Function to add gas to report without exceeding the maximum gas limit
     pub fn add_gas_with_max(&mut self, gas: u64, max: u64) -> Result<(), VMError> {
-        self.gas_used = self
+        let new_gas_used = self
             .gas_used
             .checked_add(gas)
-            .ok_or(VMError::OutOfGas(OutOfGasError::MaxGasLimitExceeded))?
-            .min(max);
+            .ok_or(VMError::OutOfGas(OutOfGasError::MaxGasLimitExceeded))?;
+
+        if new_gas_used > max {
+            return Err(VMError::OutOfGas(OutOfGasError::MaxGasLimitExceeded));
+        }
+
+        self.gas_used = new_gas_used;
         Ok(())
     }
 
