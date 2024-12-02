@@ -119,8 +119,13 @@ impl CallFrame {
         }
     }
 
-    pub fn next_opcode(&mut self) -> Result<Option<Opcode>, VMError> {
-        let opcode = self.opcode_at(self.pc);
+    pub fn next_opcode(&mut self) -> Result<Opcode, VMError> {
+        let opcode = self
+            .bytecode
+            .get(self.pc)
+            .copied()
+            .ok_or(InternalError::PCOutOfBounds)?
+            .try_into()?;
         self.increment_pc()?;
         Ok(opcode)
     }
