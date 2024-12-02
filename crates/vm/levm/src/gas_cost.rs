@@ -1,6 +1,8 @@
 use crate::{
     call_frame::CallFrame,
-    constants::{WORD_SIZE, WORD_SIZE_IN_BYTES},
+    constants::{
+        BLOB_BASE_FEE_UPDATE_FRACTION, MIN_BASE_FEE_PER_BLOB_GAS, WORD_SIZE, WORD_SIZE_IN_BYTES,
+    },
     errors::{InternalError, OutOfGasError, VMError},
     memory, StorageSlot,
 };
@@ -719,4 +721,44 @@ pub fn staticcall(
     Ok(static_gas
         .checked_add(dynamic_gas)
         .ok_or(OutOfGasError::GasCostOverflow)?)
+}
+
+pub fn fake_exponential(factor: u64, numerator: u64, denominator: u64) -> Result<U256, VMError> {
+    let mut i = 1;
+    let mut output: u64 = 0;
+
+    // Initial multiplication: factor * denominator
+    let mut numerator_accum = factor.checked_mul(denominator).ok_or(VMError::Internal(
+        InternalError::ArithmeticOperationOverflow,
+    ))?;
+
+    while numerator_accum > 0 {
+        // Safe addition to output
+        output = output
+            .checked_add(numerator_accum)
+            .ok_or(VMError::Internal(
+                InternalError::ArithmeticOperationOverflow,
+            ))?;
+
+        // Safe multiplication and division within loop
+        numerator_accum = numerator_accum
+            .checked_mul(numerator)
+            .ok_or(VMError::Internal(
+                InternalError::ArithmeticOperationOverflow,
+            ))?
+            .checked_div(denominator.checked_mul(i).ok_or(VMError::Internal(
+                InternalError::ArithmeticOperationOverflow,
+            ))?)
+            .ok_or(VMError::Internal(
+                InternalError::ArithmeticOperationOverflow,
+            ))?;
+
+        i = i.checked_add(1).ok_or(VMError::Internal(
+            InternalError::ArithmeticOperationOverflow,
+        ))?;
+    }
+
+    Ok(U256::from(output.checked_div(denominator).ok_or(
+        VMError::Internal(InternalError::ArithmeticOperationOverflow),
+    )?))
 }

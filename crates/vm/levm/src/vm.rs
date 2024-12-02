@@ -11,7 +11,7 @@ use crate::{
         InternalError, OpcodeSuccess, OutOfGasError, ResultReason, TransactionReport, TxResult,
         TxValidationError, VMError,
     },
-    gas_cost::{self, CREATE_BASE_COST},
+    gas_cost::{self, fake_exponential, CREATE_BASE_COST},
     opcodes::Opcode,
     AccountInfo,
 };
@@ -20,7 +20,7 @@ use ethrex_core::{types::TxKind, Address, H256, U256};
 use ethrex_rlp;
 use ethrex_rlp::encode::RLPEncode;
 use keccak_hash::keccak;
-use sha3::{Digest, Keccak256};
+use sha3::{digest::consts::U2, Digest, Keccak256};
 use std::{
     collections::{HashMap, HashSet},
     sync::Arc,
@@ -422,6 +422,14 @@ impl VM {
         Ok(blob_gas_cost)
     }
 
+    pub fn get_base_fee_per_blob_gas(&self) -> Result<U256, VMError> {
+        Ok(fake_exponential(
+            MIN_BASE_FEE_PER_BLOB_GAS,
+            self.env.block_excess_blob_gas.unwrap_or_default().low_u64(), //Maybe replace unwrap_or_default for sth else later.
+            BLOB_BASE_FEE_UPDATE_FRACTION,
+        )?)
+    }
+
     /// ## Description
     /// This method performs validations and returns an error if any of the validations fail.
     /// It also makes initial changes alongside the validations:
@@ -523,8 +531,7 @@ impl VM {
 
         // (10) INSUFFICIENT_MAX_FEE_PER_BLOB_GAS
         if let Some(tx_max_fee_per_blob_gas) = self.env.tx_max_fee_per_blob_gas {
-            //TODO: This is wrong but I don't know what to compare the max fee per blob gas to. See when it is considered 'insufficient'
-            if tx_max_fee_per_blob_gas.is_zero() {
+            if tx_max_fee_per_blob_gas < self.get_base_fee_per_blob_gas()? {
                 return Err(VMError::TxValidation(
                     TxValidationError::InsufficientMaxFeePerBlobGas,
                 ));
