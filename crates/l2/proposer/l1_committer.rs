@@ -437,6 +437,7 @@ async fn estimate_blob_gas(
         None => return Err(BlobEstimationError::OverflowError.into()),
     };
 
+    // If the blob's market is in high demand, the equation may give a really big number.
     let blob_gas = fake_exponential(
         MIN_BASE_FEE_PER_BLOB_GAS,
         total_blob_gas,
