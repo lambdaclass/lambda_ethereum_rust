@@ -233,7 +233,7 @@ async fn fetch_snap_state(
     peers: Arc<Mutex<KademliaTable>>,
     store: Store,
 ) -> Result<(), StoreError> {
-    info!("Syncing state roots: {}", state_roots.len());
+    debug!("Syncing state roots: {}", state_roots.len());
     // Fetch newer state first: This will be useful to detect where to switch to healing
     for state_root in state_roots.into_iter().rev() {
         // TODO: maybe spawn taks here instead of awaiting
@@ -334,7 +334,7 @@ async fn rebuild_state_trie(
     storage_fetcher_handler
         .await
         .map_err(|_| StoreError::Custom(String::from("Failed to join storage_fetcher task")))??;
-    info!("Completed state sync for state root {state_root}");
+    debug!("Completed state sync for state root {state_root}");
     Ok(())
 }
 
@@ -386,7 +386,7 @@ async fn fetch_bytecode_batch(
     loop {
         let peer = peers.lock().await.get_peer_channels().await;
         if let Some(bytecodes) = peer.request_bytecodes(batch.clone()).await {
-            info!("Received {} bytecodes", bytecodes.len());
+            debug!("Received {} bytecodes", bytecodes.len());
             // Store the bytecodes
             for code in bytecodes.into_iter() {
                 store.add_account_code(batch.remove(0), code)?;
@@ -455,7 +455,7 @@ async fn fetch_storage_batch(
             .request_storage_ranges(state_root, batch_roots, batch_hahses, H256::zero())
             .await
         {
-            info!("Received {} storage ranges", keys.len());
+            debug!("Received {} storage ranges", keys.len());
             let mut last_range;
             // Hold on to the last batch (if incomplete)
             if incomplete {
