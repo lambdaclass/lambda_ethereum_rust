@@ -124,8 +124,8 @@ impl CallFrame {
             .bytecode
             .get(self.pc)
             .copied()
-            .ok_or(InternalError::PCOutOfBounds)?
-            .try_into()?;
+            .map(Opcode::try_from)
+            .unwrap_or(Ok(Opcode::STOP))?;
         self.increment_pc()?;
         Ok(opcode)
     }
