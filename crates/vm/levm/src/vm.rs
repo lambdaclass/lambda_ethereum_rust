@@ -181,6 +181,7 @@ impl VM {
 
         loop {
             let opcode = current_call_frame.next_opcode();
+            current_call_frame.increment_pc()?;
 
             let op_result: Result<OpcodeSuccess, VMError> = match opcode {
                 Opcode::STOP => Ok(OpcodeSuccess::Result(ResultReason::Stop)),
