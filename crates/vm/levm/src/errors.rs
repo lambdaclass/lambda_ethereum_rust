@@ -2,7 +2,7 @@ use crate::account::Account;
 use bytes::Bytes;
 use ethrex_core::{types::Log, Address};
 use serde::{Deserialize, Serialize};
-use std::{collections::HashMap, ops::{Add, AddAssign}};
+use std::collections::HashMap;
 use thiserror;
 
 /// Errors that halt the program
