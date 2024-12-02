@@ -62,7 +62,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     results.sort_by(|a, b| a.0.cmp(&b.0));
 
     for (file_name, passed, total) in results {
-        println!("- {}: {}/{}", file_name, passed, total);
+        let success_percentage = (passed as f64 / total as f64) * 100.0;
+        println!("{file_name}: {passed}/{total} ({success_percentage:.02}%)");
     }
 
     Ok(())
