@@ -119,14 +119,10 @@ impl CallFrame {
         }
     }
 
-    pub fn next_opcode(&mut self) -> Result<Opcode, VMError> {
-        match self.bytecode.get(self.pc).copied().map(Opcode::try_from) {
-            Some(Ok(valid_opcode)) => {
-                self.increment_pc()?;
-                Ok(valid_opcode)
-            }
-            Some(Err(error)) => Err(error),
-            None => Ok(Opcode::STOP),
+    pub fn next_opcode(&mut self) -> Opcode {
+        match self.bytecode.get(self.pc).copied().map(Opcode::from) {
+            Some(opcode) => opcode,
+            None => Opcode::STOP,
         }
     }
 
