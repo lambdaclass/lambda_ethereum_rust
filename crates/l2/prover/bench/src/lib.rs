@@ -52,7 +52,7 @@ pub async fn get_block(rpc_url: String, block_number: usize) -> Result<Block, St
 }
 
 pub async fn get_account(
-    rpc_url: String,
+    rpc_url: &str,
     block_number: usize,
     address: Address,
 ) -> Result<AccountState, String> {
@@ -76,15 +76,28 @@ pub async fn get_account(
         .await
         .map_err(|err| err.to_string())?;
 
-    let account_proof = response
-        .json::<AccountProofResponse>()
+    #[derive(Deserialize)]
+    #[serde(rename_all = "camelCase")]
+    struct AccountProof {
+        balance: String,
+        code_hash: String,
+        nonce: String,
+        storage_hash: String,
+    }
+
+    let account_proof: AccountProof = response
+        .json::<serde_json::Value>()
         .await
-        .map_err(|err| err.to_string())?;
+        .map_err(|err| err.to_string())
+        .and_then(|json| {
+            json.get("result")
+                .cloned()
+                .ok_or("failed to get result from response".to_string())
+        })
+        .and_then(|result| serde_json::from_value(result).map_err(|err| err.to_string()))?;
 
     Ok(AccountState {
-        nonce: account_proof
-            .nonce
-            .parse()
+        nonce: u64::from_str_radix(account_proof.nonce.trim_start_matches("0x"), 16)
             .map_err(|_| "failed to parse nonce".to_string())?,
         balance: account_proof
             .balance
