@@ -452,7 +452,7 @@ async fn fetch_storage_batch(
         let peer = peers.lock().await.get_peer_channels().await;
         let (batch_hahses, batch_roots) = batch.clone().into_iter().unzip();
         if let Some((mut keys, mut values, incomplete)) = peer
-            .request_storage_ranges(state_root, batch_hahses, batch_roots, H256::zero())
+            .request_storage_ranges(state_root, batch_roots, batch_hahses, H256::zero())
             .await
         {
             info!("Received {} storage ranges", keys.len());

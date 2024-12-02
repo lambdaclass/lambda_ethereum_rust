@@ -314,10 +314,10 @@ fn import_blocks(store: &Store, blocks: &Vec<Block>) {
     let size = blocks.len();
     for block in blocks {
         let hash = block.hash();
-        info!(
-            "Adding block {} with hash {:#x}.",
-            block.header.number, hash
-        );
+        // info!(
+        //     "Adding block {} with hash {:#x}.",
+        //     block.header.number, hash
+        // );
         let result = add_block(block, store);
         if let Some(error) = result.err() {
             warn!(
