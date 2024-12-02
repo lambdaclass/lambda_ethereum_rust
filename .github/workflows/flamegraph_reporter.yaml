@@ -1,0 +1,37 @@
+name: Daily Flamegraph Reporter
+
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "**" ]
+  workflow_dispatch:
+
+env:
+  RUST_VERSION: 1.81.0
+
+jobs:
+  flamegraph:
+    name: Generate Flamegraph for load test
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout sources
+        uses: actions/checkout@v4
+
+      - name: Rustup toolchain install
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: ${{ env.RUST_VERSION }}
+
+      - name: Install flamegraph
+        run: cargo install flamegraph
+
+      - name: Install ethrex_l2 cli
+        run: cargo install --path cmd/ethrex_l2
+
+      - name: Caching
+        uses: Swatinem/rust-cache@v2
+
+      - name: Generate Flamegraph for Ethrex
+        run: |
+          sh .github/scripts/flamegraph.sh
