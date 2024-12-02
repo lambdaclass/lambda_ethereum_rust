@@ -329,6 +329,8 @@ async fn rebuild_state_trie(
     if current_state_root != state_root {
         warn!("State sync failed for state root {state_root}");
     }
+    // Send empty batch to signal that no more batches are incoming
+    storage_sender.send(vec![]).await.unwrap();
     storage_fetcher_handler
         .await
         .map_err(|_| StoreError::Custom(String::from("Failed to join storage_fetcher task")))??;
