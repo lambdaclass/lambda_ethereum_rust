@@ -305,13 +305,9 @@ impl VM {
         self.increase_consumed_gas(current_call_frame, gas_cost::JUMPI)?;
 
         if !condition.is_zero() {
-            match current_call_frame.jump(jump_address) {
-                Ok(_) => Ok(OpcodeSuccess::Continue),
-                Err(error) => Err(error),
-            }
-        } else {
-            Ok(OpcodeSuccess::Continue)
+            current_call_frame.jump(jump_address)?;
         }
+        Ok(OpcodeSuccess::Continue)
     }
 
     // JUMPDEST operation
