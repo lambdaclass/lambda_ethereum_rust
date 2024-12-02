@@ -120,11 +120,13 @@ impl CallFrame {
     }
 
     pub fn next_opcode(&mut self) -> Result<Opcode, VMError> {
-        if let Some(opcode) = self.bytecode.get(self.pc).copied().map(Opcode::try_from) {
-            self.increment_pc()?;
-            opcode
-        } else {
-            Ok(Opcode::STOP)
+        match self.bytecode.get(self.pc).copied().map(Opcode::try_from) {
+            Some(Ok(valid_opcode)) => {
+                self.increment_pc()?;
+                Ok(valid_opcode)
+            }
+            Some(Err(error)) => Err(error),
+            None => Ok(Opcode::STOP),
         }
     }
 
