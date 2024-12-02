@@ -77,7 +77,6 @@ impl SyncManager {
             // TODO: We are currently testing against our implementation that doesn't hold an independant snapchot and can provide all historic state
             //       We should fetch all available state and then resort to state healing to fetch the rest
             let (bytecode_sender, bytecode_receiver) = mpsc::channel::<Vec<H256>>(500);
-            let (storage_sender, storage_receiver) = mpsc::channel::<Vec<(H256, H256)>>(500);
             let mut set = tokio::task::JoinSet::new();
             set.spawn(bytecode_fetcher(
                 bytecode_receiver,
@@ -95,7 +94,6 @@ impl SyncManager {
                 .collect::<Vec<_>>();
             set.spawn(fetch_snap_state(
                 bytecode_sender,
-                storage_sender,
                 state_roots.clone(),
                 self.peers.clone(),
                 store.clone(),
@@ -231,7 +229,6 @@ async fn fetch_blocks_and_receipts(
 
 async fn fetch_snap_state(
     bytecode_sender: Sender<Vec<H256>>,
-    storage_sender: Sender<Vec<(H256, H256)>>,
     state_roots: Vec<BlockHash>,
     peers: Arc<Mutex<KademliaTable>>,
     store: Store,
@@ -242,7 +239,6 @@ async fn fetch_snap_state(
         // TODO: maybe spawn taks here instead of awaiting
         rebuild_state_trie(
             bytecode_sender.clone(),
-            storage_sender.clone(),
             state_root,
             peers.clone(),
             store.clone(),
@@ -258,11 +254,18 @@ async fn fetch_snap_state(
 /// Rebuilds a Block's state trie by requesting snap state from peers
 async fn rebuild_state_trie(
     bytecode_sender: Sender<Vec<H256>>,
-    storage_sender: Sender<Vec<(H256, H256)>>,
     state_root: H256,
     peers: Arc<Mutex<KademliaTable>>,
     store: Store,
 ) -> Result<(), StoreError> {
+    // Spawn a storage fetcher for this blocks's storage
+    let (storage_sender, storage_receiver) = mpsc::channel::<Vec<(H256, H256)>>(500);
+    let storage_fetcher_handler = tokio::spawn(storage_fetcher(
+        storage_receiver,
+        peers.clone(),
+        store.clone(),
+        state_root,
+    ));
     let mut start_account_hash = H256::zero();
     // Start from an empty state trie
     // We cannot keep an open trie here so we will track the root between lookups
@@ -326,53 +329,10 @@ async fn rebuild_state_trie(
     if current_state_root != state_root {
         warn!("State sync failed for state root {state_root}");
     }
+    storage_fetcher_handler
+        .await
+        .map_err(|_| StoreError::Custom(String::from("Failed to join storage_fetcher task")))??;
     info!("Completed state sync for state root {state_root}");
-    Ok(())
-}
-
-/// Rebuilds an Account's storage trie by requesting snap state from peers
-/// First Iteration: Fetch one account storage at a time -> this is inefficient, we should queue them and fetch multiple accounts at once
-async fn rebuild_storage_trie(
-    account_hash: H256,
-    storage_root: H256,
-    peers: Arc<Mutex<KademliaTable>>,
-    store: Store,
-) -> Result<(), StoreError> {
-    let mut start_key_hash = H256::zero();
-    // Start from an empty state trie
-    // We cannot keep an open trie here so we will track the root between lookups
-    let mut current_storage_root = *EMPTY_TRIE_HASH;
-    // Fetch Storage Ranges
-    loop {
-        let peer = peers.lock().await.get_peer_channels().await;
-        debug!("Requesting Storage Range for storage root {storage_root}, starting hash: {start_key_hash}");
-        if let Some((hashed_keys, values, should_continue)) = peer
-            .request_storage_range(storage_root, account_hash, start_key_hash)
-            .await
-        {
-            // Update starting hash for next batch
-            if should_continue {
-                start_key_hash = *hashed_keys.last().unwrap();
-            }
-
-            // Update trie
-            let mut trie = store.open_storage_trie(account_hash, current_storage_root);
-            for (key_hash, value) in hashed_keys.iter().zip(values.iter()) {
-                trie.insert(key_hash.0.to_vec(), value.encode_to_vec())
-                    .map_err(StoreError::Trie)?;
-            }
-            current_storage_root = trie.hash().map_err(StoreError::Trie)?;
-
-            if !should_continue {
-                // All keys fetched!
-                break;
-            }
-        }
-    }
-    if current_storage_root != storage_root {
-        warn!("State sync failed for storage root {storage_root}");
-    }
-    info!("Completed state sync for storage root {storage_root}");
     Ok(())
 }
 
@@ -440,6 +400,7 @@ async fn storage_fetcher(
     mut receiver: Receiver<Vec<(H256, H256)>>,
     peers: Arc<Mutex<KademliaTable>>,
     store: Store,
+    state_root: H256,
 ) -> Result<(), StoreError> {
     // Pending list of bytecodes to fetch
     const BATCH_SIZE: usize = 50;
@@ -454,7 +415,9 @@ async fn storage_fetcher(
                 // If we have enought pending bytecodes to fill a batch, spawn a fetch process
                 while pending_storage.len() >= BATCH_SIZE {
                     let next_batch = pending_storage.drain(..BATCH_SIZE).collect::<Vec<_>>();
-                    let remaining = todo!();
+                    let remaining =
+                        fetch_storage_batch(next_batch, state_root, peers.clone(), store.clone())
+                            .await?;
                     // Add unfeched bytecodes back to the queue
                     pending_storage.extend(remaining);
                 }
@@ -468,9 +431,50 @@ async fn storage_fetcher(
         let next_batch = pending_storage
             .drain(..BATCH_SIZE.min(pending_storage.len()))
             .collect::<Vec<_>>();
-        let remaining = todo!();
+        let remaining =
+            fetch_storage_batch(next_batch, state_root, peers.clone(), store.clone()).await?;
         // Add unfeched bytecodes back to the queue
         pending_storage.extend(remaining);
     }
     Ok(())
+}
+
+/// Receives a batch of account hashes with their storage roots, fetches their respective storage ranges via p2p and returns a list of the code hashes that couldn't be fetched in the request (if applicable)
+async fn fetch_storage_batch(
+    mut batch: Vec<(H256, H256)>,
+    state_root: H256,
+    peers: Arc<Mutex<KademliaTable>>,
+    store: Store,
+) -> Result<Vec<(H256, H256)>, StoreError> {
+    loop {
+        let peer = peers.lock().await.get_peer_channels().await;
+        let (batch_hahses, batch_roots) = batch.clone().into_iter().unzip();
+        if let Some((mut keys, mut values, incomplete)) = peer
+            .request_storage_ranges(state_root, batch_hahses, batch_roots, H256::zero())
+            .await
+        {
+            info!("Received {} storage ranges", keys.len());
+            let mut last_range;
+            // Hold on to the last batch (if incomplete)
+            if incomplete {
+                // An incomplete range cannot be empty
+                last_range = (keys.pop().unwrap(), values.pop().unwrap());
+            }
+            // Store the storage ranges & rebuild the storage trie for each account
+            for (keys, values) in keys.into_iter().zip(values.into_iter()) {
+                let (account_hash, storage_root) = batch.remove(0);
+                let mut trie = store.open_storage_trie(account_hash, *EMPTY_TRIE_HASH);
+                for (key, value) in keys.into_iter().zip(values.into_iter()) {
+                    trie.insert(key.0.to_vec(), value.encode_to_vec())?;
+                }
+                if trie.hash()? != storage_root {
+                    warn!("State sync failed for storage root {storage_root}");
+                }
+            }
+            // TODO: if the last range is incomplete add it to the incomplete batches queue
+            // For now we will fetch the full range again
+            // Return remaining code hashes in the batch if we couldn't fetch all of them
+            return Ok(batch);
+        }
+    }
 }
