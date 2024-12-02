@@ -28,8 +28,12 @@ contract CommonBridge is ICommonBridge, Ownable, ReentrancyGuard {
 
     address public ON_CHAIN_PROPOSER;
 
+    /// @notice Block in which the CommonBridge was initialized.
+    /// @dev Used by the L1Watcher to fetch logs starting from this block.
     uint256 public lastFetchedL1Block;
 
+    /// @notice Global deposit identifier, it is incremented each time a new deposit is made.
+    /// @dev It is used as the nonce of the mint transaction created by the L1Watcher.
     uint256 public depositId;
 
     modifier onlyOnChainProposer() {

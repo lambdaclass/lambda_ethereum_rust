@@ -1152,7 +1152,7 @@ impl PrivilegedL2Transaction {
                 self.value.to_big_endian(value);
 
                 // The nonce should be a U256,
-                // in solidity the nonce is a U256.
+                // in solidity the depositId is a U256.
                 let u256_nonce = U256::from(self.nonce);
                 let nonce = &mut [0u8; 32];
                 u256_nonce.to_big_endian(nonce);

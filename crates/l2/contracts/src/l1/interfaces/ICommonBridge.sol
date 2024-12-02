@@ -15,7 +15,6 @@ interface ICommonBridge {
     /// on L2. You can use this hash to retrive the tx data.
     /// It is the result of keccak(abi.encode(transaction)).
     /// @param depositId Id used to differentiate deposits with same amount and recipient.
-
     event DepositInitiated(
         uint256 indexed amount,
         address indexed to,
