@@ -147,9 +147,9 @@ impl VM {
                     env.origin,
                     new_contract_address,
                     new_contract_address,
-                    code,
+                    code.clone(),
                     value,
-                    Bytes::new(),
+                    code,
                     false,
                     env.gas_limit,
                     U256::zero(),
@@ -485,7 +485,7 @@ impl VM {
         // (4) INITCODE_SIZE_EXCEEDED
         if self.is_create() {
             // INITCODE_SIZE_EXCEEDED
-            if initial_call_frame.calldata.len() >= INIT_CODE_MAX_SIZE {
+            if initial_call_frame.calldata.len() > INIT_CODE_MAX_SIZE {
                 return Err(VMError::TxValidation(
                     TxValidationError::InitcodeSizeExceeded,
                 ));
