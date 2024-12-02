@@ -23,15 +23,25 @@ jobs:
         with:
           toolchain: ${{ env.RUST_VERSION }}
 
+      - name: Caching
+        uses: Swatinem/rust-cache@v2
+
       - name: Install flamegraph
         run: cargo install flamegraph
 
       - name: Install ethrex_l2 cli
-        run: cargo install --path cmd/ethrex_l2
+        run: |
+          cargo install --path cmd/ethrex_l2
+          ethrex_l2 config create default --default
+          ethrex_l2 config set default
 
-      - name: Caching
-        uses: Swatinem/rust-cache@v2
+      - name: Install Foundry
+        uses: foundry-rs/foundry-toolchain@v1
 
       - name: Generate Flamegraph for Ethrex
+        shell: bash
         run: |
-          sh .github/scripts/flamegraph.sh
+          CARGO_PROFILE_RELEASE_DEBUG=true cargo build --release --bin ethrex --features dev &&
+          CARGO_PROFILE_RELEASE_DEBUG=true cargo flamegraph --bin ethrex --features dev  --  --network test_data/genesis-l2.json --http.port 1729 &
+          sleep 10 &&
+          bash .github/scripts/flamegraph.sh

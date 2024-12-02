@@ -3,10 +3,10 @@
 account=0x33c6b73432B3aeA0C1725E415CC40D04908B85fd
 end_val=$((172 * 1000 * 10000000))
 
-echo "Running ethrex..."
-CARGO_PROFILE_RELEASE_DEBUG=true cargo flamegraph --bin ethrex --features dev  --  --network test_data/genesis-l2.json --http.port 1729 &
-echo "Sleeping 10s before running test..."
-sleep 10
+#echo "Running ethrex..."
+#CARGO_PROFILE_RELEASE_DEBUG=true cargo flamegraph --bin ethrex --features dev  --  --network test_data/genesis-l2.json --http.port 1729 &
+#echo "Sleeping 10s before running test..."
+#sleep 10
 echo "Sending to account $account"
 ethrex_l2 test load --path ./test_data/private_keys.txt -i 1000 -v  --value 10000000 --to $account
 
