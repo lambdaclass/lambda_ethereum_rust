@@ -260,7 +260,6 @@ impl EthClient {
 
     /// Increase max fee per gas by percentage% (set it to (100+percentage)% of the original)
     pub fn bump_eip1559(&self, tx: &mut EIP1559Transaction, percentage: u64) {
-        // TODO: handle as conversions
         tx.max_fee_per_gas = (tx.max_fee_per_gas * (100 + percentage)) / 100;
         tx.max_priority_fee_per_gas += (tx.max_priority_fee_per_gas * (100 + percentage)) / 100;
     }
