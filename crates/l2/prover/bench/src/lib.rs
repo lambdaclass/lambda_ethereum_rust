@@ -7,21 +7,7 @@ use ethrex_rlp::decode::RLPDecode;
 use serde::Deserialize;
 use serde_json::json;
 
-#[derive(Deserialize)]
-struct BlockResponse {
-    result: String,
-}
-
-#[derive(Deserialize)]
-#[serde(rename_all = "camelCase")]
-struct AccountProofResponse {
-    balance: String,
-    code_hash: String,
-    nonce: String,
-    storage_hash: String,
-}
-
-pub async fn get_block(rpc_url: String, block_number: usize) -> Result<Block, String> {
+pub async fn get_block(rpc_url: &str, block_number: usize) -> Result<Block, String> {
     let client = reqwest::Client::new();
 
     let block_number = format!("0x{block_number:x}");
@@ -39,16 +25,24 @@ pub async fn get_block(rpc_url: String, block_number: usize) -> Result<Block, St
         .await
         .map_err(|err| err.to_string())?;
 
-    let hex_encoded_block = response
-        .json::<BlockResponse>()
+    response
+        .json::<serde_json::Value>()
         .await
-        .map_err(|err| err.to_string())?;
-    let encoded_block = hex::decode(hex_encoded_block.result.trim_start_matches("0x"))
-        .map_err(|err| err.to_string())?;
-
-    Ok(Block::decode_unfinished(&encoded_block)
-        .map_err(|err| err.to_string())?
-        .0)
+        .map_err(|err| err.to_string())
+        .and_then(|json| {
+            json.get("result")
+                .cloned()
+                .ok_or("failed to get result from response".to_string())
+        })
+        .and_then(|result| serde_json::from_value::<String>(result).map_err(|err| err.to_string()))
+        .and_then(|hex_encoded_block| {
+            hex::decode(hex_encoded_block.trim_start_matches("0x")).map_err(|err| err.to_string())
+        })
+        .and_then(|encoded_block| {
+            Block::decode_unfinished(&encoded_block)
+                .map_err(|err| err.to_string())
+                .map(|decoded| decoded.0)
+        })
 }
 
 pub async fn get_account(
