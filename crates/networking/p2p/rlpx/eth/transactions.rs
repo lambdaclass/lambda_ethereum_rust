@@ -96,7 +96,7 @@ impl NewPooledTransactionHashes {
     }
 
     pub fn get_transactions_to_request(&self, storage: &Store) -> Result<Vec<H256>, StoreError> {
-        Ok(storage.get_unknown_transactions(&self.transaction_hashes)?)
+        storage.get_unknown_transactions(&self.transaction_hashes)
     }
 }
 

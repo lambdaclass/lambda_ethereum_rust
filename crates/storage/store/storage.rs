@@ -318,7 +318,7 @@ impl Store {
     /// Gets hashes from possible_hashes that are not already known in the mempool.
     pub fn get_unknown_transactions(
         &self,
-        possible_hashes: &Vec<H256>,
+        possible_hashes: &[H256],
     ) -> Result<Vec<H256>, StoreError> {
         let mempool = self
             .mempool
@@ -329,7 +329,7 @@ impl Store {
         Ok(possible_hashes
             .iter()
             .filter(|hash| !tx_set.contains(hash))
-            .map(|hash| *hash)
+            .copied()
             .collect())
     }
 
