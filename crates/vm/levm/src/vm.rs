@@ -183,6 +183,9 @@ impl VM {
             let opcode = current_call_frame.next_opcode();
             current_call_frame.increment_pc()?;
 
+            //dbg!(&current_call_frame.gas_used);
+            //dbg!(&current_call_frame.stack);
+            //dbg!(&opcode);
             let op_result: Result<OpcodeSuccess, VMError> = match opcode {
                 Opcode::STOP => Ok(OpcodeSuccess::Result(ResultReason::Stop)),
                 Opcode::ADD => self.op_add(current_call_frame),
