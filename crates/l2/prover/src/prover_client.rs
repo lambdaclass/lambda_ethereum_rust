@@ -4,13 +4,15 @@ use std::{
     time::Duration,
 };
 
+use sp1_sdk::network::prover;
 use tokio::time::sleep;
 use tracing::{debug, error, info, warn};
 
 use zkvm_interface::io::ProgramInput;
 
 use ethrex_l2::{
-    proposer::prover_server::ProofData, utils::config::prover_client::ProverClientConfig,
+    proposer::prover_server::{ProofData, ProverType, ZkProof},
+    utils::config::prover_client::ProverClientConfig,
 };
 
 use crate::prover::{Prover, ProvingOutput, Risc0Prover};
@@ -18,6 +20,12 @@ use crate::prover::{Prover, ProvingOutput, Risc0Prover};
 pub async fn start_proof_data_client(config: ProverClientConfig) {
     let proof_data_client = ProverClient::new(config);
     proof_data_client.start().await;
+}
+
+struct ProverData {
+    block_number: u64,
+    input: ProgramInput,
+    prover_type: ProverType
 }
 
 struct ProverClient {
@@ -34,22 +42,29 @@ impl ProverClient {
     }
 
     pub async fn start(&self) {
-        let mut prover = Risc0Prover::new();
-
         loop {
             match self.request_new_input() {
-                Ok((block_number, input)) => {
-                    match prover.prove(input) {
-                        Ok(proof) => {
-                            if let Err(e) =
-                                self.submit_proof(block_number, proof, prover.id.to_vec())
-                            {
-                                // TODO: Retry?
-                                warn!("Failed to submit proof: {e}");
-                            }
-                        }
-                        Err(e) => error!(e),
-                    };
+                // If we get the input
+                Ok(prover_data) => {
+                    // Check the prover_type requested by the ProverServer
+                    match prover_data.prover_type {
+                        ProverType::RISC0 => {
+                            let mut prover = Risc0Prover::new();
+                            match prover.prove(prover_data.input) {
+                                Ok(proof) => {
+                                    if let Err(e) =
+                                        self.submit_proof(prover_data.block_number, proof, prover.id.to_vec())
+                                    {
+                                        // TODO: Retry?
+                                        warn!("Failed to submit proof: {e}");
+                                    }
+                                }
+                                Err(e) => error!(e),
+                            };
+                        },
+                        ProverType::SP1 => todo!(),
+                    }
+
                 }
                 Err(e) => {
                     sleep(Duration::from_millis(self.interval_ms)).await;
@@ -59,7 +74,7 @@ impl ProverClient {
         }
     }
 
-    fn request_new_input(&self) -> Result<(u64, ProgramInput), String> {
+    fn request_new_input(&self) -> Result<ProverData, String> {
         // Request the input with the correct block_number
         let request = ProofData::Request;
         let response = connect_to_prover_server_wr(&self.prover_server_endpoint, &request)
@@ -69,14 +84,21 @@ impl ProverClient {
             ProofData::Response {
                 block_number,
                 input,
+                prover_type
+                
             } => match (block_number, input) {
-                (Some(n), Some(i)) => {
-                    info!("Received Response for block_number: {n}");
-                    Ok((n, ProgramInput {
-                        block: i.block,
-                        parent_block_header: i.parent_block_header,
-                        db: i.db
-                    }))
+                (Some(block_number), Some(input)) => {
+                    info!("Received Response for block_number: {block_number}");
+                    let prover_data = ProverData{
+                        block_number,
+                        input:  ProgramInput {
+                            block: input.block,
+                            parent_block_header: input.parent_block_header,
+                            db: input.db
+                        },
+                        prover_type,
+                    };
+                    Ok(prover_data)
                 }
                 _ => Err(
                     "Received Empty Response, meaning that the ProverServer doesn't have blocks to prove.\nThe Prover may be advancing faster than the Proposer."
@@ -100,7 +122,7 @@ impl ProverClient {
         };
         let submit = ProofData::Submit {
             block_number,
-            receipt: Box::new((*receipt, prover_id)),
+            zk_proof: ZkProof::RISC0(Box::new((*receipt, prover_id))),
         };
         let submit_ack = connect_to_prover_server_wr(&self.prover_server_endpoint, &submit)
             .map_err(|e| format!("Failed to get SubmitAck: {e}"))?;

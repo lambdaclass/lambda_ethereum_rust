@@ -4,7 +4,7 @@ use crate::utils::{
         committer::CommitterConfig, errors::ConfigError, eth::EthConfig,
         prover_server::ProverServerConfig,
     },
-    eth_client::{errors::EthClientError, eth_sender::Overrides, EthClient, WrappedTransaction},
+    eth_client::{eth_sender::Overrides, EthClient, WrappedTransaction},
 };
 use ethrex_core::{
     types::{Block, BlockHeader},
@@ -46,6 +46,19 @@ struct ProverServer {
     on_chain_proposer_address: Address,
     verifier_address: Address,
     verifier_private_key: SecretKey,
+    prover_type: ProverType,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone, Copy)]
+pub enum ProverType {
+    RISC0,
+    SP1,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub enum ZkProof {
+    RISC0(Box<(risc0_zkvm::Receipt, Vec<u32>)>),
+    SP1(Box<(risc0_zkvm::Receipt, Vec<u32>)>),
 }
 
 /// Enum for the ProverServer <--> ProverClient Communication Protocol.
@@ -62,6 +75,7 @@ pub enum ProofData {
     Response {
         block_number: Option<u64>,
         input: Option<ProverInputData>,
+        prover_type: ProverType,
     },
 
     /// 3.
@@ -69,8 +83,7 @@ pub enum ProofData {
     /// for the specified block.
     Submit {
         block_number: u64,
-        // zk Proof
-        receipt: Box<(risc0_zkvm::Receipt, Vec<u32>)>,
+        zk_proof: ZkProof,
     },
 
     /// 4.
@@ -84,8 +97,7 @@ pub async fn start_prover_server(store: Store) -> Result<(), ConfigError> {
     let proposer_config = CommitterConfig::from_env()?;
     let mut prover_server =
         ProverServer::new_from_config(server_config.clone(), &proposer_config, eth_config, store)
-            .await
-            .map_err(ConfigError::from)?;
+            .await?;
     prover_server.run(&server_config).await;
     Ok(())
 }
@@ -96,9 +108,19 @@ impl ProverServer {
         committer_config: &CommitterConfig,
         eth_config: EthConfig,
         store: Store,
-    ) -> Result<Self, EthClientError> {
+    ) -> Result<Self, ConfigError> {
         let eth_client = EthClient::new(&eth_config.rpc_url);
         let on_chain_proposer_address = committer_config.on_chain_proposer_address;
+
+        let prover_type = if config.prover_type.contains("risczero") {
+            ProverType::RISC0
+        } else if config.prover_type.contains("sp1") {
+            ProverType::SP1
+        } else {
+            return Err(ConfigError::Custom(
+                "Failed to build ProverServer.".to_owned(),
+            ));
+        };
 
         Ok(Self {
             ip: config.listen_ip,
@@ -108,6 +130,7 @@ impl ProverServer {
             on_chain_proposer_address,
             verifier_address: config.verifier_address,
             verifier_private_key: config.verifier_private_key,
+            prover_type,
         })
     }
 
@@ -228,11 +251,16 @@ impl ProverServer {
             }
             Ok(ProofData::Submit {
                 block_number,
-                receipt,
+                zk_proof,
             }) => {
                 self.handle_submit(&mut stream, block_number)?;
 
-                self.handle_proof_submission(block_number, receipt).await?;
+                match zk_proof {
+                    ZkProof::RISC0(inner) => {
+                        self.handle_proof_submission(block_number, inner).await?;
+                    }
+                    ZkProof::SP1(_) => todo!(),
+                };
 
                 if block_number != (last_verified_block + 1) {
                     return Err(ProverServerError::Custom(format!("Prover Client submitted an invalid block_number: {block_number}. The last_proved_block is: {}", last_verified_block)));
@@ -266,6 +294,7 @@ impl ProverServer {
             let response = ProofData::Response {
                 block_number: None,
                 input: None,
+                prover_type: self.prover_type,
             };
             warn!("Didn't send response");
             response
@@ -274,6 +303,7 @@ impl ProverServer {
             let response = ProofData::Response {
                 block_number: Some(block_number),
                 input: Some(input),
+                prover_type: self.prover_type,
             };
             info!("Sent Response for block_number: {block_number}");
             response
