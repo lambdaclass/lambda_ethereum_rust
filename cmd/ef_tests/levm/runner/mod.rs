@@ -160,18 +160,17 @@ fn re_run_with_revm(
         if failed_test_report.passed() {
             continue;
         }
+        // println!(
+        //     "Time elapsed: {:?}",
+        //     format_duration_as_mm_ss(revm_run_time.elapsed())
+        // );
+        // println!("Running test: {:?}", failed_test_report.name);
         revm_run_spinner.update_text(format!(
             "{} {}/{failed_tests} - {}",
             "Re-running failed tests with REVM".bold(),
             idx + 1,
             format_duration_as_mm_ss(revm_run_time.elapsed())
         ));
-        // print running test name and time elapsed
-        println!("Running test: {:?}", failed_test_report.name);
-        println!(
-            "Time elapsed: {:?}",
-            format_duration_as_mm_ss(revm_run_time.elapsed())
-        );
 
         match revm_runner::re_run_failed_ef_test(
             ef_tests
