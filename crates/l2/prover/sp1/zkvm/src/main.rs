@@ -1,6 +1,4 @@
 #![no_main]
-#![allow(unused_imports)]
-#![allow(dead_code)]
 
 use ethrex_blockchain::{validate_block, validate_gas_used};
 use ethrex_vm::{execute_block, get_state_transitions, EvmState};
