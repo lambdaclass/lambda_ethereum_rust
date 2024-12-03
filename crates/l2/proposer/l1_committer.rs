@@ -237,6 +237,7 @@ impl Committer {
         }
     }
 
+    /// Prepare the state diff for the block.
     fn prepare_state_diff(
         &self,
         block: &Block,
@@ -313,6 +314,7 @@ impl Committer {
         Ok(state_diff)
     }
 
+    /// Generate the blob bundle necessary for the EIP-4844 transaction.
     fn generate_blobs_bundle(&self, state_diff: &StateDiff) -> Result<BlobsBundle, CommitterError> {
         let blob_data = state_diff.encode().map_err(CommitterError::from)?;
 
