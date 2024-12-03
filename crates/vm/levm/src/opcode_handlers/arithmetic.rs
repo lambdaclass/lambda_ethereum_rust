@@ -80,27 +80,11 @@ impl VM {
             return Ok(OpcodeSuccess::Continue);
         }
 
-        let dividend_is_negative = is_negative(dividend);
-        let divisor_is_negative = is_negative(divisor);
-        let dividend = if dividend_is_negative {
-            negate(dividend)
-        } else {
-            dividend
-        };
-        let divisor = if divisor_is_negative {
-            negate(divisor)
-        } else {
-            divisor
-        };
+        let dividend = abs(dividend);
+        let divisor = abs(divisor);
+
         let quotient = match dividend.checked_div(divisor) {
-            Some(quot) => {
-                let quotient_is_negative = dividend_is_negative ^ divisor_is_negative;
-                if quotient_is_negative {
-                    negate(quot)
-                } else {
-                    quot
-                }
-            }
+            Some(quot) => quot,
             None => U256::zero(),
         };
 
