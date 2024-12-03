@@ -99,7 +99,6 @@ fn run_with_levm(
         Color::Cyan,
     );
     if opts.disable_spinner {
-        println!("{}", "Running all tests with LEVM...".bold());
         levm_run_spinner.stop();
     }
     for test in ef_tests.iter() {
@@ -139,7 +138,6 @@ fn run_with_levm(
 
     let mut summary_spinner = Spinner::new(Dots, "Loading summary...".to_owned(), Color::Cyan);
     if opts.disable_spinner {
-        println!("{}", "Loading summary...".bold());
         summary_spinner.stop();
     }
     // summary_spinner.success(&report::summary_for_shell(reports));
@@ -166,7 +164,6 @@ fn _run_with_revm(
         Color::Cyan,
     );
     if opts.disable_spinner {
-        println!("{}", "Running all tests with REVM...".bold());
         revm_run_spinner.stop();
     }
     for (idx, test) in ef_tests.iter().enumerate() {
@@ -208,7 +205,6 @@ fn re_run_with_revm(
         Color::Cyan,
     );
     if opts.disable_spinner {
-        println!("{}", "Running failed tests with REVM...".bold());
         revm_run_spinner.stop();
     }
     let failed_tests = reports.iter().filter(|report| !report.passed()).count();

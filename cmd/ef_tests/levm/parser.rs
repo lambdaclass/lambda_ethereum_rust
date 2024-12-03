@@ -25,7 +25,6 @@ pub fn parse_ef_tests(opts: &EFTestRunnerOptions) -> Result<Vec<EFTest>, EFTestP
     let ef_general_state_tests_path = cargo_manifest_dir.join("vectors/GeneralStateTests");
     let mut spinner = Spinner::new(Dots, "Parsing EF Tests".bold().to_string(), Color::Cyan);
     if opts.disable_spinner {
-        println!("Parsing EF Tests");
         spinner.stop();
     }
     let mut tests = Vec::new();
