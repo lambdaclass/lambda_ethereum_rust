@@ -133,7 +133,7 @@ impl VM {
         let unchecked_dividend = current_call_frame.stack.pop()?;
         let unchecked_divisor = current_call_frame.stack.pop()?;
 
-        if unchecked_divisor.is_zero() {
+        if unchecked_divisor.is_zero() || unchecked_dividend.is_zero() {
             current_call_frame.stack.push(U256::zero())?;
             return Ok(OpcodeSuccess::Continue);
         }
