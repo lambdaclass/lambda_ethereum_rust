@@ -77,6 +77,10 @@ fn run_with_levm(
         Color::Cyan,
     );
     for test in ef_tests.iter() {
+        // println!(
+        //     "Time elapsed: {:?}",
+        //     format_duration_as_mm_ss(levm_run_time.elapsed())
+        // );
         // println!("Running test: {:?}", test.name);
         let ef_test_report = match levm_runner::run_ef_test(test) {
             Ok(ef_test_report) => ef_test_report,
