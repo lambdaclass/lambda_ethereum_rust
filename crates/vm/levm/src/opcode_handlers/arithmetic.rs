@@ -53,6 +53,10 @@ impl VM {
 
         let dividend = current_call_frame.stack.pop()?;
         let divisor = current_call_frame.stack.pop()?;
+        if dividend.is_zero() {
+            current_call_frame.stack.push(U256::zero())?;
+            return Ok(OpcodeSuccess::Continue);
+        }
         let Some(quotient) = dividend.checked_div(divisor) else {
             current_call_frame.stack.push(U256::zero())?;
             return Ok(OpcodeSuccess::Continue);
