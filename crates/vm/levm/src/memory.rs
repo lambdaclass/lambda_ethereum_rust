@@ -58,12 +58,25 @@ pub fn store_word(memory: &mut Memory, offset: usize, word: U256) -> Result<(), 
     store(memory, &word_bytes, offset, WORD_SIZE_IN_BYTES_USIZE)
 }
 
-pub fn store_range(memory: &mut Memory, offset: usize, data: &[u8]) -> Result<(), VMError> {
+pub fn store_data(memory: &mut Memory, offset: usize, data: &[u8]) -> Result<(), VMError> {
     try_resize(
         memory,
         offset.checked_add(data.len()).ok_or(VMError::OutOfOffset)?,
     )?;
     store(memory, data, offset, data.len())
+}
+
+pub fn store_range(
+    memory: &mut Memory,
+    offset: usize,
+    size: usize,
+    data: &[u8],
+) -> Result<(), VMError> {
+    try_resize(
+        memory,
+        offset.checked_add(size).ok_or(VMError::OutOfOffset)?,
+    )?;
+    store(memory, data, offset, size)
 }
 
 fn store(
@@ -92,7 +105,7 @@ fn store(
     Ok(())
 }
 
-pub fn copy_within(
+pub fn try_copy_within(
     memory: &mut Memory,
     from_offset: usize,
     to_offset: usize,

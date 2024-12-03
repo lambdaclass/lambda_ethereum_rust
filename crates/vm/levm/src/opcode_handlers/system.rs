@@ -2,7 +2,7 @@ use crate::{
     call_frame::CallFrame,
     constants::WORD_SIZE_IN_BYTES_USIZE,
     errors::{InternalError, OpcodeSuccess, ResultReason, VMError},
-    gas_cost,
+    gas_cost, memory,
     vm::{word_to_address, VM},
 };
 use ethrex_core::{types::TxKind, Address, U256};
@@ -60,7 +60,7 @@ impl VM {
             InternalError::ArithmeticOperationOverflow,
         ))?;
         let new_memory_size = new_memory_size_for_args.max(new_memory_size_for_return_data);
-        let current_memory_size = current_call_frame.memory.data.len();
+        let current_memory_size = current_call_frame.memory.len();
 
         let (account_info, address_was_cold) = self.access_account(callee);
 
@@ -140,7 +140,7 @@ impl VM {
             InternalError::ArithmeticOperationOverflow,
         ))?;
         let new_memory_size = new_memory_size_for_args.max(new_memory_size_for_return_data);
-        let current_memory_size = current_call_frame.memory.data.len();
+        let current_memory_size = current_call_frame.memory.len();
 
         let (_account_info, address_was_cold) = self.access_account(code_address);
 
@@ -191,12 +191,15 @@ impl VM {
             .try_into()
             .map_err(|_| VMError::VeryLargeNumber)?;
 
-        let gas_cost = current_call_frame.memory.expansion_cost(offset, size)?;
+        self.increase_consumed_gas(
+            current_call_frame,
+            memory::expansion_cost(offset, size)?.into(),
+        )?;
 
-        self.increase_consumed_gas(current_call_frame, gas_cost)?;
-
-        let return_data = current_call_frame.memory.load_range(offset, size)?.into();
-        current_call_frame.returndata = return_data;
+        current_call_frame.returndata =
+            memory::load_range(&mut current_call_frame.memory, offset, size)?
+                .to_vec()
+                .into();
 
         Ok(OpcodeSuccess::Result(ResultReason::Return))
     }
@@ -252,7 +255,7 @@ impl VM {
             InternalError::ArithmeticOperationOverflow,
         ))?;
         let new_memory_size = new_memory_size_for_args.max(new_memory_size_for_return_data);
-        let current_memory_size = current_call_frame.memory.data.len();
+        let current_memory_size = current_call_frame.memory.len();
 
         self.increase_consumed_gas(
             current_call_frame,
@@ -325,7 +328,7 @@ impl VM {
             InternalError::ArithmeticOperationOverflow,
         ))?;
         let new_memory_size = new_memory_size_for_args.max(new_memory_size_for_return_data);
-        let current_memory_size = current_call_frame.memory.data.len();
+        let current_memory_size = current_call_frame.memory.len();
 
         self.increase_consumed_gas(
             current_call_frame,
@@ -453,11 +456,15 @@ impl VM {
             .try_into()
             .map_err(|_err| VMError::VeryLargeNumber)?;
 
-        let gas_cost = current_call_frame.memory.expansion_cost(offset, size)?;
+        self.increase_consumed_gas(
+            current_call_frame,
+            memory::expansion_cost(offset, size)?.into(),
+        )?;
 
-        self.increase_consumed_gas(current_call_frame, gas_cost)?;
-
-        current_call_frame.returndata = current_call_frame.memory.load_range(offset, size)?.into();
+        current_call_frame.returndata =
+            memory::load_range(&mut current_call_frame.memory, offset, size)?
+                .to_vec()
+                .into();
 
         Err(VMError::RevertOpcode)
     }
