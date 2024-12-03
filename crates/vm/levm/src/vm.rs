@@ -591,19 +591,19 @@ impl VM {
 
         let sender = initial_call_frame.msg_sender;
 
-        /* 
-        let calldata_cost = match report.result {
-            TxResult::Success => {
-                gas_cost::tx_calldata(&initial_call_frame.calldata).map_err(VMError::OutOfGas)?
-            }
-            TxResult::Revert(_) => 0,
-        };
+        /*
+               let calldata_cost = match report.result {
+                   TxResult::Success => {
+                       gas_cost::tx_calldata(&initial_call_frame.calldata).map_err(VMError::OutOfGas)?
+                   }
+                   TxResult::Revert(_) => 0,
+               };
 
-        report.gas_used = report
-            .gas_used
-            .checked_add(calldata_cost)
-            .ok_or(VMError::OutOfGas(OutOfGasError::GasUsedOverflow))?;
- */
+               report.gas_used = report
+                   .gas_used
+                   .checked_add(calldata_cost)
+                   .ok_or(VMError::OutOfGas(OutOfGasError::GasUsedOverflow))?;
+        */
         if self.is_create() {
             match self.create_post_execution(&mut initial_call_frame, &mut report) {
                 Ok(_) => {}
