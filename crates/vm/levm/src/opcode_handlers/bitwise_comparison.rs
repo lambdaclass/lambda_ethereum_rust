@@ -110,11 +110,8 @@ impl VM {
         self.increase_consumed_gas(current_call_frame, gas_cost::ISZERO)?;
 
         let operand = current_call_frame.stack.pop()?;
-        let result = if operand == U256::zero() {
-            U256::one()
-        } else {
-            U256::zero()
-        };
+        let result = u256_from_bool(operand.is_zero());
+
         current_call_frame.stack.push(result)?;
 
         Ok(OpcodeSuccess::Continue)
