@@ -2775,6 +2775,7 @@ dependencies = [
  "risc0-zkvm",
  "serde",
  "serde_json",
+ "sp1-build",
  "sp1-sdk",
  "tokio",
  "tokio-util",
@@ -7336,6 +7337,19 @@ checksum = "c970269d99b64e60ec3bd6ad27270092a5394c4e309314b18ae3fe575695fbe8"
 dependencies = [
  "libc",
  "windows-sys 0.52.0",
+]
+
+[[package]]
+name = "sp1-build"
+version = "3.4.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "e58e5f49cf1481363abb74b55104e215f3b6e58dc2adb748bde7a6e4ea61b51d"
+dependencies = [
+ "anyhow",
+ "cargo_metadata",
+ "chrono",
+ "clap 4.5.21",
+ "dirs 5.0.1",
 ]
 
 [[package]]

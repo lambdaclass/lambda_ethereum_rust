@@ -11,10 +11,10 @@ use zkvm_interface::{
 // sp1
 use sp1_sdk::{ProverClient, SP1ProofWithPublicValues, SP1PublicValues, SP1Stdin, SP1VerifyingKey};
 
-#[cfg(all(not(clippy), feature = "build_zkvm"))]
+#[cfg(all(not(clippy), feature = "build_sp1"))]
 pub const SP1_ELF: &[u8] = include_bytes!("../sp1/zkvm/elf/riscv32im-succinct-zkvm-elf");
 
-#[cfg(any(clippy, not(feature = "build_zkvm")))]
+#[cfg(any(clippy, not(feature = "build_sp1")))]
 pub const SP1_ELF: &[u8] = &[0];
 
 pub struct Risc0Prover<'a> {
@@ -120,9 +120,9 @@ impl<'a> Prover for Sp1Prover<'a> {
 
         // Generate the ProverClient
         let client = ProverClient::new();
-        let (pk, vk) = client.setup(&self.elf);
+        let (pk, vk) = client.setup(self.elf);
 
-        let (output, _) = client.execute(&self.elf, stdin.clone()).run()?;
+        let (output, _) = client.execute(self.elf, stdin.clone()).run()?;
 
         // Proof information by proving the specified ELF binary.
         // This struct contains the receipt along with statistics about execution of the guest
@@ -155,7 +155,7 @@ impl<'a> Prover for Sp1Prover<'a> {
         proving_output: &ProvingOutput,
     ) -> Result<ProgramOutput, Box<dyn std::error::Error>> {
         // TODO
-        let _commitment = match proving_output {
+        match proving_output {
             // TODO decode
             ProvingOutput::Sp1Prover(_complete_proof) => {
                 //ProgramOutput::deserialize(complete_proof.output.as_slice())?

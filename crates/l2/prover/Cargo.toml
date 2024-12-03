@@ -34,6 +34,9 @@ ethrex-vm.workspace = true
 ethrex-storage.workspace = true
 ethrex-blockchain.workspace = true
 
+[build-dependencies]
+sp1-build = "3.4.0"
+
 [lib]
 name = "ethrex_prover_lib"
 path = "src/lib.rs"
@@ -45,6 +48,7 @@ path = "src/main.rs"
 [features]
 default = []
 build_zkvm = ["zkvm_interface/build_zkvm"]
+build_sp1 = []
 gpu = ["risc0-zkvm/cuda"]
 
 [lints.clippy]
