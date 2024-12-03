@@ -321,3 +321,7 @@ fn checked_shift_right(value: U256, shift: U256) -> Result<U256, VMError> {
 
     Ok(result)
 }
+
+fn u256_from_bool(value: bool) -> U256 {
+    U256::from(u8::from(value))
+}
