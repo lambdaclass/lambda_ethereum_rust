@@ -1,6 +1,7 @@
 use crate::{
     report::{self, format_duration_as_mm_ss, EFTestReport, TestReRunReport},
     types::EFTest,
+    utils::{spinner_success_or_print, spinner_update_text_or_print},
 };
 use clap::Parser;
 use colored::Colorize;
@@ -50,22 +51,6 @@ pub struct EFTestRunnerOptions {
     pub skip: Vec<String>,
     #[arg(long, value_name = "DISABLE_SPINNER", default_value = "false")]
     pub disable_spinner: bool, // Replaces spinner for normal prints.
-}
-
-pub fn spinner_update_text_or_print(spinner: &mut Spinner, text: String, no_spinner: bool) {
-    if no_spinner {
-        println!("{}", text);
-    } else {
-        spinner.update_text(text);
-    }
-}
-
-pub fn spinner_success_or_print(spinner: &mut Spinner, text: String, no_spinner: bool) {
-    if no_spinner {
-        println!("{}", text);
-    } else {
-        spinner.success(&text);
-    }
 }
 
 pub fn run_ef_tests(

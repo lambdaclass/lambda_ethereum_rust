@@ -1,7 +1,7 @@
 use crate::{
     report::format_duration_as_mm_ss,
-    runner::{spinner_success_or_print, spinner_update_text_or_print, EFTestRunnerOptions},
-    types::{EFTest, EFTests},
+    runner::EFTestRunnerOptions,
+    types::{EFTest, EFTests}, utils::{spinner_success_or_print, spinner_update_text_or_print},
 };
 use colored::Colorize;
 use spinoff::{spinners::Dots, Color, Spinner};
