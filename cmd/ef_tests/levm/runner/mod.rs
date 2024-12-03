@@ -222,7 +222,8 @@ fn re_run_with_revm(
         revm_run_spinner.stop();
     }
     let failed_tests = reports.iter().filter(|report| !report.passed()).count();
-    for (idx, failed_test_report) in reports.iter_mut().enumerate() {
+    let mut progress_counter = 1;
+    for failed_test_report in reports.iter_mut() {
         if failed_test_report.passed() {
             continue;
         }
@@ -240,11 +241,13 @@ fn re_run_with_revm(
             format!(
                 "{} {}/{failed_tests} - {}",
                 "Re-running failed tests with REVM".bold(),
-                idx + 1,
+                progress_counter,
                 format_duration_as_mm_ss(revm_run_time.elapsed())
             ),
             opts.disable_spinner,
         );
+
+        progress_counter += 1;
 
         match revm_runner::re_run_failed_ef_test(
             ef_tests
