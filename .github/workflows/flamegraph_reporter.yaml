@@ -63,7 +63,7 @@ jobs:
         run: |
           echo "running perf"
           perf script -v -i perf.data --no-inline > stack.data
-          inferno-collapse-perf < stack.data > collapsed.data
+          inferno-collapse-perf --tid < stack.data > collapsed.data
           inferno-flamegraph < collapsed.data > flamegraph.svg
           file flamegraph.svg
 

@@ -1,6 +1,6 @@
 #!/bin/bash
 
-iterations=10
+iterations=1000
 value=10000000
 account=0x33c6b73432B3aeA0C1725E415CC40D04908B85fd
 end_val=$((172 * $iterations * $value))
