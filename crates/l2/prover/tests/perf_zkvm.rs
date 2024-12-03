@@ -3,7 +3,7 @@ use std::path::Path;
 use tracing::info;
 
 use ethrex_blockchain::add_block;
-use ethrex_prover_lib::prover::Prover;
+use ethrex_prover_lib::prover::Risc0Prover;
 use ethrex_storage::{EngineType, Store};
 use ethrex_vm::execution_db::ExecutionDB;
 use zkvm_interface::io::ProgramInput;
@@ -46,7 +46,7 @@ async fn test_performance_zkvm() {
         db,
     };
 
-    let mut prover = Prover::new();
+    let mut prover = Risc0Prover::new();
 
     let start = std::time::Instant::now();
 
@@ -62,5 +62,5 @@ async fn test_performance_zkvm() {
 
     prover.verify(&receipt).unwrap();
 
-    let _program_output = Prover::get_commitment(&receipt).unwrap();
+    let _program_output = Risc0Prover::get_commitment(&receipt).unwrap();
 }

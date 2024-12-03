@@ -13,7 +13,7 @@ use ethrex_l2::{
     proposer::prover_server::ProofData, utils::config::prover_client::ProverClientConfig,
 };
 
-use super::prover::Prover;
+use super::prover::Risc0Prover;
 
 pub async fn start_proof_data_client(config: ProverClientConfig) {
     let proof_data_client = ProverClient::new(config);
@@ -34,7 +34,7 @@ impl ProverClient {
     }
 
     pub async fn start(&self) {
-        let mut prover = Prover::new();
+        let mut prover = Risc0Prover::new();
 
         loop {
             match self.request_new_input() {

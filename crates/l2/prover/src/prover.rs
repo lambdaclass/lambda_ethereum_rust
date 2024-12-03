@@ -8,19 +8,19 @@ use zkvm_interface::{
 
 use risc0_zkvm::{default_prover, ExecutorEnv, ProverOpts};
 
-pub struct Prover<'a> {
+pub struct Risc0Prover<'a> {
     elf: &'a [u8],
     pub id: [u32; 8],
     pub stdout: Vec<u8>,
 }
 
-impl<'a> Default for Prover<'a> {
+impl<'a> Default for Risc0Prover<'a> {
     fn default() -> Self {
         Self::new()
     }
 }
 
-impl<'a> Prover<'a> {
+impl<'a> Risc0Prover<'a> {
     pub fn new() -> Self {
         Self {
             elf: ZKVM_PROGRAM_ELF,
