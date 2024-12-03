@@ -121,7 +121,8 @@ hive-stats:
 	cd hive && ./hive --client ethrex --sim ethereum/engine --sim.parallelism 4 || exit 0
 	cd hive && ./hive --client ethrex --sim ethereum/sync --sim.parallelism 4 || exit 0
 
-stats: 
+stats:
+	cd crates/vm/levm && make download-evm-ef-tests
 	cargo run --quiet --release -p loc -- --summary && echo
 	cargo test --quiet -p ef_tests-levm --test ef_tests_levm -- --summary && echo
 	make hive-stats
