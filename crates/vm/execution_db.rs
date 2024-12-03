@@ -304,13 +304,20 @@ pub mod touched_state {
         let mut db = TouchedStateDB::default();
 
         for transaction in &block.body.transactions {
-            let tx_env = tx_env(transaction);
+            let mut tx_env = tx_env(transaction);
+
+            // disable nonce check (we're executing with empty accounts, nonce 0)
+            tx_env.nonce = None;
 
             // execute tx
             let evm_builder = Evm::builder()
                 .with_block_env(block_env.clone())
                 .with_tx_env(tx_env)
-                .modify_cfg_env(|cfg| cfg.chain_id = chain_id)
+                .modify_cfg_env(|cfg| {
+                    cfg.chain_id = chain_id;
+                    // we're executing with empty accounts, balance 0
+                    cfg.disable_balance_check = true;
+                })
                 .with_spec_id(spec_id)
                 .with_external_context(
                     TracerEip3155::new(Box::new(std::io::stderr())).without_summary(),
