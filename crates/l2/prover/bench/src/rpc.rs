@@ -29,11 +29,7 @@ pub async fn get_block(rpc_url: &str, block_number: &usize) -> Result<Block, Str
         .json::<serde_json::Value>()
         .await
         .map_err(|err| err.to_string())
-        .and_then(|json| {
-            json.get("result")
-                .cloned()
-                .ok_or("failed to get result from response".to_string())
-        })
+        .and_then(handle_request)
         .and_then(|result| serde_json::from_value::<String>(result).map_err(|err| err.to_string()))
         .and_then(|hex_encoded_block| {
             hex::decode(hex_encoded_block.trim_start_matches("0x")).map_err(|err| err.to_string())
@@ -83,11 +79,7 @@ pub async fn get_account(
         .json::<serde_json::Value>()
         .await
         .map_err(|err| err.to_string())
-        .and_then(|json| {
-            json.get("result")
-                .cloned()
-                .ok_or("failed to get result from response".to_string())
-        })
+        .and_then(handle_request)
         .and_then(|result| serde_json::from_value(result).map_err(|err| err.to_string()))?;
 
     Ok(AccountState {
@@ -105,6 +97,29 @@ pub async fn get_account(
             .code_hash
             .parse()
             .map_err(|_| "failed to parse code hash".to_string())?,
+    })
+}
+
+fn handle_request(response: serde_json::Value) -> Result<serde_json::Value, String> {
+    response.get("result").cloned().ok_or_else(|| {
+        let final_error = response
+            .get("error")
+            .cloned()
+            .ok_or("response failed but error is missing".to_string())
+            .and_then(|error| {
+                error
+                    .get("message")
+                    .cloned()
+                    .ok_or("response failed but error message is missing".to_string())
+            })
+            .and_then(|message| {
+                serde_json::from_value::<String>(message)
+                    .map_err(|err| format!("failed to deserialize error message: {err}"))
+            });
+        match final_error {
+            Ok(request_err) => request_err,
+            Err(json_err) => json_err,
+        }
     })
 }
 
