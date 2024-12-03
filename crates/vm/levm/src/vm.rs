@@ -587,23 +587,19 @@ impl VM {
         let cache_before_execution = self.cache.clone();
         self.validate_transaction(&mut initial_call_frame)?;
 
-        let mut report = self.execute(&mut initial_call_frame)?;
-
+        // Maybe can be done in validate_transaction
         let sender = initial_call_frame.msg_sender;
+        let receiver_address = initial_call_frame.to;
+        self.decrease_account_balance(sender, initial_call_frame.msg_value)?;
+        self.increase_account_balance(receiver_address, initial_call_frame.msg_value)?;
 
-        /*
-               let calldata_cost = match report.result {
-                   TxResult::Success => {
-                       gas_cost::tx_calldata(&initial_call_frame.calldata).map_err(VMError::OutOfGas)?
-                   }
-                   TxResult::Revert(_) => 0,
-               };
+        let mut report = self.execute(&mut initial_call_frame)?;
+        
+        if let TxResult::Revert(_) = report.result {
+            self.decrease_account_balance(receiver_address, initial_call_frame.msg_value)?;
+            self.increase_account_balance(sender, initial_call_frame.msg_value)?;    
+        }
 
-               report.gas_used = report
-                   .gas_used
-                   .checked_add(calldata_cost)
-                   .ok_or(VMError::OutOfGas(OutOfGasError::GasUsedOverflow))?;
-        */
         if self.is_create() {
             match self.create_post_execution(&mut initial_call_frame, &mut report) {
                 Ok(_) => {}
@@ -628,14 +624,6 @@ impl VM {
                 .checked_mul(self.env.gas_price)
                 .ok_or(VMError::GasLimitPriceProductOverflow)?,
         )?;
-
-        let receiver_address = initial_call_frame.to;
-        // If execution was successful we want to transfer value from sender to receiver
-        if report.is_success() {
-            // Subtract to the caller the gas sent
-            self.decrease_account_balance(sender, initial_call_frame.msg_value)?;
-            self.increase_account_balance(receiver_address, initial_call_frame.msg_value)?;
-        }
 
         // Send coinbase fee
         let priority_fee_per_gas = self
