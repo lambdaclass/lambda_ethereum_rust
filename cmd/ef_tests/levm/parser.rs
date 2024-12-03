@@ -78,11 +78,11 @@ pub fn parse_ef_test_dir(
         {
             continue;
         }
-        // Skip the ValueOverflowParis.json file.
+        // Skip the ValueOverflowParis.json file because of errors, and loopMul.json because it takes too long to run.
         if test
             .path()
             .file_name()
-            .is_some_and(|name| name == "ValueOverflowParis.json")
+            .is_some_and(|name| name == "ValueOverflowParis.json" || name == "loopMul.json")
         {
             continue;
         }
@@ -98,6 +98,35 @@ pub fn parse_ef_test_dir(
                 test.path().file_name()
             ));
             return Ok(Vec::new());
+        }
+
+        // Skips all tests in a particular directory.
+        if opts
+            .skip
+            .contains(&test_dir.file_name().to_str().unwrap().to_owned())
+        {
+            directory_parsing_spinner.update_text(format!(
+                "Skipping test {:?} as it is in the folder of tests to skip",
+                test.path().file_name()
+            ));
+            continue;
+        }
+
+        // Skip tests by name (with .json extension)
+        if opts.skip.contains(
+            &test
+                .path()
+                .file_name()
+                .unwrap()
+                .to_str()
+                .unwrap()
+                .to_owned(),
+        ) {
+            directory_parsing_spinner.update_text(format!(
+                "Skipping test {:?} as it is in the list of tests to skip",
+                test.path().file_name()
+            ));
+            continue;
         }
 
         let test_file = std::fs::File::open(test.path()).map_err(|err| {

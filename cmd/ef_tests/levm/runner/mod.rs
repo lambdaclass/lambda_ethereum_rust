@@ -42,10 +42,12 @@ pub enum InternalError {
 pub struct EFTestRunnerOptions {
     #[arg(short, long, value_name = "FORK", default_value = "Cancun")]
     pub fork: Vec<SpecId>,
-    #[arg(short, long, value_name = "TESTS")]
+    #[arg(short, long, value_name = "TESTS", use_value_delimiter = true)]
     pub tests: Vec<String>,
     #[arg(short, long, value_name = "SUMMARY", default_value = "false")]
     pub summary: bool,
+    #[arg(long, value_name = "SKIP", use_value_delimiter = true)]
+    pub skip: Vec<String>,
 }
 
 pub fn run_ef_tests(
@@ -75,6 +77,7 @@ fn run_with_levm(
         Color::Cyan,
     );
     for test in ef_tests.iter() {
+        // println!("Running test: {:?}", test.name);
         let ef_test_report = match levm_runner::run_ef_test(test) {
             Ok(ef_test_report) => ef_test_report,
             Err(EFTestRunnerError::Internal(err)) => return Err(EFTestRunnerError::Internal(err)),
@@ -159,6 +162,13 @@ fn re_run_with_revm(
             idx + 1,
             format_duration_as_mm_ss(revm_run_time.elapsed())
         ));
+        // print running test name and time elapsed
+        println!("Running test: {:?}", failed_test_report.name);
+        println!(
+            "Time elapsed: {:?}",
+            format_duration_as_mm_ss(revm_run_time.elapsed())
+        );
+
         match revm_runner::re_run_failed_ef_test(
             ef_tests
                 .iter()
