@@ -1,7 +1,8 @@
 use crate::{
     report::format_duration_as_mm_ss,
     runner::EFTestRunnerOptions,
-    types::{EFTest, EFTests}, utils::{spinner_success_or_print, spinner_update_text_or_print},
+    types::{EFTest, EFTests},
+    utils::{spinner_success_or_print, spinner_update_text_or_print},
 };
 use colored::Colorize;
 use spinoff::{spinners::Dots, Color, Spinner};
@@ -100,6 +101,15 @@ pub fn parse_ef_test_dir(
             && !opts
                 .tests
                 .contains(&test_dir.file_name().to_str().unwrap().to_owned())
+            && !opts.tests.contains(
+                &test
+                    .path()
+                    .file_name()
+                    .unwrap()
+                    .to_str()
+                    .unwrap()
+                    .to_owned(),
+            )
         {
             spinner_update_text_or_print(
                 directory_parsing_spinner,
@@ -109,7 +119,7 @@ pub fn parse_ef_test_dir(
                 ),
                 opts.disable_spinner,
             );
-            return Ok(Vec::new());
+            continue;
         }
 
         // Skips all tests in a particular directory.
