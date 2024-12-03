@@ -48,8 +48,6 @@ pub struct EFTestRunnerOptions {
     pub summary: bool,
     #[arg(long, value_name = "SKIP", use_value_delimiter = true)]
     pub skip: Vec<String>,
-    #[arg(long, value_name = "LEVM_ONLY", default_value = "false")]
-    pub levm_only: bool,
     #[arg(long, value_name = "DISABLE_SPINNER", default_value = "false")]
     pub disable_spinner: bool, // Replaces spinner for normal prints.
 }
@@ -78,10 +76,7 @@ pub fn run_ef_tests(
     if reports.is_empty() {
         run_with_levm(&mut reports, &ef_tests, opts)?;
     }
-    if opts.summary {
-        return Ok(());
-    }
-    if !opts.levm_only {
+    if !opts.summary {
         re_run_with_revm(&mut reports, &ef_tests, opts)?;
     }
     write_report(&reports)
