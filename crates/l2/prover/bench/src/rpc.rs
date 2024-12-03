@@ -1,6 +1,6 @@
 use ethrex_core::{
     types::{AccountState, Block},
-    Address,
+    Address, U256,
 };
 use ethrex_rlp::decode::RLPDecode;
 
@@ -45,18 +45,23 @@ pub async fn get_account(
     rpc_url: &str,
     block_number: &usize,
     address: &Address,
-) -> Result<AccountState, String> {
+    storage_keys: &[U256],
+) -> Result<(AccountState, Vec<(U256, U256)>), String> {
     let client = reqwest::Client::new();
 
     let block_number = format!("0x{block_number:x}");
     let address = format!("0x{address:x}");
+    let storage_keys = storage_keys
+        .iter()
+        .map(|key| format!("0x{key:x}"))
+        .collect::<Vec<String>>();
 
     let request = &json!(
            {
                "id": 1,
                "jsonrpc": "2.0",
                "method": "eth_getProof",
-               "params":[address, [], block_number]
+               "params":[address, storage_keys, block_number]
            }
     );
     let response = client
@@ -73,6 +78,13 @@ pub async fn get_account(
         code_hash: String,
         nonce: String,
         storage_hash: String,
+        storage_proof: Vec<StorageProof>,
+    }
+
+    #[derive(Deserialize)]
+    struct StorageProof {
+        key: String,
+        value: String,
     }
 
     let account_proof: AccountProof = response
@@ -82,7 +94,24 @@ pub async fn get_account(
         .and_then(handle_response)
         .and_then(|result| serde_json::from_value(result).map_err(|err| err.to_string()))?;
 
-    Ok(AccountState {
+    let storage_key_values = account_proof
+        .storage_proof
+        .into_iter()
+        .map(|proof| -> Result<_, String> {
+            Ok((
+                proof
+                    .key
+                    .parse()
+                    .map_err(|_| "failed to parse storage value".to_string())?,
+                proof
+                    .value
+                    .parse()
+                    .map_err(|_| "failed to parse storage value".to_string())?,
+            ))
+        })
+        .collect::<Result<Vec<_>, _>>()?;
+
+    let account_state = AccountState {
         nonce: u64::from_str_radix(account_proof.nonce.trim_start_matches("0x"), 16)
             .map_err(|_| "failed to parse nonce".to_string())?,
         balance: account_proof
@@ -97,7 +126,9 @@ pub async fn get_account(
             .code_hash
             .parse()
             .map_err(|_| "failed to parse code hash".to_string())?,
-    })
+    };
+
+    Ok((account_state, storage_key_values))
 }
 
 fn handle_response(response: serde_json::Value) -> Result<serde_json::Value, String> {
@@ -105,12 +136,12 @@ fn handle_response(response: serde_json::Value) -> Result<serde_json::Value, Str
         let final_error = response
             .get("error")
             .cloned()
-            .ok_or("response failed but error is missing".to_string())
+            .ok_or("request failed (result field not found) but error is missing".to_string())
             .and_then(|error| {
                 error
                     .get("message")
                     .cloned()
-                    .ok_or("response failed but error message is missing".to_string())
+                    .ok_or("request failed, found error field but message is missing".to_string())
             })
             .and_then(|message| {
                 serde_json::from_value::<String>(message)
@@ -146,6 +177,7 @@ mod test {
             RPC_URL,
             &BLOCK_NUMBER,
             &Address::from_slice(&hex::decode(VITALIK_ADDR).unwrap()),
+            &[],
         )
         .await
         .unwrap();
