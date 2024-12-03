@@ -594,10 +594,10 @@ impl VM {
         self.increase_account_balance(receiver_address, initial_call_frame.msg_value)?;
 
         let mut report = self.execute(&mut initial_call_frame)?;
-        
+
         if let TxResult::Revert(_) = report.result {
             self.decrease_account_balance(receiver_address, initial_call_frame.msg_value)?;
-            self.increase_account_balance(sender, initial_call_frame.msg_value)?;    
+            self.increase_account_balance(sender, initial_call_frame.msg_value)?;
         }
 
         if self.is_create() {
