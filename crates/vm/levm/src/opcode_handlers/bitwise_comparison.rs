@@ -42,18 +42,10 @@ impl VM {
         let rho_is_negative = rho.bit(255);
         let result = if lho_is_negative == rho_is_negative {
             // Compare magnitudes if signs are the same
-            if lho < rho {
-                U256::one()
-            } else {
-                U256::zero()
-            }
+            u256_from_bool(lho < rho)
         } else {
             // Negative is smaller if signs differ
-            if lho_is_negative {
-                U256::one()
-            } else {
-                U256::zero()
-            }
+            u256_from_bool(lho_is_negative)
         };
         current_call_frame.stack.push(result)?;
 
