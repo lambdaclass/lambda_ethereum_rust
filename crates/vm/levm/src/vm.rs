@@ -537,8 +537,12 @@ impl VM {
 
         let sender = initial_call_frame.msg_sender;
 
-        let calldata_cost =
-            gas_cost::tx_calldata(&initial_call_frame.calldata).map_err(VMError::OutOfGas)?;
+        let calldata_cost = match report.result {
+            TxResult::Success => {
+                gas_cost::tx_calldata(&initial_call_frame.calldata).map_err(VMError::OutOfGas)?
+            }
+            TxResult::Revert(_) => 0,
+        };
 
         report.gas_used = report
             .gas_used
