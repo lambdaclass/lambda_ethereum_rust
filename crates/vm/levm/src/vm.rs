@@ -127,7 +127,6 @@ impl VM {
             TxKind::Create => {
                 // CREATE tx
 
-                // (2)
                 let new_contract_address =
                     VM::calculate_create_address(env.origin, db.get_account_info(env.origin).nonce)
                         .map_err(|_| {
@@ -136,20 +135,18 @@ impl VM {
 
                 default_touched_accounts.insert(new_contract_address);
 
-                // (3)
                 let created_contract = Account::new(value, calldata.clone(), 1, HashMap::new());
                 cache::insert_account(&mut cache, new_contract_address, created_contract);
 
-                // (5)
-                let code: Bytes = calldata.clone();
+                let bytecode: Bytes = calldata.clone();
 
                 let initial_call_frame = CallFrame::new(
                     env.origin,
                     new_contract_address,
                     new_contract_address,
-                    code.clone(),
+                    bytecode,
                     value,
-                    code,
+                    calldata,
                     false,
                     env.gas_limit,
                     U256::zero(),
