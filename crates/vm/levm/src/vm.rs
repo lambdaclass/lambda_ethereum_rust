@@ -146,7 +146,7 @@ impl VM {
                     new_contract_address,
                     bytecode,
                     value,
-                    calldata,
+                    Bytes::new(), // Contract creation does not have calldata
                     false,
                     env.gas_limit,
                     U256::zero(),
@@ -488,7 +488,7 @@ impl VM {
         // (4) INITCODE_SIZE_EXCEEDED
         if self.is_create() {
             // INITCODE_SIZE_EXCEEDED
-            if initial_call_frame.calldata.len() > INIT_CODE_MAX_SIZE {
+            if initial_call_frame.bytecode.len() > INIT_CODE_MAX_SIZE {
                 return Err(VMError::TxValidation(
                     TxValidationError::InitcodeSizeExceeded,
                 ));
