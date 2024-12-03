@@ -200,12 +200,7 @@ impl VM {
         let base = current_call_frame.stack.pop()?;
         let exponent = current_call_frame.stack.pop()?;
 
-        let exponent_bits: u64 = exponent
-            .bits()
-            .try_into()
-            .map_err(|_| VMError::Internal(InternalError::ConversionError))?;
-
-        let gas_cost = gas_cost::exp(exponent_bits).map_err(VMError::OutOfGas)?;
+        let gas_cost = gas_cost::exp(exponent).map_err(VMError::OutOfGas)?;
 
         self.increase_consumed_gas(current_call_frame, gas_cost)?;
 
