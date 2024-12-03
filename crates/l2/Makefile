@@ -86,6 +86,12 @@ down-l2: ## 🛑 Shuts down the L2 Lambda ethrex Client
 
 restart-l2: down-l2 init-l2 ## 🔄 Restarts the L2 Lambda ethrex Client
 
+# TODO: Check if we can remove this target, do it with a build.rs instead.
+SP1_ZKVM_PATH=$(shell pwd)/prover/sp1/zkvm
+build-sp1-prover: ## 🚀 Build the SP1 prover
+	cd ${SP1_ZKVM_PATH} && \
+	cargo prove build
+
 init-l2-prover: ## 🚀 Initializes the Prover
 	cargo run --release --features build_zkvm --manifest-path ../../Cargo.toml --bin ethrex_prover
 
