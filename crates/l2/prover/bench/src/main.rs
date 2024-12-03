@@ -1,15 +1,13 @@
 use std::collections::HashMap;
 
-use bench::rpc::{get_account, get_block};
+use bench::{
+    constants::{CANCUN_CONFIG, MAINNET_CHAIN_ID, MAINNET_SPEC_ID, RPC_RATE_LIMIT},
+    rpc::{get_account, get_block, Account, NodeRLP},
+};
 use clap::Parser;
-use ethrex_vm::{execution_db::touched_state::get_touched_state, SpecId};
+use ethrex_vm::execution_db::{touched_state::get_touched_state, ExecutionDB};
 use futures_util::future::join_all;
 use tokio_utils::RateLimiter;
-
-const MAINNET_CHAIN_ID: u64 = 0x1;
-const MAINNET_SPEC_ID: SpecId = SpecId::CANCUN;
-
-const RPC_RATE_LIMIT: usize = 100; // requests per second
 
 #[derive(Parser, Debug)]
 struct Args {
@@ -38,37 +36,50 @@ async fn main() {
     println!("fetching touched state values");
     let mut accounts = HashMap::new();
     let mut storages = HashMap::new();
+    let mut account_proofs = Vec::new();
+    let mut storages_proofs: HashMap<_, Vec<NodeRLP>> = HashMap::new();
 
     let rate_limiter = RateLimiter::new(std::time::Duration::from_secs(1));
     let mut fetched_accs = 0;
     for request_chunk in touched_state.chunks(RPC_RATE_LIMIT) {
-        // retrieve account state and its storage by fetching account proof
-        let account_and_storage_futures =
-            request_chunk.iter().map(|(address, storage_keys)| async {
-                let request = get_account(
+        let account_futures = request_chunk.iter().map(|(address, storage_keys)| async {
+            Ok((
+                *address,
+                get_account(
                     &rpc_url,
                     &block_number,
                     &address.clone(),
                     &storage_keys.clone(),
                 )
-                .await?;
-                Ok(((*address, request.0), (*address, request.1)))
-            });
+                .await?,
+            ))
+        });
 
-        let account_and_storage = rate_limiter
-            .throttle(|| async { join_all(account_and_storage_futures).await })
+        let fetched_accounts = rate_limiter
+            .throttle(|| async { join_all(account_futures).await })
             .await
             .into_iter()
-            .collect::<Result<(Vec<_>, Vec<_>), String>>()
-            .expect("failed to fetch accounts and storage");
+            .collect::<Result<Vec<_>, String>>()
+            .expect("failed to fetch accounts");
 
-        let (account, storage) = account_and_storage;
-        accounts.extend(account);
-        storages.extend(
-            storage.into_iter().map(|(address, storage)| {
-                (address, storage.into_iter().collect::<HashMap<_, _>>())
-            }),
-        );
+        for (
+            address,
+            Account {
+                account_state,
+                storage,
+                account_proof,
+                storage_proofs,
+            },
+        ) in fetched_accounts
+        {
+            accounts.insert(address.to_owned(), account_state);
+            storages.insert(address.to_owned(), storage);
+            account_proofs.extend(account_proof);
+            storages_proofs
+                .entry(address)
+                .or_default()
+                .extend(storage_proofs.into_iter().flatten());
+        }
 
         fetched_accs += request_chunk.len();
         println!(
@@ -77,6 +88,43 @@ async fn main() {
             touched_state.len()
         );
     }
+
+    println!("building program input");
+    let storages = storages
+        .into_iter()
+        .map(|(address, storage)| (address, storage.into_iter().collect()))
+        .collect();
+
+    let account_proofs = {
+        let root_node = if !account_proofs.is_empty() {
+            Some(account_proofs.swap_remove(0))
+        } else {
+            None
+        };
+        (root_node, account_proofs)
+    };
+
+    let storages_proofs = storages_proofs
+        .into_iter()
+        .map(|(address, mut proofs)| {
+            (address, {
+                let root_node = if !proofs.is_empty() {
+                    Some(proofs.swap_remove(0))
+                } else {
+                    None
+                };
+                (root_node, proofs)
+            })
+        })
+        .collect();
+
+    let db = ExecutionDB::new(
+        accounts,
+        storages,
+        account_proofs,
+        storages_proofs,
+        CANCUN_CONFIG,
+    );
 
     // 4. create prover program input and execute. Measure time.
     // 5. invoke rsp and execute too. Save in cache

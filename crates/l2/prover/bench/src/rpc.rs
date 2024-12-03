@@ -4,8 +4,17 @@ use ethrex_core::{
 };
 use ethrex_rlp::decode::RLPDecode;
 
-use serde::Deserialize;
+use serde::{de::DeserializeOwned, Deserialize};
 use serde_json::json;
+
+pub type NodeRLP = Vec<u8>;
+
+pub struct Account {
+    pub account_state: AccountState,
+    pub storage: Vec<(U256, U256)>,
+    pub account_proof: Vec<NodeRLP>,
+    pub storage_proofs: Vec<Vec<NodeRLP>>,
+}
 
 pub async fn get_block(rpc_url: &str, block_number: &usize) -> Result<Block, String> {
     let client = reqwest::Client::new();
@@ -29,11 +38,8 @@ pub async fn get_block(rpc_url: &str, block_number: &usize) -> Result<Block, Str
         .json::<serde_json::Value>()
         .await
         .map_err(|err| err.to_string())
-        .and_then(handle_response)
-        .and_then(|result| serde_json::from_value::<String>(result).map_err(|err| err.to_string()))
-        .and_then(|hex_encoded_block| {
-            hex::decode(hex_encoded_block.trim_start_matches("0x")).map_err(|err| err.to_string())
-        })
+        .and_then(get_result)
+        .and_then(decode_hex)
         .and_then(|encoded_block| {
             Block::decode_unfinished(&encoded_block)
                 .map_err(|err| err.to_string())
@@ -46,7 +52,7 @@ pub async fn get_account(
     block_number: &usize,
     address: &Address,
     storage_keys: &[U256],
-) -> Result<(AccountState, Vec<(U256, U256)>), String> {
+) -> Result<Account, String> {
     let client = reqwest::Client::new();
 
     let block_number = format!("0x{block_number:x}");
@@ -79,79 +85,105 @@ pub async fn get_account(
         nonce: String,
         storage_hash: String,
         storage_proof: Vec<StorageProof>,
+        account_proof: Vec<String>,
     }
 
     #[derive(Deserialize)]
     struct StorageProof {
         key: String,
         value: String,
+        proof: Vec<String>,
     }
 
-    let account_proof: AccountProof = response
+    let AccountProof {
+        balance,
+        code_hash,
+        nonce,
+        storage_hash,
+        storage_proof,
+        account_proof,
+    } = response
         .json::<serde_json::Value>()
         .await
         .map_err(|err| err.to_string())
-        .and_then(handle_response)
-        .and_then(|result| serde_json::from_value(result).map_err(|err| err.to_string()))?;
+        .and_then(get_result)?;
 
-    let storage_key_values = account_proof
-        .storage_proof
+    let (storage, storage_proofs) = storage_proof
         .into_iter()
         .map(|proof| -> Result<_, String> {
-            Ok((
-                proof
-                    .key
-                    .parse()
-                    .map_err(|_| "failed to parse storage value".to_string())?,
-                proof
-                    .value
-                    .parse()
-                    .map_err(|_| "failed to parse storage value".to_string())?,
-            ))
+            let key = proof
+                .key
+                .parse()
+                .map_err(|_| "failed to parse storage key".to_string())?;
+            let value = proof
+                .value
+                .parse()
+                .map_err(|_| "failed to parse storage value".to_string())?;
+            let proofs = proof
+                .proof
+                .into_iter()
+                .map(decode_hex)
+                .collect::<Result<Vec<_>, _>>()?;
+            Ok(((key, value), proofs))
         })
-        .collect::<Result<Vec<_>, _>>()?;
+        .collect::<Result<(Vec<_>, Vec<_>), _>>()?;
 
     let account_state = AccountState {
-        nonce: u64::from_str_radix(account_proof.nonce.trim_start_matches("0x"), 16)
+        nonce: u64::from_str_radix(nonce.trim_start_matches("0x"), 16)
             .map_err(|_| "failed to parse nonce".to_string())?,
-        balance: account_proof
-            .balance
+        balance: balance
             .parse()
             .map_err(|_| "failed to parse balance".to_string())?,
-        storage_root: account_proof
-            .storage_hash
+        storage_root: storage_hash
             .parse()
             .map_err(|_| "failed to parse storage root".to_string())?,
-        code_hash: account_proof
-            .code_hash
+        code_hash: code_hash
             .parse()
             .map_err(|_| "failed to parse code hash".to_string())?,
     };
 
-    Ok((account_state, storage_key_values))
+    let account_proof = account_proof
+        .into_iter()
+        .map(decode_hex)
+        .collect::<Result<Vec<_>, String>>()?;
+
+    Ok(Account {
+        account_state,
+        storage,
+        account_proof,
+        storage_proofs,
+    })
 }
 
-fn handle_response(response: serde_json::Value) -> Result<serde_json::Value, String> {
-    response.get("result").cloned().ok_or_else(|| {
-        let final_error = response
-            .get("error")
-            .cloned()
-            .ok_or("request failed (result field not found) but error is missing".to_string())
-            .and_then(|error| {
-                error
-                    .get("message")
-                    .cloned()
-                    .ok_or("request failed, found error field but message is missing".to_string())
-            })
-            .and_then(|message| {
-                serde_json::from_value::<String>(message)
-                    .map_err(|err| format!("failed to deserialize error message: {err}"))
-            });
-        match final_error {
-            Ok(request_err) => request_err,
-            Err(json_err) => json_err,
-        }
-    })
+fn get_result<T: DeserializeOwned>(response: serde_json::Value) -> Result<T, String> {
+    response
+        .get("result")
+        .cloned()
+        .ok_or_else(|| {
+            let final_error = response
+                .get("error")
+                .cloned()
+                .ok_or("request failed (result field not found) but error is missing".to_string())
+                .and_then(|error| {
+                    error.get("message").cloned().ok_or(
+                        "request failed, found error field but message is missing".to_string(),
+                    )
+                })
+                .and_then(|message| {
+                    serde_json::from_value::<String>(message)
+                        .map_err(|err| format!("failed to deserialize error message: {err}"))
+                });
+            match final_error {
+                Ok(request_err) => request_err,
+                Err(json_err) => json_err,
+            }
+        })
+        .and_then(|result| serde_json::from_value(result).map_err(|err| err.to_string()))
+}
+
+fn decode_hex(hex: String) -> Result<Vec<u8>, String> {
+    hex::decode(hex.trim_start_matches("0x"))
+        .map_err(|err| format!("failed to decode hex string: {err}"))
 }
 
 #[cfg(test)]

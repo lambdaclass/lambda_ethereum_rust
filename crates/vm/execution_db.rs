@@ -3,7 +3,7 @@ use std::collections::HashMap;
 use ethereum_types::H160;
 use ethrex_core::{
     types::{AccountState, Block, ChainConfig},
-    H256,
+    Address, H256, U256,
 };
 use ethrex_rlp::encode::RLPEncode;
 use ethrex_storage::{hash_address, hash_key, Store};
@@ -44,6 +44,60 @@ pub struct ExecutionDB {
 }
 
 impl ExecutionDB {
+    /// Creates a new [ExecutionDB] from raw values.
+    pub fn new(
+        accounts: HashMap<Address, AccountState>,
+        storage: HashMap<Address, HashMap<U256, U256>>,
+        account_proofs: (Option<NodeRLP>, Vec<NodeRLP>),
+        storage_proofs: HashMap<Address, (Option<NodeRLP>, Vec<NodeRLP>)>,
+        chain_config: ChainConfig,
+    ) -> Self {
+        let accounts = accounts
+            .into_iter()
+            .map(|(address, value)| (RevmAddress::from_slice(address.as_bytes()), value))
+            .collect();
+
+        let storage = storage
+            .into_iter()
+            .map(|(address, storage)| {
+                (
+                    RevmAddress::from_slice(address.as_bytes()),
+                    storage
+                        .into_iter()
+                        .map(|(key, value)| {
+                            let mut key_bytes = Vec::new();
+                            let mut value_bytes = Vec::new();
+
+                            key.to_big_endian(&mut key_bytes);
+                            value.to_big_endian(&mut value_bytes);
+
+                            (
+                                RevmU256::from_be_slice(&key_bytes),
+                                RevmU256::from_be_slice(&value_bytes),
+                            )
+                        })
+                        .collect(),
+                )
+            })
+            .collect();
+
+        let pruned_state_trie = account_proofs;
+        let pruned_storage_tries = storage_proofs
+            .into_iter()
+            .map(|(address, proofs)| (H160::from_slice(address.as_bytes()), proofs))
+            .collect();
+
+        Self {
+            accounts,
+            code: HashMap::new(),
+            storage,
+            block_hashes: HashMap::new(),
+            chain_config,
+            pruned_state_trie,
+            pruned_storage_tries,
+        }
+    }
+
     /// Creates a database by executing a block, without performing any validation.
     pub fn from_exec(block: &Block, store: &Store) -> Result<Self, ExecutionDBError> {
         // TODO: perform validation to exit early
