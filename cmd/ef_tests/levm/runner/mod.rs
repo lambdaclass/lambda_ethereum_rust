@@ -77,8 +77,9 @@ pub fn run_ef_tests(
         run_with_levm(&mut reports, &ef_tests, opts)?;
     }
     if !opts.summary {
-        re_run_with_revm(&mut reports, &ef_tests, opts)?;
+        return Ok(());
     }
+    re_run_with_revm(&mut reports, &ef_tests, opts)?;
     write_report(&reports)
 }
 
