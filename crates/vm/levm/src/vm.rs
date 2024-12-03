@@ -591,19 +591,21 @@ impl VM {
 
         let sender = initial_call_frame.msg_sender;
 
-        match self.create_post_execution(&mut initial_call_frame, &mut report) {
-            Ok(_) => {}
-            Err(error) => {
-                if error.is_internal() {
-                    return Err(error);
-                } else {
-                    report.result = TxResult::Revert(error);
-                    report.gas_used = self.env.gas_limit.low_u64();
-                    self.cache = cache_before_execution;
-                    remove_account(&mut self.cache, &initial_call_frame.to);
+        if self.is_create() {
+            match self.create_post_execution(&mut initial_call_frame, &mut report) {
+                Ok(_) => {}
+                Err(error) => {
+                    if error.is_internal() {
+                        return Err(error);
+                    } else {
+                        report.result = TxResult::Revert(error);
+                        report.gas_used = self.env.gas_limit.low_u64();
+                        self.cache = cache_before_execution;
+                        remove_account(&mut self.cache, &initial_call_frame.to);
+                    }
                 }
-            }
-        };
+            };
+        }
 
         let coinbase_address = self.env.coinbase;
 
@@ -652,42 +654,40 @@ impl VM {
         initial_call_frame: &mut CallFrame,
         report: &mut TransactionReport,
     ) -> Result<(), VMError> {
-        if self.is_create() {
-            if let TxResult::Revert(error) = &report.result {
-                return Err(error.clone());
-            }
-
-            let contract_code = report.clone().output;
-
-            // (6)
-            if contract_code.len() > MAX_CODE_SIZE {
-                return Err(VMError::ContractOutputTooBig);
-            }
-
-            // If contract code is not empty then the first byte should not be 0xef
-            if *contract_code.first().unwrap_or(&0) == INVALID_CONTRACT_PREFIX {
-                return Err(VMError::InvalidInitialByte);
-            }
-
-            let max_gas = self.env.gas_limit.low_u64();
-
-            // If initialization code is successful, code-deposit cost is paid.
-            let code_length: u64 = contract_code
-                .len()
-                .try_into()
-                .map_err(|_| VMError::Internal(InternalError::ConversionError))?;
-            let code_deposit_cost = code_length.checked_mul(200).ok_or(VMError::Internal(
-                InternalError::ArithmeticOperationOverflow,
-            ))?;
-
-            report.add_gas_with_max(code_deposit_cost, max_gas)?;
-            // Charge 22100 gas for each storage variable set (???)
-
-            // Assign bytecode to the new contract
-            let contract_address = initial_call_frame.to;
-
-            self.update_account_bytecode(contract_address, contract_code)?;
+        if let TxResult::Revert(error) = &report.result {
+            return Err(error.clone());
         }
+
+        let contract_code = report.clone().output;
+
+        if contract_code.len() > MAX_CODE_SIZE {
+            return Err(VMError::ContractOutputTooBig);
+        }
+
+        // If contract code is not empty then the first byte should not be 0xef
+        if *contract_code.first().unwrap_or(&0) == INVALID_CONTRACT_PREFIX {
+            return Err(VMError::InvalidInitialByte);
+        }
+
+        let max_gas = self.env.gas_limit.low_u64();
+
+        // If initialization code is successful, code-deposit cost is paid.
+        let code_length: u64 = contract_code
+            .len()
+            .try_into()
+            .map_err(|_| VMError::Internal(InternalError::ConversionError))?;
+        let code_deposit_cost = code_length.checked_mul(200).ok_or(VMError::Internal(
+            InternalError::ArithmeticOperationOverflow,
+        ))?;
+
+        report.add_gas_with_max(code_deposit_cost, max_gas)?;
+        // Charge 22100 gas for each storage variable set (???)
+
+        // Assign bytecode to the new contract
+        let contract_address = initial_call_frame.to;
+
+        self.update_account_bytecode(contract_address, contract_code)?;
+
         Ok(())
     }
 
