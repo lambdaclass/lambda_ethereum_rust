@@ -40,13 +40,6 @@ pub fn parse_ef_tests(opts: &EFTestRunnerOptions) -> Result<Vec<EFTest>, EFTestP
         let directory_tests = parse_ef_test_dir(test_dir, opts, &mut spinner)?;
         tests.extend(directory_tests);
     }
-    // spinner.success(
-    //     &format!(
-    //         "Parsed EF Tests in {}",
-    //         format_duration_as_mm_ss(parsing_time.elapsed())
-    //     )
-    //     .bold(),
-    // );
     spinner_success_or_print(
         &mut spinner,
         format!(
@@ -63,7 +56,6 @@ pub fn parse_ef_test_dir(
     opts: &EFTestRunnerOptions,
     directory_parsing_spinner: &mut Spinner,
 ) -> Result<Vec<EFTest>, EFTestParseError> {
-    // directory_parsing_spinner.update_text(format!("Parsing directory {:?}", test_dir.file_name()));
     spinner_update_text_or_print(
         directory_parsing_spinner,
         format!("Parsing directory {:?}", test_dir.file_name()),
@@ -109,10 +101,6 @@ pub fn parse_ef_test_dir(
                 .tests
                 .contains(&test_dir.file_name().to_str().unwrap().to_owned())
         {
-            // directory_parsing_spinner.update_text(format!(
-            //     "Skipping test {:?} as it is not in the list of tests to run",
-            //     test.path().file_name()
-            // ));
             spinner_update_text_or_print(
                 directory_parsing_spinner,
                 format!(
@@ -129,10 +117,6 @@ pub fn parse_ef_test_dir(
             .skip
             .contains(&test_dir.file_name().to_str().unwrap().to_owned())
         {
-            // directory_parsing_spinner.update_text(format!(
-            //     "Skipping test {:?} as it is in the folder of tests to skip",
-            //     test.path().file_name()
-            // ));
             spinner_update_text_or_print(
                 directory_parsing_spinner,
                 format!(
@@ -154,10 +138,6 @@ pub fn parse_ef_test_dir(
                 .unwrap()
                 .to_owned(),
         ) {
-            // directory_parsing_spinner.update_text(format!(
-            //     "Skipping test {:?} as it is in the list of tests to skip",
-            //     test.path().file_name()
-            // ));
             spinner_update_text_or_print(
                 directory_parsing_spinner,
                 format!(
