@@ -29,7 +29,7 @@ pub async fn get_block(rpc_url: &str, block_number: &usize) -> Result<Block, Str
         .json::<serde_json::Value>()
         .await
         .map_err(|err| err.to_string())
-        .and_then(handle_request)
+        .and_then(handle_response)
         .and_then(|result| serde_json::from_value::<String>(result).map_err(|err| err.to_string()))
         .and_then(|hex_encoded_block| {
             hex::decode(hex_encoded_block.trim_start_matches("0x")).map_err(|err| err.to_string())
@@ -79,7 +79,7 @@ pub async fn get_account(
         .json::<serde_json::Value>()
         .await
         .map_err(|err| err.to_string())
-        .and_then(handle_request)
+        .and_then(handle_response)
         .and_then(|result| serde_json::from_value(result).map_err(|err| err.to_string()))?;
 
     Ok(AccountState {
@@ -100,7 +100,7 @@ pub async fn get_account(
     })
 }
 
-fn handle_request(response: serde_json::Value) -> Result<serde_json::Value, String> {
+fn handle_response(response: serde_json::Value) -> Result<serde_json::Value, String> {
     response.get("result").cloned().ok_or_else(|| {
         let final_error = response
             .get("error")
