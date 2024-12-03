@@ -36,17 +36,6 @@ jobs:
           cargo install flamegraph
           cargo install inferno
 
-      - name: Build addr2line
-        shell: bash
-        run: |
-          echo "bulding addr2line"
-          cd ${HOME}
-          git clone https://github.com/gimli-rs/addr2line
-          cd addr2line
-          cargo build --release --bin addr2line --features=bin
-          cd $HOME
-
-
       - name: Install Foundry
         uses: foundry-rs/foundry-toolchain@v1
 
@@ -62,7 +51,7 @@ jobs:
       - name: Generate Flamegraph data for Ethrex
         shell: bash
         run: |
-          PATH=$HOME/addr2line/target/release:$PATH CARGO_PROFILE_RELEASE_DEBUG=true cargo flamegraph -c "record -o perf.data -F997 --call-graph dwarf,16384 -g" --bin ethrex --features dev  --  --network test_data/genesis-l2.json --http.port 1729 &
+          CARGO_PROFILE_RELEASE_DEBUG=true cargo flamegraph -c "record -o perf.data -F997 --call-graph dwarf,16384 -g" --bin ethrex --features dev  --  --network test_data/genesis-l2.json --http.port 1729 &
           echo "waiting to execute load test..."
           sleep 30 &&
           echo "executing load test..."
@@ -72,7 +61,7 @@ jobs:
       - name: Generate SVG
         shell: bash
         run: |
-          perf script -v -i perf.data > stack.data
+          perf script -v -i perf.data --no-inline > stack.data
           inferno-collapse-perf < stack.data > collapsed.data
           inferno-flamegraph < collapsed.data > flamegraph.svg
           file flamegraph.svg
