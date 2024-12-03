@@ -48,6 +48,8 @@ pub struct EFTestRunnerOptions {
     pub summary: bool,
     #[arg(long, value_name = "SKIP", use_value_delimiter = true)]
     pub skip: Vec<String>,
+    #[arg(long, value_name = "LEVM_ONLY", default_value = "false")]
+    pub levm_only: bool,
 }
 
 pub fn run_ef_tests(
@@ -61,7 +63,9 @@ pub fn run_ef_tests(
     if opts.summary {
         return Ok(());
     }
-    re_run_with_revm(&mut reports, &ef_tests)?;
+    if !opts.levm_only {
+        re_run_with_revm(&mut reports, &ef_tests)?;
+    }
     write_report(&reports)
 }
 
