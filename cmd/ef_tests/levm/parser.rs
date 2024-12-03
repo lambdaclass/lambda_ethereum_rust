@@ -24,6 +24,10 @@ pub fn parse_ef_tests(opts: &EFTestRunnerOptions) -> Result<Vec<EFTest>, EFTestP
     let cargo_manifest_dir = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"));
     let ef_general_state_tests_path = cargo_manifest_dir.join("vectors/GeneralStateTests");
     let mut spinner = Spinner::new(Dots, "Parsing EF Tests".bold().to_string(), Color::Cyan);
+    if opts.disable_spinner {
+        println!("Parsing EF Tests");
+        spinner.stop();
+    }
     let mut tests = Vec::new();
     for test_dir in std::fs::read_dir(ef_general_state_tests_path.clone())
         .map_err(|err| {

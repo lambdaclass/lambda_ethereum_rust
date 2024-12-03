@@ -56,7 +56,7 @@ pub struct EFTestRunnerOptions {
 
 pub fn spinner_update_text_or_print(spinner: &mut Spinner, text: String, no_spinner: bool) {
     if no_spinner {
-        println!(" {}", text);
+        println!("{}", text);
     } else {
         spinner.update_text(text);
     }
@@ -64,7 +64,7 @@ pub fn spinner_update_text_or_print(spinner: &mut Spinner, text: String, no_spin
 
 pub fn spinner_success_or_print(spinner: &mut Spinner, text: String, no_spinner: bool) {
     if no_spinner {
-        println!(" {}", text);
+        println!("{}", text);
     } else {
         spinner.success(&text);
     }
@@ -98,6 +98,10 @@ fn run_with_levm(
         report::progress(reports, levm_run_time.elapsed()),
         Color::Cyan,
     );
+    if opts.disable_spinner {
+        println!("{}", "Running all tests with LEVM...".bold());
+        levm_run_spinner.stop();
+    }
     for test in ef_tests.iter() {
         // println!(
         //     "Time elapsed: {:?}",
@@ -134,6 +138,10 @@ fn run_with_levm(
     }
 
     let mut summary_spinner = Spinner::new(Dots, "Loading summary...".to_owned(), Color::Cyan);
+    if opts.disable_spinner {
+        println!("{}", "Loading summary...".bold());
+        summary_spinner.stop();
+    }
     // summary_spinner.success(&report::summary_for_shell(reports));
     spinner_success_or_print(
         &mut summary_spinner,
@@ -149,6 +157,7 @@ fn run_with_levm(
 fn _run_with_revm(
     reports: &mut Vec<EFTestReport>,
     ef_tests: &[EFTest],
+    opts: &EFTestRunnerOptions,
 ) -> Result<(), EFTestRunnerError> {
     let revm_run_time = std::time::Instant::now();
     let mut revm_run_spinner = Spinner::new(
@@ -156,6 +165,10 @@ fn _run_with_revm(
         "Running all tests with REVM...".to_owned(),
         Color::Cyan,
     );
+    if opts.disable_spinner {
+        println!("{}", "Running all tests with REVM...".bold());
+        revm_run_spinner.stop();
+    }
     for (idx, test) in ef_tests.iter().enumerate() {
         let total_tests = ef_tests.len();
         revm_run_spinner.update_text(format!(
@@ -194,6 +207,10 @@ fn re_run_with_revm(
         "Running failed tests with REVM...".to_owned(),
         Color::Cyan,
     );
+    if opts.disable_spinner {
+        println!("{}", "Running failed tests with REVM...".bold());
+        revm_run_spinner.stop();
+    }
     let failed_tests = reports.iter().filter(|report| !report.passed()).count();
     for (idx, failed_test_report) in reports.iter_mut().enumerate() {
         if failed_test_report.passed() {
