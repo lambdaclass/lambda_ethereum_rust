@@ -63,15 +63,9 @@ jobs:
         run: |
           echo "running perf"
           perf script -v -i perf.data --no-inline > stack.data
-          inferno-collapse-perf --tid < stack.data > collapsed.data
+          inferno-collapse-perf < stack.data > collapsed.data
           inferno-flamegraph < collapsed.data > flamegraph.svg
           file flamegraph.svg
-
-      - name: Upload artifacts
-        uses: actions/upload-artifact@v4
-        with:
-          name: perf.data
-          path: ./perf.data
 
       - name: Upload artifacts - flamegraph.svg
         uses: actions/upload-artifact@v4
