@@ -151,6 +151,13 @@ pub const INIT_CODE_WORD_COST: U256 = U256([2, 0, 0, 0]);
 pub const CODE_DEPOSIT_COST: U256 = U256([200, 0, 0, 0]);
 pub const CREATE_BASE_COST: U256 = U256([32000, 0, 0, 0]);
 
+// Calldata costs
+pub const CALLDATA_COST_ZERO_BYTE: U256 = U256([4, 0, 0, 0]);
+pub const CALLDATA_COST_NON_ZERO_BYTE: U256 = U256([16, 0, 0, 0]);
+
+// Blob gas costs
+pub const BLOB_GAS_PER_BLOB: U256 = U256([131072, 0, 0, 0]);
+
 pub fn exp(exponent_bits: u64) -> Result<U256, OutOfGasError> {
     let exponent_byte_size = (exponent_bits
         .checked_add(7)
@@ -469,11 +476,11 @@ pub fn tx_calldata(calldata: &Bytes) -> Result<U256, OutOfGasError> {
     for byte in calldata {
         if *byte != 0 {
             calldata_cost = calldata_cost
-                .checked_add(U256::from(16))
+                .checked_add(CALLDATA_COST_NON_ZERO_BYTE)
                 .ok_or(OutOfGasError::GasUsedOverflow)?;
         } else {
             calldata_cost = calldata_cost
-                .checked_add(U256::from(4))
+                .checked_add(CALLDATA_COST_ZERO_BYTE)
                 .ok_or(OutOfGasError::GasUsedOverflow)?;
         }
     }

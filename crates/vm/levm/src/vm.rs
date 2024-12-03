@@ -11,7 +11,7 @@ use crate::{
         InternalError, OpcodeSuccess, OutOfGasError, ResultReason, TransactionReport, TxResult,
         TxValidationError, VMError,
     },
-    gas_cost::{self, fake_exponential, CREATE_BASE_COST},
+    gas_cost::{self, fake_exponential, BLOB_GAS_PER_BLOB, CREATE_BASE_COST},
     opcodes::Opcode,
     AccountInfo,
 };
@@ -410,7 +410,7 @@ impl VM {
     /// Gets the max blob gas cost for a transaction that a user is willing to pay.
     fn get_max_blob_gas_cost(&self) -> Result<U256, VMError> {
         let blob_gas_used = U256::from(self.env.tx_blob_hashes.len())
-            .checked_mul(U256::from(131072))
+            .checked_mul(BLOB_GAS_PER_BLOB)
             .unwrap_or_default();
 
         let blob_gas_cost = self
