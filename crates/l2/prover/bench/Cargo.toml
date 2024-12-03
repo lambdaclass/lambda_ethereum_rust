@@ -32,3 +32,4 @@ revm-primitives = { version = "10.0.0", features = [
   "std",
 ], default-features = false }
 futures-util = "0.3.31"
+tokio-utils = "0.1.2"
