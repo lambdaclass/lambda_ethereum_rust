@@ -1,0 +1,15 @@
+name: Github Actions
+on:
+  pull_request:
+    branches:
+      - main
+    paths:
+      ".github/**.yaml"
+
+jobs:
+  lint:
+    name: Lint
+    runs-on: ubuntu-latest
+    steps:
+      - name: actionlint
+        uses: raven-actions/actionlint@v2
