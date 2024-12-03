@@ -1,5 +1,5 @@
 pub mod db;
-mod errors;
+pub mod errors;
 pub mod execution_db;
 mod execution_result;
 #[cfg(feature = "l2")]
@@ -169,7 +169,7 @@ cfg_if::cfg_if! {
 
             let env = Environment {
                 origin: tx.sender(),
-                consumed_gas: U256::from(21000), // Base gas cost for a transaction
+                consumed_gas: U256::zero(),
                 refunded_gas: U256::zero(),
                 gas_limit: tx.gas_limit().into(),
                 block_number: block_header.number.into(),
