@@ -726,37 +726,37 @@ pub fn fake_exponential(factor: u64, numerator: u64, denominator: u64) -> Result
     let mut output: u64 = 0;
 
     // Initial multiplication: factor * denominator
-    let mut numerator_accum = factor.checked_mul(denominator).ok_or(VMError::Internal(
-        InternalError::ArithmeticOperationOverflow,
-    ))?;
+    let mut numerator_accum = factor
+        .checked_mul(denominator)
+        .ok_or(InternalError::ArithmeticOperationOverflow)?;
 
     while numerator_accum > 0 {
         // Safe addition to output
         output = output
             .checked_add(numerator_accum)
-            .ok_or(VMError::Internal(
-                InternalError::ArithmeticOperationOverflow,
-            ))?;
+            .ok_or(InternalError::ArithmeticOperationOverflow)?;
 
         // Safe multiplication and division within loop
         numerator_accum = numerator_accum
             .checked_mul(numerator)
-            .ok_or(VMError::Internal(
-                InternalError::ArithmeticOperationOverflow,
-            ))?
-            .checked_div(denominator.checked_mul(i).ok_or(VMError::Internal(
-                InternalError::ArithmeticOperationOverflow,
-            ))?)
+            .ok_or(InternalError::ArithmeticOperationOverflow)?
+            .checked_div(
+                denominator
+                    .checked_mul(i)
+                    .ok_or(InternalError::ArithmeticOperationOverflow)?,
+            )
             .ok_or(VMError::Internal(
                 InternalError::ArithmeticOperationOverflow,
             ))?;
 
-        i = i.checked_add(1).ok_or(VMError::Internal(
-            InternalError::ArithmeticOperationOverflow,
-        ))?;
+        i = i
+            .checked_add(1)
+            .ok_or(InternalError::ArithmeticOperationOverflow)?;
     }
 
-    Ok(U256::from(output.checked_div(denominator).ok_or(
-        VMError::Internal(InternalError::ArithmeticOperationOverflow),
-    )?))
+    Ok(U256::from(
+        output
+            .checked_div(denominator)
+            .ok_or(InternalError::ArithmeticOperationOverflow)?,
+    ))
 }

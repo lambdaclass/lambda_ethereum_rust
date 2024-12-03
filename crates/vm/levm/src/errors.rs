@@ -217,7 +217,7 @@ impl TransactionReport {
         let new_gas_used = self
             .gas_used
             .checked_add(gas)
-            .ok_or(VMError::OutOfGas(OutOfGasError::MaxGasLimitExceeded))?;
+            .ok_or(OutOfGasError::MaxGasLimitExceeded)?;
 
         if new_gas_used > max {
             return Err(VMError::OutOfGas(OutOfGasError::MaxGasLimitExceeded));

@@ -354,7 +354,7 @@ impl VM {
         // Intrinsic gas is the gas consumed by the transaction before the execution of the opcodes. Section 6.2 in the Yellow Paper.
 
         // Intrinsic Gas = Calldata cost + Create cost + Base cost + Access list cost
-        let mut intrinsic_gas: U256 = U256::zero();
+        let mut intrinsic_gas = U256::zero();
 
         // Calldata Cost
         // 4 gas for each zero byte in the transaction data 16 gas for each non-zero byte in the transaction.
@@ -363,40 +363,40 @@ impl VM {
 
         intrinsic_gas = intrinsic_gas
             .checked_add(calldata_cost)
-            .ok_or(VMError::OutOfGas(OutOfGasError::ConsumedGasOverflow))?;
+            .ok_or(OutOfGasError::ConsumedGasOverflow)?;
 
         // Base Cost
         intrinsic_gas = intrinsic_gas
             .checked_add(TX_BASE_COST)
-            .ok_or(VMError::OutOfGas(OutOfGasError::ConsumedGasOverflow))?;
+            .ok_or(OutOfGasError::ConsumedGasOverflow)?;
 
         // Create Cost
         if self.is_create() {
             intrinsic_gas = intrinsic_gas
                 .checked_add(CREATE_BASE_COST)
-                .ok_or(VMError::OutOfGas(OutOfGasError::ConsumedGasOverflow))?;
+                .ok_or(OutOfGasError::ConsumedGasOverflow)?;
 
             let number_of_words: u64 = initial_call_frame
                 .calldata
                 .chunks(WORD_SIZE)
                 .len()
                 .try_into()
-                .map_err(|_| VMError::Internal(InternalError::ConversionError))?;
+                .map_err(|_| InternalError::ConversionError)?;
 
             intrinsic_gas = intrinsic_gas
                 .checked_add(
                     U256::from(number_of_words)
                         .checked_mul(U256::from(2))
-                        .ok_or(VMError::OutOfGas(OutOfGasError::ConsumedGasOverflow))?,
+                        .ok_or(OutOfGasError::ConsumedGasOverflow)?,
                 )
-                .ok_or(VMError::OutOfGas(OutOfGasError::ConsumedGasOverflow))?;
+                .ok_or(OutOfGasError::ConsumedGasOverflow)?;
         }
 
         // Access List Cost
         // TODO: Implement access list cost.
 
         self.increase_consumed_gas(initial_call_frame, intrinsic_gas)
-            .map_err(|_| VMError::TxValidation(TxValidationError::IntrinsicGasTooLow))?;
+            .map_err(|_| TxValidationError::IntrinsicGasTooLow)?;
 
         Ok(())
     }
@@ -418,7 +418,7 @@ impl VM {
             .tx_max_fee_per_blob_gas
             .unwrap_or_default()
             .checked_mul(blob_gas_used)
-            .ok_or(VMError::TxValidation(TxValidationError::UndefinedState(1)))?;
+            .ok_or(TxValidationError::UndefinedState(1))?;
 
         Ok(blob_gas_cost)
     }
@@ -467,9 +467,9 @@ impl VM {
 
         let up_front_cost = gaslimit_price_product
             .checked_add(value)
-            .ok_or(VMError::TxValidation(TxValidationError::UndefinedState(1)))?
+            .ok_or(TxValidationError::UndefinedState(1))?
             .checked_add(blob_gas_cost)
-            .ok_or(VMError::TxValidation(TxValidationError::UndefinedState(1)))?;
+            .ok_or(TxValidationError::UndefinedState(1))?;
         // There is no error specified for overflow in up_front_cost in ef_tests. Maybe we can go with GasLimitPriceProductOverflow or InsufficientAccountFunds.
 
         // (2) INSUFFICIENT_ACCOUNT_FUNDS
@@ -479,9 +479,7 @@ impl VM {
             .info
             .balance
             .checked_sub(up_front_cost)
-            .ok_or(VMError::TxValidation(
-                TxValidationError::InsufficientAccountFunds,
-            ))?;
+            .ok_or(TxValidationError::InsufficientAccountFunds)?;
 
         // (3) INSUFFICIENT_MAX_FEE_PER_GAS
         if self.max_fee_per_gas_or_gasprice() < self.env.base_fee_per_gas {
