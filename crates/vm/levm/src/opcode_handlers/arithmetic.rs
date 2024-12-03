@@ -171,6 +171,11 @@ impl VM {
         let addend = current_call_frame.stack.pop()?;
         let modulus = current_call_frame.stack.pop()?;
 
+        if modulus.is_zero() {
+            current_call_frame.stack.push(U256::zero())?;
+            return Ok(OpcodeSuccess::Continue);
+        }
+
         let new_augend = augend.checked_rem(modulus).unwrap_or_default();
         let new_addend = addend.checked_rem(modulus).unwrap_or_default();
 
