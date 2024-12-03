@@ -135,7 +135,7 @@ pub fn prepare_revm_for_tx<'state>(
     let tx_env = RevmTxEnv {
         caller: tx.sender.0.into(),
         gas_limit: tx.gas_limit.as_u64(),
-        gas_price: RevmU256::from_limbs(effective_gas_price(test, tx).0),
+        gas_price: RevmU256::from_limbs(effective_gas_price(test, tx)?.0),
         transact_to: match tx.to {
             TxKind::Call(to) => RevmTxKind::Call(to.0.into()),
             TxKind::Create => RevmTxKind::Create,
