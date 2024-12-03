@@ -92,11 +92,8 @@ impl VM {
         self.increase_consumed_gas(current_call_frame, gas_cost::EQ)?;
         let lho = current_call_frame.stack.pop()?;
         let rho = current_call_frame.stack.pop()?;
-        let result = if lho == rho {
-            U256::one()
-        } else {
-            U256::zero()
-        };
+        let result = u256_from_bool(lho == rho);
+
         current_call_frame.stack.push(result)?;
 
         Ok(OpcodeSuccess::Continue)
