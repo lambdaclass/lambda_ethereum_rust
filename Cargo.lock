@@ -2146,6 +2146,7 @@ dependencies = [
  "hex",
  "jsonwebtoken",
  "keccak-hash 0.10.0",
+ "no-panic",
  "rand 0.8.5",
  "reqwest",
  "risc0-zkvm",
@@ -2218,6 +2219,7 @@ dependencies = [
  "ethrex-storage",
  "ethrex-vm",
  "hex",
+ "no-panic",
  "risc0-zkvm",
  "serde",
  "serde_json",
@@ -3839,6 +3841,17 @@ dependencies = [
  "quote",
  "serde",
  "syn 1.0.109",
+]
+
+[[package]]
+name = "no-panic"
+version = "0.1.32"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "13039f2e914d0c1b8674a6a63681cfb857c41f029920db505f850c36dee22df8"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn 2.0.89",
 ]
 
 [[package]]

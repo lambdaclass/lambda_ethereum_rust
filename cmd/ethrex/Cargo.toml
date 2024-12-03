@@ -46,3 +46,7 @@ libmdbx = ["dep:libmdbx", "ethrex-storage/libmdbx"]
 redb = ["dep:redb", "ethrex-storage/redb"]
 l2 = ["ethrex-vm/l2"]
 levm = ["ethrex-vm/levm", "ethrex-blockchain/levm"]
+
+[profile.release]
+lto = "fat"
+codegen-units = 1

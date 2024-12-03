@@ -12,7 +12,7 @@ use crate::{
 use bytes::Bytes;
 use ethrex_core::{
     types::{
-        blobs_bundle, fake_exponential, BlobsBundle, Block, PrivilegedL2Transaction,
+        blobs_bundle, fake_exponential_checked, BlobsBundle, Block, PrivilegedL2Transaction,
         PrivilegedTxType, Transaction, TxKind, BLOB_BASE_FEE_UPDATE_FRACTION,
         MIN_BASE_FEE_PER_BLOB_GAS,
     },
@@ -27,6 +27,8 @@ use tokio::time::sleep;
 use tracing::{error, info};
 
 use super::errors::BlobEstimationError;
+
+use no_panic::no_panic;
 
 const COMMIT_FUNCTION_SELECTOR: [u8; 4] = [132, 97, 12, 179];
 
@@ -159,7 +161,8 @@ impl Committer {
         }
     }
 
-    pub fn get_block_withdrawals(
+    //#[no_panic]
+    fn get_block_withdrawals(
         &self,
         block: &Block,
     ) -> Result<Vec<(H256, PrivilegedL2Transaction)>, CommitterError> {
@@ -180,7 +183,8 @@ impl Committer {
         Ok(withdrawals)
     }
 
-    pub fn get_withdrawals_merkle_root(
+    //#[no_panic]
+    fn get_withdrawals_merkle_root(
         &self,
         withdrawals_hashes: Vec<H256>,
     ) -> Result<H256, CommitterError> {
@@ -191,7 +195,8 @@ impl Committer {
         }
     }
 
-    pub fn get_block_deposits(&self, block: &Block) -> Vec<PrivilegedL2Transaction> {
+    //#[no_panic]
+    fn get_block_deposits(&self, block: &Block) -> Vec<PrivilegedL2Transaction> {
         let deposits = block
             .body
             .transactions
@@ -209,7 +214,8 @@ impl Committer {
         deposits
     }
 
-    pub fn get_deposit_hash(&self, deposit_hashes: Vec<H256>) -> Result<H256, CommitterError> {
+    //#[no_panic]
+    fn get_deposit_hash(&self, deposit_hashes: Vec<H256>) -> Result<H256, CommitterError> {
         if !deposit_hashes.is_empty() {
             let deposit_hashes_len: u16 = deposit_hashes
                 .len()
@@ -237,14 +243,15 @@ impl Committer {
         }
     }
     /// Prepare the state diff for the block.
-    pub fn prepare_state_diff(
+    //#[no_panic]
+    fn prepare_state_diff(
         &self,
         block: &Block,
         store: Store,
         withdrawals: Vec<(H256, PrivilegedL2Transaction)>,
         deposits: Vec<PrivilegedL2Transaction>,
     ) -> Result<StateDiff, CommitterError> {
-        info!("Preparing state diff for block {}", block.header.number);
+        //info!("Preparing state diff for block {}", block.header.number);
 
         let mut state = evm_state(store.clone(), block.header.parent_hash);
         execute_block(block, &mut state).map_err(CommitterError::from)?;
@@ -314,10 +321,8 @@ impl Committer {
     }
 
     /// Generate the blob bundle necessary for the EIP-4844 transaction.
-    pub fn generate_blobs_bundle(
-        &self,
-        state_diff: &StateDiff,
-    ) -> Result<BlobsBundle, CommitterError> {
+    //#[no_panic]
+    fn generate_blobs_bundle(&self, state_diff: &StateDiff) -> Result<BlobsBundle, CommitterError> {
         let blob_data = state_diff.encode().map_err(CommitterError::from)?;
 
         let blob = blobs_bundle::blob_from_bytes(blob_data).map_err(CommitterError::from)?;
@@ -325,7 +330,7 @@ impl Committer {
         BlobsBundle::create_from_blobs(&vec![blob]).map_err(CommitterError::from)
     }
 
-    pub async fn send_commitment(
+    async fn send_commitment(
         &self,
         block_number: u64,
         withdrawal_logs_merkle_root: H256,
@@ -438,11 +443,13 @@ async fn estimate_blob_gas(
     };
 
     // If the blob's market is in high demand, the equation may give a really big number.
-    let blob_gas = fake_exponential(
+    // This function doesn't panic, it performs checked/saturating operations.
+    let blob_gas = fake_exponential_checked(
         MIN_BASE_FEE_PER_BLOB_GAS,
         total_blob_gas,
         BLOB_BASE_FEE_UPDATE_FRACTION,
-    );
+    )
+    .map_err(BlobEstimationError::FakeExponentialError)?;
 
     let gas_with_headroom = (blob_gas * (100 + headroom)) / 100;
 

@@ -1,19 +1,18 @@
+use ethrex_l2::{
+    proposer::prover_server::ProofData, utils::config::prover_client::ProverClientConfig,
+};
 use std::{
     io::{BufReader, BufWriter},
     net::TcpStream,
     time::Duration,
 };
-
 use tokio::time::sleep;
 use tracing::{debug, error, info, warn};
-
 use zkvm_interface::io::ProgramInput;
 
-use ethrex_l2::{
-    proposer::prover_server::ProofData, utils::config::prover_client::ProverClientConfig,
-};
-
 use super::prover::Prover;
+
+use no_panic::no_panic;
 
 pub async fn start_proof_data_client(config: ProverClientConfig) {
     let proof_data_client = ProverClient::new(config);
@@ -59,9 +58,10 @@ impl ProverClient {
         }
     }
 
+    //#[no_panic]
     fn request_new_input(&self) -> Result<(u64, ProgramInput), String> {
         // Request the input with the correct block_number
-        let request = ProofData::Request;
+        let request = ProofData::request();
         let response = connect_to_prover_server_wr(&self.prover_server_endpoint, &request)
             .map_err(|e| format!("Failed to get Response: {e}"))?;
 
@@ -87,16 +87,14 @@ impl ProverClient {
         }
     }
 
+    //#[no_panic]
     fn submit_proof(
         &self,
         block_number: u64,
         receipt: risc0_zkvm::Receipt,
         prover_id: Vec<u32>,
     ) -> Result<(), String> {
-        let submit = ProofData::Submit {
-            block_number,
-            receipt: Box::new((receipt, prover_id)),
-        };
+        let submit = ProofData::submit(block_number, (receipt, prover_id));
         let submit_ack = connect_to_prover_server_wr(&self.prover_server_endpoint, &submit)
             .map_err(|e| format!("Failed to get SubmitAck: {e}"))?;
 
@@ -110,6 +108,7 @@ impl ProverClient {
     }
 }
 
+//#[no_panic]
 fn connect_to_prover_server_wr(
     addr: &str,
     write: &ProofData,
