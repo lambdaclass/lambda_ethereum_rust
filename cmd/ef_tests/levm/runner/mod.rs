@@ -61,7 +61,7 @@ pub fn run_ef_tests(
     if reports.is_empty() {
         run_with_levm(&mut reports, &ef_tests, opts)?;
     }
-    if !opts.summary {
+    if opts.summary {
         return Ok(());
     }
     re_run_with_revm(&mut reports, &ef_tests, opts)?;
