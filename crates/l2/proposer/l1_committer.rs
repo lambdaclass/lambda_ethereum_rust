@@ -28,8 +28,6 @@ use tracing::{error, info};
 
 use super::errors::BlobEstimationError;
 
-use no_panic::no_panic;
-
 const COMMIT_FUNCTION_SELECTOR: [u8; 4] = [132, 97, 12, 179];
 
 pub struct Committer {
@@ -161,7 +159,6 @@ impl Committer {
         }
     }
 
-    //#[no_panic]
     fn get_block_withdrawals(
         &self,
         block: &Block,
@@ -183,7 +180,6 @@ impl Committer {
         Ok(withdrawals)
     }
 
-    //#[no_panic]
     fn get_withdrawals_merkle_root(
         &self,
         withdrawals_hashes: Vec<H256>,
@@ -195,7 +191,6 @@ impl Committer {
         }
     }
 
-    //#[no_panic]
     fn get_block_deposits(&self, block: &Block) -> Vec<PrivilegedL2Transaction> {
         let deposits = block
             .body
@@ -214,7 +209,6 @@ impl Committer {
         deposits
     }
 
-    //#[no_panic]
     fn get_deposit_hash(&self, deposit_hashes: Vec<H256>) -> Result<H256, CommitterError> {
         if !deposit_hashes.is_empty() {
             let deposit_hashes_len: u16 = deposit_hashes
@@ -242,8 +236,7 @@ impl Committer {
             Ok(H256::zero())
         }
     }
-    /// Prepare the state diff for the block.
-    //#[no_panic]
+
     fn prepare_state_diff(
         &self,
         block: &Block,
@@ -251,7 +244,7 @@ impl Committer {
         withdrawals: Vec<(H256, PrivilegedL2Transaction)>,
         deposits: Vec<PrivilegedL2Transaction>,
     ) -> Result<StateDiff, CommitterError> {
-        //info!("Preparing state diff for block {}", block.header.number);
+        info!("Preparing state diff for block {}", block.header.number);
 
         let mut state = evm_state(store.clone(), block.header.parent_hash);
         execute_block(block, &mut state).map_err(CommitterError::from)?;
@@ -320,8 +313,6 @@ impl Committer {
         Ok(state_diff)
     }
 
-    /// Generate the blob bundle necessary for the EIP-4844 transaction.
-    //#[no_panic]
     fn generate_blobs_bundle(&self, state_diff: &StateDiff) -> Result<BlobsBundle, CommitterError> {
         let blob_data = state_diff.encode().map_err(CommitterError::from)?;
 

@@ -5,8 +5,6 @@ use ethereum_types::{Address, H256, U256};
 
 use super::errors::StateDiffError;
 
-use no_panic::no_panic;
-
 #[derive(Clone)]
 pub struct AccountStateDiff {
     pub new_balance: Option<U256>,
@@ -84,7 +82,6 @@ impl From<AccountStateDiffType> for u8 {
 }
 
 impl StateDiff {
-    //#[no_panic]
     pub fn encode(&self) -> Result<Bytes, StateDiffError> {
         if self.version != 1 {
             return Err(StateDiffError::UnsupportedVersion(self.version));
@@ -130,7 +127,6 @@ impl StateDiff {
 }
 
 impl AccountStateDiff {
-    //#[no_panic]
     pub fn encode(&self) -> Result<(u8, Bytes), StateDiffError> {
         if self.bytecode.is_some() && self.bytecode_hash.is_some() {
             return Err(StateDiffError::BytecodeAndBytecodeHashSet);

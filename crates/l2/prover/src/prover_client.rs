@@ -12,8 +12,6 @@ use zkvm_interface::io::ProgramInput;
 
 use super::prover::Prover;
 
-use no_panic::no_panic;
-
 pub async fn start_proof_data_client(config: ProverClientConfig) {
     let proof_data_client = ProverClient::new(config);
     proof_data_client.start().await;
@@ -58,7 +56,6 @@ impl ProverClient {
         }
     }
 
-    //#[no_panic]
     fn request_new_input(&self) -> Result<(u64, ProgramInput), String> {
         // Request the input with the correct block_number
         let request = ProofData::request();
@@ -87,7 +84,6 @@ impl ProverClient {
         }
     }
 
-    //#[no_panic]
     fn submit_proof(
         &self,
         block_number: u64,
@@ -108,7 +104,6 @@ impl ProverClient {
     }
 }
 
-//#[no_panic]
 fn connect_to_prover_server_wr(
     addr: &str,
     write: &ProofData,

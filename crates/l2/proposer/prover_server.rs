@@ -28,8 +28,6 @@ use tokio::{
 };
 use tracing::{debug, error, info, warn};
 
-use no_panic::no_panic;
-
 use risc0_zkvm::sha::{Digest, Digestible};
 
 #[derive(Debug, Serialize, Deserialize, Default)]
@@ -305,7 +303,6 @@ impl ProverServer {
             .map_err(|e| ProverServerError::ConnectionError(e.into()))
     }
 
-    #[no_panic]
     fn handle_submit(
         &self,
         stream: &mut TcpStream,
@@ -368,7 +365,6 @@ impl ProverServer {
         Ok(())
     }
 
-    //#[no_panic]
     fn create_prover_input(&self, block_number: u64) -> Result<ProverInputData, ProverServerError> {
         let header = self
             .store
