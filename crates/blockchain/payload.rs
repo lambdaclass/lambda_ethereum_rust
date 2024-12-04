@@ -169,9 +169,7 @@ impl<'a> PayloadBuildContext<'a> {
             blobs_bundle: BlobsBundle::default(),
         }
     }
-}
 
-impl<'a> PayloadBuildContext<'a> {
     fn parent_hash(&self) -> BlockHash {
         self.payload.header.parent_hash
     }

@@ -14,13 +14,13 @@ pub struct Prover<'a> {
     pub stdout: Vec<u8>,
 }
 
-impl<'a> Default for Prover<'a> {
+impl Default for Prover<'_> {
     fn default() -> Self {
         Self::new()
     }
 }
 
-impl<'a> Prover<'a> {
+impl Prover<'_> {
     pub fn new() -> Self {
         Self {
             elf: ZKVM_PROGRAM_ELF,
