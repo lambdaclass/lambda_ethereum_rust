@@ -728,7 +728,7 @@ impl VM {
         // self.cache.increment_account_nonce(&code_address); // Internal call doesn't increment account nonce.
 
         let calldata =
-            memory::load_range(&current_call_frame.memory, args_offset, args_size)?.to_vec();
+            memory::load_range(&mut current_call_frame.memory, args_offset, args_size)?.to_vec();
 
         // I don't know if this gas limit should be calculated before or after consuming gas
         let mut potential_remaining_gas = current_call_frame
@@ -778,7 +778,7 @@ impl VM {
             .checked_add(tx_report.gas_used.into())
             .ok_or(VMError::OutOfGas(OutOfGasError::ConsumedGasOverflow))?;
         current_call_frame.logs.extend(tx_report.logs);
-        memory::store_range(
+        memory::try_store_range(
             &mut current_call_frame.memory,
             ret_offset,
             ret_size,
@@ -899,7 +899,7 @@ impl VM {
 
         let code = Bytes::from(
             memory::load_range(
-                &current_call_frame.memory,
+                &mut current_call_frame.memory,
                 code_offset_in_memory,
                 code_size_in_memory,
             )?

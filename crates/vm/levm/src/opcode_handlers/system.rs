@@ -67,8 +67,8 @@ impl VM {
         self.increase_consumed_gas(
             current_call_frame,
             gas_cost::call(
-                new_memory_size.into(),
-                current_memory_size.into(),
+                new_memory_size,
+                current_memory_size,
                 address_was_cold,
                 account_info.is_empty(),
                 value_to_transfer,
@@ -147,8 +147,8 @@ impl VM {
         self.increase_consumed_gas(
             current_call_frame,
             gas_cost::callcode(
-                new_memory_size.into(),
-                current_memory_size.into(),
+                new_memory_size,
+                current_memory_size,
                 address_was_cold,
                 value_to_transfer,
             )?,
@@ -259,11 +259,7 @@ impl VM {
 
         self.increase_consumed_gas(
             current_call_frame,
-            gas_cost::delegatecall(
-                new_memory_size.into(),
-                current_memory_size.into(),
-                address_was_cold,
-            )?,
+            gas_cost::delegatecall(new_memory_size, current_memory_size, address_was_cold)?,
         )?;
 
         self.generic_call(
@@ -332,11 +328,7 @@ impl VM {
 
         self.increase_consumed_gas(
             current_call_frame,
-            gas_cost::staticcall(
-                new_memory_size.into(),
-                current_memory_size.into(),
-                address_was_cold,
-            )?,
+            gas_cost::staticcall(new_memory_size, current_memory_size, address_was_cold)?,
         )?;
 
         let value = U256::zero();
@@ -366,7 +358,7 @@ impl VM {
         current_call_frame: &mut CallFrame,
     ) -> Result<OpcodeSuccess, VMError> {
         let value_in_wei_to_send = current_call_frame.stack.pop()?;
-        let code_offset_in_memory = current_call_frame
+        let code_offset_in_memory: usize = current_call_frame
             .stack
             .pop()?
             .try_into()
@@ -377,15 +369,18 @@ impl VM {
             .try_into()
             .map_err(|_err| VMError::VeryLargeNumber)?;
 
-        // Gas Cost
-        let gas_cost = gas_cost::create(
+        self.increase_consumed_gas(
             current_call_frame,
-            code_offset_in_memory,
-            code_size_in_memory,
-        )
-        .map_err(VMError::OutOfGas)?;
-
-        self.increase_consumed_gas(current_call_frame, gas_cost)?;
+            gas_cost::create(
+                code_offset_in_memory
+                    .checked_add(code_size_in_memory)
+                    .ok_or(VMError::OutOfOffset)?
+                    .checked_next_multiple_of(WORD_SIZE_IN_BYTES_USIZE)
+                    .ok_or(VMError::OutOfOffset)?,
+                current_call_frame.memory.len(),
+                code_size_in_memory,
+            )?,
+        )?;
 
         self.create(
             value_in_wei_to_send,
@@ -415,15 +410,18 @@ impl VM {
             .map_err(|_err| VMError::VeryLargeNumber)?;
         let salt = current_call_frame.stack.pop()?;
 
-        // Gas Cost
-        let gas_cost = gas_cost::create_2(
+        self.increase_consumed_gas(
             current_call_frame,
-            code_offset_in_memory,
-            code_size_in_memory,
-        )
-        .map_err(VMError::OutOfGas)?;
-
-        self.increase_consumed_gas(current_call_frame, gas_cost)?;
+            gas_cost::create_2(
+                code_offset_in_memory
+                    .checked_add(code_size_in_memory)
+                    .ok_or(VMError::OutOfOffset)?
+                    .checked_next_multiple_of(WORD_SIZE_IN_BYTES_USIZE)
+                    .ok_or(VMError::OutOfOffset)?,
+                current_call_frame.memory.len(),
+                code_size_in_memory,
+            )?,
+        )?;
 
         self.create(
             value_in_wei_to_send,

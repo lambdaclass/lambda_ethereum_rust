@@ -1,5 +1,6 @@
 use crate::{
     call_frame::CallFrame,
+    constants::WORD_SIZE_IN_BYTES_USIZE,
     errors::{OpcodeSuccess, VMError},
     gas_cost, memory,
     vm::VM,
@@ -26,10 +27,18 @@ impl VM {
             .try_into()
             .map_err(|_| VMError::VeryLargeNumber)?;
 
-        let gas_cost =
-            gas_cost::keccak256(current_call_frame, size, offset).map_err(VMError::OutOfGas)?;
-
-        self.increase_consumed_gas(current_call_frame, gas_cost)?;
+        self.increase_consumed_gas(
+            current_call_frame,
+            gas_cost::keccak256(
+                offset
+                    .checked_add(size)
+                    .ok_or(VMError::OutOfOffset)?
+                    .checked_next_multiple_of(WORD_SIZE_IN_BYTES_USIZE)
+                    .ok_or(VMError::OutOfOffset)?,
+                current_call_frame.memory.len(),
+                size,
+            )?,
+        )?;
 
         let mut hasher = Keccak256::new();
         hasher.update(memory::load_range(

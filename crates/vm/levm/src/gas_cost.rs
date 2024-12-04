@@ -1,5 +1,4 @@
 use crate::{
-    call_frame::CallFrame,
     constants::{WORD_SIZE, WORD_SIZE_IN_BYTES_USIZE},
     errors::{InternalError, OutOfGasError, VMError},
     memory, StorageSlot,
@@ -172,53 +171,53 @@ pub fn exp(exponent_bits: u64) -> Result<U256, OutOfGasError> {
 }
 
 pub fn calldatacopy(
-    current_call_frame: &CallFrame,
+    new_memory_size: usize,
+    current_memory_size: usize,
     size: usize,
-    dest_offset: usize,
 ) -> Result<U256, VMError> {
     copy_behavior(
+        new_memory_size,
+        current_memory_size,
+        size,
         CALLDATACOPY_DYNAMIC_BASE,
         CALLDATACOPY_STATIC,
-        current_call_frame,
-        size,
-        dest_offset,
     )
 }
 
 pub fn codecopy(
-    current_call_frame: &CallFrame,
+    new_memory_size: usize,
+    current_memory_size: usize,
     size: usize,
-    dest_offset: usize,
 ) -> Result<U256, VMError> {
     copy_behavior(
+        new_memory_size,
+        current_memory_size,
+        size,
         CODECOPY_DYNAMIC_BASE,
         CODECOPY_STATIC,
-        current_call_frame,
-        size,
-        dest_offset,
     )
 }
 
 pub fn returndatacopy(
-    current_call_frame: &CallFrame,
+    new_memory_size: usize,
+    current_memory_size: usize,
     size: usize,
-    dest_offset: usize,
 ) -> Result<U256, VMError> {
     copy_behavior(
+        new_memory_size,
+        current_memory_size,
+        size,
         RETURNDATACOPY_DYNAMIC_BASE,
         RETURNDATACOPY_STATIC,
-        current_call_frame,
-        size,
-        dest_offset,
     )
 }
 
 fn copy_behavior(
+    new_memory_size: usize,
+    current_memory_size: usize,
+    size: usize,
     dynamic_base: U256,
     static_cost: U256,
-    current_call_frame: &CallFrame,
-    size: usize,
-    offset: usize,
 ) -> Result<U256, VMError> {
     let minimum_word_size = (size
         .checked_add(WORD_SIZE)
@@ -226,7 +225,7 @@ fn copy_behavior(
         .saturating_sub(1))
         / WORD_SIZE;
 
-    let memory_expansion_cost = memory::expansion_cost(offset, size)?;
+    let memory_expansion_cost = memory::expansion_cost(new_memory_size, current_memory_size)?;
 
     let minimum_word_size_cost = dynamic_base
         .checked_mul(minimum_word_size.into())
@@ -239,26 +238,26 @@ fn copy_behavior(
 }
 
 pub fn keccak256(
-    current_call_frame: &CallFrame,
+    new_memory_size: usize,
+    current_memory_size: usize,
     size: usize,
-    offset: usize,
 ) -> Result<U256, VMError> {
     copy_behavior(
+        new_memory_size,
+        current_memory_size,
+        size,
         KECCAK25_DYNAMIC_BASE,
         KECCAK25_STATIC,
-        current_call_frame,
-        size,
-        offset,
     )
 }
 
 pub fn log(
-    current_call_frame: &CallFrame,
+    new_memory_size: usize,
+    current_memory_size: usize,
     size: usize,
-    offset: usize,
     number_of_topics: u8,
 ) -> Result<U256, VMError> {
-    let memory_expansion_cost = memory::expansion_cost(offset, size)?;
+    let memory_expansion_cost = memory::expansion_cost(new_memory_size, current_memory_size)?;
 
     let topics_cost = LOGN_DYNAMIC_BASE
         .checked_mul(number_of_topics.into())
@@ -275,25 +274,24 @@ pub fn log(
         .ok_or(OutOfGasError::GasCostOverflow)?)
 }
 
-pub fn mload(current_call_frame: &CallFrame, offset: usize) -> Result<U256, VMError> {
-    mem_expansion_behavior(current_call_frame, offset, WORD_SIZE, MLOAD_STATIC)
+pub fn mload(new_memory_size: usize, current_memory_size: usize) -> Result<U256, VMError> {
+    mem_expansion_behavior(new_memory_size, current_memory_size, MLOAD_STATIC)
 }
 
-pub fn mstore(current_call_frame: &CallFrame, offset: usize) -> Result<U256, VMError> {
-    mem_expansion_behavior(current_call_frame, offset, WORD_SIZE, MSTORE_STATIC)
+pub fn mstore(new_memory_size: usize, current_memory_size: usize) -> Result<U256, VMError> {
+    mem_expansion_behavior(new_memory_size, current_memory_size, MSTORE_STATIC)
 }
 
-pub fn mstore8(current_call_frame: &CallFrame, offset: usize) -> Result<U256, VMError> {
-    mem_expansion_behavior(current_call_frame, offset, 1, MSTORE8_STATIC)
+pub fn mstore8(new_memory_size: usize, current_memory_size: usize) -> Result<U256, VMError> {
+    mem_expansion_behavior(new_memory_size, current_memory_size, MSTORE8_STATIC)
 }
 
 fn mem_expansion_behavior(
-    current_call_frame: &CallFrame,
-    offset: usize,
-    offset_add: usize,
+    new_memory_size: usize,
+    current_memory_size: usize,
     static_cost: U256,
 ) -> Result<U256, VMError> {
-    let memory_expansion_cost = memory::expansion_cost(offset, offset_add)?;
+    let memory_expansion_cost = memory::expansion_cost(new_memory_size, current_memory_size)?;
     Ok(static_cost
         .checked_add(memory_expansion_cost.into())
         .ok_or(OutOfGasError::GasCostOverflow)?)
@@ -344,10 +342,9 @@ pub fn sstore(
 }
 
 pub fn mcopy(
-    current_call_frame: &CallFrame,
+    new_memory_size: usize,
+    current_memory_size: usize,
     size: usize,
-    src_offset: usize,
-    dest_offset: usize,
 ) -> Result<U256, VMError> {
     let words_copied = (size
         .checked_add(WORD_SIZE)
@@ -355,21 +352,7 @@ pub fn mcopy(
         .saturating_sub(1))
         / WORD_SIZE;
 
-    let src_sum = src_offset
-        .checked_add(size)
-        .ok_or(OutOfGasError::GasCostOverflow)?;
-    let dest_sum = dest_offset
-        .checked_add(size)
-        .ok_or(OutOfGasError::GasCostOverflow)?;
-
-    let memory_expansion_cost = memory::expansion_cost(
-        if src_sum > dest_sum {
-            src_offset
-        } else {
-            dest_offset
-        },
-        size,
-    )?;
+    let memory_expansion_cost = memory::expansion_cost(new_memory_size, current_memory_size)?;
 
     let copied_words_cost = MCOPY_DYNAMIC_BASE
         .checked_mul(words_copied.into())
@@ -383,34 +366,34 @@ pub fn mcopy(
 }
 
 pub fn create(
-    current_call_frame: &mut CallFrame,
-    code_offset_in_memory: usize,
+    new_memory_size: usize,
+    current_memory_size: usize,
     code_size_in_memory: usize,
 ) -> Result<U256, VMError> {
     compute_gas_create(
-        current_call_frame,
-        code_offset_in_memory,
+        new_memory_size,
+        current_memory_size,
         code_size_in_memory,
         false,
     )
 }
 
 pub fn create_2(
-    current_call_frame: &mut CallFrame,
-    code_offset_in_memory: usize,
+    new_memory_size: usize,
+    current_memory_size: usize,
     code_size_in_memory: usize,
 ) -> Result<U256, VMError> {
     compute_gas_create(
-        current_call_frame,
-        code_offset_in_memory,
+        new_memory_size,
+        current_memory_size,
         code_size_in_memory,
         true,
     )
 }
 
 fn compute_gas_create(
-    current_call_frame: &mut CallFrame,
-    code_offset_in_memory: usize,
+    new_memory_size: usize,
+    current_memory_size: usize,
     code_size_in_memory: usize,
     is_create_2: bool,
 ) -> Result<U256, VMError> {
@@ -428,7 +411,7 @@ fn compute_gas_create(
         .checked_mul(CODE_DEPOSIT_COST.as_usize()) // will not panic since it's 200
         .ok_or(OutOfGasError::GasCostOverflow)?;
 
-    let memory_expansion_cost = memory::expansion_cost(code_offset_in_memory, code_size_in_memory)?;
+    let memory_expansion_cost = memory::expansion_cost(new_memory_size, current_memory_size)?;
 
     let hash_cost = if is_create_2 {
         minimum_word_size

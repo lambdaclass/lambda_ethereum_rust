@@ -32,21 +32,26 @@ pub fn try_resize(memory: &mut Memory, unchecked_new_size: usize) -> Result<(), 
     Ok(())
 }
 
-pub fn load_word(memory: &Memory, offset: usize) -> Result<U256, VMError> {
+pub fn load_word(memory: &mut Memory, offset: usize) -> Result<U256, VMError> {
     load_range(memory, offset, WORD_SIZE_IN_BYTES_USIZE).map(U256::from_big_endian)
 }
 
-pub fn load_range(memory: &Memory, offset: usize, size: usize) -> Result<&[u8], VMError> {
+pub fn load_range(memory: &mut Memory, offset: usize, size: usize) -> Result<&[u8], VMError> {
     if size == 0 {
         return Ok(&[]);
     }
+
+    try_resize(
+        memory,
+        offset.checked_add(size).ok_or(VMError::OutOfOffset)?,
+    )?;
 
     memory
         .get(offset..offset.checked_add(size).ok_or(VMError::OutOfOffset)?)
         .ok_or(VMError::OutOfOffset)
 }
 
-pub fn store_word(memory: &mut Memory, offset: usize, word: U256) -> Result<(), VMError> {
+pub fn try_store_word(memory: &mut Memory, offset: usize, word: U256) -> Result<(), VMError> {
     try_resize(
         memory,
         offset
@@ -55,18 +60,18 @@ pub fn store_word(memory: &mut Memory, offset: usize, word: U256) -> Result<(), 
     )?;
     let mut word_bytes = [0u8; WORD_SIZE_IN_BYTES_USIZE];
     word.to_big_endian(&mut word_bytes);
-    store(memory, &word_bytes, offset, WORD_SIZE_IN_BYTES_USIZE)
+    try_store(memory, &word_bytes, offset, WORD_SIZE_IN_BYTES_USIZE)
 }
 
-pub fn store_data(memory: &mut Memory, offset: usize, data: &[u8]) -> Result<(), VMError> {
+pub fn try_store_data(memory: &mut Memory, offset: usize, data: &[u8]) -> Result<(), VMError> {
     try_resize(
         memory,
         offset.checked_add(data.len()).ok_or(VMError::OutOfOffset)?,
     )?;
-    store(memory, data, offset, data.len())
+    try_store(memory, data, offset, data.len())
 }
 
-pub fn store_range(
+pub fn try_store_range(
     memory: &mut Memory,
     offset: usize,
     size: usize,
@@ -76,10 +81,10 @@ pub fn store_range(
         memory,
         offset.checked_add(size).ok_or(VMError::OutOfOffset)?,
     )?;
-    store(memory, data, offset, size)
+    try_store(memory, data, offset, size)
 }
 
-fn store(
+fn try_store(
     memory: &mut Memory,
     data: &[u8],
     at_offset: usize,
