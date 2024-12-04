@@ -200,6 +200,11 @@ impl RpcHandler for GetPayloadV3Request {
         };
         let (blobs_bundle, block_value) = build_payload(&mut payload, &context.storage)
             .map_err(|err| RpcErr::Internal(err.to_string()))?;
+
+        // This is just for testing purposes, we should remove it once we have a proper way to handle
+        // the repeated requests of payloads.
+        context.storage.delete_payload(self.payload_id)?;
+
         serde_json::to_value(ExecutionPayloadResponse {
             execution_payload: ExecutionPayloadV3::from_block(payload),
             block_value,
