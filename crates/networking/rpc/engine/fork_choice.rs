@@ -17,11 +17,11 @@ use crate::{
     RpcApiContext, RpcErr, RpcHandler,
 };
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum ForkChoiceUpdatedVersion {
-    V1,
-    V2,
-    V3,
+    V1 = 1,
+    V2 = 2,
+    V3 = 3,
 }
 
 #[derive(Debug)]
@@ -33,19 +33,11 @@ pub struct ForkChoiceUpdated {
 
 impl ForkChoiceUpdated {
     fn method(&self) -> String {
-        match self.version {
-            ForkChoiceUpdatedVersion::V1 => "engine_forkchoiceUpdatedV1".to_string(),
-            ForkChoiceUpdatedVersion::V2 => "engine_forkchoiceUpdatedV2".to_string(),
-            ForkChoiceUpdatedVersion::V3 => "engine_forkchoiceUpdatedV3".to_string(),
-        }
+        format!("engine_forkchoiceUpdatedV{}", self.version.clone() as usize)
     }
 
     fn version(&self) -> u8 {
-        match self.version {
-            ForkChoiceUpdatedVersion::V1 => 1u8,
-            ForkChoiceUpdatedVersion::V2 => 2u8,
-            ForkChoiceUpdatedVersion::V3 => 3u8,
-        }
+        self.version.clone() as u8
     }
 
     fn validate(
@@ -57,7 +49,6 @@ impl ForkChoiceUpdated {
         match self.version {
             ForkChoiceUpdatedVersion::V1 => {
                 // TODO
-                Ok(())
             }
             ForkChoiceUpdatedVersion::V2 => {
                 if attributes.parent_beacon_block_root.is_some() {
@@ -75,12 +66,6 @@ impl ForkChoiceUpdated {
                         "forkChoiceV2 used to build Cancun payload".to_string(),
                     ));
                 }
-                if attributes.timestamp <= head_block.timestamp {
-                    return Err(RpcErr::InvalidPayloadAttributes(
-                        "invalid timestamp".to_string(),
-                    ));
-                }
-                Ok(())
             }
             ForkChoiceUpdatedVersion::V3 => {
                 if attributes.parent_beacon_block_root.is_none() {
@@ -93,14 +78,14 @@ impl ForkChoiceUpdated {
                         "forkChoiceV3 used to build pre-Cancun payload".to_string(),
                     ));
                 }
-                if attributes.timestamp <= head_block.timestamp {
-                    return Err(RpcErr::InvalidPayloadAttributes(
-                        "invalid timestamp".to_string(),
-                    ));
-                }
-                Ok(())
             }
         }
+        if attributes.timestamp <= head_block.timestamp {
+            return Err(RpcErr::InvalidPayloadAttributes(
+                "invalid timestamp".to_string(),
+            ));
+        }
+        Ok(())
     }
 
     // TODO(#853): Allow fork choice to be executed even if fork choice updated was not correctly parsed.

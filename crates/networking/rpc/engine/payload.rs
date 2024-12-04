@@ -269,10 +269,11 @@ impl RpcHandler for NewPayloadV2Request {
     }
 }
 
+#[derive(Clone)]
 pub enum GetPayloadRequestVersion {
-    V1,
-    V2,
-    V3,
+    V1 = 1,
+    V2 = 2,
+    V3 = 3,
 }
 
 pub struct GetPayloadRequest {
@@ -282,11 +283,7 @@ pub struct GetPayloadRequest {
 
 impl GetPayloadRequest {
     fn method(&self) -> String {
-        match self.version {
-            GetPayloadRequestVersion::V1 => "engine_getPayloadV1".to_string(),
-            GetPayloadRequestVersion::V2 => "engine_getPayloadV2".to_string(),
-            GetPayloadRequestVersion::V3 => "engine_getPayloadV3".to_string(),
-        }
+        format!("engine_getPayloadV{}", self.version.clone() as usize)
     }
 
     fn valid_fork(&self) -> Fork {
