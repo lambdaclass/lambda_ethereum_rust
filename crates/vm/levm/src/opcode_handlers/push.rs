@@ -19,7 +19,7 @@ impl VM {
     ) -> Result<OpcodeSuccess, VMError> {
         self.increase_consumed_gas(current_call_frame, gas_cost::PUSHN)?;
 
-        let read_n_bytes = read_bytcode_slice(current_call_frame, n_bytes);
+        let read_n_bytes = read_bytcode_slice(current_call_frame, n_bytes)?;
         let value_to_push = bytes_to_word(&read_n_bytes, n_bytes)?;
 
         current_call_frame
@@ -47,15 +47,22 @@ impl VM {
     }
 }
 
-fn read_bytcode_slice(current_call_frame: &CallFrame, n_bytes: usize) -> Vec<u8> {
-    current_call_frame
+fn read_bytcode_slice(current_call_frame: &CallFrame, n_bytes: usize) -> Result<Vec<u8>, VMError> {
+    let pc_offest = current_call_frame
+        .pc()
+        .checked_add(1)
+        .ok_or(VMError::Internal(
+            InternalError::ArithmeticOperationOverflow,
+        ))?;
+
+    Ok(current_call_frame
         .bytecode
-        .get(current_call_frame.pc()..)
+        .get(pc_offest..)
         .unwrap_or_default()
         .iter()
         .take(n_bytes)
         .cloned()
-        .collect()
+        .collect())
 }
 
 fn bytes_to_word(read_n_bytes: &[u8], n_bytes: usize) -> Result<[u8; WORD_SIZE], VMError> {
