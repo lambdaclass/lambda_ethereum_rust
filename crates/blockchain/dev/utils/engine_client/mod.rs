@@ -6,7 +6,7 @@ use errors::{
 use ethereum_types::H256;
 use ethrex_rpc::{
     engine::{
-        fork_choice::{ForkChoiceUpdated, ForkChoiceUpdatedV3, ForkChoiceUpdatedVersion},
+        fork_choice::ForkChoiceUpdatedV3,
         payload::{
             GetPayloadRequest, GetPayloadRequestVersion, GetPayloadV3Request, NewPayloadRequest,
             NewPayloadRequestVersion, NewPayloadV3Request,
@@ -82,11 +82,10 @@ impl EngineClient {
         state: ForkChoiceState,
         payload_attributes: Option<PayloadAttributes>,
     ) -> Result<ForkChoiceResponse, EngineClientError> {
-        let request = ForkChoiceUpdatedV3(ForkChoiceUpdated {
+        let request = ForkChoiceUpdatedV3 {
             fork_choice_state: state,
-            payload_attributes: Ok(payload_attributes),
-            version: ForkChoiceUpdatedVersion::V3,
-        })
+            payload_attributes: payload_attributes,
+        }
         .try_into()
         .map_err(|e| {
             ForkChoiceUpdateError::ConversionError(format!("Failed to convert to RPC request: {e}"))
