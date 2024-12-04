@@ -240,11 +240,6 @@ impl VM {
             .try_into()
             .map_err(|_| VMError::Internal(InternalError::ConversionError))?;
 
-        if sign_bit_index >= 255 {
-            // Checks that sign_bit_index fit in U256
-            return Err(VMError::Internal(InternalError::ConversionError));
-        }
-
         let is_negative = value_to_extend.bit(sign_bit_index);
 
         if !is_negative {
