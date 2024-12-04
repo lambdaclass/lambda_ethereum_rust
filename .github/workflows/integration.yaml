@@ -103,7 +103,7 @@ jobs:
           docker load --input /tmp/ethrex_image.tar
 
       - name: Checkout sources
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
       - name: Rustup toolchain install
         uses: dtolnay/rust-toolchain@stable
@@ -111,7 +111,7 @@ jobs:
           toolchain: ${{ env.RUST_VERSION }}
 
       - name: Setup Go
-        uses: actions/setup-go@v3
+        uses: actions/setup-go@v5
 
       - name: Run Hive Simulation
         run: ${{ matrix.run_command }}
