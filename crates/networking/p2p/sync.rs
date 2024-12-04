@@ -405,7 +405,7 @@ async fn storage_fetcher(
     state_root: H256,
 ) -> Result<(), StoreError> {
     // Pending list of bytecodes to fetch
-    const BATCH_SIZE: usize = 50;
+    const BATCH_SIZE: usize = 75;
     // TODO: Also add a queue for storages that were incompletely fecthed,
     // but for the first iteration we will asume not fully fetched -> fetch again
     let mut pending_storage: Vec<(H256, H256)> = vec![];
@@ -456,11 +456,11 @@ async fn fetch_storage_batch(
             .await
         {
             debug!("Received {} storage ranges", keys.len());
-            let mut last_range;
+            let mut _last_range;
             // Hold on to the last batch (if incomplete)
             if incomplete {
                 // An incomplete range cannot be empty
-                last_range = (keys.pop().unwrap(), values.pop().unwrap());
+                _last_range = (keys.pop().unwrap(), values.pop().unwrap());
             }
             // Store the storage ranges & rebuild the storage trie for each account
             for (keys, values) in keys.into_iter().zip(values.into_iter()) {
