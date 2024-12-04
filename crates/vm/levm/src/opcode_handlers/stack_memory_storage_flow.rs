@@ -327,8 +327,6 @@ impl VM {
             .stack
             .push(U256::from(current_call_frame.pc))?;
 
-        current_call_frame.increment_pc()?;
-
         Ok(OpcodeSuccess::Continue)
     }
 }
