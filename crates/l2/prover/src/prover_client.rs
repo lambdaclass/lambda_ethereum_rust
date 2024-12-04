@@ -14,11 +14,11 @@ use ethrex_l2::{
     utils::config::prover_client::ProverClientConfig,
 };
 
-use crate::prover::{Prover, ProvingOutput};
+use crate::prover::{ create_prover, ProverType, ProvingOutput};
 
-pub async fn start_proof_data_client(config: ProverClientConfig) {
+pub async fn start_proof_data_client(config: ProverClientConfig, prover_type: ProverType) {
     let proof_data_client = ProverClient::new(config);
-    proof_data_client.start().await;
+    proof_data_client.start(prover_type).await;
 }
 
 struct ProverData {
@@ -39,24 +39,15 @@ impl ProverClient {
         }
     }
 
-    pub async fn start(&self) {
+    pub async fn start(&self, prover_type: ProverType) {
+        // Build the prover depending on the prover_type passed as argument.   
+        let mut prover = create_prover(prover_type);
+        
         loop {
             match self.request_new_input() {
                 // If we get the input
                 Ok(prover_data) => {
-                    // Build the prover based on the feature.
-                    #[cfg(feature= "risc0")]
-                    let mut  prover = crate::prover::Risc0Prover::new();
-                    #[cfg(feature= "sp1")]
-                    let mut prover = crate::prover::Sp1Prover::new();
-                    
-                    // Handle case where neither feature is enabled
-                    #[cfg(not(any(feature = "risc0", feature = "sp1")))]
-                    {
-                        sleep(Duration::from_millis(self.interval_ms)).await;
-                        error!("Either 'risc0' or 'sp1' feature must be enabled.");
-                    }
-                    
+                    // Generate the Proof
                     match prover.prove(prover_data.input) {
                         Ok(proving_output) => {
                             if let Err(e) =

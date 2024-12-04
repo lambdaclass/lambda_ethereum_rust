@@ -48,12 +48,6 @@ struct ProverServer {
     verifier_private_key: SecretKey,
 }
 
-#[derive(Debug, Serialize, Deserialize, Clone, Copy)]
-pub enum ProverType {
-    RISC0,
-    SP1,
-}
-
 #[derive(Serialize, Deserialize, Clone)]
 pub struct Risc0Proof {
     pub receipt: Box<risc0_zkvm::Receipt>,
@@ -274,13 +268,14 @@ impl ProverServer {
                 block_number,
                 zk_proof,
             }) => {
+                self.handle_submit(&mut stream, block_number)?;
+                
                 if block_number != (last_verified_block + 1) {
                     return Err(ProverServerError::Custom(format!("Prover Client submitted an invalid block_number: {block_number}. The last_proved_block is: {}", last_verified_block)));
                 }
-
+                
                 self.handle_proof_submission(block_number, zk_proof).await?;
 
-                self.handle_submit(&mut stream, block_number)?;
             }
             Err(e) => {
                 warn!("Failed to parse request: {e}");

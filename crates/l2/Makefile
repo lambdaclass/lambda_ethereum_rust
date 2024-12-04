@@ -38,6 +38,9 @@ L1_AUTH_PORT=8551
 # Used in the .env file. Ensure the same port is used for `ENGINE_API_RPC_URL`.
 L2_AUTH_PORT=8552
 
+# It can be `risc0` or `sp1`
+L2_PROVER_TYPE=risc0
+
 # Local L1
 
 init-local-l1: ## 🚀 Initializes an L1 Lambda ethrex Client with Docker (Used with make init)
@@ -87,10 +90,10 @@ down-l2: ## 🛑 Shuts down the L2 Lambda ethrex Client
 restart-l2: down-l2 init-l2 ## 🔄 Restarts the L2 Lambda ethrex Client
 
 init-l2-prover: ## 🚀 Initializes the Prover
-	cargo run --release --features build_zkvm --manifest-path ../../Cargo.toml --bin ethrex_prover
+	cargo run --release --features build_zkvm --manifest-path ../../Cargo.toml --bin ethrex_prover -- ${L2_PROVER_TYPE}
 
 init-l2-prover-gpu: ## 🚀 Initializes the Prover with GPU support
-	cargo run --release --features "build_zkvm,gpu" --manifest-path ../../Cargo.toml --bin ethrex_prover
+	cargo run --release --features "build_zkvm,gpu" --manifest-path ../../Cargo.toml --bin ethrex_prover -- ${L2_PROVER_TYPE}
 
 rm_db_l2: ## 🛑 Removes the DB used by the L2
 	cargo run --release --manifest-path ../../Cargo.toml --bin ethrex -- removedb --datadir ${ethrex_L2_DEV_LIBMDBX}

@@ -48,12 +48,25 @@ pub enum ProvingOutput {
     Sp1Prover(Sp1Proof),
 }
 
+pub enum ProverType {
+    RISC0,
+    SP1,
+}
+
+pub fn create_prover(prover_type: ProverType) -> Box<dyn Prover> {
+    match prover_type {
+        ProverType::RISC0 => Box::new(Risc0Prover::new()),
+        ProverType::SP1 => Box::new(Sp1Prover::new()),
+    }
+}
+
 // Implement the Prover trait for the enum
 pub trait Prover {
     fn prove(&mut self, input: ProgramInput) -> Result<ProvingOutput, Box<dyn std::error::Error>>;
     fn verify(&self, proving_output: &ProvingOutput) -> Result<(), Box<dyn std::error::Error>>;
     fn get_gas(&self) -> Result<u64, Box<dyn std::error::Error>>;
     fn get_commitment(
+        &self,
         proving_output: &ProvingOutput,
     ) -> Result<ProgramOutput, Box<dyn std::error::Error>>;
 }
@@ -109,6 +122,7 @@ impl<'a> Prover for Risc0Prover<'a> {
     }
 
     fn get_commitment(
+        &self,
         proving_output: &ProvingOutput,
     ) -> Result<ProgramOutput, Box<dyn std::error::Error>> {
         let commitment = match proving_output {
@@ -163,6 +177,7 @@ impl<'a> Prover for Sp1Prover<'a> {
     }
 
     fn get_commitment(
+        &self,
         proving_output: &ProvingOutput,
     ) -> Result<ProgramOutput, Box<dyn std::error::Error>> {
         // TODO
