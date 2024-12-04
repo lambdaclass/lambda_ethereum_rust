@@ -1,4 +1,5 @@
 use bytes::BufMut;
+use bytes::Bytes;
 use ethrex_core::{types::Transaction, H256};
 use ethrex_rlp::{
     error::{RLPDecodeError, RLPEncodeError},
@@ -65,7 +66,7 @@ impl RLPxMessage for Transactions {
 // Broadcast message
 #[derive(Debug)]
 pub(crate) struct NewPooledTransactionHashes {
-    transaction_types: Vec<u8>,
+    transaction_types: Bytes,
     transaction_sizes: Vec<usize>,
     transaction_hashes: Vec<H256>,
 }
@@ -89,7 +90,7 @@ impl NewPooledTransactionHashes {
             transaction_hashes.push(transaction_hash);
         }
         Self {
-            transaction_types,
+            transaction_types: transaction_types.into(),
             transaction_sizes,
             transaction_hashes,
         }
@@ -117,8 +118,7 @@ impl RLPxMessage for NewPooledTransactionHashes {
     fn decode(msg_data: &[u8]) -> Result<Self, RLPDecodeError> {
         let decompressed_data = snappy_decompress(msg_data)?;
         let decoder = Decoder::new(&decompressed_data)?;
-        let (transaction_types, decoder): (Vec<u8>, _) =
-            decoder.decode_field("transactionTypes")?;
+        let (transaction_types, decoder): (Bytes, _) = decoder.decode_field("transactionTypes")?;
         let (transaction_sizes, decoder): (Vec<usize>, _) =
             decoder.decode_field("transactionSizes")?;
         let (transaction_hashes, _): (Vec<H256>, _) = decoder.decode_field("transactionHashes")?;

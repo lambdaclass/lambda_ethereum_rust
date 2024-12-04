@@ -315,7 +315,7 @@ impl<S: AsyncWrite + AsyncRead + std::marker::Unpin> RLPxConnection<S> {
         match message {
             Message::Disconnect(msg_data) => {
                 debug!("Received Disconnect: {:?}", msg_data.reason);
-                // Returning a Disonnect error to be handled later at the call stack
+                // Returning a Disconnect error to be handled later at the call stack
                 return Err(RLPxError::Disconnect());
             }
             Message::Ping(_) => {
@@ -358,8 +358,9 @@ impl<S: AsyncWrite + AsyncRead + std::marker::Unpin> RLPxConnection<S> {
             Message::NewPooledTransactionHashes(new_pooled_transaction_hashes)
                 if peer_supports_eth =>
             {
-                // For now we always ask for the transactions we don't know. We might want to add checks to avoid
-                // repetitions in the future (that is, if there's already an ongoing request for any of those transactions).
+                // For now we always ask for the transactions we don't know. We might want to add
+                // checks to avoid repetitions in the future (that is, if there's already an
+                // ongoing request for any of those transactions).
                 let hashes =
                     new_pooled_transaction_hashes.get_transactions_to_request(&self.storage)?;
                 let request = GetPooledTransactions::new(random(), hashes);
