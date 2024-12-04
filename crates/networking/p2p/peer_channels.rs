@@ -126,7 +126,7 @@ impl PeerChannels {
     /// Returns the response message or None if:
     /// - There are no available peers (the node just started up or was rejected by all other nodes)
     /// - The response timed out
-    /// - The response was empty or not valid
+    /// - The response was not valid
     pub async fn request_account_range(
         &self,
         state_root: H256,

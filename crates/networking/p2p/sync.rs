@@ -146,7 +146,6 @@ impl SyncManager {
                     .into_iter()
                     .zip(all_block_hashes.into_iter())
                 {
-                    // TODO: Handle error
                     latest_block_number = header.number;
                     store.set_canonical_block(header.number, hash)?;
                     store.add_block_header(hash, header)?;
@@ -316,12 +315,10 @@ async fn rebuild_state_trie(
             }
             // Send code hash batch to the bytecode fetcher
             if !code_hashes.is_empty() {
-                // TODO: Handle
                 bytecode_sender.send(code_hashes).await?;
             }
             // Send hash and root batch to the storage fetcher
             if !account_hashes_and_storage_roots.is_empty() {
-                // TODO: Handle
                 storage_sender
                     .send(account_hashes_and_storage_roots)
                     .await?;
@@ -358,8 +355,8 @@ async fn bytecode_fetcher(
     peers: Arc<Mutex<KademliaTable>>,
     store: Store,
 ) -> Result<(), SyncError> {
-    // Pending list of bytecodes to fetch
     const BATCH_SIZE: usize = 200;
+    // Pending list of bytecodes to fetch
     let mut pending_bytecodes: Vec<H256> = vec![];
     loop {
         match receiver.recv().await {
@@ -418,11 +415,11 @@ async fn storage_fetcher(
     store: Store,
     state_root: H256,
 ) -> Result<(), StoreError> {
-    // Pending list of bytecodes to fetch
     const BATCH_SIZE: usize = 100;
+    // Pending list of bytecodes to fetch
+    let mut pending_storage: Vec<(H256, H256)> = vec![];
     // TODO: Also add a queue for storages that were incompletely fecthed,
     // but for the first iteration we will asume not fully fetched -> fetch again
-    let mut pending_storage: Vec<(H256, H256)> = vec![];
     loop {
         match receiver.recv().await {
             Some(account_and_root) if !account_and_root.is_empty() => {
