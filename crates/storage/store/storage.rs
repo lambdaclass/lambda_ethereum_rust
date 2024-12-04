@@ -896,15 +896,19 @@ impl Store {
         self.engine.get_payload(payload_id)
     }
 
-    /// Creates a new clean state trie (with an empty root)
-    pub fn new_state_trie(&self) -> Trie {
+    /// Creates a new state trie with an empty state root, for testing purposes only
+    pub fn new_state_trie_for_test(&self) -> Trie {
         self.engine.open_state_trie(*EMPTY_TRIE_HASH)
     }
 
+    // Obtain a state trie from the given state root
+    // Doesn't check if the state root is valid
     pub fn open_state_trie(&self, state_root: H256) -> Trie {
         self.engine.open_state_trie(state_root)
     }
 
+    // Obtain a storage trie from the given address and storage_root
+    // Doesn't check if the account is stored
     pub fn open_storage_trie(&self, account_hash: H256, storage_root: H256) -> Trie {
         self.engine.open_storage_trie(account_hash, storage_root)
     }

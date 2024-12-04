@@ -972,7 +972,7 @@ mod tests {
 
         // Create a store and load it up with the accounts
         let store = Store::new("null", EngineType::InMemory).unwrap();
-        let mut state_trie = store.new_state_trie();
+        let mut state_trie = store.new_state_trie_for_test();
         for (address, account) in accounts {
             let hashed_address = H256::from_str(address).unwrap().as_bytes().to_vec();
             let account = AccountState::from(AccountStateSlim::decode(&account).unwrap());
