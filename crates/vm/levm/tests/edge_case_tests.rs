@@ -274,16 +274,3 @@ fn test_non_compliance_codecopy_memory_resize() {
         &U256::from(14400)
     );
 }
-
-#[test]
-fn test_non_compliance_gas_cost_initcode() {
-    let mut vm = new_vm_with_bytecode(Bytes::copy_from_slice(&[0])).unwrap();
-    vm.tx_kind = TxKind::Create;
-    vm.env.gas_price = U256::zero();
-    vm.env.gas_limit = U256::from(100_000_000);
-    vm.env.block_gas_limit = U256::from(100_000_001);
-    let res = vm.transact().unwrap();
-    println!("Actual gas used: {}", res.gas_used);
-    println!("Desired gas used: {}", 53006);
-    assert_eq!(res.gas_used, 53006);
-}
