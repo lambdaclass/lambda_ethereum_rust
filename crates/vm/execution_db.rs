@@ -5,7 +5,7 @@ use ethrex_core::{
     types::{AccountState, Block, ChainConfig},
     Address, H256, U256,
 };
-use ethrex_rlp::encode::RLPEncode;
+use ethrex_rlp::decode::RLPDecode;
 use ethrex_storage::{hash_address, hash_key, Store};
 use ethrex_trie::{NodeRLP, Trie};
 use revm::{
@@ -232,12 +232,20 @@ impl ExecutionDB {
                     // check all storage keys are in storage trie and compare values
                     for (key, value) in storage {
                         let key = H256::from_slice(&key.to_be_bytes_vec());
-                        let value = H256::from_slice(&value.to_be_bytes_vec());
-                        let retrieved_value = storage_trie
-                            .get(&hash_key(&key))?
-                            .ok_or(ExecutionDBError::MissingKeyInStorageTrie(address, key))?;
-                        if value.encode_to_vec() != retrieved_value {
-                            return Err(ExecutionDBError::InvalidStorageTrieValue(address, key));
+                        let value = U256::from_big_endian(&value.to_be_bytes_vec());
+
+                        let retrieved_value = RLPDecode::decode(
+                            &storage_trie
+                                .get(&hash_key(&key))?
+                                .ok_or(ExecutionDBError::MissingKeyInStorageTrie(address, key))?,
+                        )?;
+
+                        if value != retrieved_value {
+                            return Err(ExecutionDBError::InvalidStorageTrieValue(
+                                address,
+                                retrieved_value,
+                                value,
+                            ));
                         }
                     }
 

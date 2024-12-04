@@ -182,8 +182,11 @@ fn get_result<T: DeserializeOwned>(response: serde_json::Value) -> Result<T, Str
 }
 
 fn decode_hex(hex: String) -> Result<Vec<u8>, String> {
-    hex::decode(hex.trim_start_matches("0x"))
-        .map_err(|err| format!("failed to decode hex string: {err}"))
+    let mut trimmed = hex.trim_start_matches("0x").to_string();
+    if trimmed.len() % 2 != 0 {
+        trimmed = "0".to_string() + &trimmed;
+    }
+    hex::decode(trimmed).map_err(|err| format!("failed to decode hex string: {err}"))
 }
 
 #[cfg(test)]
