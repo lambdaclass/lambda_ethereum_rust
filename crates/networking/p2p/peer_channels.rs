@@ -211,8 +211,9 @@ impl PeerChannels {
         (!codes.is_empty() && codes.len() <= hashes_len).then_some(codes)
     }
 
-    /// Requests storage ranges for accounts given hasheshed address, storage roots,  and the root of their state trie
+    /// Requests storage ranges for accounts given their hashed address and storage roots, and the root of their state trie
     /// account_hashes & storage_roots must have the same length
+    /// storage_roots must not contain empty trie hashes, we will treat empty ranges as invalid responses
     /// Returns true if the last accoun't storage was not completely fetched by the request
     /// Returns the list of hashed storage keys and values for each account's storage or None if:
     /// - There are no available peers (the node just started up or was rejected by all other nodes)
@@ -253,7 +254,7 @@ impl PeerChannels {
         .await
         .ok()??;
         // Check we got a reasonable amount of storage ranges
-        if slots.len() > storage_roots.len() || (slots.is_empty() && proof.is_empty()) {
+        if slots.len() > storage_roots.len() || slots.is_empty() {
             return None;
         }
         // Unzip & validate response
@@ -268,19 +269,21 @@ impl PeerChannels {
                 .into_iter()
                 .map(|slot| (slot.hash, slot.data))
                 .unzip();
+            // We won't accept empty storage ranges
+            if hahsed_keys.is_empty() {
+                return None;
+            }
             let encoded_values = values
                 .iter()
                 .map(|val| val.encode_to_vec())
                 .collect::<Vec<_>>();
             let storage_root = storage_roots.remove(0);
-            // We have 3 cases:
-            // - The range is empty (and start != 0): We expect one edge proof
+
+            // We have 3 cases (as we won't accept empty storage ranges):
             // - The range has only 1 element (with key matching the start): We expect one edge proof
-            // - The range has the full storage (empty range but start = 0 fits here): We expect no proofs
+            // - The range has the full storage: We expect no proofs
             // - The range is not the full storage (last range): We expect 2 edge proofs
-            if hahsed_keys.is_empty() && !start.is_zero()
-                || (hahsed_keys.len() == 1 && hahsed_keys[0] == start)
-            {
+            if hahsed_keys.len() == 1 && hahsed_keys[0] == start {
                 if proof.len() < 1 {
                     return None;
                 };
@@ -294,11 +297,8 @@ impl PeerChannels {
                 )
                 .ok()?;
             }
-            if slots.is_empty() && !(slots.is_empty() && start.is_zero()) {
-                // Last element
-                if proof.len() < 2 {
-                    return None;
-                };
+            // Last element with two edge proofs
+            if slots.is_empty() && proof.len() >= 2 {
                 let last_proof = vec![proof.remove(0), proof.remove(0)];
                 should_continue = verify_range(
                     storage_root,
@@ -309,7 +309,7 @@ impl PeerChannels {
                 )
                 .ok()?;
             } else {
-                // Not the last element = Full range
+                // Full range (no proofs)
                 verify_range(storage_root, &start, &hahsed_keys, &encoded_values, &vec![]).ok()?;
             }
 
