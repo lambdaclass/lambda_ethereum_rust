@@ -1,23 +1,20 @@
 participants:
   - el_type: ethrex
     cl_type: lighthouse
+    cl_image: sigp/lighthouse:v5.3.0
     validator_count: 32
   - el_type: geth
+    el_image: ethereum/client-go:v1.14.12
     cl_type: lighthouse
+    cl_image: sigp/lighthouse:v5.3.0
     validator_count: 32
   - el_type: geth
+    el_image: ethereum/client-go:v1.14.12
     cl_type: lighthouse
+    cl_image: sigp/lighthouse:v5.3.0
     validator_count: 32
 
 additional_services:
-  - assertoor
   - dora
   - el_forkmon
   - tx_spammer
-
-assertoor_params:
-  run_stability_check: false
-  run_block_proposal_check: false
-  run_blob_transaction_test: true
-  tests:
-    - 'https://raw.githubusercontent.com/lambdaclass/ethrex/refs/heads/main/test_data/el-stability-check.yml'

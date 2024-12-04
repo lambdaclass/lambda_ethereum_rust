@@ -91,14 +91,17 @@ impl L1Watcher {
             .to_vec();
 
         Ok(hex::decode(
-            &self
-                .eth_client
+            self.eth_client
                 .call(
                     self.address,
                     Bytes::copy_from_slice(&selector),
                     Overrides::default(),
                 )
-                .await?[2..],
+                .await?
+                .get(2..)
+                .ok_or(L1WatcherError::FailedToDeserializeLog(
+                    "Not a valid hex string".to_string(),
+                ))?,
         )
         .map_err(|_| L1WatcherError::FailedToDeserializeLog("Not a valid hex string".to_string()))?
         .chunks(32)
@@ -163,14 +166,31 @@ impl L1Watcher {
         let mut deposit_txs = Vec::new();
 
         for log in logs {
-            let mint_value = format!("{:#x}", log.log.topics[1])
-                .parse::<U256>()
-                .map_err(|e| {
-                    L1WatcherError::FailedToDeserializeLog(format!(
-                        "Failed to parse mint value from log: {e:#?}"
-                    ))
-                })?;
-            let beneficiary = format!("{:#x}", log.log.topics[2].into_uint())
+            let mint_value = format!(
+                "{:#x}",
+                log.log
+                    .topics
+                    .get(1)
+                    .ok_or(L1WatcherError::FailedToDeserializeLog(
+                        "Failed to parse mint value from log: log.topics[1] out of bounds"
+                            .to_owned()
+                    ))?
+            )
+            .parse::<U256>()
+            .map_err(|e| {
+                L1WatcherError::FailedToDeserializeLog(format!(
+                    "Failed to parse mint value from log: {e:#?}"
+                ))
+            })?;
+            let beneficiary_uint = log
+                .log
+                .topics
+                .get(2)
+                .ok_or(L1WatcherError::FailedToDeserializeLog(
+                    "Failed to parse beneficiary from log: log.topics[2] out of bounds".to_owned(),
+                ))?
+                .into_uint();
+            let beneficiary = format!("{beneficiary_uint:#x}")
                 .parse::<Address>()
                 .map_err(|e| {
                     L1WatcherError::FailedToDeserializeLog(format!(

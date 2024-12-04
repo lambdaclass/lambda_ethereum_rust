@@ -2,7 +2,7 @@ use crate::{
     report::{EFTestReport, TestVector},
     runner::{EFTestRunnerError, InternalError},
     types::EFTest,
-    utils,
+    utils::{self, effective_gas_price},
 };
 use ethrex_core::{
     types::{code_hash, AccountInfo},
@@ -15,7 +15,7 @@ use ethrex_levm::{
     Environment,
 };
 use ethrex_storage::AccountUpdate;
-use ethrex_vm::db::StoreWrapper;
+use ethrex_vm::{db::StoreWrapper, EvmState};
 use keccak_hash::keccak;
 use std::{collections::HashMap, sync::Arc};
 
@@ -73,31 +73,38 @@ pub fn prepare_vm_for_tx(vector: &TestVector, test: &EFTest) -> Result<VM, EFTes
         store: initial_state.database().unwrap().clone(),
         block_hash,
     });
+
+    let tx = test
+        .transactions
+        .get(vector)
+        .ok_or(EFTestRunnerError::Internal(
+            InternalError::FirstRunInternal("Failed to get transaction".to_owned()),
+        ))?;
+
     VM::new(
-        test.transactions.get(vector).unwrap().to.clone(),
+        tx.to.clone(),
         Environment {
-            origin: test.transactions.get(vector).unwrap().sender,
+            origin: tx.sender,
             consumed_gas: U256::default(),
             refunded_gas: U256::default(),
-            gas_limit: test.env.current_gas_limit, //this should be tx gas limit
+            gas_limit: tx.gas_limit,
             block_number: test.env.current_number,
             coinbase: test.env.current_coinbase,
             timestamp: test.env.current_timestamp,
             prev_randao: test.env.current_random,
             chain_id: U256::from(1729),
             base_fee_per_gas: test.env.current_base_fee.unwrap_or_default(),
-            gas_price: test
-                .transactions
-                .get(vector)
-                .unwrap()
-                .gas_price
-                .unwrap_or_default(), // or max_fee_per_gas?
+            gas_price: effective_gas_price(test, &tx)?,
             block_excess_blob_gas: test.env.current_excess_blob_gas,
             block_blob_gas_used: None,
-            tx_blob_hashes: None,
+            tx_blob_hashes: tx.blob_versioned_hashes.clone(),
+            tx_max_priority_fee_per_gas: tx.max_priority_fee_per_gas,
+            tx_max_fee_per_gas: tx.max_fee_per_gas,
+            tx_max_fee_per_blob_gas: tx.max_fee_per_blob_gas,
+            block_gas_limit: test.env.current_gas_limit,
         },
-        test.transactions.get(vector).unwrap().value,
-        test.transactions.get(vector).unwrap().data.clone(),
+        tx.value,
+        tx.data.clone(),
         db,
         CacheDB::default(),
     )
@@ -175,7 +182,9 @@ pub fn ensure_post_state(
                 }
                 // Execution result was successful and no exception was expected.
                 None => {
-                    let levm_account_updates = get_state_transitions(execution_report);
+                    let (initial_state, _block_hash) = utils::load_initial_state(test);
+                    let levm_account_updates =
+                        get_state_transitions(&initial_state, execution_report);
                     let pos_state_root = post_state_root(&levm_account_updates, test);
                     let expected_post_state_root_hash = test.post.vector_post_value(vector).hash;
                     if expected_post_state_root_hash != pos_state_root {
@@ -205,28 +214,57 @@ pub fn ensure_post_state(
     Ok(())
 }
 
-pub fn get_state_transitions(execution_report: &TransactionReport) -> Vec<AccountUpdate> {
+pub fn get_state_transitions(
+    initial_state: &EvmState,
+    execution_report: &TransactionReport,
+) -> Vec<AccountUpdate> {
+    let current_db = match initial_state {
+        EvmState::Store(state) => state.database.store.clone(),
+        EvmState::Execution(_cache_db) => unreachable!("Execution state should not be passed here"),
+    };
     let mut account_updates: Vec<AccountUpdate> = vec![];
-    for (address, account) in &execution_report.new_state {
+    for (new_state_account_address, new_state_account) in &execution_report.new_state {
         let mut added_storage = HashMap::new();
 
-        for (key, value) in &account.storage {
+        for (key, value) in &new_state_account.storage {
             added_storage.insert(*key, value.current_value);
         }
 
-        let code = if account.info.bytecode.is_empty() {
+        // Check if the code has changed
+        let code = if new_state_account.info.bytecode.is_empty() {
+            // The new state account has no code
             None
         } else {
-            Some(account.info.bytecode.clone())
+            // Get the code hash of the new state account bytecode
+            let potential_new_bytecode_hash = code_hash(&new_state_account.info.bytecode);
+            // Look into the current database to see if the bytecode hash is already present
+            let current_bytecode = current_db
+                .get_account_code(potential_new_bytecode_hash)
+                .expect("Error getting account code by hash");
+            let code = new_state_account.info.bytecode.clone();
+            // The code is present in the current database
+            if let Some(current_bytecode) = current_bytecode {
+                if current_bytecode != code {
+                    // The code has changed
+                    Some(code)
+                } else {
+                    // The code has not changed
+                    None
+                }
+            } else {
+                // The new state account code is not present in the current
+                // database, then it must be new
+                Some(code)
+            }
         };
 
         let account_update = AccountUpdate {
-            address: *address,
+            address: *new_state_account_address,
             removed: false,
             info: Some(AccountInfo {
-                code_hash: code_hash(&account.info.bytecode),
-                balance: account.info.balance,
-                nonce: account.info.nonce,
+                code_hash: code_hash(&new_state_account.info.bytecode),
+                balance: new_state_account.info.balance,
+                nonce: new_state_account.info.nonce,
             }),
             code,
             added_storage,
