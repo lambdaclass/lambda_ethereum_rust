@@ -20,3 +20,5 @@ The `bytecode_fetcher` has its own channel where it receives code hashes from ac
 This diagram illustrates the process described above:
 
 ![snap_sync](/crates/networking/docs/diagrams/bytecode_fetcher.jpg)
+
+The `storage_fetcher` works almost alike, but one will be spawned for each `rebuild_state_trie` process as we can't fetch storages from different blocks in the same request.

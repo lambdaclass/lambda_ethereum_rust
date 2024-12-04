@@ -309,7 +309,9 @@ async fn rebuild_state_trie(
                 }
                 // Build the batch of hashes and roots to send to the storage fetcher
                 // Ignore accounts without storage
-                if account.storage_root != *EMPTY_TRIE_HASH {
+                // TODO: We could also check if the account's storage root is already part of the trie
+                // Aka, if the account was not changed shouldn't fetch the state we already have
+                if account.storage_root != *EMPTY_TRIE_HASH{
                     account_hashes_and_storage_roots.push((*account_hash, account.storage_root));
                 }
             }
