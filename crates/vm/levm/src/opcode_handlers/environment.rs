@@ -1,7 +1,7 @@
 use crate::{
     call_frame::CallFrame,
     constants::WORD_SIZE_IN_BYTES_USIZE,
-    errors::{InternalError, OpcodeSuccess, OutOfGasError, VMError},
+    errors::{OpcodeSuccess, OutOfGasError, VMError},
     gas_cost, memory,
     vm::{word_to_address, VM},
 };
