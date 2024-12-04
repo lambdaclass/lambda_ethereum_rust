@@ -7,6 +7,7 @@ import "./interfaces/IOnChainProposer.sol";
 import {CommonBridge} from "./CommonBridge.sol";
 import {ICommonBridge} from "./interfaces/ICommonBridge.sol";
 import {IRiscZeroVerifier} from "./interfaces/IRiscZeroVerifier.sol";
+import {ISP1Verifier} from "./interfaces/ISP1Verifier.sol";
 
 /// @title OnChainProposer contract.
 /// @author LambdaClass
@@ -43,9 +44,11 @@ contract OnChainProposer is IOnChainProposer, ReentrancyGuard {
 
     address public BRIDGE;
     address public R0VERIFIER;
+    address public SP1VERIFIER;
 
     /// @notice Address used to avoid the verification process.
-    /// @dev If the `R0VERIFIER` contract address is set to this address, the verification process will not happen.
+    /// @dev If the `R0VERIFIER` or the `SP1VERIFIER` contract address is set to this address,
+    /// the verification process will not happen.
     /// @dev Used only in dev mode.
     address public constant DEV_MODE = address(0xAA);
 
@@ -61,8 +64,10 @@ contract OnChainProposer is IOnChainProposer, ReentrancyGuard {
     function initialize(
         address bridge,
         address r0verifier,
+        address sp1verifier,
         address[] calldata sequencerAddresses
     ) public nonReentrant {
+        // Set the CommonBridge address
         require(
             BRIDGE == address(0),
             "OnChainProposer: contract already initialized"
@@ -77,6 +82,7 @@ contract OnChainProposer is IOnChainProposer, ReentrancyGuard {
         );
         BRIDGE = bridge;
 
+        // Set the Risc0Groth16Verifier address
         require(
             R0VERIFIER == address(0),
             "OnChainProposer: contract already initialized"
@@ -90,6 +96,21 @@ contract OnChainProposer is IOnChainProposer, ReentrancyGuard {
             "OnChainProposer: r0verifier is the contract address"
         );
         R0VERIFIER = r0verifier;
+
+        // Set the SP1Groth16Verifier address
+        require(
+            SP1VERIFIER == address(0),
+            "OnChainProposer: contract already initialized"
+        );
+        require(
+            sp1verifier != address(0),
+            "OnChainProposer: sp1verifier is the zero address"
+        );
+        require(
+            sp1verifier != address(this),
+            "OnChainProposer: sp1verifier is the contract address"
+        );
+        SP1VERIFIER = sp1verifier;
 
         for (uint256 i = 0; i < sequencerAddresses.length; i++) {
             authorizedSequencerAddresses[sequencerAddresses[i]] = true;
@@ -166,6 +187,20 @@ contract OnChainProposer is IOnChainProposer, ReentrancyGuard {
                 blockProof,
                 imageId,
                 journalDigest
+            );
+        }
+
+        if (SP1VERIFIER != DEV_MODE) {
+            // TODO: remove
+            // used as placeholders
+            bytes32 programVKey = bytes32(0);
+            bytes memory publicValues;
+            bytes memory proofBytes;
+            // If the verification fails, it will revert.
+            ISP1Verifier(SP1VERIFIER).verifyProof(
+                programVKey,
+                publicValues,
+                proofBytes
             );
         }
 
