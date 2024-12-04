@@ -541,6 +541,10 @@ impl StoreEngine for RedBStore {
             .read(PAYLOADS_TABLE, payload_id)?
             .map(|b| b.value().to()))
     }
+
+    fn delete_payload(&self, payload_id: u64) -> Result<(), StoreError> {
+        self.delete(PAYLOADS_TABLE, payload_id)
+    }
 }
 
 impl redb::Value for ChainDataIndex {

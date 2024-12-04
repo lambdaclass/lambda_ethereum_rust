@@ -358,6 +358,15 @@ impl StoreEngine for Store {
         Ok(self.read::<Payloads>(payload_id)?.map(|b| b.to()))
     }
 
+    fn delete_payload(&self, payload_id: u64) -> std::result::Result<(), StoreError> {
+        self.db
+        .begin_readwrite()
+        .map_err(StoreError::LibmdbxError)?
+        .delete::<Payloads>(payload_id, None)
+        .map(|_| ())
+        .map_err(StoreError::LibmdbxError)
+    }
+
     fn get_transaction_by_hash(
         &self,
         transaction_hash: H256,
