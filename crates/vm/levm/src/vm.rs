@@ -181,7 +181,6 @@ impl VM {
 
         loop {
             let opcode = current_call_frame.next_opcode();
-            current_call_frame.increment_pc()?;
 
             let op_result: Result<OpcodeSuccess, VMError> = match opcode {
                 Opcode::STOP => Ok(OpcodeSuccess::Result(ResultReason::Stop)),
@@ -287,6 +286,8 @@ impl VM {
 
                 _ => Err(VMError::OpcodeNotFound),
             };
+
+            current_call_frame.increment_pc()?;
 
             // Gas refunds are applied at the end of a transaction. Should it be implemented here?
 
