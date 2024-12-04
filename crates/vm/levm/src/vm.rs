@@ -138,15 +138,13 @@ impl VM {
                 let created_contract = Account::new(value, calldata.clone(), 1, HashMap::new());
                 cache::insert_account(&mut cache, new_contract_address, created_contract);
 
-                let bytecode: Bytes = calldata.clone();
-
                 let initial_call_frame = CallFrame::new(
                     env.origin,
                     new_contract_address,
                     new_contract_address,
-                    bytecode,
+                    Bytes::new(), // Bytecode is assigned after passing initcode validation.
                     value,
-                    Bytes::new(), // Contract creation does not have calldata
+                    calldata, // Calldata is removed after passing validations.
                     false,
                     env.gas_limit,
                     U256::zero(),
@@ -373,12 +371,7 @@ impl VM {
                 .checked_add(CREATE_BASE_COST)
                 .ok_or(OutOfGasError::ConsumedGasOverflow)?;
 
-            let number_of_words: u64 = initial_call_frame
-                .calldata
-                .chunks(WORD_SIZE)
-                .len()
-                .try_into()
-                .map_err(|_| InternalError::ConversionError)?;
+            let number_of_words = initial_call_frame.calldata.len().div_ceil(WORD_SIZE);
 
             intrinsic_gas = intrinsic_gas
                 .checked_add(
@@ -485,21 +478,21 @@ impl VM {
             ));
         }
 
-        // (4) INITCODE_SIZE_EXCEEDED
+        // (4) INTRINSIC_GAS_TOO_LOW
+        self.add_intrinsic_gas(initial_call_frame)?;
+
+        // (5) NONCE_IS_MAX
+        self.increment_account_nonce(sender_address)?;
+
+        // (6) INITCODE_SIZE_EXCEEDED
         if self.is_create() {
             // INITCODE_SIZE_EXCEEDED
-            if initial_call_frame.bytecode.len() > INIT_CODE_MAX_SIZE {
+            if initial_call_frame.calldata.len() > INIT_CODE_MAX_SIZE {
                 return Err(VMError::TxValidation(
                     TxValidationError::InitcodeSizeExceeded,
                 ));
             }
         }
-
-        // (5) INTRINSIC_GAS_TOO_LOW
-        self.add_intrinsic_gas(initial_call_frame)?;
-
-        // (6) NONCE_IS_MAX
-        self.increment_account_nonce(sender_address)?;
 
         // (7) PRIORITY_GREATER_THAN_MAX_FEE_PER_GAS
         if let (Some(tx_max_priority_fee), Some(tx_max_fee_per_gas)) = (
