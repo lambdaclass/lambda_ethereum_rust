@@ -1,3 +1,5 @@
+use std::usize;
+
 use crate::{
     call_frame::CallFrame,
     errors::{InternalError, OpcodeSuccess, VMError},
@@ -236,8 +238,8 @@ impl VM {
                 InternalError::ArithmeticOperationOverflow,
             ))?;
 
-        if sign_bit_index >= U256::from(256) {
-            // bounds check to ensure sign_bit_index fit in U256
+        if sign_bit_index >= U256::from(usize::MAX) {
+            // bounds check to ensure sign_bit_index fit in usize
             current_call_frame.stack.push(value_to_extend)?;
             return Ok(OpcodeSuccess::Continue);
         }
