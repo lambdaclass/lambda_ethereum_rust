@@ -13,4 +13,5 @@ We will spawn two processes, the `bytecode_fetcher` which will remain active and
 
 (Not implemented yet) When `fetch_snap_state` runs out of available state (aka, the state we need to fetch is older than 128 blocks and peers don't provide it), it will begin the `state_healing` process.
 This diagram illustrates the process described above:
+
 ![snap_sync](/crates/networking/docs/diagrams/snap_sync.jpg)
