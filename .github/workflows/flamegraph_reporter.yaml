@@ -91,6 +91,7 @@ jobs:
 
       - name: Change perf settings
         run: |
+          pwd
           sudo sysctl kernel.perf_event_paranoid=-1
           sudo perf list hw
 
@@ -112,34 +113,23 @@ jobs:
         uses: actions/checkout@v4
         with:
           repository: paradigmxyz/reth
-          path: './reth'
+          path: 'reth'
 
       - name: Build and test reth
         shell: bash
         run: |
-          mv ./reth ..
-          cd ../reth
-          cargo flamegraph --bin reth --profile profiling -- node --chain ../ethrex/test_data/genesis-load-test.json --dev \
+          cd ./reth
+          cargo flamegraph -c "record -o perf.data -F997 --call-graph dwarf,16384 -g" --bin reth --profile profiling \
+          -- node --chain ../ethrex/test_data/genesis-load-test.json --dev \
           --dev.block-time 5000ms --http.port 1729  --txpool.max-pending-txns 100000000 --txpool.max-new-txns 1000000000 \
           --txpool.pending-max-count 100000000 --txpool.pending-max-size 10000000000 --txpool.basefee-max-count 100000000000 \
           --txpool.basefee-max-size 1000000000000 --txpool.queued-max-count 1000000000 &
           echo "waiting to execute load test..."
-          sleep 30 &&
+          sleep 120 &&
           echo "executing load test..."
-          bash ../ethrex/.github/scripts/flamegraph_reth.sh &&
+          echo ${{ github.workspace }}
+          echo $GITHUB_WORKSPACE
+          pwd
+          ls -las ../
+          bash ../.github/scripts/flamegraph_reth.sh &&
           echo "Load test finished"
-
-      - name: Generate SVG
-        shell: bash
-        run: |
-          echo "running perf"
-          perf script -v -i perf.data --no-inline > stack.data
-          inferno-collapse-perf < stack.data > collapsed.data
-          inferno-flamegraph < collapsed.data > flamegraph_reth.svg
-          file flamegraph_reth.svg
-
-      - name: Upload artifacts - flamegraph_reth.svg
-        uses: actions/upload-artifact@v4
-        with:
-          name: flamegraph_reth.svg
-          path: ./flamegraph_reth.svg

@@ -1,5 +1,4 @@
 #!/bin/bash
-cd "$(dirname "$0")" || exit # Make sure to run from script's directory
 
 iterations=3
 value=10000000
