@@ -359,13 +359,17 @@ pub mod touched_state {
                 if !account.is_touched() {
                     continue;
                 }
+                if account.is_created() {
+                    continue;
+                }
                 self.touched_state
                     .push((address, account.storage.keys().cloned().collect()));
             }
         }
     }
 
-    /// Get all touched account addresses and storage keys during the execution of a block.
+    /// Get all touched account addresses and storage keys during the execution of a block,
+    /// ignoring newly created accounts.
     ///
     /// Generally used for building an [super::ExecutionDB].
     pub fn get_touched_state(
