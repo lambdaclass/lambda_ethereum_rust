@@ -478,13 +478,7 @@ impl VM {
             ));
         }
 
-        // (4) INTRINSIC_GAS_TOO_LOW
-        self.add_intrinsic_gas(initial_call_frame)?;
-
-        // (5) NONCE_IS_MAX
-        self.increment_account_nonce(sender_address)?;
-
-        // (6) INITCODE_SIZE_EXCEEDED
+        // (4) INITCODE_SIZE_EXCEEDED
         if self.is_create() {
             // INITCODE_SIZE_EXCEEDED
             if initial_call_frame.calldata.len() > INIT_CODE_MAX_SIZE {
@@ -493,6 +487,12 @@ impl VM {
                 ));
             }
         }
+
+        // (5) INTRINSIC_GAS_TOO_LOW
+        self.add_intrinsic_gas(initial_call_frame)?;
+
+        // (6) NONCE_IS_MAX
+        self.increment_account_nonce(sender_address)?;
 
         // (7) PRIORITY_GREATER_THAN_MAX_FEE_PER_GAS
         if let (Some(tx_max_priority_fee), Some(tx_max_fee_per_gas)) = (
