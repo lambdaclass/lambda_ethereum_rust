@@ -7,6 +7,7 @@ edition = "2021"
 ethrex-core.workspace = true
 ethrex-rlp.workspace = true
 ethrex-vm.workspace = true
+ethrex-prover.workspace = true
 
 #rsp-host-executor = { git = "https://github.com/succinctlabs/rsp" }
 #rsp-client-executor = { git = "https://github.com/succinctlabs/rsp" }
@@ -33,3 +34,6 @@ revm-primitives = { version = "10.0.0", features = [
 ], default-features = false }
 futures-util = "0.3.31"
 tokio-utils = "0.1.2"
+
+[features]
+default = ["ethrex-prover/build_zkvm"]

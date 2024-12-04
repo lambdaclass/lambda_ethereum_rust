@@ -16,7 +16,7 @@ pub struct Account {
     pub storage_proofs: Vec<Vec<NodeRLP>>,
 }
 
-pub async fn get_block(rpc_url: &str, block_number: &usize) -> Result<Block, String> {
+pub async fn get_block(rpc_url: &str, block_number: usize) -> Result<Block, String> {
     let client = reqwest::Client::new();
 
     let block_number = format!("0x{block_number:x}");
@@ -49,7 +49,7 @@ pub async fn get_block(rpc_url: &str, block_number: &usize) -> Result<Block, Str
 
 pub async fn get_account(
     rpc_url: &str,
-    block_number: &usize,
+    block_number: usize,
     address: &Address,
     storage_keys: &[U256],
 ) -> Result<Account, String> {
@@ -207,7 +207,7 @@ mod test {
     async fn get_account_works() {
         get_account(
             RPC_URL,
-            &BLOCK_NUMBER,
+            BLOCK_NUMBER,
             &Address::from_slice(&hex::decode(VITALIK_ADDR).unwrap()),
             &[],
         )

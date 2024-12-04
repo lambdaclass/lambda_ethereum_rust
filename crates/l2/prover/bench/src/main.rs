@@ -5,6 +5,7 @@ use bench::{
     rpc::{get_account, get_block, Account, NodeRLP},
 };
 use clap::Parser;
+use ethrex_prover_lib::prover::{ProgramInput, Prover};
 use ethrex_vm::execution_db::{touched_state::get_touched_state, ExecutionDB};
 use futures_util::future::join_all;
 use tokio_utils::RateLimiter;
@@ -24,10 +25,14 @@ async fn main() {
         block_number,
     } = Args::parse();
 
-    println!("fetching block {block_number}");
-    let block = get_block(&rpc_url, &block_number)
+    println!("fetching block {block_number} and its parent header");
+    let block = get_block(&rpc_url, block_number)
         .await
         .expect("failed to fetch block");
+    let parent_block_header = get_block(&rpc_url, block_number - 1)
+        .await
+        .expect("failed to fetch block")
+        .header;
 
     println!("pre-executing transactions to get touched state");
     let touched_state = get_touched_state(&block, MAINNET_CHAIN_ID, MAINNET_SPEC_ID)
@@ -47,7 +52,7 @@ async fn main() {
                 *address,
                 get_account(
                     &rpc_url,
-                    &block_number,
+                    block_number,
                     &address.clone(),
                     &storage_keys.clone(),
                 )
@@ -126,6 +131,13 @@ async fn main() {
         CANCUN_CONFIG,
     );
 
-    // 4. create prover program input and execute. Measure time.
-    // 5. invoke rsp and execute too. Save in cache
+    let mut prover = Prover::new();
+    let receipt = prover
+        .prove(ProgramInput {
+            block,
+            parent_block_header,
+            db,
+        })
+        .expect("proving failed");
+    let execution_gas = prover.get_gas().expect("failed to get execution gas");
 }
