@@ -198,7 +198,7 @@ impl Trie {
         Ok((Some(root_node.encode_raw()), node_path))
     }
 
-    /// Creates a cached Trie (with [NullTrieDB]) from a list of encoded nodes.
+    /// Creates a stateless trie from a list of encoded nodes.
     /// Generally used in conjuction with [Trie::get_proofs].
     pub fn from_nodes(
         root_node: Option<&NodeRLP>,
@@ -216,6 +216,11 @@ impl Trie {
         }
 
         Ok(trie)
+    }
+
+    /// Creates an empty, stateless trie.
+    pub fn empty() -> Self {
+        Trie::stateless()
     }
 
     /// Builds an in-memory trie from the given elements and returns its hash

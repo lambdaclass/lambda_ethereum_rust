@@ -97,7 +97,13 @@ async fn main() {
     println!("building program input");
     let storages = storages
         .into_iter()
-        .map(|(address, storage)| (address, storage.into_iter().collect()))
+        .filter_map(|(address, storage)| {
+            if !storage.is_empty() {
+                Some((address, storage.into_iter().collect()))
+            } else {
+                None
+            }
+        })
         .collect();
 
     let account_proofs = {

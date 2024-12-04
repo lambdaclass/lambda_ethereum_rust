@@ -55,8 +55,8 @@ pub enum ExecutionDBError {
     MissingAccountInStateTrie(H160),
     #[error("Missing storage trie of account {0}")]
     MissingStorageTrie(H160),
-    #[error("Storage trie root for account {0} does not match account storage root")]
-    InvalidStorageTrieRoot(H160),
+    #[error("Storage trie root {1} for account {0} does not match account storage root {2}")]
+    InvalidStorageTrieRoot(H160, H256, H256),
     #[error("The pruned storage trie of account {0} is missing the storage key {1}")]
     MissingKeyInStorageTrie(H160, H256),
     #[error("Storage trie value for account {0} and key {1} does not match value stored in db")]

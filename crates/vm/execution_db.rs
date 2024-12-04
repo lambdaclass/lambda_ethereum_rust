@@ -206,34 +206,45 @@ impl ExecutionDB {
                 return Err(ExecutionDBError::MissingAccountInStateTrie(address));
             }
 
-            let (storage_trie_root, storage_trie_nodes) =
-                self.pruned_storage_tries
-                    .get(&address)
-                    .ok_or(ExecutionDBError::MissingStorageTrie(address))?;
+            // validate storage, note that an ExecutionDB only stores values relevant to some
+            // execution, so an account might have storage whilest there's none stored in
+            // self.storage[address]
+            match self.storage.get(revm_address) {
+                Some(storage) if !storage.is_empty() => {
+                    // first get the tries
+                    let (storage_trie_root, storage_trie_nodes) = self
+                        .pruned_storage_tries
+                        .get(&address)
+                        .ok_or(ExecutionDBError::MissingStorageTrie(address))?;
 
-            // compare account storage root with storage trie root
-            let storage_trie = Trie::from_nodes(storage_trie_root.as_ref(), storage_trie_nodes)?;
-            if storage_trie.hash_no_commit() != account.storage_root {
-                return Err(ExecutionDBError::InvalidStorageTrieRoot(address));
-            }
+                    // compare account storage root with storage trie root
+                    let storage_trie =
+                        Trie::from_nodes(storage_trie_root.as_ref(), storage_trie_nodes)?;
+                    let storage_root = storage_trie.hash_no_commit();
+                    if storage_root != account.storage_root {
+                        return Err(ExecutionDBError::InvalidStorageTrieRoot(
+                            address,
+                            storage_root,
+                            account.storage_root,
+                        ));
+                    }
 
-            // check all storage keys are in storage trie and compare values
-            let storage = self
-                .storage
-                .get(revm_address)
-                .ok_or(ExecutionDBError::StorageNotFound(*revm_address))?;
-            for (key, value) in storage {
-                let key = H256::from_slice(&key.to_be_bytes_vec());
-                let value = H256::from_slice(&value.to_be_bytes_vec());
-                let retrieved_value = storage_trie
-                    .get(&hash_key(&key))?
-                    .ok_or(ExecutionDBError::MissingKeyInStorageTrie(address, key))?;
-                if value.encode_to_vec() != retrieved_value {
-                    return Err(ExecutionDBError::InvalidStorageTrieValue(address, key));
+                    // check all storage keys are in storage trie and compare values
+                    for (key, value) in storage {
+                        let key = H256::from_slice(&key.to_be_bytes_vec());
+                        let value = H256::from_slice(&value.to_be_bytes_vec());
+                        let retrieved_value = storage_trie
+                            .get(&hash_key(&key))?
+                            .ok_or(ExecutionDBError::MissingKeyInStorageTrie(address, key))?;
+                        if value.encode_to_vec() != retrieved_value {
+                            return Err(ExecutionDBError::InvalidStorageTrieValue(address, key));
+                        }
+                    }
+
+                    storage_tries.insert(address, storage_trie);
                 }
+                _ => (),
             }
-
-            storage_tries.insert(address, storage_trie);
         }
 
         Ok((state_trie, storage_tries))
