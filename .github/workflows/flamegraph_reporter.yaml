@@ -9,6 +9,7 @@ on:
 
 env:
   RUST_VERSION: 1.81.0
+  RUST_RETH_VERSION: 1.82.0
 
 jobs:
   flamegraph:
@@ -21,7 +22,7 @@ jobs:
       - name: Rustup toolchain install
         uses: dtolnay/rust-toolchain@stable
         with:
-          toolchain: ${{ env.RUST_VERSION }}
+          toolchain: ${{ env.RUST_RETH_VERSION }}
 
       - name: Caching
         uses: Swatinem/rust-cache@v2
@@ -44,6 +45,29 @@ jobs:
           cargo install --path cmd/ethrex_l2
           ethrex_l2 config create default --default
           ethrex_l2 config set default
+
+      - name: Checkout reth
+        uses: actions/checkout@v4
+        with:
+          repository: paradigmxyz/reth
+          path: './reth'
+
+      - name: Build and test reth
+        shell: bash
+        run: |
+          ls -las
+          mv ./reth ..
+          cd ../reth
+          ls -las
+          cargo flamegraph --bin reth --profile profiling -- node --chain ../ethrex/test_data/genesis-load-test.json --dev \
+          --dev.block-time 5000ms --http.port 1729  --txpool.max-pending-txns 100000000 --txpool.max-new-txns 1000000000 \
+          --txpool.pending-max-count 100000000 --txpool.pending-max-size 10000000000 --txpool.basefee-max-count 100000000000 \
+          --txpool.basefee-max-size 1000000000000 --txpool.queued-max-count 1000000000 &
+          echo "waiting to execute load test..."
+          sleep 30 &&
+          echo "executing load test..."
+          bash ../ethrex/.github/scripts/flamegraph_reth.sh &&
+          echo "Load test finished"
 
       - name: Build ethrex
         run: CARGO_PROFILE_RELEASE_DEBUG=true cargo build --release --bin ethrex --features dev
