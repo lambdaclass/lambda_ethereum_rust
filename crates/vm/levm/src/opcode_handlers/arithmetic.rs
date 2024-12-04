@@ -1,5 +1,3 @@
-use std::usize;
-
 use crate::{
     call_frame::CallFrame,
     errors::{InternalError, OpcodeSuccess, VMError},
