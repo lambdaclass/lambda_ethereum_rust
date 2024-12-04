@@ -111,15 +111,6 @@ pub fn parse_ef_test_dir(
                     .to_owned(),
             )
         {
-            // I comment this because in this scenario the user just wants to execute one folder or test for example, and filling the terminal with 4000 messages is not very nice.
-            // spinner_update_text_or_print(
-            //     directory_parsing_spinner,
-            //     format!(
-            //         "Skipping test {:?} as it is not in the list of tests to run",
-            //         test.path().file_name().unwrap()
-            //     ),
-            //     opts.disable_spinner,
-            // );
             continue;
         }
 
