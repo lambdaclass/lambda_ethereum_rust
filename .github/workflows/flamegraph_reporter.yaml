@@ -133,8 +133,11 @@ jobs:
       - name: Generate SVG
         shell: bash
         run: |
-          echo "running perf"
-          perf script -v -i perf.data --no-inline > stack.data
+          pwd
+          echo "running perf 2"
+          ls -las /home/runner/work/ethrex/
+          ls -las /home/runner/work/ethrex/ethrex/
+          perf script -v -i /home/runner/work/ethrex/ethrex/reth/perf.data --no-inline > stack.data
           inferno-collapse-perf < stack.data > collapsed.data
           inferno-flamegraph < collapsed.data > flamegraph_reth.svg
           file flamegraph_reth.svg
