@@ -2777,6 +2777,7 @@ dependencies = [
  "serde_json",
  "sp1-build",
  "sp1-sdk",
+ "thiserror 1.0.69",
  "tokio",
  "tokio-util",
  "tracing",

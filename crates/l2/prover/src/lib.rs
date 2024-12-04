@@ -1,3 +1,4 @@
+pub mod errors;
 pub mod prover;
 pub mod prover_client;
 

@@ -11,6 +11,8 @@ use zkvm_interface::{
 // sp1
 use sp1_sdk::{ProverClient, SP1ProofWithPublicValues, SP1PublicValues, SP1Stdin, SP1VerifyingKey};
 
+use crate::errors::ProverError;
+
 #[cfg(all(not(clippy), feature = "build_sp1"))]
 pub const SP1_ELF: &[u8] = include_bytes!("../sp1/zkvm/elf/riscv32im-succinct-zkvm-elf");
 
@@ -28,9 +30,9 @@ pub struct Sp1Prover<'a> {
 }
 
 pub struct Sp1CompleteProof {
-    proof: SP1ProofWithPublicValues,
-    vk: SP1VerifyingKey,
-    output: SP1PublicValues,
+    pub proof: SP1ProofWithPublicValues,
+    pub vk: SP1VerifyingKey,
+    pub _output: SP1PublicValues,
 }
 
 // Boxing because of a clippy warning
@@ -86,7 +88,7 @@ impl<'a> Prover for Risc0Prover<'a> {
         // Verify the proof.
         match proving_output {
             ProvingOutput::Risc0Prover(receipt) => receipt.verify(self.id)?,
-            ProvingOutput::Sp1Prover(_) => todo!(),
+            ProvingOutput::Sp1Prover(_) => return Err(Box::new(ProverError::IncorrectProverType)),
         }
 
         Ok(())
@@ -103,7 +105,7 @@ impl<'a> Prover for Risc0Prover<'a> {
     ) -> Result<ProgramOutput, Box<dyn std::error::Error>> {
         let commitment = match proving_output {
             ProvingOutput::Risc0Prover(receipt) => receipt.journal.decode()?,
-            ProvingOutput::Sp1Prover(_) => todo!(),
+            ProvingOutput::Sp1Prover(_) => return Err(Box::new(ProverError::IncorrectProverType)),
         };
         Ok(commitment)
     }
@@ -122,14 +124,14 @@ impl<'a> Prover for Sp1Prover<'a> {
         let client = ProverClient::new();
         let (pk, vk) = client.setup(self.elf);
 
-        let (output, _) = client.execute(self.elf, stdin.clone()).run()?;
+        let (_output, _) = client.execute(self.elf, stdin.clone()).run()?;
 
         // Proof information by proving the specified ELF binary.
         // This struct contains the receipt along with statistics about execution of the guest
         let proof = client.prove(&pk, stdin).groth16().run()?;
 
         // Wrap Proof and vk
-        let sp1_proof = Sp1CompleteProof { proof, vk, output };
+        let sp1_proof = Sp1CompleteProof { proof, vk, _output };
         info!("Successfully generated SP1Proof.");
         Ok(ProvingOutput::Sp1Prover(Box::new(sp1_proof)))
     }
@@ -141,7 +143,9 @@ impl<'a> Prover for Sp1Prover<'a> {
                 let client = ProverClient::new();
                 client.verify(&complete_proof.proof, &complete_proof.vk)?;
             }
-            ProvingOutput::Risc0Prover(_) => todo!(),
+            ProvingOutput::Risc0Prover(_) => {
+                return Err(Box::new(ProverError::IncorrectProverType))
+            }
         }
 
         Ok(())
@@ -160,7 +164,9 @@ impl<'a> Prover for Sp1Prover<'a> {
             ProvingOutput::Sp1Prover(_complete_proof) => {
                 //ProgramOutput::deserialize(complete_proof.output.as_slice())?
             }
-            ProvingOutput::Risc0Prover(_) => todo!(),
+            ProvingOutput::Risc0Prover(_) => {
+                return Err(Box::new(ProverError::IncorrectProverType))
+            }
         };
         Ok(ProgramOutput {
             initial_state_hash: H256::zero(),
