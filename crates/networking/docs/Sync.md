@@ -16,7 +16,7 @@ This diagram illustrates the process described above:
 
 ![snap_sync](/crates/networking/docs/diagrams/snap_sync.jpg)
 
-The `bytecode_fetcher` has its own channel where it receives code hashes from active `rebuild_state_trie` processes. Once a code hash is received, it is added to a pending queue. Once the queue has enough messages for a full batch it will request a batch of bytecodes via snap p2p and store them, if a bytecode could not be fetched by the request (aka, we reached the response limit) it is added back to the pending queue. After the whole state is synced `fetch_snap_state` will send an empty list to the `bytecode_fetcher` to signal the end of the requests so that it can request the last (incomplete) bytecode batch and end gracefully.
+The `bytecode_fetcher` has its own channel where it receives code hashes from active `rebuild_state_trie` processes. Once a code hash is received, it is added to a pending queue. When the queue has enough messages for a full batch it will request a batch of bytecodes via snap p2p and store them. If a bytecode could not be fetched by the request (aka, we reached the response limit) it is added back to the pending queue. After the whole state is synced `fetch_snap_state` will send an empty list to the `bytecode_fetcher` to signal the end of the requests so it can request the last (incomplete) bytecode batch and end gracefully.
 This diagram illustrates the process described above:
 
 ![snap_sync](/crates/networking/docs/diagrams/bytecode_fetcher.jpg)
