@@ -145,12 +145,12 @@ pub fn try_copy_within(
     Ok(())
 }
 
-fn access_cost(
+pub fn access_cost(
     new_memory_size: usize,
     current_memory_size: usize,
-    static_cost: usize,
-    dynamic_base_cost: usize,
-) -> Result<usize, VMError> {
+    static_cost: U256,
+    dynamic_base_cost: U256,
+) -> Result<U256, VMError> {
     let minimum_word_size = new_memory_size
         .checked_add(
             WORD_SIZE_IN_BYTES_USIZE
@@ -162,9 +162,9 @@ fn access_cost(
 
     let static_gas = static_cost;
     let dynamic_cost = dynamic_base_cost
-        .checked_mul(minimum_word_size)
+        .checked_mul(minimum_word_size.into())
         .ok_or(OutOfGasError::MemoryExpansionCostOverflow)?
-        .checked_add(expansion_cost(new_memory_size, current_memory_size)?)
+        .checked_add(expansion_cost(new_memory_size, current_memory_size)?.into())
         .ok_or(OutOfGasError::MemoryExpansionCostOverflow)?;
 
     Ok(static_gas

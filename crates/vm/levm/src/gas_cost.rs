@@ -1,5 +1,5 @@
 use crate::{
-    constants::{WORD_SIZE, WORD_SIZE_IN_BYTES_USIZE},
+    constants::WORD_SIZE,
     errors::{InternalError, OutOfGasError, VMError},
     memory, StorageSlot,
 };
@@ -503,34 +503,6 @@ fn address_access_cost(
         .ok_or(OutOfGasError::GasCostOverflow)?)
 }
 
-fn memory_access_cost(
-    new_memory_size: usize,
-    current_memory_size: usize,
-    static_cost: U256,
-    dynamic_base_cost: U256,
-) -> Result<U256, VMError> {
-    let minimum_word_size = new_memory_size
-        .checked_add(
-            WORD_SIZE_IN_BYTES_USIZE
-                .checked_sub(1)
-                .ok_or(InternalError::ArithmeticOperationUnderflow)?,
-        )
-        .ok_or(OutOfGasError::MemoryExpansionCostOverflow)?
-        .checked_div(WORD_SIZE_IN_BYTES_USIZE)
-        .ok_or(OutOfGasError::MemoryExpansionCostOverflow)?;
-
-    let static_gas = static_cost;
-    let dynamic_cost = dynamic_base_cost
-        .checked_mul(minimum_word_size.into())
-        .ok_or(OutOfGasError::MemoryExpansionCostOverflow)?
-        .checked_add(memory::expansion_cost(new_memory_size, current_memory_size)?.into())
-        .ok_or(OutOfGasError::MemoryExpansionCostOverflow)?;
-
-    Ok(static_gas
-        .checked_add(dynamic_cost)
-        .ok_or(OutOfGasError::GasCostOverflow)?)
-}
-
 pub fn balance(address_was_cold: bool) -> Result<U256, VMError> {
     address_access_cost(
         address_was_cold,
@@ -554,7 +526,7 @@ pub fn extcodecopy(
     current_memory_size: usize,
     address_was_cold: bool,
 ) -> Result<U256, VMError> {
-    Ok(memory_access_cost(
+    Ok(memory::access_cost(
         new_memory_size,
         current_memory_size,
         EXTCODECOPY_STATIC,
