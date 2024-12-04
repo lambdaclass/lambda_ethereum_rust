@@ -179,60 +179,6 @@ impl PeerChannels {
         Some((account_hashes, accounts, should_continue))
     }
 
-    // TODO: Inefficient method -> replace with request_storage_ranges
-    pub async fn request_storage_range(
-        &self,
-        storage_root: H256,
-        account_hash: H256,
-        start: H256,
-    ) -> Option<(Vec<H256>, Vec<U256>, bool)> {
-        let request_id = rand::random();
-        let request = RLPxMessage::GetStorageRanges(GetStorageRanges {
-            id: request_id,
-            root_hash: storage_root,
-            account_hashes: vec![account_hash],
-            starting_hash: start,
-            limit_hash: HASH_MAX,
-            response_bytes: MAX_RESPONSE_BYTES,
-        });
-        self.sender.send(request).await.ok()?;
-        let mut receiver = self.receiver.lock().await;
-        let (mut slots, proof) = tokio::time::timeout(PEER_REPLY_TIMOUT, async move {
-            loop {
-                match receiver.recv().await {
-                    Some(RLPxMessage::StorageRanges(StorageRanges { id, slots, proof }))
-                        if id == request_id =>
-                    {
-                        return Some((slots, proof))
-                    }
-                    // Ignore replies that don't match the expected id (such as late responses)
-                    Some(_) => continue,
-                    None => return None,
-                }
-            }
-        })
-        .await
-        .ok()??;
-        // We only requested 1 account so lets make sure we got it:
-        if slots.len() != 1 {
-            return None;
-        }
-        // Unzip & validate response
-        let proof = encodable_to_proof(&proof);
-        let (hahsed_keys, values): (Vec<_>, Vec<_>) = slots
-            .remove(0)
-            .into_iter()
-            .map(|slot| (slot.hash, slot.data))
-            .unzip();
-        let encoded_values = values
-            .iter()
-            .map(|val| val.encode_to_vec())
-            .collect::<Vec<_>>();
-        let should_continue =
-            verify_range(storage_root, &start, &hahsed_keys, &encoded_values, &proof).ok()?;
-        Some((hahsed_keys, values, should_continue))
-    }
-
     /// Requests bytecodes for the given code hashes
     /// Returns the bytecodes or None if:
     /// - There are no available peers (the node just started up or was rejected by all other nodes)
