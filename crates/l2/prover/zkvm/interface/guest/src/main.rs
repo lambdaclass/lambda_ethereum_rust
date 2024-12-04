@@ -25,7 +25,10 @@ fn main() {
 
     let initial_state_hash = state_trie.hash_no_commit();
     if initial_state_hash != parent_block_header.state_root {
-        panic!("invalid initial state trie");
+        panic!(
+            "invalid initial state trie root, got {} and expected {}",
+            initial_state_hash, parent_block_header.state_root
+        );
     }
 
     let receipts = execute_block(&block, &mut state).expect("failed to execute block");

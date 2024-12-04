@@ -52,7 +52,7 @@ async fn main() {
                 *address,
                 get_account(
                     &rpc_url,
-                    block_number,
+                    block_number - 1,
                     &address.clone(),
                     &storage_keys.clone(),
                 )
