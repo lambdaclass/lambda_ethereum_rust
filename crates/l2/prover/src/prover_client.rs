@@ -4,18 +4,17 @@ use std::{
     time::Duration,
 };
 
-use sp1_sdk::network::prover;
 use tokio::time::sleep;
 use tracing::{debug, error, info, warn};
 
 use zkvm_interface::io::ProgramInput;
 
 use ethrex_l2::{
-    proposer::prover_server::{ProofData, ProverType, ZkProof},
+    proposer::prover_server::{ProofData, ZkProof},
     utils::config::prover_client::ProverClientConfig,
 };
 
-use crate::prover::{Prover, ProvingOutput, Risc0Prover};
+use crate::prover::{Prover, ProvingOutput};
 
 pub async fn start_proof_data_client(config: ProverClientConfig) {
     let proof_data_client = ProverClient::new(config);
@@ -25,7 +24,6 @@ pub async fn start_proof_data_client(config: ProverClientConfig) {
 struct ProverData {
     block_number: u64,
     input: ProgramInput,
-    prover_type: ProverType
 }
 
 struct ProverClient {
@@ -46,24 +44,30 @@ impl ProverClient {
             match self.request_new_input() {
                 // If we get the input
                 Ok(prover_data) => {
-                    // Check the prover_type requested by the ProverServer
-                    match prover_data.prover_type {
-                        ProverType::RISC0 => {
-                            let mut prover = Risc0Prover::new();
-                            match prover.prove(prover_data.input) {
-                                Ok(proof) => {
-                                    if let Err(e) =
-                                        self.submit_proof(prover_data.block_number, proof, prover.id.to_vec())
-                                    {
-                                        // TODO: Retry?
-                                        warn!("Failed to submit proof: {e}");
-                                    }
-                                }
-                                Err(e) => error!(e),
-                            };
-                        },
-                        ProverType::SP1 => todo!(),
+                    // Build the prover based on the feature.
+                    #[cfg(feature= "risc0")]
+                    let mut  prover = crate::prover::Risc0Prover::new();
+                    #[cfg(feature= "sp1")]
+                    let mut prover = crate::prover::Sp1Prover::new();
+                    
+                    // Handle case where neither feature is enabled
+                    #[cfg(not(any(feature = "risc0", feature = "sp1")))]
+                    {
+                        sleep(Duration::from_millis(self.interval_ms)).await;
+                        error!("Either 'risc0' or 'sp1' feature must be enabled.");
                     }
+                    
+                    match prover.prove(prover_data.input) {
+                        Ok(proving_output) => {
+                            if let Err(e) =
+                                self.submit_proof(prover_data.block_number, proving_output)
+                            {
+                                // TODO: Retry?
+                                warn!("Failed to submit proof: {e}");
+                            }
+                        }
+                        Err(e) => error!(e),
+                    };
 
                 }
                 Err(e) => {
@@ -84,7 +88,6 @@ impl ProverClient {
             ProofData::Response {
                 block_number,
                 input,
-                prover_type
                 
             } => match (block_number, input) {
                 (Some(block_number), Some(input)) => {
@@ -95,8 +98,7 @@ impl ProverClient {
                             block: input.block,
                             parent_block_header: input.parent_block_header,
                             db: input.db
-                        },
-                        prover_type,
+                        }
                     };
                     Ok(prover_data)
                 }
@@ -105,7 +107,7 @@ impl ProverClient {
                         .to_owned(),
                 ),
             },
-            _ => Err(format!("Expecting ProofData::Response  {response:?}")),
+            _ => Err("Expecting ProofData::Response".to_owned()),
         }
     }
 
@@ -113,17 +115,18 @@ impl ProverClient {
         &self,
         block_number: u64,
         proving_output: ProvingOutput,
-        prover_id: Vec<u32>,
     ) -> Result<(), String> {
-        // TODO replace
-        let receipt = match proving_output {
-            ProvingOutput::Risc0Prover(receipt) => receipt,
-            ProvingOutput::Sp1Prover(_) => todo!(),
+        let submit = match proving_output {
+            ProvingOutput::Risc0Prover(risc0_proof) => ProofData::Submit {
+                block_number,
+                zk_proof: ZkProof::RISC0(risc0_proof),
+            },
+            ProvingOutput::Sp1Prover(sp1_proof) =>ProofData::Submit {
+                block_number,
+                zk_proof: ZkProof::SP1(sp1_proof),
+            } ,
         };
-        let submit = ProofData::Submit {
-            block_number,
-            zk_proof: ZkProof::RISC0(Box::new((*receipt, prover_id))),
-        };
+        
         let submit_ack = connect_to_prover_server_wr(&self.prover_server_endpoint, &submit)
             .map_err(|e| format!("Failed to get SubmitAck: {e}"))?;
 
@@ -132,7 +135,7 @@ impl ProverClient {
                 info!("Received submit ack for block_number: {}", block_number);
                 Ok(())
             }
-            _ => Err(format!("Expecting ProofData::SubmitAck {submit_ack:?}")),
+            _ => Err("Expecting ProofData::SubmitAck".to_owned()),
         }
     }
 }

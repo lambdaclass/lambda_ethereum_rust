@@ -2,7 +2,7 @@ use crate::utils::eth_client::errors::EthClientError;
 use ethrex_core::Address;
 use keccak_hash::{keccak, H256};
 use secp256k1::SecretKey;
-use serde::{de::EnumAccess, Deserialize, Deserializer, Serialize, Serializer};
+use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
 pub mod config;
 pub mod error;

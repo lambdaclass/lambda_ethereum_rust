@@ -1,6 +1,7 @@
 use ethrex_core::H256;
+use ethrex_l2::proposer::prover_server::Risc0Proof;
+use ethrex_l2::proposer::prover_server::Sp1Proof;
 use tracing::info;
-
 // risc0
 use risc0_zkvm::{default_prover, ExecutorEnv, ProverOpts};
 use zkvm_interface::{
@@ -9,7 +10,7 @@ use zkvm_interface::{
 };
 
 // sp1
-use sp1_sdk::{ProverClient, SP1ProofWithPublicValues, SP1PublicValues, SP1Stdin, SP1VerifyingKey};
+use sp1_sdk::{ProverClient, SP1Stdin};
 
 use crate::errors::ProverError;
 
@@ -25,45 +26,49 @@ pub struct Risc0Prover<'a> {
     pub stdout: Vec<u8>,
 }
 
-pub struct Sp1Prover<'a> {
-    elf: &'a [u8],
-}
-
-pub struct Sp1CompleteProof {
-    pub proof: SP1ProofWithPublicValues,
-    pub vk: SP1VerifyingKey,
-    pub _output: SP1PublicValues,
-}
-
-// Boxing because of a clippy warning
-pub enum ProvingOutput {
-    Risc0Prover(Box<risc0_zkvm::Receipt>),
-    Sp1Prover(Box<Sp1CompleteProof>),
-}
-pub trait Prover {
-    fn new() -> Self;
-    fn prove(&mut self, input: ProgramInput) -> Result<ProvingOutput, Box<dyn std::error::Error>>;
-    fn verify(&self, receipt: &ProvingOutput) -> Result<(), Box<dyn std::error::Error>>;
-    fn get_gas(&self) -> Result<u64, Box<dyn std::error::Error>>;
-    fn get_commitment(receipt: &ProvingOutput)
-        -> Result<ProgramOutput, Box<dyn std::error::Error>>;
-}
-
 impl<'a> Default for Risc0Prover<'a> {
     fn default() -> Self {
         Self::new()
     }
 }
 
-impl<'a> Prover for Risc0Prover<'a> {
-    fn new() -> Self {
+pub struct Sp1Prover<'a> {
+    elf: &'a [u8],
+}
+
+impl<'a> Default for Sp1Prover<'a> {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+// Boxing because of a clippy warning
+pub enum ProvingOutput {
+    Risc0Prover(Risc0Proof),
+    Sp1Prover(Sp1Proof),
+}
+
+// Implement the Prover trait for the enum
+pub trait Prover {
+    fn prove(&mut self, input: ProgramInput) -> Result<ProvingOutput, Box<dyn std::error::Error>>;
+    fn verify(&self, proving_output: &ProvingOutput) -> Result<(), Box<dyn std::error::Error>>;
+    fn get_gas(&self) -> Result<u64, Box<dyn std::error::Error>>;
+    fn get_commitment(
+        proving_output: &ProvingOutput,
+    ) -> Result<ProgramOutput, Box<dyn std::error::Error>>;
+}
+
+impl<'a> Risc0Prover<'a> {
+    pub fn new() -> Self {
         Self {
             elf: ZKVM_PROGRAM_ELF,
             id: ZKVM_PROGRAM_ID,
             stdout: Vec::new(),
         }
     }
+}
 
+impl<'a> Prover for Risc0Prover<'a> {
     fn prove(&mut self, input: ProgramInput) -> Result<ProvingOutput, Box<dyn std::error::Error>> {
         let env = ExecutorEnv::builder()
             .stdout(&mut self.stdout)
@@ -81,13 +86,16 @@ impl<'a> Prover for Risc0Prover<'a> {
         let receipt = prove_info.receipt;
 
         info!("Successfully generated execution receipt.");
-        Ok(ProvingOutput::Risc0Prover(Box::new(receipt)))
+        Ok(ProvingOutput::Risc0Prover(Risc0Proof::new(
+            receipt,
+            self.id.to_vec(),
+        )))
     }
 
     fn verify(&self, proving_output: &ProvingOutput) -> Result<(), Box<dyn std::error::Error>> {
         // Verify the proof.
         match proving_output {
-            ProvingOutput::Risc0Prover(receipt) => receipt.verify(self.id)?,
+            ProvingOutput::Risc0Prover(proof) => proof.receipt.verify(self.id)?,
             ProvingOutput::Sp1Prover(_) => return Err(Box::new(ProverError::IncorrectProverType)),
         }
 
@@ -104,18 +112,20 @@ impl<'a> Prover for Risc0Prover<'a> {
         proving_output: &ProvingOutput,
     ) -> Result<ProgramOutput, Box<dyn std::error::Error>> {
         let commitment = match proving_output {
-            ProvingOutput::Risc0Prover(receipt) => receipt.journal.decode()?,
+            ProvingOutput::Risc0Prover(proof) => proof.receipt.journal.decode()?,
             ProvingOutput::Sp1Prover(_) => return Err(Box::new(ProverError::IncorrectProverType)),
         };
         Ok(commitment)
     }
 }
 
-impl<'a> Prover for Sp1Prover<'a> {
-    fn new() -> Self {
+impl<'a> Sp1Prover<'a> {
+    pub fn new() -> Self {
         Self { elf: SP1_ELF }
     }
+}
 
+impl<'a> Prover for Sp1Prover<'a> {
     fn prove(&mut self, input: ProgramInput) -> Result<ProvingOutput, Box<dyn std::error::Error>> {
         let mut stdin = SP1Stdin::new();
         stdin.write(&input);
@@ -124,16 +134,13 @@ impl<'a> Prover for Sp1Prover<'a> {
         let client = ProverClient::new();
         let (pk, vk) = client.setup(self.elf);
 
-        let (_output, _) = client.execute(self.elf, stdin.clone()).run()?;
-
         // Proof information by proving the specified ELF binary.
         // This struct contains the receipt along with statistics about execution of the guest
         let proof = client.prove(&pk, stdin).groth16().run()?;
-
         // Wrap Proof and vk
-        let sp1_proof = Sp1CompleteProof { proof, vk, _output };
+        let sp1_proof = Sp1Proof::new(proof, vk);
         info!("Successfully generated SP1Proof.");
-        Ok(ProvingOutput::Sp1Prover(Box::new(sp1_proof)))
+        Ok(ProvingOutput::Sp1Prover(sp1_proof))
     }
 
     fn verify(&self, proving_output: &ProvingOutput) -> Result<(), Box<dyn std::error::Error>> {
@@ -162,12 +169,13 @@ impl<'a> Prover for Sp1Prover<'a> {
         match proving_output {
             // TODO decode
             ProvingOutput::Sp1Prover(_complete_proof) => {
-                //ProgramOutput::deserialize(complete_proof.output.as_slice())?
+                //todo
             }
             ProvingOutput::Risc0Prover(_) => {
                 return Err(Box::new(ProverError::IncorrectProverType))
             }
-        };
+        }
+
         Ok(ProgramOutput {
             initial_state_hash: H256::zero(),
             final_state_hash: H256::zero(),

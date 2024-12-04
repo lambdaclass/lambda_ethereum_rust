@@ -47,10 +47,16 @@ name = "ethrex_prover"
 path = "src/main.rs"
 
 [features]
-default = []
+default = ["risc0"]
+risc0 = []
+sp1 = []
+## risc0
 build_zkvm = ["zkvm_interface/build_zkvm"]
-build_sp1 = []
 gpu = ["risc0-zkvm/cuda"]
+## sp1
+build_sp1 = []
+sp1_gpu = ["sp1-sdk/cuda"]
+
 
 [lints.clippy]
 unwrap_used = "deny"
