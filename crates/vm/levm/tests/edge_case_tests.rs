@@ -1,7 +1,7 @@
 use std::str::FromStr;
 
 use bytes::Bytes;
-use ethrex_core::{types::TxKind, U256};
+use ethrex_core::U256;
 use ethrex_levm::{
     errors::{TxResult, VMError},
     operations::Operation,
