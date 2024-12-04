@@ -10,7 +10,7 @@ use ethrex_storage::{error::StoreError, Store};
 use ethrex_trie::EMPTY_TRIE_HASH;
 use tokio::{
     sync::{
-        mpsc::{self, Receiver, Sender},
+        mpsc::{self, error::SendError, Receiver, Sender},
         Mutex,
     },
     time::Instant,
@@ -34,11 +34,48 @@ impl SyncManager {
         Self { snap_mode, peers }
     }
 
+    /// Creates a dummy SyncManager for tests where syncing is not needed
+    /// This should only be used in tests as it won't be able to connect to the p2p network
+    pub fn dummy() -> Self {
+        let dummy_peer_table = Arc::new(Mutex::new(KademliaTable::new(Default::default())));
+        Self {
+            snap_mode: false,
+            peers: dummy_peer_table,
+        }
+    }
+
     /// Starts a sync cycle, updating the state with all blocks between the current head and the sync head
-    /// TODO: only uses full sync, should also process snap sync once implemented
-    pub async fn start_sync(&mut self, mut current_head: H256, sync_head: H256, store: Store) {
+    /// Will perforn either full or snap sync depending on the manager's `snap_mode`
+    /// In full mode, all blocks will be fetched via p2p eth requests and executed to rebuild the state
+    /// In snap mode, blocks and receipts will be fetched and stored in parallel while the state is fetched via p2p snap requests
+    /// After the sync cycle is complete, the sync mode will be set to full
+    /// If the sync fails, no error will be returned but a warning will be emitted
+    pub async fn start_sync(&mut self, current_head: H256, sync_head: H256, store: Store) {
         info!("Syncing from current head {current_head} to sync_head {sync_head}");
         let start_time = Instant::now();
+        match self.sync_cycle(current_head, sync_head, store).await {
+            Ok(()) => {
+                info!(
+                    "Sync finished, time elapsed: {} secs",
+                    start_time.elapsed().as_secs()
+                );
+                // Next sync will be full-sync
+                self.snap_mode = false;
+            }
+            Err(error) => warn!(
+                "Sync failed due to {error}, time elapsed: {} secs ",
+                start_time.elapsed().as_secs()
+            ),
+        }
+    }
+
+    /// Performs the sync cycle described in `start_sync`, returns an error if the sync fails at any given step and aborts all active processes
+    async fn sync_cycle(
+        &mut self,
+        mut current_head: H256,
+        sync_head: H256,
+        store: Store,
+    ) -> Result<(), SyncError> {
         // Request all block headers between the current head and the sync head
         // We will begin from the current head so that we download the earliest state first
         // This step is not parallelized
@@ -70,11 +107,11 @@ impl SyncManager {
             }
         }
         // We finished fetching all headers, now we can process them
-        let result = if self.snap_mode {
+        if self.snap_mode {
             // snap-sync: launch tasks to fetch blocks and state in parallel
             // - Fetch each block's state via snap p2p requests
             // - Fetch each blocks and its receipts via eth p2p requests
-            // TODO: We are currently testing against our implementation that doesn't hold an independant snapchot and can provide all historic state
+            // TODO: We are currently testing against our implementation that doesn't hold an independant snapshot and can provide all historic state
             //       We should fetch all available state and then resort to state healing to fetch the rest
             let (bytecode_sender, bytecode_receiver) = mpsc::channel::<Vec<H256>>(500);
             let mut set = tokio::task::JoinSet::new();
@@ -106,20 +143,15 @@ impl SyncManager {
             {
                 // TODO: Handle error
                 latest_block_number = header.number;
-                store.set_canonical_block(header.number, hash).unwrap();
-                store.add_block_header(hash, header).unwrap();
+                store.set_canonical_block(header.number, hash)?;
+                store.add_block_header(hash, header)?;
             }
-            let result = set.join_all().await;
+            // If all processes failed then they are likely to have a common cause (such as unaccessible storage), so return the first error
+            for result in set.join_all().await {
+                result?;
+            }
             // Set latest block number here to avoid reading state that is currently being synced
-            store
-                .update_latest_block_number(latest_block_number)
-                .unwrap();
-            // Collapse into one error, if all processes failed then they are likely to have a common cause (such as unaccessible storage)
-            result
-                .into_iter()
-                .find(|res| res.is_err())
-                .unwrap_or(Ok(()))
-                .map_err(ChainError::StoreError)
+            store.update_latest_block_number(latest_block_number)?;
         } else {
             // full-sync: Fetch all block bodies and execute them sequentially to build the state
             download_and_run_blocks(
@@ -128,32 +160,9 @@ impl SyncManager {
                 self.peers.clone(),
                 store.clone(),
             )
-            .await
+            .await?
         };
-        match result {
-            Ok(()) => {
-                info!(
-                    "Sync finished, time elapsed: {} secs",
-                    start_time.elapsed().as_secs()
-                );
-                // Next sync will be full-sync
-                self.snap_mode = false;
-            }
-            Err(error) => warn!(
-                "Sync failed due to {error}, time elapsed: {} secs ",
-                start_time.elapsed().as_secs()
-            ),
-        }
-    }
-
-    /// Creates a dummy SyncManager for tests where syncing is not needed
-    /// This should only be used in tests as it won't be able to connect to the p2p network
-    pub fn dummy() -> Self {
-        let dummy_peer_table = Arc::new(Mutex::new(KademliaTable::new(Default::default())));
-        Self {
-            snap_mode: false,
-            peers: dummy_peer_table,
-        }
+        Ok(())
     }
 }
 
@@ -199,7 +208,7 @@ async fn fetch_blocks_and_receipts(
     mut block_hashes: Vec<BlockHash>,
     peers: Arc<Mutex<KademliaTable>>,
     store: Store,
-) -> Result<(), StoreError> {
+) -> Result<(), SyncError> {
     // Snap state fetching will take much longer than this so we don't need to paralelize fetching blocks and receipts
     // Fetch Block Bodies
     loop {
@@ -211,8 +220,7 @@ async fn fetch_blocks_and_receipts(
             let (fetched_hashes, remaining_hashes) = block_hashes.split_at(block_bodies.len());
             // Store Block Bodies
             for (hash, body) in fetched_hashes.into_iter().zip(block_bodies.into_iter()) {
-                // TODO: handle error
-                store.add_block_body(hash.clone(), body).unwrap()
+                store.add_block_body(hash.clone(), body)?
             }
 
             // Check if we need to ask for another batch
@@ -232,7 +240,7 @@ async fn fetch_snap_state(
     state_roots: Vec<BlockHash>,
     peers: Arc<Mutex<KademliaTable>>,
     store: Store,
-) -> Result<(), StoreError> {
+) -> Result<(), SyncError> {
     debug!("Syncing state roots: {}", state_roots.len());
     // Fetch newer state first: This will be useful to detect where to switch to healing
     for state_root in state_roots.into_iter().rev() {
@@ -247,7 +255,7 @@ async fn fetch_snap_state(
     }
     // We finished syncing the available state, lets make the fetcher processes aware
     // Send empty batches to signal that no more batches are incoming
-    bytecode_sender.send(vec![]).await.unwrap();
+    bytecode_sender.send(vec![]).await?;
     Ok(())
 }
 
@@ -257,7 +265,7 @@ async fn rebuild_state_trie(
     state_root: H256,
     peers: Arc<Mutex<KademliaTable>>,
     store: Store,
-) -> Result<(), StoreError> {
+) -> Result<(), SyncError> {
     // Spawn a storage fetcher for this blocks's storage
     let (storage_sender, storage_receiver) = mpsc::channel::<Vec<(H256, H256)>>(500);
     let storage_fetcher_handler = tokio::spawn(storage_fetcher(
@@ -302,15 +310,14 @@ async fn rebuild_state_trie(
             // Send code hash batch to the bytecode fetcher
             if !code_hashes.is_empty() {
                 // TODO: Handle
-                bytecode_sender.send(code_hashes).await.unwrap()
+                bytecode_sender.send(code_hashes).await?;
             }
             // Send hash and root batch to the storage fetcher
             if !account_hashes_and_storage_roots.is_empty() {
                 // TODO: Handle
                 storage_sender
                     .send(account_hashes_and_storage_roots)
-                    .await
-                    .unwrap()
+                    .await?;
             }
             // Update trie
             let mut trie = store.open_state_trie(current_state_root);
@@ -330,7 +337,7 @@ async fn rebuild_state_trie(
         warn!("State sync failed for state root {state_root}");
     }
     // Send empty batch to signal that no more batches are incoming
-    storage_sender.send(vec![]).await.unwrap();
+    storage_sender.send(vec![]).await?;
     storage_fetcher_handler
         .await
         .map_err(|_| StoreError::Custom(String::from("Failed to join storage_fetcher task")))??;
@@ -343,7 +350,7 @@ async fn bytecode_fetcher(
     mut receiver: Receiver<Vec<H256>>,
     peers: Arc<Mutex<KademliaTable>>,
     store: Store,
-) -> Result<(), StoreError> {
+) -> Result<(), SyncError> {
     // Pending list of bytecodes to fetch
     const BATCH_SIZE: usize = 200;
     let mut pending_bytecodes: Vec<H256> = vec![];
@@ -479,4 +486,16 @@ async fn fetch_storage_batch(
             return Ok(batch);
         }
     }
+}
+
+#[derive(thiserror::Error, Debug)]
+enum SyncError {
+    #[error(transparent)]
+    Chain(#[from] ChainError),
+    #[error(transparent)]
+    Store(#[from] StoreError),
+    #[error(transparent)]
+    SendBytecode(#[from] SendError<Vec<H256>>),
+    #[error(transparent)]
+    SendStorage(#[from] SendError<Vec<(H256, H256)>>),
 }
