@@ -34,12 +34,12 @@ pub fn main() {
     let receipts = execute_block(&block, &mut state).expect("failed to execute block");
     validate_gas_used(&receipts, &block.header).expect("invalid gas used");
 
-    sp1_zkvm::io::commit(
-        &receipts
-            .last()
-            .expect("no receipts found")
-            .cumulative_gas_used,
-    );
+    let cumulative_gas_used = match receipts.last() {
+        Some(last_receipt) => last_receipt.cumulative_gas_used,
+        None => 0_u64,
+    };
+
+    sp1_zkvm::io::commit(&cumulative_gas_used);
 
     let account_updates = get_state_transitions(&mut state);
 
