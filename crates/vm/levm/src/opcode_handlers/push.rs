@@ -41,7 +41,7 @@ impl VM {
             InternalError::ArithmeticOperationUnderflow,
         ))?;
 
-        // Rellenamos el array `value_to_push` con los bytes leídos
+        // We fill in the array `value_to_push` with the read bytes.
         for (i, byte) in read_n_bytes.iter().enumerate() {
             let index = start_index.checked_add(i).ok_or(VMError::Internal(
                 InternalError::ArithmeticOperationOverflow,
