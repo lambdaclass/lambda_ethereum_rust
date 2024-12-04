@@ -236,21 +236,14 @@ impl VM {
                 InternalError::ArithmeticOperationOverflow,
             ))?;
 
-        if value_to_extend >= U256::from(256) {
-            // bounds check to ensure sign_bit_index fit in U256
-            current_call_frame.stack.push(value_to_extend)?;
-            return Ok(OpcodeSuccess::Continue);
-        }
-
-        if sign_bit_index >= U256::from(usize::MAX) {
-            // bounds check to ensure sign_bit_index fit in usize
-            current_call_frame.stack.push(value_to_extend)?;
-            return Ok(OpcodeSuccess::Continue);
-        }
-
         let sign_bit_index: usize = sign_bit_index
             .try_into()
             .map_err(|_| VMError::Internal(InternalError::ConversionError))?;
+
+        if sign_bit_index >= 255 {
+            // Checks that sign_bit_index fit in U256
+            return Err(VMError::Internal(InternalError::ConversionError));
+        }
 
         let is_negative = value_to_extend.bit(sign_bit_index);
 
