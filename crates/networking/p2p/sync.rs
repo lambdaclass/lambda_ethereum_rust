@@ -345,7 +345,7 @@ async fn bytecode_fetcher(
     store: Store,
 ) -> Result<(), StoreError> {
     // Pending list of bytecodes to fetch
-    const BATCH_SIZE: usize = 100;
+    const BATCH_SIZE: usize = 200;
     let mut pending_bytecodes: Vec<H256> = vec![];
     loop {
         match receiver.recv().await {
@@ -405,7 +405,7 @@ async fn storage_fetcher(
     state_root: H256,
 ) -> Result<(), StoreError> {
     // Pending list of bytecodes to fetch
-    const BATCH_SIZE: usize = 75;
+    const BATCH_SIZE: usize = 100;
     // TODO: Also add a queue for storages that were incompletely fecthed,
     // but for the first iteration we will asume not fully fetched -> fetch again
     let mut pending_storage: Vec<(H256, H256)> = vec![];
