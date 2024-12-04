@@ -19,19 +19,23 @@ use tracing::{debug, info, warn};
 
 use crate::kademlia::KademliaTable;
 
+#[derive(Debug)]
+pub enum SyncMode {
+    Full,
+    Snap,
+}
+
 /// Manager in charge the sync process
 /// Only performs full-sync but will also be in charge of snap-sync in the future
 #[derive(Debug)]
 pub struct SyncManager {
-    // true: syncmode = snap, false = syncmode = full
-    #[allow(unused)]
-    snap_mode: bool,
+    sync_mode: SyncMode,
     peers: Arc<Mutex<KademliaTable>>,
 }
 
 impl SyncManager {
-    pub fn new(peers: Arc<Mutex<KademliaTable>>, snap_mode: bool) -> Self {
-        Self { snap_mode, peers }
+    pub fn new(peers: Arc<Mutex<KademliaTable>>, sync_mode: SyncMode) -> Self {
+        Self { sync_mode, peers }
     }
 
     /// Creates a dummy SyncManager for tests where syncing is not needed
@@ -39,7 +43,7 @@ impl SyncManager {
     pub fn dummy() -> Self {
         let dummy_peer_table = Arc::new(Mutex::new(KademliaTable::new(Default::default())));
         Self {
-            snap_mode: false,
+            sync_mode: SyncMode::Full,
             peers: dummy_peer_table,
         }
     }
@@ -60,7 +64,7 @@ impl SyncManager {
                     start_time.elapsed().as_secs()
                 );
                 // Next sync will be full-sync
-                self.snap_mode = false;
+                self.sync_mode = SyncMode::Full;
             }
             Err(error) => warn!(
                 "Sync failed due to {error}, time elapsed: {} secs ",
@@ -107,61 +111,64 @@ impl SyncManager {
             }
         }
         // We finished fetching all headers, now we can process them
-        if self.snap_mode {
-            // snap-sync: launch tasks to fetch blocks and state in parallel
-            // - Fetch each block's state via snap p2p requests
-            // - Fetch each blocks and its receipts via eth p2p requests
-            // TODO: We are currently testing against our implementation that doesn't hold an independant snapshot and can provide all historic state
-            //       We should fetch all available state and then resort to state healing to fetch the rest
-            let (bytecode_sender, bytecode_receiver) = mpsc::channel::<Vec<H256>>(500);
-            let mut set = tokio::task::JoinSet::new();
-            set.spawn(bytecode_fetcher(
-                bytecode_receiver,
-                self.peers.clone(),
-                store.clone(),
-            ));
-            set.spawn(fetch_blocks_and_receipts(
-                all_block_hashes.clone(),
-                self.peers.clone(),
-                store.clone(),
-            ));
-            let state_roots = all_block_headers
-                .iter()
-                .map(|header| header.state_root)
-                .collect::<Vec<_>>();
-            set.spawn(fetch_snap_state(
-                bytecode_sender,
-                state_roots.clone(),
-                self.peers.clone(),
-                store.clone(),
-            ));
-            // Store headers
-            let mut latest_block_number = 0;
-            for (header, hash) in all_block_headers
-                .into_iter()
-                .zip(all_block_hashes.into_iter())
-            {
-                // TODO: Handle error
-                latest_block_number = header.number;
-                store.set_canonical_block(header.number, hash)?;
-                store.add_block_header(hash, header)?;
+        match self.sync_mode {
+            SyncMode::Snap => {
+                // snap-sync: launch tasks to fetch blocks and state in parallel
+                // - Fetch each block's state via snap p2p requests
+                // - Fetch each blocks and its receipts via eth p2p requests
+                // TODO: We are currently testing against our implementation that doesn't hold an independant snapshot and can provide all historic state
+                //       We should fetch all available state and then resort to state healing to fetch the rest
+                let (bytecode_sender, bytecode_receiver) = mpsc::channel::<Vec<H256>>(500);
+                let mut set = tokio::task::JoinSet::new();
+                set.spawn(bytecode_fetcher(
+                    bytecode_receiver,
+                    self.peers.clone(),
+                    store.clone(),
+                ));
+                set.spawn(fetch_blocks_and_receipts(
+                    all_block_hashes.clone(),
+                    self.peers.clone(),
+                    store.clone(),
+                ));
+                let state_roots = all_block_headers
+                    .iter()
+                    .map(|header| header.state_root)
+                    .collect::<Vec<_>>();
+                set.spawn(fetch_snap_state(
+                    bytecode_sender,
+                    state_roots.clone(),
+                    self.peers.clone(),
+                    store.clone(),
+                ));
+                // Store headers
+                let mut latest_block_number = 0;
+                for (header, hash) in all_block_headers
+                    .into_iter()
+                    .zip(all_block_hashes.into_iter())
+                {
+                    // TODO: Handle error
+                    latest_block_number = header.number;
+                    store.set_canonical_block(header.number, hash)?;
+                    store.add_block_header(hash, header)?;
+                }
+                // If all processes failed then they are likely to have a common cause (such as unaccessible storage), so return the first error
+                for result in set.join_all().await {
+                    result?;
+                }
+                // Set latest block number here to avoid reading state that is currently being synced
+                store.update_latest_block_number(latest_block_number)?;
             }
-            // If all processes failed then they are likely to have a common cause (such as unaccessible storage), so return the first error
-            for result in set.join_all().await {
-                result?;
+            SyncMode::Full => {
+                // full-sync: Fetch all block bodies and execute them sequentially to build the state
+                download_and_run_blocks(
+                    all_block_hashes,
+                    all_block_headers,
+                    self.peers.clone(),
+                    store.clone(),
+                )
+                .await?
             }
-            // Set latest block number here to avoid reading state that is currently being synced
-            store.update_latest_block_number(latest_block_number)?;
-        } else {
-            // full-sync: Fetch all block bodies and execute them sequentially to build the state
-            download_and_run_blocks(
-                all_block_hashes,
-                all_block_headers,
-                self.peers.clone(),
-                store.clone(),
-            )
-            .await?
-        };
+        }
         Ok(())
     }
 }
