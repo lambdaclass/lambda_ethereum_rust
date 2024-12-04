@@ -287,7 +287,9 @@ impl VM {
                 _ => Err(VMError::OpcodeNotFound),
             };
 
-            current_call_frame.increment_pc()?;
+            if opcode != Opcode::JUMP && opcode != Opcode::JUMPI {
+                current_call_frame.increment_pc()?;
+            }
 
             // Gas refunds are applied at the end of a transaction. Should it be implemented here?
 
