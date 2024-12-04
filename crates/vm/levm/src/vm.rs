@@ -142,7 +142,7 @@ impl VM {
                     env.origin,
                     new_contract_address,
                     new_contract_address,
-                    Bytes::new(), // Bytecode is assigned after passing initcode validation.
+                    Bytes::new(), // Bytecode is assigned after passing validations.
                     value,
                     calldata, // Calldata is removed after passing validations.
                     false,
@@ -576,6 +576,12 @@ impl VM {
 
         let cache_before_execution = self.cache.clone();
         self.validate_transaction(&mut initial_call_frame)?;
+
+        if self.is_create() {
+            // Assign bytecode to context and empty calldata
+            initial_call_frame.bytecode = initial_call_frame.calldata.clone();
+            initial_call_frame.calldata = Bytes::new();
+        }
 
         // Maybe can be done in validate_transaction
         let sender = initial_call_frame.msg_sender;
