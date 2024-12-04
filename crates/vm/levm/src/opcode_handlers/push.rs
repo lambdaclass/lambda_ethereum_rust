@@ -26,7 +26,10 @@ impl VM {
             .stack
             .push(U256::from(value_to_push.as_slice()))?;
 
-        current_call_frame.increment_pc_by(n_bytes)?;
+        let move_by = n_bytes.checked_add(1).ok_or(VMError::Internal(
+            InternalError::ArithmeticOperationOverflow,
+        ))?;
+        current_call_frame.increment_pc_by(move_by)?;
 
         Ok(OpcodeSuccess::Continue)
     }
