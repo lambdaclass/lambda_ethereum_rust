@@ -1,8 +1,7 @@
-name: CI (L2)
+name: L2
 on:
   push:
     branches: ["main"]
-  merge_group:
   pull_request:
     branches: ["**"]
     paths:
@@ -13,11 +12,12 @@ concurrency:
   cancel-in-progress: true
 
 env:
-  RUST_VERSION: 1.80.1
+  RUST_VERSION: 1.81.0
 
 jobs:
   test:
-    name: Test
+    # "Integration Test" is a required check, don't change the name
+    name: Integration Test
     runs-on: ubuntu-latest
     steps:
       - name: Checkout sources
@@ -35,4 +35,4 @@ jobs:
         run: |
           cd crates/l2
           cp .env.example .env
-          make test
+          make ci_test

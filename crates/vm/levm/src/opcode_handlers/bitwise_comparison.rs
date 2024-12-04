@@ -16,7 +16,7 @@ impl VM {
         self.increase_consumed_gas(current_call_frame, gas_cost::LT)?;
         let lho = current_call_frame.stack.pop()?;
         let rho = current_call_frame.stack.pop()?;
-        let result = if lho < rho { U256::one() } else { U256::zero() };
+        let result = u256_from_bool(lho < rho);
         current_call_frame.stack.push(result)?;
 
         Ok(OpcodeSuccess::Continue)
@@ -27,7 +27,7 @@ impl VM {
         self.increase_consumed_gas(current_call_frame, gas_cost::GT)?;
         let lho = current_call_frame.stack.pop()?;
         let rho = current_call_frame.stack.pop()?;
-        let result = if lho > rho { U256::one() } else { U256::zero() };
+        let result = u256_from_bool(lho > rho);
         current_call_frame.stack.push(result)?;
 
         Ok(OpcodeSuccess::Continue)
@@ -42,18 +42,10 @@ impl VM {
         let rho_is_negative = rho.bit(255);
         let result = if lho_is_negative == rho_is_negative {
             // Compare magnitudes if signs are the same
-            if lho < rho {
-                U256::one()
-            } else {
-                U256::zero()
-            }
+            u256_from_bool(lho < rho)
         } else {
             // Negative is smaller if signs differ
-            if lho_is_negative {
-                U256::one()
-            } else {
-                U256::zero()
-            }
+            u256_from_bool(lho_is_negative)
         };
         current_call_frame.stack.push(result)?;
 
@@ -69,18 +61,10 @@ impl VM {
         let rho_is_negative = rho.bit(255);
         let result = if lho_is_negative == rho_is_negative {
             // Compare magnitudes if signs are the same
-            if lho > rho {
-                U256::one()
-            } else {
-                U256::zero()
-            }
+            u256_from_bool(lho > rho)
         } else {
             // Positive is bigger if signs differ
-            if rho_is_negative {
-                U256::one()
-            } else {
-                U256::zero()
-            }
+            u256_from_bool(rho_is_negative)
         };
         current_call_frame.stack.push(result)?;
 
@@ -92,11 +76,8 @@ impl VM {
         self.increase_consumed_gas(current_call_frame, gas_cost::EQ)?;
         let lho = current_call_frame.stack.pop()?;
         let rho = current_call_frame.stack.pop()?;
-        let result = if lho == rho {
-            U256::one()
-        } else {
-            U256::zero()
-        };
+        let result = u256_from_bool(lho == rho);
+
         current_call_frame.stack.push(result)?;
 
         Ok(OpcodeSuccess::Continue)
@@ -110,11 +91,8 @@ impl VM {
         self.increase_consumed_gas(current_call_frame, gas_cost::ISZERO)?;
 
         let operand = current_call_frame.stack.pop()?;
-        let result = if operand == U256::zero() {
-            U256::one()
-        } else {
-            U256::zero()
-        };
+        let result = u256_from_bool(operand.is_zero());
+
         current_call_frame.stack.push(result)?;
 
         Ok(OpcodeSuccess::Continue)
@@ -167,7 +145,14 @@ impl VM {
         self.increase_consumed_gas(current_call_frame, gas_cost::BYTE)?;
         let op1 = current_call_frame.stack.pop()?;
         let op2 = current_call_frame.stack.pop()?;
-        let byte_index = op1.try_into().unwrap_or(usize::MAX);
+        let byte_index = match op1.try_into() {
+            Ok(byte_index) => byte_index,
+            Err(_) => {
+                // Index is out of bounds, then push 0
+                current_call_frame.stack.push(U256::zero())?;
+                return Ok(OpcodeSuccess::Continue);
+            }
+        };
 
         if byte_index < WORD_SIZE {
             let byte_to_push = WORD_SIZE
@@ -195,12 +180,10 @@ impl VM {
         let shift = current_call_frame.stack.pop()?;
         let value = current_call_frame.stack.pop()?;
 
-        let shift_usize: usize = shift.try_into().map_err(|_| VMError::VeryLargeNumber)?; // we know its not bigger than 256
-
         if shift < U256::from(256) {
             current_call_frame
                 .stack
-                .push(checked_shift_left(value, shift_usize)?)?;
+                .push(checked_shift_left(value, shift)?)?;
         } else {
             current_call_frame.stack.push(U256::zero())?;
         }
@@ -214,12 +197,10 @@ impl VM {
         let shift = current_call_frame.stack.pop()?;
         let value = current_call_frame.stack.pop()?;
 
-        let shift_usize: usize = shift.try_into().map_err(|_| VMError::VeryLargeNumber)?; // we know its not bigger than 256
-
         if shift < U256::from(256) {
             current_call_frame
                 .stack
-                .push(checked_shift_right(value, shift_usize)?)?;
+                .push(checked_shift_right(value, shift)?)?;
         } else {
             current_call_frame.stack.push(U256::zero())?;
         }
@@ -246,32 +227,32 @@ impl VM {
 }
 
 pub fn arithmetic_shift_right(value: U256, shift: U256) -> Result<U256, VMError> {
-    let shift_usize: usize = shift.try_into().map_err(|_| VMError::VeryLargeNumber)?; // we know its not bigger than 256
-
     if value.bit(255) {
         // if negative fill with 1s
-        let shifted = checked_shift_right(value, shift_usize)?;
+        let shifted = checked_shift_right(value, shift)?;
         let mask = checked_shift_left(
             U256::MAX,
-            256_usize.checked_sub(shift_usize).ok_or(VMError::Internal(
-                InternalError::ArithmeticOperationUnderflow,
-            ))?, // Note that this is already checked in op_sar
+            (U256::from(256))
+                .checked_sub(shift)
+                .ok_or(VMError::Internal(
+                    InternalError::ArithmeticOperationUnderflow,
+                ))?, // Note that this is already checked in op_sar
         )?;
 
         Ok(shifted | mask)
     } else {
-        Ok(checked_shift_right(value, shift_usize)?)
+        Ok(checked_shift_right(value, shift)?)
     }
 }
 
 /// Instead of using unsafe <<, uses checked_mul n times, replicating n shifts.
 /// Note: These (checked_shift_left and checked_shift_right) are done because
 /// are not available in U256
-pub fn checked_shift_left(value: U256, shift: usize) -> Result<U256, VMError> {
+pub fn checked_shift_left(value: U256, shift: U256) -> Result<U256, VMError> {
     let mut result = value;
     let mut shifts_left = shift;
 
-    while shifts_left > 0 {
+    while !shifts_left.is_zero() {
         result = match result.checked_mul(U256::from(2)) {
             Some(num) => num,
             None => {
@@ -290,27 +271,35 @@ pub fn checked_shift_left(value: U256, shift: usize) -> Result<U256, VMError> {
                     ))?
             }
         };
-        shifts_left = shifts_left.checked_sub(1).ok_or(VMError::Internal(
-            InternalError::ArithmeticOperationUnderflow,
-        ))?; // Should not reach negative values
+        shifts_left = shifts_left
+            .checked_sub(U256::one())
+            .ok_or(VMError::Internal(
+                InternalError::ArithmeticOperationUnderflow,
+            ))?; // Should not reach negative values
     }
 
     Ok(result)
 }
 
 // Instead of using unsafe >>, uses checked_div n times, replicating n shifts
-fn checked_shift_right(value: U256, shift: usize) -> Result<U256, VMError> {
+fn checked_shift_right(value: U256, shift: U256) -> Result<U256, VMError> {
     let mut result = value;
     let mut shifts_left = shift;
 
-    while shifts_left > 0 {
+    while !shifts_left.is_zero() {
         result = result.checked_div(U256::from(2)).ok_or(VMError::Internal(
             InternalError::ArithmeticOperationDividedByZero,
         ))?; // '2' will never be zero
-        shifts_left = shifts_left.checked_sub(1).ok_or(VMError::Internal(
-            InternalError::ArithmeticOperationUnderflow,
-        ))?; // Should not reach negative values
+        shifts_left = shifts_left
+            .checked_sub(U256::one())
+            .ok_or(VMError::Internal(
+                InternalError::ArithmeticOperationUnderflow,
+            ))?; // Should not reach negative values
     }
 
     Ok(result)
+}
+
+fn u256_from_bool(value: bool) -> U256 {
+    U256::from(u8::from(value))
 }
