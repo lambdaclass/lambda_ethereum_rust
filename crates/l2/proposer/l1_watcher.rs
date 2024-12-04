@@ -1,7 +1,7 @@
 use crate::{
     proposer::errors::L1WatcherError,
     utils::{
-        config::{eth::EthConfig, l1_watcher::L1WatcherConfig},
+        config::{errors::ConfigError, eth::EthConfig, l1_watcher::L1WatcherConfig},
         eth_client::{eth_sender::Overrides, EthClient},
     },
 };
@@ -18,11 +18,12 @@ use std::{cmp::min, ops::Mul, time::Duration};
 use tokio::time::sleep;
 use tracing::{debug, error, info, warn};
 
-pub async fn start_l1_watcher(store: Store) {
-    let eth_config = EthConfig::from_env().expect("EthConfig::from_env()");
-    let watcher_config = L1WatcherConfig::from_env().expect("L1WatcherConfig::from_env()");
+pub async fn start_l1_watcher(store: Store) -> Result<(), ConfigError> {
+    let eth_config = EthConfig::from_env()?;
+    let watcher_config = L1WatcherConfig::from_env()?;
     let mut l1_watcher = L1Watcher::new_from_config(watcher_config, eth_config);
     l1_watcher.run(&store).await;
+    Ok(())
 }
 
 pub struct L1Watcher {
@@ -78,14 +79,17 @@ impl L1Watcher {
 
     pub async fn get_pending_deposit_logs(&self) -> Result<Vec<H256>, L1WatcherError> {
         Ok(hex::decode(
-            &self
-                .eth_client
+            self.eth_client
                 .call(
                     self.address,
                     Bytes::copy_from_slice(&[0x35, 0x6d, 0xa2, 0x49]),
                     Overrides::default(),
                 )
-                .await?[2..],
+                .await?
+                .get(2..)
+                .ok_or(L1WatcherError::FailedToDeserializeLog(
+                    "Not a valid hex string".to_string(),
+                ))?,
         )
         .map_err(|_| L1WatcherError::FailedToDeserializeLog("Not a valid hex string".to_string()))?
         .chunks(32)
@@ -111,22 +115,28 @@ impl L1Watcher {
             self.last_block_fetched, new_last_block
         );
 
-        let logs = match self
-            .eth_client
-            .get_logs(
-                self.last_block_fetched + 1,
-                new_last_block,
-                self.address,
-                self.topics[0],
-            )
-            .await
-        {
-            Ok(logs) => logs,
-            Err(error) => {
-                warn!("Error when getting logs from L1: {}", error);
-                vec![]
-            }
-        };
+        let logs;
+        if let Some(first_topic) = self.topics.first() {
+            logs = match self
+                .eth_client
+                .get_logs(
+                    self.last_block_fetched + 1,
+                    new_last_block,
+                    self.address,
+                    *first_topic,
+                )
+                .await
+            {
+                Ok(logs) => logs,
+                Err(error) => {
+                    warn!("Error when getting logs from L1: {error}");
+                    vec![]
+                }
+            };
+        } else {
+            warn!("Error when getting logs from L1: topics vector is empty");
+            logs = vec![];
+        }
 
         debug!("Logs: {:#?}", logs);
 
@@ -157,14 +167,31 @@ impl L1Watcher {
             .unwrap_or_default();
 
         for log in logs {
-            let mint_value = format!("{:#x}", log.log.topics[1])
-                .parse::<U256>()
-                .map_err(|e| {
-                    L1WatcherError::FailedToDeserializeLog(format!(
-                        "Failed to parse mint value from log: {e:#?}"
-                    ))
-                })?;
-            let beneficiary = format!("{:#x}", log.log.topics[2].into_uint())
+            let mint_value = format!(
+                "{:#x}",
+                log.log
+                    .topics
+                    .get(1)
+                    .ok_or(L1WatcherError::FailedToDeserializeLog(
+                        "Failed to parse mint value from log: log.topics[1] out of bounds"
+                            .to_owned()
+                    ))?
+            )
+            .parse::<U256>()
+            .map_err(|e| {
+                L1WatcherError::FailedToDeserializeLog(format!(
+                    "Failed to parse mint value from log: {e:#?}"
+                ))
+            })?;
+            let beneficiary_uint = log
+                .log
+                .topics
+                .get(2)
+                .ok_or(L1WatcherError::FailedToDeserializeLog(
+                    "Failed to parse beneficiary from log: log.topics[2] out of bounds".to_owned(),
+                ))?
+                .into_uint();
+            let beneficiary = format!("{beneficiary_uint:#x}")
                 .parse::<Address>()
                 .map_err(|e| {
                     L1WatcherError::FailedToDeserializeLog(format!(
@@ -215,7 +242,7 @@ impl L1Watcher {
 
             match mempool::add_transaction(
                 Transaction::PrivilegedL2Transaction(mint_transaction),
-                store.clone(),
+                store,
             ) {
                 Ok(hash) => {
                     info!("Mint transaction added to mempool {hash:#x}",);

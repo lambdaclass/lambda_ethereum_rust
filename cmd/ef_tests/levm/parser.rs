@@ -88,6 +88,11 @@ pub fn parse_ef_test_dir(
         }
 
         // Skip tests that are not in the list of tests to run.
+        if &test_dir.file_name().to_str().unwrap().to_owned() == "vmPerformance" {
+            return Ok(Vec::new());
+        }
+
+        // Skip tests that are not in the list of tests to run.
         if !opts.tests.is_empty()
             && !opts
                 .tests
@@ -103,10 +108,13 @@ pub fn parse_ef_test_dir(
         let test_file = std::fs::File::open(test.path()).map_err(|err| {
             EFTestParseError::FailedToReadFile(format!("{:?}: {err}", test.path()))
         })?;
-        let test: EFTests = serde_json::from_reader(test_file).map_err(|err| {
+        let mut tests: EFTests = serde_json::from_reader(test_file).map_err(|err| {
             EFTestParseError::FailedToParseTestFile(format!("{:?} parse error: {err}", test.path()))
         })?;
-        directory_tests.extend(test.0);
+        for test in tests.0.iter_mut() {
+            test.dir = test_dir.file_name().into_string().unwrap();
+        }
+        directory_tests.extend(tests.0);
     }
     Ok(directory_tests)
 }

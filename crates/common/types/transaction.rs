@@ -135,6 +135,18 @@ pub enum TxType {
     Privileged = 0x7e,
 }
 
+impl From<TxType> for u8 {
+    fn from(val: TxType) -> Self {
+        match val {
+            TxType::Legacy => 0x00,
+            TxType::EIP2930 => 0x01,
+            TxType::EIP1559 => 0x02,
+            TxType::EIP4844 => 0x03,
+            TxType::Privileged => 0x7e,
+        }
+    }
+}
+
 pub trait Signable {
     fn sign(&self, private_key: &SecretKey) -> Self
     where
@@ -2122,21 +2134,27 @@ mod mempool {
     pub struct MempoolTransaction {
         // Unix timestamp (in microseconds) created once the transaction reached the MemPool
         timestamp: u128,
+        sender: Address,
         inner: Transaction,
     }
 
     impl MempoolTransaction {
-        pub fn new(tx: Transaction) -> Self {
+        pub fn new(tx: Transaction, sender: Address) -> Self {
             Self {
                 timestamp: SystemTime::now()
                     .duration_since(UNIX_EPOCH)
                     .expect("Invalid system time")
                     .as_micros(),
+                sender,
                 inner: tx,
             }
         }
         pub fn time(&self) -> u128 {
             self.timestamp
+        }
+
+        pub fn sender(&self) -> Address {
+            self.sender
         }
     }
 
@@ -2153,8 +2171,16 @@ mod mempool {
         fn decode_unfinished(rlp: &[u8]) -> Result<(Self, &[u8]), RLPDecodeError> {
             let decoder = Decoder::new(rlp)?;
             let (timestamp, decoder) = decoder.decode_field("timestamp")?;
+            let (sender, decoder) = decoder.decode_field("sender")?;
             let (inner, decoder) = decoder.decode_field("inner")?;
-            Ok((Self { timestamp, inner }, decoder.finish()?))
+            Ok((
+                Self {
+                    timestamp,
+                    sender,
+                    inner,
+                },
+                decoder.finish()?,
+            ))
         }
     }
 

@@ -1,11 +1,11 @@
-use std::time::Duration;
+use std::{fmt, time::Duration};
 
 use crate::utils::config::eth::EthConfig;
 use bytes::Bytes;
 use errors::{
     EstimateGasPriceError, EthClientError, GetBalanceError, GetBlockByHashError,
-    GetBlockNumberError, GetGasPriceError, GetLogsError, GetNonceError, GetTransactionByHashError,
-    GetTransactionReceiptError, SendRawTransactionError,
+    GetBlockByNumberError, GetBlockNumberError, GetGasPriceError, GetLogsError, GetNonceError,
+    GetTransactionByHashError, GetTransactionReceiptError, SendRawTransactionError,
 };
 use eth_sender::Overrides;
 use ethereum_types::{Address, H256, U256};
@@ -29,7 +29,7 @@ use keccak_hash::keccak;
 use reqwest::Client;
 use secp256k1::SecretKey;
 use serde::{Deserialize, Serialize};
-use serde_json::json;
+use serde_json::{json, Value};
 use std::ops::Div;
 use tokio::time::{sleep, Instant};
 use tracing::warn;
@@ -57,6 +57,13 @@ pub enum WrappedTransaction {
     EIP4844(WrappedEIP4844Transaction),
     EIP1559(EIP1559Transaction),
     L2(PrivilegedL2Transaction),
+}
+
+pub enum BlockByNumber {
+    Number(u64),
+    Latest,
+    Earliest,
+    Pending,
 }
 
 // 0x08c379a0 == Error(String)
@@ -118,7 +125,7 @@ impl EthClient {
         let signed_tx = tx.sign(private_key);
 
         let mut encoded_tx = signed_tx.encode_to_vec();
-        encoded_tx.insert(0, TxType::EIP1559 as u8);
+        encoded_tx.insert(0, TxType::EIP1559.into());
 
         self.send_raw_transaction(encoded_tx.as_slice()).await
     }
@@ -132,7 +139,7 @@ impl EthClient {
         wrapped_tx.tx.sign_inplace(private_key);
 
         let mut encoded_tx = wrapped_tx.encode_to_vec();
-        encoded_tx.insert(0, TxType::EIP4844 as u8);
+        encoded_tx.insert(0, TxType::EIP4844.into());
 
         self.send_raw_transaction(encoded_tx.as_slice()).await
     }
@@ -239,7 +246,7 @@ impl EthClient {
         })?;
         // Sometimes the penalty is a 100%
         // Increase max fee per gas by 110% (set it to 210% of the original)
-        self.bump_eip1559(tx, 1.1);
+        self.bump_eip1559(tx, 110);
         let wrapped_tx = &mut WrappedTransaction::EIP1559(tx.clone());
         self.estimate_gas_for_wrapped_tx(wrapped_tx, from).await?;
 
@@ -252,11 +259,9 @@ impl EthClient {
     }
 
     /// Increase max fee per gas by percentage% (set it to (100+percentage)% of the original)
-    pub fn bump_eip1559(&self, tx: &mut EIP1559Transaction, percentage: f64) {
-        // TODO: handle as conversions
-        tx.max_fee_per_gas = (tx.max_fee_per_gas as f64 * (1.0 + percentage)).round() as u64;
-        tx.max_priority_fee_per_gas +=
-            (tx.max_priority_fee_per_gas as f64 * (1.0 + percentage)).round() as u64;
+    pub fn bump_eip1559(&self, tx: &mut EIP1559Transaction, percentage: u64) {
+        tx.max_fee_per_gas = (tx.max_fee_per_gas * (100 + percentage)) / 100;
+        tx.max_priority_fee_per_gas += (tx.max_priority_fee_per_gas * (100 + percentage)) / 100;
     }
 
     pub async fn bump_and_resend_eip4844(
@@ -269,7 +274,7 @@ impl EthClient {
         })?;
         // Sometimes the penalty is a 100%
         // Increase max fee per gas by 110% (set it to 210% of the original)
-        self.bump_eip4844(wrapped_tx, 1.1);
+        self.bump_eip4844(wrapped_tx, 110);
         let wrapped_eip4844 = &mut WrappedTransaction::EIP4844(wrapped_tx.clone());
         self.estimate_gas_for_wrapped_tx(wrapped_eip4844, from)
             .await?;
@@ -284,14 +289,11 @@ impl EthClient {
     }
 
     /// Increase max fee per gas by percentage% (set it to (100+percentage)% of the original)
-    pub fn bump_eip4844(&self, wrapped_tx: &mut WrappedEIP4844Transaction, percentage: f64) {
-        // TODO: handle as conversions
-        wrapped_tx.tx.max_fee_per_gas =
-            (wrapped_tx.tx.max_fee_per_gas as f64 * (1.0 + percentage)).round() as u64;
-        wrapped_tx.tx.max_priority_fee_per_gas =
-            (wrapped_tx.tx.max_priority_fee_per_gas as f64 * (1.0 + percentage)).round() as u64;
-
-        let factor = ((1.0 + percentage) * 10.0).ceil() as u64;
+    pub fn bump_eip4844(&self, wrapped_tx: &mut WrappedEIP4844Transaction, percentage: u64) {
+        wrapped_tx.tx.max_fee_per_gas = (wrapped_tx.tx.max_fee_per_gas * (100 + percentage)) / 100;
+        wrapped_tx.tx.max_priority_fee_per_gas +=
+            (wrapped_tx.tx.max_priority_fee_per_gas * (100 + percentage)) / 100;
+        let factor = 1 + (percentage / 100) * 10;
         wrapped_tx.tx.max_fee_per_blob_gas = wrapped_tx
             .tx
             .max_fee_per_blob_gas
@@ -309,7 +311,7 @@ impl EthClient {
         })?;
         // Sometimes the penalty is a 100%
         // Increase max fee per gas by 110% (set it to 210% of the original)
-        self.bump_privileged_l2(tx, 1.1);
+        self.bump_privileged_l2(tx, 110);
         let wrapped_tx = &mut WrappedTransaction::L2(tx.clone());
         self.estimate_gas_for_wrapped_tx(wrapped_tx, from).await?;
         if let WrappedTransaction::L2(l2_tx) = wrapped_tx {
@@ -321,11 +323,9 @@ impl EthClient {
     }
 
     /// Increase max fee per gas by percentage% (set it to (100+percentage)% of the original)
-    pub fn bump_privileged_l2(&self, tx: &mut PrivilegedL2Transaction, percentage: f64) {
-        // TODO: handle as conversions
-        tx.max_fee_per_gas = (tx.max_fee_per_gas as f64 * (1.0 + percentage)).round() as u64;
-        tx.max_priority_fee_per_gas +=
-            (tx.max_priority_fee_per_gas as f64 * (1.0 + percentage)).round() as u64;
+    pub fn bump_privileged_l2(&self, tx: &mut PrivilegedL2Transaction, percentage: u64) {
+        tx.max_fee_per_gas = (tx.max_fee_per_gas * (100 + percentage)) / 100;
+        tx.max_priority_fee_per_gas += (tx.max_priority_fee_per_gas * (100 + percentage)) / 100;
     }
 
     pub async fn send_privileged_l2_transaction(
@@ -336,7 +336,7 @@ impl EthClient {
         let signed_tx = tx.sign(private_key);
 
         let mut encoded_tx = signed_tx.encode_to_vec();
-        encoded_tx.insert(0, TxType::Privileged as u8);
+        encoded_tx.insert(0, TxType::Privileged.into());
 
         self.send_raw_transaction(encoded_tx.as_slice()).await
     }
@@ -358,7 +358,9 @@ impl EthClient {
 
         // Add the nonce just if present, otherwise the RPC will use the latest nonce
         if let Some(nonce) = transaction.nonce {
-            data["nonce"] = json!(format!("{:#x}", nonce));
+            if let Value::Object(ref mut map) = data {
+                map.insert("nonce".to_owned(), json!(format!("{nonce:#x}")));
+            }
         }
 
         let request = RpcRequest {
@@ -370,8 +372,12 @@ impl EthClient {
 
         match self.send_request(request).await {
             Ok(RpcResponse::Success(result)) => u64::from_str_radix(
-                &serde_json::from_value::<String>(result.result)
-                    .map_err(EstimateGasPriceError::SerdeJSONError)?[2..],
+                serde_json::from_value::<String>(result.result)
+                    .map_err(EstimateGasPriceError::SerdeJSONError)?
+                    .get(2..)
+                    .ok_or(EstimateGasPriceError::Custom(
+                        "Failed to slice index response in estimate_gas".to_owned(),
+                    ))?,
                 16,
             )
             .map_err(EstimateGasPriceError::ParseIntError)
@@ -391,9 +397,20 @@ impl EthClient {
                                 "Failed to hex::decode in estimate_gas".to_owned(),
                             )
                         })?;
-                        let string_length = U256::from_big_endian(&abi_decoded_error_data[36..68]);
-                        let string_data =
-                            &abi_decoded_error_data[68..68 + string_length.as_usize()];
+                        let string_length = U256::from_big_endian(
+                            abi_decoded_error_data
+                                .get(36..68)
+                                .ok_or(EthClientError::Custom(
+                                    "Failed to slice index abi_decoded_error_data in estimate_gas"
+                                        .to_owned(),
+                                ))?,
+                        );
+                        let string_data = abi_decoded_error_data
+                            .get(68..68 + string_length.as_usize())
+                            .ok_or(EthClientError::Custom(
+                                "Failed to slice index abi_decoded_error_data in estimate_gas"
+                                    .to_owned(),
+                            ))?;
                         String::from_utf8(string_data.to_vec()).map_err(|_| {
                             EthClientError::Custom(
                                 "Failed to String::from_utf8 in estimate_gas".to_owned(),
@@ -442,8 +459,12 @@ impl EthClient {
 
         match self.send_request(request).await {
             Ok(RpcResponse::Success(result)) => u64::from_str_radix(
-                &serde_json::from_value::<String>(result.result)
-                    .map_err(GetNonceError::SerdeJSONError)?[2..],
+                serde_json::from_value::<String>(result.result)
+                    .map_err(GetNonceError::SerdeJSONError)?
+                    .get(2..)
+                    .ok_or(EthClientError::Custom(
+                        "Failed to deserialize get_nonce request".to_owned(),
+                    ))?,
                 16,
             )
             .map_err(GetNonceError::ParseIntError)
@@ -479,7 +500,7 @@ impl EthClient {
             id: RpcRequestId::Number(1),
             jsonrpc: "2.0".to_string(),
             method: "eth_getBlockByHash".to_string(),
-            params: Some(vec![json!(format!("{block_hash:#x}")), json!(true)]),
+            params: Some(vec![json!(block_hash), json!(true)]),
         };
 
         match self.send_request(request).await {
@@ -488,6 +509,37 @@ impl EthClient {
                 .map_err(EthClientError::from),
             Ok(RpcResponse::Error(error_response)) => {
                 Err(GetBlockByHashError::RPCError(error_response.error.message).into())
+            }
+            Err(error) => Err(error),
+        }
+    }
+
+    /// Fetches a block from the Ethereum blockchain by its number or the latest/earliest/pending block.
+    /// If no `block_number` is provided, get the latest.
+    pub async fn get_block_by_number(
+        &self,
+        block: BlockByNumber,
+    ) -> Result<RpcBlock, EthClientError> {
+        let r = match block {
+            BlockByNumber::Number(n) => format!("{n:#x}"),
+            BlockByNumber::Latest => "latest".to_owned(),
+            BlockByNumber::Earliest => "earliest".to_owned(),
+            BlockByNumber::Pending => "pending".to_owned(),
+        };
+        let request = RpcRequest {
+            id: RpcRequestId::Number(1),
+            jsonrpc: "2.0".to_string(),
+            method: "eth_getBlockByNumber".to_string(),
+            // With false it just returns the hash of the transactions.
+            params: Some(vec![json!(r), json!(false)]),
+        };
+
+        match self.send_request(request).await {
+            Ok(RpcResponse::Success(result)) => serde_json::from_value(result.result)
+                .map_err(GetBlockByNumberError::SerdeJSONError)
+                .map_err(EthClientError::from),
+            Ok(RpcResponse::Error(error_response)) => {
+                Err(GetBlockByNumberError::RPCError(error_response.error.message).into())
             }
             Err(error) => Err(error),
         }
@@ -634,13 +686,13 @@ impl EthClient {
                     if error.contains("transaction underpriced") {
                         match wrapped_tx {
                             WrappedTransaction::EIP4844(wrapped_eip4844_transaction) => {
-                                self.bump_eip4844(wrapped_eip4844_transaction, 1.1);
+                                self.bump_eip4844(wrapped_eip4844_transaction, 110);
                             }
                             WrappedTransaction::EIP1559(eip1559_transaction) => {
-                                self.bump_eip1559(eip1559_transaction, 1.1);
+                                self.bump_eip1559(eip1559_transaction, 110);
                             }
                             WrappedTransaction::L2(privileged_l2_transaction) => {
-                                self.bump_privileged_l2(privileged_l2_transaction, 1.1);
+                                self.bump_privileged_l2(privileged_l2_transaction, 110);
                             }
                         };
                         continue;
@@ -716,7 +768,7 @@ impl EthClient {
                         if error.contains("replacement transaction underpriced") {
                             warn!("Bumping gas while building: already known");
                             retry += 1;
-                            self.bump_eip1559(&mut tx, 1.1);
+                            self.bump_eip1559(&mut tx, 110);
                             continue;
                         }
                         return Err(e);
@@ -802,7 +854,7 @@ impl EthClient {
                         if error.contains("already known") {
                             warn!("Bumping gas while building: already known");
                             retry += 1;
-                            self.bump_eip4844(&mut wrapped_eip4844, 1.1);
+                            self.bump_eip4844(&mut wrapped_eip4844, 110);
                             continue;
                         }
                         return Err(e);
@@ -884,7 +936,7 @@ impl EthClient {
                         if error.contains("already known") {
                             warn!("Bumping gas while building: already known");
                             retry += 1;
-                            self.bump_privileged_l2(&mut tx, 1.1);
+                            self.bump_privileged_l2(&mut tx, 110);
                             continue;
                         }
                         return Err(e);
@@ -1020,4 +1072,50 @@ pub struct GetTransactionByHashTransaction {
     pub hash: H256,
     #[serde(default, with = "ethrex_core::serde_utils::u64::hex_str")]
     pub transaction_index: u64,
+}
+
+impl fmt::Display for GetTransactionByHashTransaction {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(
+            f,
+            r#"
+            chain_id: {},
+            nonce: {},
+            max_priority_fee_per_gas: {},
+            max_fee_per_gas: {},
+            gas_limit: {},
+            to: {:#x},
+            value: {},
+            data: {:#?},
+            access_list: {:#?},
+            type: {:?},
+            signature_y_parity: {},
+            signature_r: {:x},
+            signature_s: {:x},
+            block_number: {},
+            block_hash: {:#x},
+            from: {:#x},
+            hash: {:#x},
+            transaction_index: {}
+            "#,
+            self.chain_id,
+            self.nonce,
+            self.max_priority_fee_per_gas,
+            self.max_fee_per_gas,
+            self.gas_limit,
+            self.to,
+            self.value,
+            self.data,
+            self.access_list,
+            self.r#type,
+            self.signature_y_parity,
+            self.signature_r,
+            self.signature_s,
+            self.block_number,
+            self.block_hash,
+            self.from,
+            self.hash,
+            self.transaction_index
+        )
+    }
 }

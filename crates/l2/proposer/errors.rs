@@ -1,5 +1,6 @@
 use std::sync::mpsc::SendError;
 
+use crate::utils::merkle_tree::MerkleError;
 use crate::utils::{config::errors::ConfigError, eth_client::errors::EthClientError};
 use ethereum_types::FromStrRadixErr;
 use ethrex_core::types::BlobsBundleError;
@@ -68,6 +69,8 @@ pub enum ProposerError {
     FailedToRetrieveBlockFromStorage(#[from] StoreError),
     #[error("Proposer failed retrieve block from storaga, data is None.")]
     StorageDataIsNone,
+    #[error("Proposer failed to read jwt_secret: {0}")]
+    FailedToReadJWT(#[from] std::io::Error),
 }
 
 #[derive(Debug, thiserror::Error)]
@@ -78,6 +81,8 @@ pub enum CommitterError {
     FailedToParseLastCommittedBlock(#[from] FromStrRadixErr),
     #[error("Committer failed retrieve block from storage: {0}")]
     FailedToRetrieveBlockFromStorage(#[from] StoreError),
+    #[error("Committer failed retrieve data from storage")]
+    FailedToRetrieveDataFromStorage,
     #[error("Committer failed to generate blobs bundle: {0}")]
     FailedToGenerateBlobsBundle(#[from] BlobsBundleError),
     #[error("Committer failed to get information from storage")]
@@ -90,8 +95,26 @@ pub enum CommitterError {
     FailedToReExecuteBlock(#[from] EvmError),
     #[error("Committer failed to send transaction: {0}")]
     FailedToSendCommitment(String),
+    #[error("Committer failed to decode deposit hash")]
+    FailedToDecodeDepositHash,
+    #[error("Committer failed to merkelize: {0}")]
+    FailedToMerkelize(#[from] MerkleError),
     #[error("Withdrawal transaction was invalid")]
     InvalidWithdrawalTransaction,
+    #[error("Blob estimation failed: {0}")]
+    BlobEstimationError(#[from] BlobEstimationError),
+    #[error("length does not fit in u16")]
+    TryIntoError(#[from] std::num::TryFromIntError),
+}
+
+#[derive(Debug, thiserror::Error)]
+pub enum BlobEstimationError {
+    #[error("Overflow error while estimating blob gas")]
+    OverflowError,
+    #[error("Failed to calculate blob gas due to invalid parameters")]
+    CalculationError,
+    #[error("Blob gas estimation resulted in an infinite or undefined value. Outside valid or expected ranges")]
+    NonFiniteResult,
 }
 
 #[derive(Debug, thiserror::Error)]
@@ -110,4 +133,6 @@ pub enum StateDiffError {
     BytecodeAndBytecodeHashSet,
     #[error("Empty account diff")]
     EmptyAccountDiff,
+    #[error("The length of the vector is too big to fit in u16: {0}")]
+    LengthTooBig(#[from] core::num::TryFromIntError),
 }

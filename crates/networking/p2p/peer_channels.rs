@@ -87,7 +87,7 @@ impl PeerChannels {
         (!block_headers.is_empty()).then_some(block_headers)
     }
 
-    /// Requests block headers from the peer given their block hashes
+    /// Requests block bodies from the peer given their block hashes
     /// Returns the block bodies or None if:
     /// - There are no available peers (the node just started up or was rejected by all other nodes)
     /// - The response timed out

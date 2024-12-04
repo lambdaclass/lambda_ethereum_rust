@@ -261,11 +261,12 @@ impl KademliaTable {
     /// This function should be called each time a connection is established so the backend can send requests to the peers
     pub fn set_channels(&mut self, node_id: H512, channels: PeerChannels) {
         let bucket_idx = bucket_number(self.local_node_id, node_id);
-        if let Some(peer) = self.buckets[bucket_idx]
-            .peers
-            .iter_mut()
-            .find(|peer| peer.node.node_id == node_id)
-        {
+        if let Some(peer) = self.buckets.get_mut(bucket_idx).and_then(|bucket| {
+            bucket
+                .peers
+                .iter_mut()
+                .find(|peer| peer.node.node_id == node_id)
+        }) {
             peer.channels = Some(channels)
         }
     }
@@ -314,7 +315,7 @@ pub struct PeerData {
     pub liveness: u16,
     /// if a revalidation was sent to the peer, the bool marks if it has answered
     pub revalidation: Option<bool>,
-    /// communication channels bewteen the peer data and its active connection
+    /// communication channels between the peer data and its active connection
     pub channels: Option<PeerChannels>,
 }
 
