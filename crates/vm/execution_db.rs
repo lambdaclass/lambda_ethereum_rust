@@ -65,8 +65,8 @@ impl ExecutionDB {
                     storage
                         .into_iter()
                         .map(|(key, value)| {
-                            let mut key_bytes = Vec::new();
-                            let mut value_bytes = Vec::new();
+                            let mut key_bytes = [0; 32];
+                            let mut value_bytes = [0; 32];
 
                             key.to_big_endian(&mut key_bytes);
                             value.to_big_endian(&mut value_bytes);
