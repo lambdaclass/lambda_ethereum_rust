@@ -226,8 +226,8 @@ async fn fetch_blocks_and_receipts(
             // Track which bodies we have already fetched
             let (fetched_hashes, remaining_hashes) = block_hashes.split_at(block_bodies.len());
             // Store Block Bodies
-            for (hash, body) in fetched_hashes.into_iter().zip(block_bodies.into_iter()) {
-                store.add_block_body(hash.clone(), body)?
+            for (hash, body) in fetched_hashes.iter().zip(block_bodies.into_iter()) {
+                store.add_block_body(*hash, body)?
             }
 
             // Check if we need to ask for another batch

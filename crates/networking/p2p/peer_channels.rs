@@ -284,7 +284,7 @@ impl PeerChannels {
             // - The range has the full storage: We expect no proofs
             // - The range is not the full storage (last range): We expect 2 edge proofs
             if hahsed_keys.len() == 1 && hahsed_keys[0] == start {
-                if proof.len() < 1 {
+                if proof.is_empty() {
                     return None;
                 };
                 let first_proof = vec![proof.remove(0)];
@@ -310,7 +310,7 @@ impl PeerChannels {
                 .ok()?;
             } else {
                 // Full range (no proofs)
-                verify_range(storage_root, &start, &hahsed_keys, &encoded_values, &vec![]).ok()?;
+                verify_range(storage_root, &start, &hahsed_keys, &encoded_values, &[]).ok()?;
             }
 
             storage_keys.push(hahsed_keys);
