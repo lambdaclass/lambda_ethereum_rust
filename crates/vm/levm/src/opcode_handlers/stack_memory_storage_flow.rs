@@ -339,11 +339,11 @@ impl VM {
     /// function.
     /// This function returns whether the `jump_address` is a valid JUMPDEST
     /// for the specified `call_frame` or not.
-    fn is_valid_jump_addr(call_frame: &CallFrame, address: usize) -> bool {
+    fn is_valid_jump_addr(call_frame: &CallFrame, jump_address: usize) -> bool {
         matches!(
             call_frame
                 .bytecode
-                .get(address)
+                .get(jump_address)
                 .copied()
                 .map(Opcode::try_from),
             Some(Ok(Opcode::JUMPDEST))
