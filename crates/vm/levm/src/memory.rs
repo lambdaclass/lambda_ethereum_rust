@@ -12,9 +12,8 @@ pub fn try_resize(memory: &mut Memory, unchecked_new_size: usize) -> Result<(), 
     }
 
     let new_size = unchecked_new_size
-            .checked_next_multiple_of(WORD_SIZE_IN_BYTES_USIZE)
-            .ok_or(VMError::OutOfOffset)?
-    };
+        .checked_next_multiple_of(WORD_SIZE_IN_BYTES_USIZE)
+        .ok_or(VMError::OutOfOffset)?;
 
     if new_size > memory.len() {
         let additional_size = new_size.checked_sub(memory.len()).ok_or(VMError::Internal(
