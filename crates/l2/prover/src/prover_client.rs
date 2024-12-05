@@ -14,7 +14,7 @@ use ethrex_l2::{
     utils::config::prover_client::ProverClientConfig,
 };
 
-use crate::prover::{ create_prover, ProverType, ProvingOutput};
+use crate::prover::{create_prover, ProverType, ProvingOutput};
 
 pub async fn start_proof_data_client(config: ProverClientConfig, prover_type: ProverType) {
     let proof_data_client = ProverClient::new(config);
@@ -40,9 +40,9 @@ impl ProverClient {
     }
 
     pub async fn start(&self, prover_type: ProverType) {
-        // Build the prover depending on the prover_type passed as argument.   
+        // Build the prover depending on the prover_type passed as argument.
         let mut prover = create_prover(prover_type);
-        
+
         loop {
             match self.request_new_input() {
                 // If we get the input
@@ -59,7 +59,6 @@ impl ProverClient {
                         }
                         Err(e) => error!(e),
                     };
-
                 }
                 Err(e) => {
                     sleep(Duration::from_millis(self.interval_ms)).await;
@@ -79,7 +78,6 @@ impl ProverClient {
             ProofData::Response {
                 block_number,
                 input,
-                
             } => match (block_number, input) {
                 (Some(block_number), Some(input)) => {
                     info!("Received Response for block_number: {block_number}");
@@ -102,22 +100,18 @@ impl ProverClient {
         }
     }
 
-    fn submit_proof(
-        &self,
-        block_number: u64,
-        proving_output: ProvingOutput,
-    ) -> Result<(), String> {
+    fn submit_proof(&self, block_number: u64, proving_output: ProvingOutput) -> Result<(), String> {
         let submit = match proving_output {
             ProvingOutput::Risc0Prover(risc0_proof) => ProofData::Submit {
                 block_number,
                 zk_proof: ZkProof::RISC0(risc0_proof),
             },
-            ProvingOutput::Sp1Prover(sp1_proof) =>ProofData::Submit {
+            ProvingOutput::Sp1Prover(sp1_proof) => ProofData::Submit {
                 block_number,
                 zk_proof: ZkProof::SP1(sp1_proof),
-            } ,
+            },
         };
-        
+
         let submit_ack = connect_to_prover_server_wr(&self.prover_server_endpoint, &submit)
             .map_err(|e| format!("Failed to get SubmitAck: {e}"))?;
 

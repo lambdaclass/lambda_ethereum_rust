@@ -269,13 +269,12 @@ impl ProverServer {
                 zk_proof,
             }) => {
                 self.handle_submit(&mut stream, block_number)?;
-                
+
                 if block_number != (last_verified_block + 1) {
                     return Err(ProverServerError::Custom(format!("Prover Client submitted an invalid block_number: {block_number}. The last_proved_block is: {}", last_verified_block)));
                 }
-                
-                self.handle_proof_submission(block_number, zk_proof).await?;
 
+                self.handle_proof_submission(block_number, zk_proof).await?;
             }
             Err(e) => {
                 warn!("Failed to parse request: {e}");
@@ -512,8 +511,8 @@ impl ProverServer {
 
     pub async fn handle_sp1_zkproof(
         &self,
-        block_number: u64,
-        sp1_proof: Sp1Proof,
+        _block_number: u64,
+        _sp1_proof: Sp1Proof,
     ) -> Result<(), ProverServerError> {
         todo!()
     }

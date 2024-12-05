@@ -32,7 +32,7 @@ async fn test_performance_zkvm() {
 
     prover.verify(&receipt).unwrap();
 
-    let _program_output = Risc0Prover::get_commitment(&receipt).unwrap();
+    let _program_output = prover.get_commitment(&receipt).unwrap();
 }
 
 #[tokio::test]
