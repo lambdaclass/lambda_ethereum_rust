@@ -325,12 +325,9 @@ impl VM {
     pub fn op_pc(&mut self, current_call_frame: &mut CallFrame) -> Result<OpcodeSuccess, VMError> {
         self.increase_consumed_gas(current_call_frame, gas_cost::PC)?;
 
-        current_call_frame.stack.push(U256::from(
-            current_call_frame
-                .pc
-                .checked_sub(1)
-                .ok_or(VMError::Internal(InternalError::PCUnderflowed))?,
-        ))?;
+        current_call_frame
+            .stack
+            .push(U256::from(current_call_frame.pc))?;
 
         Ok(OpcodeSuccess::Continue)
     }
