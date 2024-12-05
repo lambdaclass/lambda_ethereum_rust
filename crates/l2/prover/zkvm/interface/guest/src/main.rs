@@ -11,17 +11,17 @@ fn main() {
     let ProgramInput {
         block,
         parent_block_header,
-        db,
+        mut db,
     } = env::read();
-    let mut state = EvmState::from(db.clone());
-
-    // Validate the block pre-execution
-    validate_block(&block, &parent_block_header, &state).expect("invalid block");
-
     // Validate the initial state
     let (mut state_trie, mut storage_tries) = db
         .build_tries()
         .expect("failed to build state and storage tries or state is not valid");
+
+    let mut state = EvmState::from(db);
+
+    // Validate the block pre-execution
+    validate_block(&block, &parent_block_header, &state).expect("invalid block");
 
     let initial_state_hash = state_trie.hash_no_commit();
     if initial_state_hash != parent_block_header.state_root {

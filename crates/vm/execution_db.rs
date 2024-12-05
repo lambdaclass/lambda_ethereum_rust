@@ -16,6 +16,7 @@ use revm::{
     DatabaseRef,
 };
 use serde::{Deserialize, Serialize};
+use tracing::warn;
 
 use crate::{errors::ExecutionDBError, evm_state, execute_block, get_state_transitions};
 
@@ -37,10 +38,10 @@ pub struct ExecutionDB {
     pub chain_config: ChainConfig,
     /// encoded nodes to reconstruct a state trie, but only including relevant data (pruned).
     /// root node is stored separately from the rest.
-    pub pruned_state_trie: (Option<NodeRLP>, Vec<NodeRLP>),
+    pruned_state_trie: (Option<NodeRLP>, Vec<NodeRLP>),
     /// encoded nodes to reconstruct every storage trie, but only including relevant data (pruned)
     /// root nodes are stored separately from the rest.
-    pub pruned_storage_tries: HashMap<H160, (Option<NodeRLP>, Vec<NodeRLP>)>,
+    pruned_storage_tries: HashMap<H160, (Option<NodeRLP>, Vec<NodeRLP>)>,
 }
 
 impl ExecutionDB {
@@ -193,17 +194,26 @@ impl ExecutionDB {
 
     /// Verifies that all data in [self] is included in the stored tries, and then builds the
     /// pruned tries from the stored nodes.
-    pub fn build_tries(&self) -> Result<(Trie, HashMap<H160, Trie>), ExecutionDBError> {
+    pub fn build_tries(&mut self) -> Result<(Trie, HashMap<H160, Trie>), ExecutionDBError> {
         let (state_trie_root, state_trie_nodes) = &self.pruned_state_trie;
         let state_trie = Trie::from_nodes(state_trie_root.as_ref(), state_trie_nodes)?;
         let mut storage_tries = HashMap::new();
+
+        // we'll remove any accounts and storage which we don't have a proof of inclusion for
+        let mut accounts_to_remove = Vec::new();
+        let mut storage_to_remove = Vec::new();
 
         for (revm_address, account) in &self.accounts {
             let address = H160::from_slice(revm_address.as_slice());
 
             // check account is in state trie
             if state_trie.get(&hash_address(&address))?.is_none() {
-                return Err(ExecutionDBError::MissingAccountInStateTrie(address));
+                warn!(
+                    "Account {} not found in state trie, will be removed from ExecutionDB",
+                    address
+                );
+                accounts_to_remove.push(revm_address.to_owned());
+                continue;
             }
 
             // validate storage, note that an ExecutionDB only stores values relevant to some
@@ -230,22 +240,22 @@ impl ExecutionDB {
                     }
 
                     // check all storage keys are in storage trie and compare values
-                    for (key, value) in storage {
-                        let key = H256::from_slice(&key.to_be_bytes_vec());
+                    for (revm_key, value) in storage {
+                        let key = H256::from_slice(&revm_key.to_be_bytes_vec());
                         let value = U256::from_big_endian(&value.to_be_bytes_vec());
 
-                        let retrieved_value = RLPDecode::decode(
-                            &storage_trie
-                                .get(&hash_key(&key))?
-                                .ok_or(ExecutionDBError::MissingKeyInStorageTrie(address, key))?,
-                        )?;
-
-                        if value != retrieved_value {
-                            return Err(ExecutionDBError::InvalidStorageTrieValue(
-                                address,
-                                retrieved_value,
-                                value,
-                            ));
+                        if let Some(retrieved_value) = &storage_trie.get(&hash_key(&key))? {
+                            let retrieved_value = RLPDecode::decode(retrieved_value)?;
+                            if value != retrieved_value {
+                                return Err(ExecutionDBError::InvalidStorageTrieValue(
+                                    address,
+                                    retrieved_value,
+                                    value,
+                                ));
+                            }
+                        } else {
+                            warn!("Storage key {} not found in storage trie of account {}, will be removed from ExecutionDB", key, address);
+                            storage_to_remove.push((revm_address.to_owned(), revm_key.to_owned()));
                         }
                     }
 
@@ -253,6 +263,18 @@ impl ExecutionDB {
                 }
                 _ => (),
             }
+        }
+
+        // remove any accounts adn storage which we don't have a proof of inclusion for
+        for address in accounts_to_remove {
+            self.accounts.remove(&address);
+            self.storage.remove(&address);
+        }
+        for (address, key) in storage_to_remove {
+            self.storage
+                .get_mut(&address)
+                .ok_or(ExecutionDBError::StorageNotFound(address))?
+                .remove(&key);
         }
 
         Ok((state_trie, storage_tries))
@@ -312,7 +334,8 @@ pub mod touched_state {
     use ethrex_core::{types::Block, Address, U256};
     use revm::{inspectors::TracerEip3155, DatabaseCommit, DatabaseRef, Evm};
     use revm_primitives::{
-        Account as RevmAccount, Address as RevmAddress, EVMError, SpecId, U256 as RevmU256,
+        Account as RevmAccount, AccountStatus as RevmAccountStatus, Address as RevmAddress,
+        EVMError, SpecId, U256 as RevmU256,
     };
 
     use crate::{block_env, tx_env};
@@ -356,12 +379,6 @@ pub mod touched_state {
     impl DatabaseCommit for TouchedStateDB {
         fn commit(&mut self, changes: revm_primitives::HashMap<RevmAddress, RevmAccount>) {
             for (address, account) in changes {
-                if !account.is_touched() {
-                    continue;
-                }
-                if account.is_created() {
-                    continue;
-                }
                 self.touched_state
                     .push((address, account.storage.keys().cloned().collect()));
             }
