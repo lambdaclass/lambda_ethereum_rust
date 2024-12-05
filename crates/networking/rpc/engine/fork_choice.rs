@@ -116,7 +116,7 @@ fn handle_forkchoice(
     version: usize,
 ) -> Result<(Option<BlockHeader>, ForkChoiceResponse), RpcErr> {
     info!(
-        "New fork choice request v{} with head: {}, safe: {}, finalized: {}.",
+        "New fork choice request v{} with head: {:#x}, safe: {:#x}, finalized: {:#x}.",
         version,
         fork_choice_state.head_block_hash,
         fork_choice_state.safe_block_hash,
