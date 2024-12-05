@@ -12,7 +12,8 @@ output=$(cast balance $account --rpc-url=http://localhost:1729 2>&1)
 while [[ $output -le $end_val ]]; do
     sleep 5
     output=$(cast balance $account --rpc-url=http://localhost:1729 2>&1)
+    echo "balance was $output still not reached value of $end_val"
 done
 echo "Balance of $output reached, killing process reth"
 
-sudo pkill reth && while pgrep -l "cargo-flamegraph"; do sleep 1;done;
+sudo pkill reth && while pgrep -l "cargo-flamegraph"; do echo "waiting for reth to exit... "; sleep 1;done;

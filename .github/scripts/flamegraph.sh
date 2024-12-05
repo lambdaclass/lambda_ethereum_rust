@@ -10,10 +10,12 @@ ethrex_l2 test load --path ./test_data/private_keys.txt -i $iterations -v  --val
 
 echo "Waiting for transactions to be processed..."
 output=$(cast balance $account --rpc-url=http://localhost:1729 2>&1)
-while [[ $output -le $end_val ]]; do
+retries=0
+while [[ $output -le $end_val && $retries -lt 30 ]]; do
     sleep 5
     output=$(cast balance $account --rpc-url=http://localhost:1729 2>&1)
+    echo "balance was $output still not reached value of $end_val"
 done
 echo "Done. Balance of $output reached, killing process ethrex"
-sudo pkill ethrex && while pgrep -l "cargo-flamegraph"; do sleep 1;done;
+sudo pkill ethrex && while pgrep -l "cargo-flamegraph"; do echo "waiting for reth to exit... "; sleep 1;done;
 echo "ethrex killed"

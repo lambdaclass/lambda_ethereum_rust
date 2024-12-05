@@ -1,5 +1,10 @@
 name: Daily Flamegraph Reporter
 
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
 on:
   push:
     branches: [ "main" ]
@@ -65,14 +70,14 @@ jobs:
           echo "running perf"
           perf script -v -i perf.data --no-inline > stack.data
           inferno-collapse-perf < stack.data > collapsed.data
-          inferno-flamegraph < collapsed.data > flamegraph.svg
-          file flamegraph.svg
+          inferno-flamegraph < collapsed.data > flamegraph_ethrex.svg
+          file flamegraph_ethrex.svg
 
-      - name: Upload artifacts - flamegraph.svg
+      - name: Upload artifacts - flamegraph_ethrex.svg
         uses: actions/upload-artifact@v4
         with:
-          name: flamegraph.svg
-          path: ./flamegraph.svg
+          name: flamegraph_ethrex.svg
+          path: ./flamegraph_ethrex.svg
 
   flamegraph-reth:
     name: Generate Flamegraph for Reth
@@ -147,3 +152,45 @@ jobs:
         with:
           name: flamegraph_reth.svg
           path: ./flamegraph_reth.svg
+
+  upload-static-page:
+    name: Upload artifacts for static page
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    needs: [ flamegraph, flamegraph-reth ]
+    steps:
+      - name: Checkout sources
+        uses: actions/checkout@v4
+
+      - name: Download ethrex flamegraph artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: flamegraph_ethrex
+          path: flamegraph_ethrex.svg
+
+      - name: Download reth flamegraph artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: flamegraph_reth
+          path: flamegraph_reth.svg
+
+      - name: Update static page locally with new data
+        run: |
+          cp flamegraph_ethrex.svg pages/
+          cp flamegraph_reth.svg pages/
+          echo "NOW=$(date +'%Y-%m-%dT%H:%M:%S')" >> $GITHUB_ENV
+          sed -i "s/{{LAST_UPDATE}}/$NOW/g" pages/index.html
+
+      - name: Setup Pages
+        uses: actions/configure-pages@v5
+
+      - name: Upload artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: 'pages/'
+
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
