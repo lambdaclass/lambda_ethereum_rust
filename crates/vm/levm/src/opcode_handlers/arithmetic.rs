@@ -221,7 +221,6 @@ impl VM {
         let value_to_extend = current_call_frame.stack.pop()?;
 
         if byte_size >= U256::from(31) {
-            // this means the value_to_extend was too big to extend, so remains the same.
             current_call_frame.stack.push(value_to_extend)?;
             return Ok(OpcodeSuccess::Continue);
         }
@@ -235,6 +234,11 @@ impl VM {
             .ok_or(VMError::Internal(
                 InternalError::ArithmeticOperationOverflow,
             ))?;
+
+        if sign_bit_index >= U256::from(256) {
+            current_call_frame.stack.push(value_to_extend)?;
+            return Ok(OpcodeSuccess::Continue);
+        }
 
         let sign_bit_index: usize = sign_bit_index
             .try_into()
