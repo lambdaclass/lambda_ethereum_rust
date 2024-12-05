@@ -440,7 +440,7 @@ impl RLPEncode for StorageSlot {
     fn encode(&self, buf: &mut dyn BufMut) {
         Encoder::new(buf)
             .encode_field(&self.hash)
-            .encode_field(&self.data)
+            .encode_bytes(&self.data.encode_to_vec())
             .finish();
     }
 }
