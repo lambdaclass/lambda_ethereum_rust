@@ -14,7 +14,8 @@ retries=0
 while [[ $output -le $end_val && $retries -lt 30 ]]; do
     sleep 5
     output=$(cast balance $account --rpc-url=http://localhost:1729 2>&1)
-    echo "balance was $output still not reached value of $end_val"
+    echo "balance was $output still not reached value of $end_val (retry $retries/30)"
+    ((retries++))
 done
 echo "Done. Balance of $output reached, killing process ethrex"
 sudo pkill ethrex && while pgrep -l "cargo-flamegraph"; do echo "waiting for reth to exit... "; sleep 1;done;

@@ -167,21 +167,25 @@ jobs:
       - name: Download ethrex flamegraph artifact
         uses: actions/download-artifact@v4
         with:
-          name: flamegraph_ethrex
+          name: flamegraph_ethrex.svg
           path: flamegraph_ethrex.svg
 
       - name: Download reth flamegraph artifact
         uses: actions/download-artifact@v4
         with:
-          name: flamegraph_reth
+          name: flamegraph_reth.svg
           path: flamegraph_reth.svg
 
       - name: Update static page locally with new data
+        shell: bash
         run: |
-          cp flamegraph_ethrex.svg pages/
-          cp flamegraph_reth.svg pages/
-          echo "NOW=$(date +'%Y-%m-%dT%H:%M:%S')" >> $GITHUB_ENV
-          sed -i "s/{{LAST_UPDATE}}/$NOW/g" pages/index.html
+          file flamegraph_ethrex.svg
+          file flamegraph_reth.svg
+          cp -r flamegraph_ethrex.svg pages/
+          cp -r flamegraph_reth.svg pages/
+          ls -las pages/
+          date +'%Y-%m-%dT%H:%M:%S'
+          sed -i "s/{{LAST_UPDATE}}/$(date +'%Y-%m-%dT%H:%M:%S')/g" pages/index.html
 
       - name: Setup Pages
         uses: actions/configure-pages@v5
