@@ -371,8 +371,16 @@ impl GetPayloadRequest {
 
         let (blobs_bundle, block_value) = build_payload(&mut payload, &context.storage)
             .map_err(|err| RpcErr::Internal(err.to_string()))?;
+
         let execution_payload = ExecutionPayload::from_block(payload);
 
+        // This is just for testing purposes, we should remove it once we have a proper way to handle
+        // the repeated requests of payloads.
+        match context.storage.delete_payload(self.payload_id) {
+            Ok(()) => info!("Payload with id {:#018x} deleted", self.payload_id),
+            Err(error) => warn!("Error deleting payload_id {:#018x}: {:?}", self.payload_id, error),
+        }
+        
         serde_json::to_value(self.build_response(execution_payload, blobs_bundle, block_value))
             .map_err(|error| RpcErr::Internal(error.to_string()))
     }

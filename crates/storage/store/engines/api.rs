@@ -217,4 +217,6 @@ pub trait StoreEngine: Debug + Send + Sync + RefUnwindSafe {
     fn add_payload(&self, payload_id: u64, block: Block) -> Result<(), StoreError>;
 
     fn get_payload(&self, payload_id: u64) -> Result<Option<Block>, StoreError>;
+
+    fn delete_payload(&self, payload_id: u64) -> Result<(), StoreError>;
 }
