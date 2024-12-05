@@ -581,6 +581,10 @@ impl VM {
         Ok(())
     }
 
+    /// ## Changes post execution
+    /// 1. Undo value transfer if the transaction was reverted
+    /// 2. Return unused gas + gas refunds to the sender.
+    /// 3. Pay coinbase fee
     fn post_execution_changes(
         &mut self,
         initial_call_frame: &CallFrame,
