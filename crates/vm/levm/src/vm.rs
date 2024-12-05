@@ -581,44 +581,22 @@ impl VM {
         Ok(())
     }
 
-    pub fn transact(&mut self) -> Result<TransactionReport, VMError> {
-        let mut initial_call_frame = self
-            .call_frames
-            .pop()
-            .ok_or(VMError::Internal(InternalError::CouldNotPopCallframe))?;
-
-        let cache_before_execution = self.cache.clone();
-        self.prepare_execution(&mut initial_call_frame)?;
-
-        let mut report = self.execute(&mut initial_call_frame)?;
-
+    fn post_execution_changes(
+        &mut self,
+        initial_call_frame: &CallFrame,
+        report: &TransactionReport,
+    ) -> Result<(), VMError> {
+        // POST-EXECUTION Changes
         let sender_address = initial_call_frame.msg_sender;
         let receiver_address = initial_call_frame.to;
 
+        // 1. Undo value transfer if the transaction was reverted
         if let TxResult::Revert(_) = report.result {
             self.decrease_account_balance(receiver_address, initial_call_frame.msg_value)?;
             self.increase_account_balance(sender_address, initial_call_frame.msg_value)?;
         }
 
-        if self.is_create() {
-            match self.create_post_execution(&mut initial_call_frame, &mut report) {
-                Ok(_) => {}
-                Err(error) => {
-                    if error.is_internal() {
-                        return Err(error);
-                    } else {
-                        report.result = TxResult::Revert(error);
-                        if report.result != TxResult::Revert(VMError::RevertOpcode) {
-                            report.gas_used = self.env.gas_limit.low_u64(); // Consume all gas unless the error cause is revert opcode
-                        }
-                        self.cache = cache_before_execution;
-                        remove_account(&mut self.cache, &initial_call_frame.to);
-                    }
-                }
-            };
-        }
-
-        // Give back to the user the unused gas + refunds
+        // 2. Return unused gas + gas refunds to the sender.
         let max_gas = self.env.gas_limit.low_u64();
         let consumed_gas = report.gas_used;
         let refunded_gas = report.gas_refunded.min(
@@ -640,10 +618,9 @@ impl VM {
             .checked_mul(gas_to_return)
             .ok_or(VMError::Internal(InternalError::UndefinedState(1)))?;
 
-        // Increase gas not used instead
         self.increase_account_balance(sender_address, U256::from(gas_return_amount))?;
 
-        // Send coinbase fee
+        // 3. Pay coinbase fee
         let coinbase_address = self.env.coinbase;
 
         let gas_to_pay_coinbase = consumed_gas
@@ -662,7 +639,42 @@ impl VM {
 
         if coinbase_fee != 0 {
             self.increase_account_balance(coinbase_address, U256::from(coinbase_fee))?;
+        };
+
+        Ok(())
+    }
+
+    pub fn transact(&mut self) -> Result<TransactionReport, VMError> {
+        let mut initial_call_frame = self
+            .call_frames
+            .pop()
+            .ok_or(VMError::Internal(InternalError::CouldNotPopCallframe))?;
+
+        let cache_before_execution = self.cache.clone();
+        self.prepare_execution(&mut initial_call_frame)?;
+
+        let mut report = self.execute(&mut initial_call_frame)?;
+
+        if self.is_create() {
+            match self.create_post_execution(&mut initial_call_frame, &mut report) {
+                Ok(_) => {}
+                Err(error) => {
+                    if error.is_internal() {
+                        return Err(error);
+                    } else {
+                        report.result = TxResult::Revert(error);
+                        if report.result != TxResult::Revert(VMError::RevertOpcode) {
+                            report.gas_used = self.env.gas_limit.low_u64(); // Consume all gas unless the error cause is revert opcode
+                        }
+                        self.cache = cache_before_execution;
+                        remove_account(&mut self.cache, &initial_call_frame.to);
+                    }
+                }
+            };
         }
+
+        self.post_execution_changes(&initial_call_frame, &report)?;
+        // There shouldn't be any errors here but I don't know what the desired behavior is if something goes wrong.
 
         report.new_state.clone_from(&self.cache);
 
