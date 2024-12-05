@@ -17,9 +17,11 @@ env:
   RUST_RETH_VERSION: 1.82.0
 
 jobs:
-  flamegraph:
-    name: Generate Flamegraph for load test
+  flamegraph-ethrex:
+    name: Generate Flamegraph for Ethrex
     runs-on: ubuntu-latest
+    outputs:
+      time: ${{steps.generate-flamegraph-ethrex.outputs.time}}
     steps:
       - name: Checkout sources
         uses: actions/checkout@v4
@@ -54,11 +56,12 @@ jobs:
       - name: Build ethrex
         run: CARGO_PROFILE_RELEASE_DEBUG=true cargo build --release --bin ethrex --features dev
 
-      - id: generate-flamegraph
+      - id: generate-flamegraph-ethrex
         name: Generate Flamegraph data for Ethrex
         shell: bash
         run: |
-          CARGO_PROFILE_RELEASE_DEBUG=true cargo flamegraph -c "record -o perf.data -F997 --call-graph dwarf,16384 -g" --bin ethrex --features dev  --  --network test_data/genesis-l2.json --http.port 1729 &
+          CARGO_PROFILE_RELEASE_DEBUG=true cargo flamegraph -c "record -o perf.data -F997 --call-graph dwarf,16384 -g" \
+          --bin ethrex --features dev  --  --network /home/runner/work/ethrex/ethrex/test_data/genesis-l2.json --http.port 1729 &
           echo "waiting to execute load test..."
           sleep 30 &&
           echo "executing load test..."
@@ -83,6 +86,8 @@ jobs:
   flamegraph-reth:
     name: Generate Flamegraph for Reth
     runs-on: ubuntu-latest
+    outputs:
+      time: ${{steps.generate-flamegraph-reth.outputs.time}}
     steps:
       - name: Checkout sources
         uses: actions/checkout@v4
@@ -121,7 +126,8 @@ jobs:
           repository: paradigmxyz/reth
           path: 'reth'
 
-      - name: Build and test reth
+      - id: generate-flamegraph-reth
+        name: Build and test reth
         shell: bash
         run: |
           cd ./reth
@@ -160,7 +166,7 @@ jobs:
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
-    needs: [ flamegraph, flamegraph-reth ]
+    needs: [ flamegraph-ethrex, flamegraph-reth ]
     steps:
       - name: Checkout sources
         uses: actions/checkout@v4
@@ -177,18 +183,6 @@ jobs:
           name: flamegraph_reth.svg
           path: flamegraph_reth.svg
 
-      - name: Download time reports for ethrex
-        uses: actions/download-artifact@v4
-        with:
-          name: times_ethrex
-          path: times_ethrex.txt
-
-      - name: Download time reports for reth
-        uses: actions/download-artifact@v4
-        with:
-          name: times_reth
-          path: times_reth.txt
-
       - name: Update static page locally with new data
         shell: bash
         run: |
@@ -198,11 +192,9 @@ jobs:
           cp -r flamegraph_reth.svg pages/
           ls -las pages/
           date +'%Y-%m-%dT%H:%M:%S'
-          ethrex_time=$(cat times_ethrex.txt)
-          reth_time=$(cat times_reth.txt)
           sed -i "s/{{LAST_UPDATE}}/$(date +'%Y-%m-%dT%H:%M:%S')/g" pages/index.html
-          sed -i "s/{{ETHREX_TIME}}/$ethrex_time/g" pages/index.html
-          sed -i "s/{{RETH_TIME}}/$reth_time/g" pages/index.html
+          sed -i "s/{{ETHREX_TIME}}/${{ needs.flamegraph-ethrex.outputs.time }}/g" pages/index.html
+          sed -i "s/{{RETH_TIME}}/${{ needs.flamegraph-reth.outputs.time }}/g" pages/index.html
 
       - name: Setup Pages
         uses: actions/configure-pages@v5

@@ -25,5 +25,4 @@ echo "Balance of $output reached in $minutes min $seconds s, killing process eth
 sudo pkill ethrex && while pgrep -l "cargo-flamegraph"; do echo "waiting for reth to exit... "; sleep 1;done;
 
 # We need this for the following job, to add to the static page
-# Using Github Outputs would be easier, but I couldn't get it to work
-echo -e "$minutes minutes $seconds seconds" >> /home/runner/work/ethrex/ethrex/times.txt
+echo "time=$minutes minutes $seconds seconds" >> "$GITHUB_OUTPUT"
