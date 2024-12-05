@@ -194,12 +194,11 @@ impl VM {
         &mut self,
         current_call_frame: &mut CallFrame,
     ) -> Result<OpcodeSuccess, VMError> {
+        self.increase_consumed_gas(current_call_frame, gas_cost::CODESIZE)?;
 
         current_call_frame
             .stack
             .push(U256::from(current_call_frame.bytecode.len()))?;
-
-        self.increase_consumed_gas(current_call_frame, gas_cost::CODESIZE)?;
 
         Ok(OpcodeSuccess::Continue)
     }
