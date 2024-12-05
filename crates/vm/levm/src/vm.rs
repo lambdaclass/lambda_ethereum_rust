@@ -181,16 +181,16 @@ impl VM {
         loop {
             let opcode = current_call_frame.next_opcode();
             current_call_frame.increment_pc()?;
-/* 
-            dbg!(&current_call_frame.gas_used);
-            dbg!(&current_call_frame.stack);
-            let hex_string: String = current_call_frame.memory.clone().iter()
-                .map(|b| format!("{:02x}", b)) // Formatear cada byte a hexadecimal con dos dígitos
-                .collect::<Vec<String>>() // Recoger los resultados en un Vec de Strings
-                .join(""); // Unirlos en un solo String
-            println!("Calldata: {}", hex_string); 
-            dbg!(&opcode);
-         */
+            /*
+               dbg!(&current_call_frame.gas_used);
+               dbg!(&current_call_frame.stack);
+               let hex_string: String = current_call_frame.memory.clone().iter()
+                   .map(|b| format!("{:02x}", b)) // Formatear cada byte a hexadecimal con dos dígitos
+                   .collect::<Vec<String>>() // Recoger los resultados en un Vec de Strings
+                   .join(""); // Unirlos en un solo String
+               println!("Calldata: {}", hex_string);
+               dbg!(&opcode);
+            */
 
             let op_result: Result<OpcodeSuccess, VMError> = match opcode {
                 Opcode::STOP => Ok(OpcodeSuccess::Result(ResultReason::Stop)),
