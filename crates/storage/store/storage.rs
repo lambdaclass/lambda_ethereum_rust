@@ -326,7 +326,7 @@ impl Store {
     }
 
     /// Gets hashes from possible_hashes that are not already known in the mempool.
-    pub fn get_unknown_transactions(
+    pub fn filter_unknown_transactions(
         &self,
         possible_hashes: &[H256],
     ) -> Result<Vec<H256>, StoreError> {
