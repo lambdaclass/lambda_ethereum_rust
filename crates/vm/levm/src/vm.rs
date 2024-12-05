@@ -435,12 +435,12 @@ impl VM {
 
     /// ## Description
     /// This method performs validations and returns an error if any of the validations fail.
-    /// It also makes initial changes alongside the validations:
+    /// It also makes pre-execution changes:
     /// - It increases sender nonce
     /// - It substracts up-front-cost from sender balance. (Not doing this for now)
     /// - It calculates and adds intrinsic gas to the 'gas used' of callframe and environment.
     ///   See 'docs' for more information about validations.
-    fn validate_transaction(&mut self, initial_call_frame: &mut CallFrame) -> Result<(), VMError> {
+    fn prepare_execution(&mut self, initial_call_frame: &mut CallFrame) -> Result<(), VMError> {
         //TODO: This should revert the transaction, not throw an error. And I don't know if it should be done here...
         // if self.is_create() {
         //     // If address is already in db, there's an error
@@ -587,7 +587,7 @@ impl VM {
             .ok_or(VMError::Internal(InternalError::CouldNotPopCallframe))?;
 
         let cache_before_execution = self.cache.clone();
-        self.validate_transaction(&mut initial_call_frame)?;
+        self.prepare_execution(&mut initial_call_frame)?;
 
         // Maybe can be done in validate_transaction
         let sender = initial_call_frame.msg_sender;
