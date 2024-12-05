@@ -28,6 +28,7 @@ pub async fn start_block_producer(
         let payload_attributes = PayloadAttributesV3 {
             timestamp: SystemTime::now().duration_since(UNIX_EPOCH)?.as_secs(),
             suggested_fee_recipient: coinbase_address,
+            parent_beacon_block_root: Some(H256::zero()),
             ..Default::default()
         };
         let fork_choice_response = match engine_client
@@ -73,7 +74,7 @@ pub async fn start_block_producer(
                         H256::from_slice(&hash)
                     })
                     .collect(),
-                Default::default(),
+                H256::zero(), //parent_beacon_block_root
             )
             .await
         {
