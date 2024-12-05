@@ -2,7 +2,7 @@ use crate::{
     call_frame::CallFrame,
     errors::{InternalError, OpcodeSuccess, VMError},
     gas_cost,
-    opcode_handlers::bitwise_comparison::checked_shift_left,
+    opcode_handlers::bitwise_comparison::{checked_shift_left, checked_shift_right},
     vm::VM,
 };
 use ethrex_core::U256;
@@ -235,27 +235,19 @@ impl VM {
                 InternalError::ArithmeticOperationOverflow,
             ))?;
 
-        if sign_bit_index >= U256::from(256) {
-            current_call_frame.stack.push(value_to_extend)?;
-            return Ok(OpcodeSuccess::Continue);
-        }
-
-        let sign_bit_index: usize = sign_bit_index
-            .try_into()
-            .map_err(|_| VMError::Internal(InternalError::ConversionError))?;
-
-        let is_negative = value_to_extend.bit(sign_bit_index);
+        let shifted_value = checked_shift_right(value_to_extend, sign_bit_index)?;
+        let is_negative = shifted_value & U256::one() == U256::one();
 
         if !is_negative {
             current_call_frame.stack.push(value_to_extend)?;
             return Ok(OpcodeSuccess::Continue);
         };
 
-        let sign_bit_mask = checked_shift_left(U256::one(), U256::from(sign_bit_index))?
+        let sign_bit_mask = checked_shift_left(U256::one(), sign_bit_index)?
             .checked_sub(U256::one())
             .ok_or(VMError::Internal(
                 InternalError::ArithmeticOperationUnderflow,
-            ))?; //Shifted should be at least one
+            ))?;
         let result = value_to_extend | !sign_bit_mask;
 
         current_call_frame.stack.push(result)?;
