@@ -178,7 +178,7 @@ impl VM {
         let mut gas_refunds = U256::zero();
         if new_storage_slot_value != storage_slot.current_value {
             if storage_slot.current_value == storage_slot.original_value {
-                if storage_slot.original_value.is_zero() && new_storage_slot_value.is_zero() {
+                if !storage_slot.original_value.is_zero() && new_storage_slot_value.is_zero() {
                     gas_refunds = gas_refunds
                         .checked_add(U256::from(4800))
                         .ok_or(VMError::GasRefundsOverflow)?;
@@ -237,9 +237,7 @@ impl VM {
             .env
             .gas_limit
             .checked_sub(self.env.consumed_gas)
-            .ok_or(VMError::OutOfGas(OutOfGasError::ConsumedGasOverflow))?
-            .checked_sub(gas_cost::GAS)
-            .ok_or(VMError::OutOfGas(OutOfGasError::ConsumedGasOverflow))?;
+            .ok_or(OutOfGasError::ConsumedGasOverflow)?;
         // Note: These are not consumed gas calculations, but are related, so I used this wrapping here
         current_call_frame.stack.push(remaining_gas)?;
 
