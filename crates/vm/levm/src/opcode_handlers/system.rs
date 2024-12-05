@@ -195,7 +195,7 @@ impl VM {
 
         self.increase_consumed_gas(
             current_call_frame,
-            memory::expansion_cost(offset, size)?.into(),
+            memory::expansion_cost(offset + size, current_call_frame.memory.len())?.into(),
         )?;
 
         current_call_frame.returndata =
