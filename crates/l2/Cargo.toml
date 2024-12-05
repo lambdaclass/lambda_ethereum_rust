@@ -30,7 +30,7 @@ thiserror.workspace = true
 zkvm_interface = { path = "./prover/zkvm/interface/", default-features = false }
 
 # risc0
-risc0-zkvm = { version = "1.1.2" }
+risc0-zkvm = { version = "1.2.0" }
 
 [dev-dependencies]
 ethrex-sdk = { path = "./sdk" }
@@ -44,3 +44,6 @@ path = "./l2.rs"
 unwrap_used = "deny"
 expect_used = "deny"
 indexing_slicing = "deny"
+as_conversions = "deny"
+unnecessary_cast = "warn"
+panic = "deny"
