@@ -85,7 +85,7 @@ fn test_usize_overflow_blobhash() {
 }
 
 #[test]
-fn add_op() {
+fn push_with_overflow() {
     let mut vm = new_vm_with_ops(&[
         // This PUSH instruction is 33 bytes long.
         // 1 byte for the Opcode and 32 bytes for the argument.
