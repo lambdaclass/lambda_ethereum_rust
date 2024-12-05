@@ -30,7 +30,7 @@ pub async fn start_block_producer(
         let payload_attributes = PayloadAttributesV3 {
             timestamp: SystemTime::now().duration_since(UNIX_EPOCH)?.as_secs(),
             suggested_fee_recipient: coinbase_address,
-            parent_beacon_block_root: Some(parent_beacon_block_root), // We do not care about this root's value
+            parent_beacon_block_root: Some(parent_beacon_block_root),
             ..Default::default()
         };
         let fork_choice_response = match engine_client
