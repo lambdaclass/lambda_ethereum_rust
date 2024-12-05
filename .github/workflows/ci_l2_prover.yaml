@@ -47,8 +47,8 @@ jobs:
         run: |
           curl -L https://risczero.com/install | bash
           ~/.risc0/bin/rzup install
-          rzup extension install cargo-risczero v1.2.0
-          rzup extension use cargo-risczero v1.2.0
+          ~/.risc0/bin/rzup extension install cargo-risczero v1.2.0
+          ~/.risc0/bin/rzup extension use cargo-risczero v1.2.0
       - name: Build prover and zkVM
         run: |
           cd crates/l2/prover
