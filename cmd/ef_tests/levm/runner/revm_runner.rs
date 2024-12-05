@@ -1,14 +1,14 @@
 use crate::{
-    report::{AccountUpdatesReport, EFTestReport, TestReRunReport, TestVector},
+    report::{ComparisonReport, EFTestReport, TestReRunReport, TestVector},
     runner::{
         levm_runner::{self, post_state_root},
         EFTestRunnerError, InternalError,
     },
-    types::{EFTest, EFTestTransaction},
-    utils::load_initial_state,
+    types::EFTest,
+    utils::{effective_gas_price, load_initial_state},
 };
 use bytes::Bytes;
-use ethrex_core::{types::TxKind, Address, H256, U256};
+use ethrex_core::{types::TxKind, Address, H256};
 use ethrex_levm::{
     errors::{TransactionReport, TxResult},
     Account, StorageSlot,
@@ -90,19 +90,6 @@ pub fn re_run_failed_ef_test_tx(
     Ok(())
 }
 
-// If gas price is not provided, calculate it with current base fee and priority fee
-pub fn effective_gas_price(test: &EFTest, tx: &&EFTestTransaction) -> U256 {
-    match tx.gas_price {
-        None => {
-            let current_base_fee = test.env.current_base_fee.unwrap();
-            let priority_fee = tx.max_priority_fee_per_gas.unwrap();
-            let max_fee_per_gas = tx.max_fee_per_gas.unwrap();
-            std::cmp::min(max_fee_per_gas, current_base_fee + priority_fee)
-        }
-        Some(price) => price,
-    }
-}
-
 pub fn prepare_revm_for_tx<'state>(
     initial_state: &'state mut EvmState,
     vector: &TestVector,
@@ -148,7 +135,7 @@ pub fn prepare_revm_for_tx<'state>(
     let tx_env = RevmTxEnv {
         caller: tx.sender.0.into(),
         gas_limit: tx.gas_limit.as_u64(),
-        gas_price: RevmU256::from_limbs(effective_gas_price(test, tx).0),
+        gas_price: RevmU256::from_limbs(effective_gas_price(test, tx)?.0),
         transact_to: match tx.to {
             TxKind::Call(to) => RevmTxKind::Call(to.0.into()),
             TxKind::Create => RevmTxKind::Create,
@@ -284,7 +271,9 @@ pub fn ensure_post_state(
         Some(_expected_exception) => {}
         // We only want to compare account updates when no exception is expected.
         None => {
-            let levm_account_updates = levm_runner::get_state_transitions(levm_execution_report);
+            let (initial_state, _block_hash) = load_initial_state(test);
+            let levm_account_updates =
+                levm_runner::get_state_transitions(&initial_state, levm_execution_report);
             let revm_account_updates = ethrex_vm::get_state_transitions(revm_state);
             let account_updates_report = compare_levm_revm_account_updates(
                 test,
@@ -302,7 +291,9 @@ pub fn compare_levm_revm_account_updates(
     test: &EFTest,
     levm_account_updates: &[AccountUpdate],
     revm_account_updates: &[AccountUpdate],
-) -> AccountUpdatesReport {
+) -> ComparisonReport {
+    let levm_post_state_root = post_state_root(levm_account_updates, test);
+    let revm_post_state_root = post_state_root(revm_account_updates, test);
     let mut initial_accounts: HashMap<Address, Account> = test
         .pre
         .0
@@ -342,7 +333,9 @@ pub fn compare_levm_revm_account_updates(
         .map(|account_update| account_update.address)
         .collect::<HashSet<Address>>();
 
-    AccountUpdatesReport {
+    ComparisonReport {
+        levm_post_state_root,
+        revm_post_state_root,
         initial_accounts,
         levm_account_updates: levm_account_updates.to_vec(),
         revm_account_updates: revm_account_updates.to_vec(),
