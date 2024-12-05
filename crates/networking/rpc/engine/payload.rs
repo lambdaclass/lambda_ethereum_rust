@@ -203,7 +203,10 @@ impl RpcHandler for GetPayloadV3Request {
 
         // This is just for testing purposes, we should remove it once we have a proper way to handle
         // the repeated requests of payloads.
-        context.storage.delete_payload(self.payload_id)?;
+        match context.storage.delete_payload(self.payload_id) {
+            Ok(()) => info!("Payload with id {:#018x} deleted", self.payload_id),
+            Err(error) => warn!("Error deleting payload_id {:#018x}: {:?}", self.payload_id, error),
+        }
 
         serde_json::to_value(ExecutionPayloadResponse {
             execution_payload: ExecutionPayloadV3::from_block(payload),

@@ -241,18 +241,22 @@ fn fetch_mempool_transactions(
         "no store in the context (is an ExecutionDB being used?)".to_string(),
     ))?;
     Ok((
-        {// Plain txs
-        info!("Fetching plain transactions from mempool");
-        TransactionQueue::new(
-            mempool::filter_transactions(&plain_tx_filter, store)?,
-            context.base_fee_per_gas(),
-        )?},
-        {// Blob txs
-        info!("Fetching blob transactions from mempool");
-        TransactionQueue::new(
-            mempool::filter_transactions(&blob_tx_filter, store)?,
-            context.base_fee_per_gas(),
-        )?},
+        {
+            // Plain txs
+            info!("Fetching plain transactions from mempool");
+            TransactionQueue::new(
+                mempool::filter_transactions(&plain_tx_filter, store)?,
+                context.base_fee_per_gas(),
+            )?
+        },
+        {
+            // Blob txs
+            info!("Fetching blob transactions from mempool");
+            TransactionQueue::new(
+                mempool::filter_transactions(&blob_tx_filter, store)?,
+                context.base_fee_per_gas(),
+            )?
+        },
     ))
 }
 
