@@ -12,6 +12,7 @@ use crate::{
         TxValidationError, VMError,
     },
     gas_cost::{self, fake_exponential, BLOB_GAS_PER_BLOB, CREATE_BASE_COST},
+    memory,
     opcodes::Opcode,
     AccountInfo,
 };
@@ -138,15 +139,13 @@ impl VM {
                 let created_contract = Account::new(value, calldata.clone(), 1, HashMap::new());
                 cache::insert_account(&mut cache, new_contract_address, created_contract);
 
-                let bytecode: Bytes = calldata.clone();
-
                 let initial_call_frame = CallFrame::new(
                     env.origin,
                     new_contract_address,
                     new_contract_address,
-                    bytecode,
+                    Bytes::new(), // Bytecode is assigned after passing validations.
                     value,
-                    Bytes::new(), // Contract creation does not have calldata
+                    calldata, // Calldata is removed after passing validations.
                     false,
                     env.gas_limit,
                     U256::zero(),
@@ -381,12 +380,7 @@ impl VM {
                 .checked_add(CREATE_BASE_COST)
                 .ok_or(OutOfGasError::ConsumedGasOverflow)?;
 
-            let number_of_words: u64 = initial_call_frame
-                .calldata
-                .chunks(WORD_SIZE)
-                .len()
-                .try_into()
-                .map_err(|_| InternalError::ConversionError)?;
+            let number_of_words = initial_call_frame.calldata.len().div_ceil(WORD_SIZE);
 
             intrinsic_gas = intrinsic_gas
                 .checked_add(
@@ -496,7 +490,7 @@ impl VM {
         // (4) INITCODE_SIZE_EXCEEDED
         if self.is_create() {
             // INITCODE_SIZE_EXCEEDED
-            if initial_call_frame.bytecode.len() > INIT_CODE_MAX_SIZE {
+            if initial_call_frame.calldata.len() > INIT_CODE_MAX_SIZE {
                 return Err(VMError::TxValidation(
                     TxValidationError::InitcodeSizeExceeded,
                 ));
@@ -591,6 +585,12 @@ impl VM {
 
         let cache_before_execution = self.cache.clone();
         self.validate_transaction(&mut initial_call_frame)?;
+
+        if self.is_create() {
+            // Assign bytecode to context and empty calldata
+            initial_call_frame.bytecode = initial_call_frame.calldata.clone();
+            initial_call_frame.calldata = Bytes::new();
+        }
 
         // Maybe can be done in validate_transaction
         let sender = initial_call_frame.msg_sender;
@@ -744,10 +744,8 @@ impl VM {
 
         // self.cache.increment_account_nonce(&code_address); // Internal call doesn't increment account nonce.
 
-        let calldata = current_call_frame
-            .memory
-            .load_range(args_offset, args_size)?
-            .into();
+        let calldata =
+            memory::load_range(&mut current_call_frame.memory, args_offset, args_size)?.to_vec();
 
         // I don't know if this gas limit should be calculated before or after consuming gas
         let mut potential_remaining_gas = current_call_frame
@@ -772,7 +770,7 @@ impl VM {
             code_address,
             code_account_info.bytecode,
             value,
-            calldata,
+            calldata.into(),
             is_static,
             gas_limit,
             U256::zero(),
@@ -797,9 +795,12 @@ impl VM {
             .checked_add(tx_report.gas_used.into())
             .ok_or(VMError::OutOfGas(OutOfGasError::ConsumedGasOverflow))?;
         current_call_frame.logs.extend(tx_report.logs);
-        current_call_frame
-            .memory
-            .store_n_bytes(ret_offset, &tx_report.output, ret_size)?;
+        memory::try_store_range(
+            &mut current_call_frame.memory,
+            ret_offset,
+            ret_size,
+            &tx_report.output,
+        )?;
         current_call_frame.sub_return_data = tx_report.output;
 
         // What to do, depending on TxResult
@@ -914,9 +915,12 @@ impl VM {
         };
 
         let code = Bytes::from(
-            current_call_frame
-                .memory
-                .load_range(code_offset_in_memory, code_size_in_memory)?,
+            memory::load_range(
+                &mut current_call_frame.memory,
+                code_offset_in_memory,
+                code_size_in_memory,
+            )?
+            .to_vec(),
         );
 
         let new_address = match salt {
