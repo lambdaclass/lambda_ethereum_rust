@@ -444,7 +444,7 @@ impl RLPDecode for StorageSlot {
         let decoder = Decoder::new(rlp)?;
         let (hash, decoder) = decoder.decode_field("hash")?;
         let (data, decoder) = decoder.get_encoded_item()?;
-        let data = U256::decode(&ethrex_rlp::decode::decode_bytes(&data)?.0)?;
+        let data = U256::decode(ethrex_rlp::decode::decode_bytes(&data)?.0)?;
         Ok((Self { hash, data }, decoder.finish()?))
     }
 }
