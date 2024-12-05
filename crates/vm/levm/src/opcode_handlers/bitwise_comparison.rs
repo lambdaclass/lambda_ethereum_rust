@@ -226,7 +226,7 @@ impl VM {
     }
 }
 
-pub fn arithmetic_shift_right(value: U256, shift: U256) -> Result<U256, VMError> {
+fn arithmetic_shift_right(value: U256, shift: U256) -> Result<U256, VMError> {
     if value.bit(255) {
         // if negative fill with 1s
         let shifted = checked_shift_right(value, shift)?;
