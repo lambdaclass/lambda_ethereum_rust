@@ -1,7 +1,7 @@
 use crate::utils::engine_client::{errors::EngineClientError, EngineClient};
 use bytes::Bytes;
 use ethereum_types::{Address, H256};
-use ethrex_rpc::types::fork_choice::{ForkChoiceState, PayloadAttributes};
+use ethrex_rpc::types::fork_choice::{ForkChoiceState, PayloadAttributesV3};
 use sha2::{Digest, Sha256};
 use std::time::{SystemTime, UNIX_EPOCH};
 
@@ -25,7 +25,7 @@ pub async fn start_block_producer(
             finalized_block_hash: head_block_hash,
         };
 
-        let payload_attributes = PayloadAttributes {
+        let payload_attributes = PayloadAttributesV3 {
             timestamp: SystemTime::now().duration_since(UNIX_EPOCH)?.as_secs(),
             suggested_fee_recipient: coinbase_address,
             ..Default::default()

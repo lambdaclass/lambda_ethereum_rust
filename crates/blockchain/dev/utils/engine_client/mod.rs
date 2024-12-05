@@ -14,7 +14,7 @@ use ethrex_rpc::{
         ExchangeCapabilitiesRequest,
     },
     types::{
-        fork_choice::{ForkChoiceResponse, ForkChoiceState, PayloadAttributes},
+        fork_choice::{ForkChoiceResponse, ForkChoiceState, PayloadAttributesV3},
         payload::{ExecutionPayload, ExecutionPayloadResponse, PayloadStatus},
     },
     utils::{RpcErrorResponse, RpcRequest, RpcSuccessResponse},
@@ -80,7 +80,7 @@ impl EngineClient {
     pub async fn engine_forkchoice_updated_v3(
         &self,
         state: ForkChoiceState,
-        payload_attributes: Option<PayloadAttributes>,
+        payload_attributes: Option<PayloadAttributesV3>,
     ) -> Result<ForkChoiceResponse, EngineClientError> {
         let request = RpcRequest::from(ForkChoiceUpdatedV3 {
             fork_choice_state: state,

@@ -10,7 +10,7 @@ use tracing::{info, warn};
 
 use crate::{
     types::{
-        fork_choice::{ForkChoiceResponse, ForkChoiceState, PayloadAttributes},
+        fork_choice::{ForkChoiceResponse, ForkChoiceState, PayloadAttributesV3},
         payload::PayloadStatus,
     },
     utils::RpcRequest,
@@ -20,7 +20,7 @@ use crate::{
 #[derive(Debug)]
 pub struct ForkChoiceUpdatedV2 {
     pub fork_choice_state: ForkChoiceState,
-    pub payload_attributes: Option<PayloadAttributes>,
+    pub payload_attributes: Option<PayloadAttributesV3>,
 }
 
 impl RpcHandler for ForkChoiceUpdatedV2 {
@@ -49,7 +49,7 @@ impl RpcHandler for ForkChoiceUpdatedV2 {
 #[derive(Debug)]
 pub struct ForkChoiceUpdatedV3 {
     pub fork_choice_state: ForkChoiceState,
-    pub payload_attributes: Option<PayloadAttributes>,
+    pub payload_attributes: Option<PayloadAttributesV3>,
 }
 
 impl From<ForkChoiceUpdatedV3> for RpcRequest {
@@ -90,7 +90,7 @@ impl RpcHandler for ForkChoiceUpdatedV3 {
 
 fn parse(
     params: &Option<Vec<Value>>,
-) -> Result<(ForkChoiceState, Option<PayloadAttributes>), RpcErr> {
+) -> Result<(ForkChoiceState, Option<PayloadAttributesV3>), RpcErr> {
     let params = params
         .as_ref()
         .ok_or(RpcErr::BadParams("No params provided".to_owned()))?;
@@ -100,8 +100,8 @@ fn parse(
 
     let forkchoice_state: ForkChoiceState = serde_json::from_value(params[0].clone())?;
     // if there is an error when parsing, set to None
-    let payload_attributes: Option<PayloadAttributes> =
-        if let Ok(attributes) = serde_json::from_value::<PayloadAttributes>(params[1].clone()) {
+    let payload_attributes: Option<PayloadAttributesV3> =
+        if let Ok(attributes) = serde_json::from_value::<PayloadAttributesV3>(params[1].clone()) {
             Some(attributes)
         } else {
             None
@@ -174,7 +174,7 @@ fn handle_forkchoice(
 }
 
 fn validate_v3(
-    attributes: &PayloadAttributes,
+    attributes: &PayloadAttributesV3,
     head_block: BlockHeader,
     context: &RpcApiContext,
 ) -> Result<(), RpcErr> {
@@ -198,7 +198,7 @@ fn validate_v3(
 }
 
 fn validate_v2(
-    attributes: &PayloadAttributes,
+    attributes: &PayloadAttributesV3,
     head_block: BlockHeader,
     context: &RpcApiContext,
 ) -> Result<(), RpcErr> {
@@ -227,7 +227,7 @@ fn validate_v2(
 }
 
 fn build_payload(
-    attributes: &PayloadAttributes,
+    attributes: &PayloadAttributesV3,
     context: RpcApiContext,
     fork_choice_state: &ForkChoiceState,
     version: u8,
