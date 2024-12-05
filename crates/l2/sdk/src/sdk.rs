@@ -44,7 +44,9 @@ pub async fn wait_for_transaction_receipt(
         println!("[{try}/{max_retries}] Retrying to get transaction receipt for {tx_hash:#x}");
 
         if max_retries == r#try {
-            panic!("Transaction receipt for {tx_hash:#x} not found after {max_retries} retries");
+            return Err(EthClientError::Custom(format!(
+                "Transaction receipt for {tx_hash:#x} not found after {max_retries} retries"
+            )));
         }
         r#try += 1;
 
@@ -163,7 +165,14 @@ pub async fn claim_withdraw(
         let mut calldata = Vec::new();
 
         // Function selector
-        calldata.extend_from_slice(&keccak(CLAIM_WITHDRAWAL_SIGNATURE).as_bytes()[..4]);
+        calldata.extend_from_slice(
+            keccak(CLAIM_WITHDRAWAL_SIGNATURE)
+                .as_bytes()
+                .get(..4)
+                .ok_or(EthClientError::Custom(
+                    "failed to slice into the claim withdrawal signature".to_owned(),
+                ))?,
+        );
 
         // bytes32 l2WithdrawalTxHash
         calldata.extend_from_slice(l2_withdrawal_tx_hash.as_fixed_bytes());
@@ -251,7 +260,7 @@ pub async fn get_withdraw_merkle_proof(
             Transaction::PrivilegedL2Transaction(privileged_l2_transaction) => {
                 privileged_l2_transaction
                     .get_withdrawal_hash()
-                    .map(|withdrawal_hash| (i as u64, (withdrawal_hash)))
+                    .map(|withdrawal_hash| (i, (withdrawal_hash)))
             }
             _ => unreachable!(),
         })
@@ -271,9 +280,15 @@ pub async fn get_withdraw_merkle_proof(
             .collect(),
         tx_withdrawal_hash,
     )
+    .map_err(|err| EthClientError::Custom(format!("Failed to generate merkle proof: {err}")))?
     .ok_or(EthClientError::Custom(
         "Failed to generate merkle proof, element is not on the tree".to_string(),
     ))?;
 
-    Ok((index, path))
+    Ok((
+        index
+            .try_into()
+            .map_err(|err| EthClientError::Custom(format!("index does not fit in u64: {}", err)))?,
+        path,
+    ))
 }
