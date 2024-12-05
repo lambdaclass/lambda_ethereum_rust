@@ -16,7 +16,7 @@ pub async fn start_block_producer(
     let engine_client = EngineClient::new(&execution_client_auth_url, jwt_secret);
 
     let mut head_block_hash: H256 = head_block_hash;
-    let parent_beacon_block_root = H256::random();
+    let parent_beacon_block_root = H256::zero();
     let mut tries = 0;
     while tries < max_tries {
         tracing::info!("Producing block");
