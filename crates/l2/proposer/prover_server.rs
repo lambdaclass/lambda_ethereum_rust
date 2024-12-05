@@ -29,7 +29,7 @@ use tokio::{
 use tracing::{debug, error, info, warn};
 
 use risc0_zkvm::sha::Digestible;
-use sp1_sdk::{network::proto::network::twirp::tower::util::CallAll, HashableKey};
+use sp1_sdk::HashableKey;
 
 #[derive(Debug, Serialize, Deserialize, Default)]
 pub struct ProverInputData {
@@ -480,7 +480,7 @@ impl ProverServer {
 
         // IOnChainProposer
         // function verify(uint256,bytes,bytes32,bytes32,bytes32,bytes,bytes)
-        // blockNumber, seal, imageId, journalDigest, programVKey, publicValues, proofBytes
+        // blockNumber, blockProof, imageId, journalDigest, programVKey, publicValues, proofBytes
         // From crates/l2/contracts/l1/interfaces/IOnChainProposer.sol
         let mut calldata = keccak(b"verify(uint256,bytes,bytes32,bytes32,bytes32,bytes,bytes)")
             .as_bytes()
@@ -493,11 +493,11 @@ impl ProverServer {
         // The calldata has to be structured in the following way:
         // block_number
         // size in bytes
-        // size of block_proof
-        // block_proof
         // image_id
         // journal
         // programVKey
+        // size of block_proof
+        // block_proof
         // size of publicValues
         // publicValues
         // size of proofBytes
@@ -510,9 +510,6 @@ impl ProverServer {
         // 7 u256 goes after this field so: 32bytes * 7
         calldata.extend(H256::from_low_u64_be(7 * 32).as_bytes());
 
-        // extend with size of block_proof and block_proof
-        extend_calldata_with_bytes(&mut calldata, &risc0_contract_data.block_proof)?;
-
         // extend with image_id
         calldata.extend(risc0_contract_data.image_id);
 
@@ -521,6 +518,9 @@ impl ProverServer {
 
         // extend with program_vkey
         calldata.extend(sp1_contract_data.vk);
+
+        // extend with size of block_proof and block_proof
+        extend_calldata_with_bytes(&mut calldata, &risc0_contract_data.block_proof)?;
 
         // extend with size of public_values and public_values
         extend_calldata_with_bytes(&mut calldata, &sp1_contract_data.public_values)?;
@@ -596,12 +596,13 @@ impl ProverServer {
             calldata.extend(H256::from_low_u64_be(last_verified_block + 1).as_bytes());
             // 7 inputs * 32bytes offset
             calldata.extend(H256::from_low_u64_be(7 * 32).as_bytes());
-            // extend with size of the first bytes variable -> 32bytes
-            calldata.extend(H256::from_low_u64_be(32).as_bytes());
-            // extend with bytes, bytes32, bytes32, bytes32
+            // extend with bytes32, bytes32, bytes32
             for _ in 0..=3 {
                 calldata.extend(H256::zero().as_bytes());
             }
+            // extend with size of the first bytes variable -> 32bytes
+            calldata.extend(H256::from_low_u64_be(32).as_bytes());
+            // Fill with zeroes
             // extend with size of the second bytes variable -> 32bytes
             calldata.extend(H256::from_low_u64_be(32).as_bytes());
             // Fill with zeroes
