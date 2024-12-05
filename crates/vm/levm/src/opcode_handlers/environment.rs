@@ -143,11 +143,9 @@ impl VM {
             .pop()?
             .try_into()
             .map_err(|_err| VMError::VeryLargeNumber)?;
-        let calldata_offset: usize = current_call_frame
+        let calldata_offset = current_call_frame
             .stack
-            .pop()?
-            .try_into()
-            .map_err(|_err| VMError::VeryLargeNumber)?;
+            .pop()?;
         let size: usize = current_call_frame
             .stack
             .pop()?
@@ -170,6 +168,16 @@ impl VM {
         if size == 0 {
             return Ok(OpcodeSuccess::Continue);
         }
+
+        if calldata_offset > current_call_frame.calldata.len().into() {
+            let data = vec![0u8; size];
+            memory::try_store_data(&mut current_call_frame.memory, dest_offset, &data)?;
+            return Ok(OpcodeSuccess::Continue);
+        }
+
+        let calldata_offset: usize = calldata_offset
+        .try_into()
+        .map_err(|_err| VMError::VeryLargeNumber)?;
 
         let mut data = vec![0u8; size];
         for (i, byte) in current_call_frame
