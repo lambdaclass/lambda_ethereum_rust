@@ -1,5 +1,6 @@
 use ethereum_types::{H160, H256};
-use ethrex_core::types::BlockHash;
+use ethrex_core::{types::BlockHash, U256};
+use ethrex_rlp::error::RLPDecodeError;
 use ethrex_storage::error::StoreError;
 use ethrex_trie::TrieError;
 use revm::primitives::{
@@ -31,6 +32,8 @@ pub enum ExecutionDBError {
     Evm(#[from] Box<EvmError>), // boxed to avoid cyclic definition
     #[error("Trie error: {0}")]
     Trie(#[from] TrieError),
+    #[error("RLP decode error: {0}")]
+    RlpDecode(#[from] RLPDecodeError),
     #[error("State proofs error: {0}")]
     StateProofs(#[from] StateProofsError),
     #[error("Account {0} not found")]
@@ -55,12 +58,12 @@ pub enum ExecutionDBError {
     MissingAccountInStateTrie(H160),
     #[error("Missing storage trie of account {0}")]
     MissingStorageTrie(H160),
-    #[error("Storage trie root for account {0} does not match account storage root")]
-    InvalidStorageTrieRoot(H160),
+    #[error("Storage trie root {1} for account {0} does not match account storage root {2}")]
+    InvalidStorageTrieRoot(H160, H256, H256),
     #[error("The pruned storage trie of account {0} is missing the storage key {1}")]
     MissingKeyInStorageTrie(H160, H256),
-    #[error("Storage trie value for account {0} and key {1} does not match value stored in db")]
-    InvalidStorageTrieValue(H160, H256),
+    #[error("Storage trie value {1} for account {0} does not match value stored in db {2}")]
+    InvalidStorageTrieValue(H160, U256, U256),
     #[error("{0}")]
     Custom(String),
 }

@@ -1,10 +1,8 @@
 use tracing::info;
 
 // risc0
-use zkvm_interface::{
-    io::{ProgramInput, ProgramOutput},
-    methods::{ZKVM_PROGRAM_ELF, ZKVM_PROGRAM_ID},
-};
+pub use zkvm_interface::io::{ProgramInput, ProgramOutput};
+use zkvm_interface::methods::{ZKVM_PROGRAM_ELF, ZKVM_PROGRAM_ID};
 
 use risc0_zkvm::{default_prover, ExecutorEnv, ProverOpts};
 
