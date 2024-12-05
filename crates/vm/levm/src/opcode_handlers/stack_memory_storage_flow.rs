@@ -3,6 +3,7 @@ use crate::{
     constants::WORD_SIZE,
     errors::{OpcodeSuccess, OutOfGasError, VMError},
     gas_cost,
+    opcodes::Opcode,
     vm::VM,
 };
 use ethrex_core::{H256, U256};
@@ -289,9 +290,43 @@ impl VM {
         self.increase_consumed_gas(current_call_frame, gas_cost::JUMP)?;
 
         let jump_address = current_call_frame.stack.pop()?;
-        current_call_frame.jump(jump_address)?;
+        Self::jump(current_call_frame, jump_address)?;
 
         Ok(OpcodeSuccess::Continue)
+    }
+
+    /// JUMP* family (`JUMP` and `JUMP` ATTOW [DEC 2024]) helper
+    /// function.
+    /// This function returns whether the `address` is a valid JUMPDEST
+    /// for the specified `stack_frame` or not.
+    fn is_valid_jump_addr(stack_frame: &CallFrame, address: usize) -> bool {
+        matches!(
+            stack_frame
+                .bytecode
+                .get(address)
+                .copied()
+                .map(Opcode::try_from),
+            Some(Ok(Opcode::JUMPDEST))
+        )
+    }
+
+    /// JUMP* family (`JUMP` and `JUMP` ATTOW [DEC 2024]) helper
+    /// function.
+    /// This function will change the PC for the specified stack frame
+    /// to be equal to the specified address. If the address is a
+    /// valid JUMPDEST, it will return an error
+    pub fn jump(stack_frame: &mut CallFrame, jump_address: U256) -> Result<(), VMError> {
+        let jump_address_usize = jump_address
+            .try_into()
+            .map_err(|_err| VMError::VeryLargeNumber)?;
+
+        match Self::is_valid_jump_addr(stack_frame, jump_address_usize) {
+            true => {
+                stack_frame.pc = jump_address_usize;
+                Ok(())
+            }
+            false => Err(VMError::InvalidJump),
+        }
     }
 
     // JUMPI operation
@@ -305,7 +340,7 @@ impl VM {
         self.increase_consumed_gas(current_call_frame, gas_cost::JUMPI)?;
 
         if !condition.is_zero() {
-            current_call_frame.jump(jump_address)?;
+            Self::jump(current_call_frame, jump_address)?
         } else {
             current_call_frame.increment_pc()?;
         }
