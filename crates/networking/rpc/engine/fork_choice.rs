@@ -4,7 +4,7 @@ use ethrex_blockchain::{
     latest_canonical_block_hash,
     payload::{create_payload, BuildPayloadArgs},
 };
-use ethrex_core::types::{BlockHeader, ChainConfig};
+use ethrex_core::types::BlockHeader;
 use serde_json::Value;
 use tracing::{info, warn};
 
@@ -17,39 +17,51 @@ use crate::{
     RpcApiContext, RpcErr, RpcHandler,
 };
 
-        // ForkChoiceUpdatedVersion::V2 => {
-        //     if attributes.parent_beacon_block_root.is_some() {
-        //         return Err(RpcErr::InvalidPayloadAttributes(
-        //             "forkChoiceV2 with Beacon Root".to_string(),
-        //         ));
-        //     }
-        //     if !chain_config.is_shanghai_activated(attributes.timestamp) {
-        //         return Err(RpcErr::UnsuportedFork(
-        //             "forkChoiceV2 used to build pre-Shanghai payload".to_string(),
-        //         ));
-        //     }
-        //     if chain_config.is_cancun_activated(attributes.timestamp) {
-        //         return Err(RpcErr::UnsuportedFork(
-        //             "forkChoiceV2 used to build Cancun payload".to_string(),
-        //         ));
-        //     }
-        // }
+fn parse(
+    params: &Option<Vec<Value>>,
+) -> Result<(ForkChoiceState, Option<PayloadAttributes>), RpcErr> {
+    let params = params
+        .as_ref()
+        .ok_or(RpcErr::BadParams("No params provided".to_owned()))?;
+    if params.len() != 2 {
+        return Err(RpcErr::BadParams("Expected 2 params".to_owned()));
+    }
 
+    let forkchoice_state: ForkChoiceState = serde_json::from_value(params[0].clone())?;
+    // if there is an error when parsing, set to None
+    let payload_attributes: Option<PayloadAttributes> =
+        if let Ok(attributes) = serde_json::from_value::<PayloadAttributes>(params[1].clone()) {
+            Some(attributes)
+        } else {
+            None
+        };
+
+    Ok((forkchoice_state, payload_attributes))
+}
 
 fn handle_forkchoice(
-    forkchoice_state: &ForkChoiceState,
+    fork_choice_state: &ForkChoiceState,
     context: RpcApiContext,
+    version: usize,
 ) -> Result<(Option<BlockHeader>, ForkChoiceResponse), RpcErr> {
+    info!(
+        "New fork choice request v{} with head: {}, safe: {}, finalized: {}.",
+        version,
+        fork_choice_state.head_block_hash,
+        fork_choice_state.safe_block_hash,
+        fork_choice_state.finalized_block_hash
+    );
+
     match apply_fork_choice(
         &context.storage,
-        forkchoice_state.head_block_hash,
-        forkchoice_state.safe_block_hash,
-        forkchoice_state.finalized_block_hash,
+        fork_choice_state.head_block_hash,
+        fork_choice_state.safe_block_hash,
+        fork_choice_state.finalized_block_hash,
     ) {
         Ok(head) => Ok((
             Some(head),
             ForkChoiceResponse::from(PayloadStatus::valid_with_hash(
-                forkchoice_state.head_block_hash,
+                fork_choice_state.head_block_hash,
             )),
         )),
         Err(forkchoice_error) => {
@@ -69,7 +81,7 @@ fn handle_forkchoice(
                             "Missing latest canonical block".to_owned(),
                         ));
                     };
-                    let sync_head = forkchoice_state.head_block_hash;
+                    let sync_head = fork_choice_state.head_block_hash;
                     tokio::spawn(async move {
                         // If we can't get hold of the syncer, then it means that there is an active sync in process
                         if let Ok(mut syncer) = context.syncer.try_lock() {
@@ -90,13 +102,11 @@ fn handle_forkchoice(
     }
 }
 
-fn build_payload_v3(
+fn validate_v3(
     attributes: &PayloadAttributes,
     head_block: BlockHeader,
-    context: RpcApiContext,
-    fork_choice_state: &ForkChoiceState,
-) -> Result<u64, RpcErr> {
-    info!("Fork choice updated includes payload attributes. Creating a new payload.");
+    context: &RpcApiContext,
+) -> Result<(), RpcErr> {
     let chain_config = context.storage.get_chain_config()?;
     if attributes.parent_beacon_block_root.is_none() {
         return Err(RpcErr::InvalidPayloadAttributes(
@@ -113,6 +123,45 @@ fn build_payload_v3(
             "invalid timestamp".to_string(),
         ));
     }
+    Ok(())
+}
+
+fn validate_v2(
+    attributes: &PayloadAttributes,
+    head_block: BlockHeader,
+    context: &RpcApiContext,
+) -> Result<(), RpcErr> {
+    let chain_config = context.storage.get_chain_config()?;
+    if attributes.parent_beacon_block_root.is_some() {
+        return Err(RpcErr::InvalidPayloadAttributes(
+            "forkChoiceV2 with Beacon Root".to_string(),
+        ));
+    }
+    if !chain_config.is_shanghai_activated(attributes.timestamp) {
+        return Err(RpcErr::UnsuportedFork(
+            "forkChoiceV2 used to build pre-Shanghai payload".to_string(),
+        ));
+    }
+    if chain_config.is_cancun_activated(attributes.timestamp) {
+        return Err(RpcErr::UnsuportedFork(
+            "forkChoiceV2 used to build Cancun payload".to_string(),
+        ));
+    }
+    if attributes.timestamp <= head_block.timestamp {
+        return Err(RpcErr::InvalidPayloadAttributes(
+            "invalid timestamp".to_string(),
+        ));
+    }
+    Ok(())
+}
+
+fn build_payload(
+    attributes: &PayloadAttributes,
+    context: RpcApiContext,
+    fork_choice_state: &ForkChoiceState,
+    version: u8,
+) -> Result<u64, RpcErr> {
+    info!("Fork choice updated includes payload attributes. Creating a new payload.");
     let args = BuildPayloadArgs {
         parent: fork_choice_state.head_block_hash,
         timestamp: attributes.timestamp,
@@ -120,7 +169,7 @@ fn build_payload_v3(
         random: attributes.prev_randao,
         withdrawals: attributes.withdrawals.clone(),
         beacon_root: attributes.parent_beacon_block_root,
-        version: 3,
+        version,
     };
     let payload_id = args.id();
     let payload = match create_payload(&args, &context.storage) {
@@ -136,45 +185,33 @@ fn build_payload_v3(
 }
 
 #[derive(Debug)]
-pub struct ForkChoiceUpdatedV2{
+pub struct ForkChoiceUpdatedV2 {
     pub fork_choice_state: ForkChoiceState,
     pub payload_attributes: Option<PayloadAttributes>,
 }
 
 impl RpcHandler for ForkChoiceUpdatedV2 {
     fn parse(params: &Option<Vec<Value>>) -> Result<Self, RpcErr> {
-        let params = params
-            .as_ref()
-            .ok_or(RpcErr::BadParams("No params provided".to_owned()))?;
-        if params.len() != 2 {
-            return Err(RpcErr::BadParams("Expected 2 params".to_owned()));
-        }
-
-        let forkchoice_state: ForkChoiceState = serde_json::from_value(params[0].clone())?;
+        let (fork_choice_state, payload_attributes) = parse(params)?;
 
         Ok(ForkChoiceUpdatedV2 {
-            fork_choice_state: forkchoice_state,
-            payload_attributes: None,
+            fork_choice_state,
+            payload_attributes,
         })
     }
 
     fn handle(&self, context: RpcApiContext) -> Result<Value, RpcErr> {
-        info!(
-            "New fork choice request v2 with head: {}, safe: {}, finalized: {}.",
-            self.fork_choice_state.head_block_hash,
-            self.fork_choice_state.safe_block_hash,
-            self.fork_choice_state.finalized_block_hash
-        );
-
-        let (_head_block_opt, response) =
-            handle_forkchoice(&self.fork_choice_state, context.clone())?;
-
-        // TODO support payload attributes v2
+        let (head_block_opt, mut response) =
+            handle_forkchoice(&self.fork_choice_state, context.clone(), 2)?;
+        if let (Some(head_block), Some(attributes)) = (head_block_opt, &self.payload_attributes) {
+            validate_v2(attributes, head_block, &context)?;
+            let payload_id = build_payload(attributes, context, &self.fork_choice_state, 2)?;
+            response.set_id(payload_id);
+        }
 
         serde_json::to_value(response).map_err(|error| RpcErr::Internal(error.to_string()))
     }
 }
-
 
 #[derive(Debug)]
 pub struct ForkChoiceUpdatedV3 {
@@ -197,41 +234,20 @@ impl From<ForkChoiceUpdatedV3> for RpcRequest {
 
 impl RpcHandler for ForkChoiceUpdatedV3 {
     fn parse(params: &Option<Vec<Value>>) -> Result<Self, RpcErr> {
-        let params = params
-            .as_ref()
-            .ok_or(RpcErr::BadParams("No params provided".to_owned()))?;
-        if params.len() != 2 {
-            return Err(RpcErr::BadParams("Expected 2 params".to_owned()));
-        }
-
-        let forkchoice_state: ForkChoiceState = serde_json::from_value(params[0].clone())?;
-        // if there is an error when parsing, set to None
-        let payload_attributes_v3: Option<PayloadAttributes> = if let Ok(attributes) =
-            serde_json::from_value::<PayloadAttributes>(params[1].clone())
-        {
-            Some(attributes)
-        } else {
-            None
-        };
+        let (fork_choice_state, payload_attributes) = parse(params)?;
 
         Ok(ForkChoiceUpdatedV3 {
-            fork_choice_state: forkchoice_state,
-            payload_attributes: payload_attributes_v3,
+            fork_choice_state,
+            payload_attributes,
         })
     }
 
     fn handle(&self, context: RpcApiContext) -> Result<Value, RpcErr> {
-        info!(
-            "New fork choice request with head: {}, safe: {}, finalized: {}.",
-            self.fork_choice_state.head_block_hash,
-            self.fork_choice_state.safe_block_hash,
-            self.fork_choice_state.finalized_block_hash
-        );
         let (head_block_opt, mut response) =
-            handle_forkchoice(&self.fork_choice_state, context.clone())?;
+            handle_forkchoice(&self.fork_choice_state, context.clone(), 2)?;
         if let (Some(head_block), Some(attributes)) = (head_block_opt, &self.payload_attributes) {
-            let payload_id =
-                build_payload_v3(attributes, head_block, context, &self.fork_choice_state)?;
+            validate_v3(attributes, head_block, &context)?;
+            let payload_id = build_payload(attributes, context, &self.fork_choice_state, 3)?;
             response.set_id(payload_id);
         }
 
