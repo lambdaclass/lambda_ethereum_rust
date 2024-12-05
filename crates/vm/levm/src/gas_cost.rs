@@ -163,7 +163,7 @@ pub fn exp(exponent: U256) -> Result<U256, OutOfGasError> {
         .checked_add(U256::from(7))
         .ok_or(OutOfGasError::GasCostOverflow)?
         .checked_div(U256::from(8))
-        .ok_or(OutOfGasError::GasCostOverflow)?;
+        .ok_or(OutOfGasError::ArithmeticOperationDividedByZero)?; // '8' will never be zero
 
     let exponent_byte_size_cost = EXP_DYNAMIC_BASE
         .checked_mul(exponent_byte_size)
