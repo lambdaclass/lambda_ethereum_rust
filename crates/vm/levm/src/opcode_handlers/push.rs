@@ -47,6 +47,10 @@ impl VM {
 fn read_bytcode_slice(current_call_frame: &CallFrame, n_bytes: usize) -> Result<Vec<u8>, VMError> {
     let pc_offest = current_call_frame
         .pc()
+        // Add 1 to the PC because we don't want to include the
+        // Bytecode of the current instruction in the data we're about
+        // to read. We only want to read the data _NEXT_ to that
+        // bytecode
         .checked_add(1)
         .ok_or(VMError::Internal(
             InternalError::ArithmeticOperationOverflow,
