@@ -55,10 +55,17 @@ interface IOnChainProposer {
     /// @param blockProof is the proof of the block to be verified.
     /// @param imageId Digest of the zkVM imageid.
     /// @param journalDigest Digest of the public_inputs aka journal
+    /// ----------------------------------------------------------------------
+    /// @param programVKey Public verifying key
+    /// @param publicValues Values used to perform the execution
+    /// @param proofBytes Groth16 proof
     function verify(
         uint256 blockNumber,
         bytes calldata blockProof,
         bytes32 imageId,
-        bytes32 journalDigest
+        bytes32 journalDigest,
+        bytes32 programVKey,
+        bytes calldata publicValues,
+        bytes calldata proofBytes
     ) external;
 }

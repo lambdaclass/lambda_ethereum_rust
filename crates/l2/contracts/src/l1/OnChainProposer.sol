@@ -169,7 +169,10 @@ contract OnChainProposer is IOnChainProposer, ReentrancyGuard {
         uint256 blockNumber,
         bytes calldata blockProof,
         bytes32 imageId,
-        bytes32 journalDigest
+        bytes32 journalDigest,
+        bytes32 programVKey,
+        bytes calldata publicValues,
+        bytes calldata proofBytes
     ) external override onlySequencer {
         require(
             blockNumber == lastVerifiedBlock + 1,
@@ -191,11 +194,6 @@ contract OnChainProposer is IOnChainProposer, ReentrancyGuard {
         }
 
         if (SP1VERIFIER != DEV_MODE) {
-            // TODO: remove
-            // used as placeholders
-            bytes32 programVKey = bytes32(0);
-            bytes memory publicValues;
-            bytes memory proofBytes;
             // If the verification fails, it will revert.
             ISP1Verifier(SP1VERIFIER).verifyProof(
                 programVKey,
