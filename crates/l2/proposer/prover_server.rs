@@ -28,7 +28,8 @@ use tokio::{
 };
 use tracing::{debug, error, info, warn};
 
-use risc0_zkvm::sha::{Digest, Digestible};
+use risc0_zkvm::sha::Digestible;
+use sp1_sdk::{network::proto::network::twirp::tower::util::CallAll, HashableKey};
 
 #[derive(Debug, Serialize, Deserialize, Default)]
 pub struct ProverInputData {
@@ -54,11 +55,69 @@ pub struct Risc0Proof {
     pub prover_id: Vec<u32>,
 }
 
+pub struct Risc0ContractData {
+    pub block_proof: Vec<u8>,
+    pub image_id: Vec<u8>,
+    pub journal_digest: Vec<u8>,
+}
+
 impl Risc0Proof {
     pub fn new(receipt: risc0_zkvm::Receipt, prover_id: Vec<u32>) -> Self {
         Risc0Proof {
             receipt: Box::new(receipt),
             prover_id,
+        }
+    }
+
+    pub fn contract_data(&self) -> Result<Risc0ContractData, ProverServerError> {
+        // If we run the prover_client with RISC0_DEV_MODE=0 we will have a groth16 proof
+        // Else, we will have a fake proof.
+        //
+        // The RISC0_DEV_MODE=1 should only be used with DEPLOYER_CONTRACT_VERIFIER=0xAA
+        let block_proof = match self.receipt.inner.groth16() {
+            Ok(inner) => {
+                // The SELECTOR is used to perform an extra check inside the groth16 verifier contract.
+                let mut selector =
+                    hex::encode(inner.verifier_parameters.as_bytes().get(..4).ok_or(
+                        ProverServerError::Custom(
+                            "Failed to get verify_proof_selector in send_proof()".to_owned(),
+                        ),
+                    )?);
+                let seal = hex::encode(inner.clone().seal);
+                selector.push_str(&seal);
+                hex::decode(selector).map_err(|e| {
+                    ProverServerError::Custom(format!("Failed to hex::decode(selector): {e}"))
+                })?
+            }
+            Err(_) => vec![32; 0],
+        };
+
+        let mut image_id: [u32; 8] = [0; 8];
+        for (i, b) in image_id.iter_mut().enumerate() {
+            *b = *self.prover_id.get(i).ok_or(ProverServerError::Custom(
+                "Failed to get image_id in handle_proof_submission()".to_owned(),
+            ))?;
+        }
+
+        let image_id: risc0_zkvm::sha::Digest = image_id.into();
+        let image_id = image_id.as_bytes().to_vec();
+
+        let journal_digest = Digestible::digest(&self.receipt.journal)
+            .as_bytes()
+            .to_vec();
+
+        Ok(Risc0ContractData {
+            block_proof,
+            image_id,
+            journal_digest,
+        })
+    }
+
+    pub fn contract_data_empty() -> Risc0ContractData {
+        Risc0ContractData {
+            block_proof: vec![32; 0],
+            image_id: vec![32; 0],
+            journal_digest: vec![32; 0],
         }
     }
 }
@@ -69,6 +128,12 @@ pub struct Sp1Proof {
     pub vk: sp1_sdk::SP1VerifyingKey,
 }
 
+pub struct Sp1ContractData {
+    pub public_values: Vec<u8>,
+    pub vk: Vec<u8>,
+    pub proof_bytes: Vec<u8>,
+}
+
 impl Sp1Proof {
     pub fn new(
         proof: sp1_sdk::SP1ProofWithPublicValues,
@@ -77,6 +142,33 @@ impl Sp1Proof {
         Sp1Proof {
             proof: Box::new(proof),
             vk: verifying_key,
+        }
+    }
+
+    pub fn contract_data(&self) -> Sp1ContractData {
+        let public_values = format!("0x{}", hex::encode(self.proof.public_values.as_slice()))
+            .as_bytes()
+            .to_vec();
+
+        let vk = self.vk.bytes32().as_bytes().to_vec();
+
+        let proof_bytes = format!("0x{}", hex::encode(self.proof.bytes()))
+            .as_bytes()
+            .to_vec();
+
+        Sp1ContractData {
+            public_values,
+            vk,
+            proof_bytes,
+        }
+    }
+
+    // TODO: better way of giving empty information
+    pub fn contract_data_empty() -> Sp1ContractData {
+        Sp1ContractData {
+            public_values: vec![32; 0],
+            vk: vec![32; 0],
+            proof_bytes: vec![32; 0],
         }
     }
 }
@@ -335,67 +427,6 @@ impl ProverServer {
             .map_err(|e| ProverServerError::ConnectionError(e.into()))
     }
 
-    async fn handle_proof_submission(
-        &self,
-        block_number: u64,
-        zk_proof: ZkProof,
-    ) -> Result<(), ProverServerError> {
-        match zk_proof {
-            ZkProof::RISC0(risc0_proof) => {
-                self.handle_risc0_zkproof(block_number, risc0_proof).await?
-            }
-            ZkProof::SP1(sp1_proof) => self.handle_sp1_zkproof(block_number, sp1_proof).await?,
-        };
-
-        Ok(())
-    }
-
-    async fn handle_risc0_zkproof(
-        &self,
-        block_number: u64,
-        risc0_proof: Risc0Proof,
-    ) -> Result<(), ProverServerError> {
-        let Risc0Proof { receipt, prover_id } = risc0_proof;
-        // Send Tx
-        // If we run the prover_client with RISC0_DEV_MODE=0 we will have a groth16 proof
-        // Else, we will have a fake proof.
-        //
-        // The RISC0_DEV_MODE=1 should only be used with DEPLOYER_CONTRACT_VERIFIER=0xAA
-        let seal = match receipt.inner.groth16() {
-            Ok(inner) => {
-                // The SELECTOR is used to perform an extra check inside the groth16 verifier contract.
-                let mut selector =
-                    hex::encode(inner.verifier_parameters.as_bytes().get(..4).ok_or(
-                        ProverServerError::Custom(
-                            "Failed to get verify_proof_selector in send_proof()".to_owned(),
-                        ),
-                    )?);
-                let seal = hex::encode(inner.clone().seal);
-                selector.push_str(&seal);
-                hex::decode(selector).map_err(|e| {
-                    ProverServerError::Custom(format!("Failed to hex::decode(selector): {e}"))
-                })?
-            }
-            Err(_) => vec![32; 0],
-        };
-
-        let mut image_id: [u32; 8] = [0; 8];
-        for (i, b) in image_id.iter_mut().enumerate() {
-            *b = *prover_id.get(i).ok_or(ProverServerError::Custom(
-                "Failed to get image_id in handle_proof_submission()".to_owned(),
-            ))?;
-        }
-
-        let image_id: risc0_zkvm::sha::Digest = image_id.into();
-
-        let journal_digest = Digestible::digest(&receipt.journal);
-
-        self.send_risc0_proof(block_number, &seal, image_id, journal_digest)
-            .await?;
-
-        Ok(())
-    }
-
     fn create_prover_input(&self, block_number: u64) -> Result<ProverInputData, ProverServerError> {
         let header = self
             .store
@@ -424,64 +455,78 @@ impl ProverServer {
         })
     }
 
-    pub async fn send_risc0_proof(
+    pub async fn handle_proof_submission(
         &self,
         block_number: u64,
-        seal: &[u8],
-        image_id: Digest,
-        journal_digest: Digest,
+        zk_proof: ZkProof,
     ) -> Result<H256, ProverServerError> {
+        // TODO:
+        // Ideally we should wait to have both proofs
+        // We will have to send them in the same transaction.
+        let (sp1_contract_data, risc0_contract_data) = match zk_proof {
+            ZkProof::RISC0(risc0_proof) => {
+                let risc0_contract_data = risc0_proof.contract_data()?;
+                let sp1_contract_data = Sp1Proof::contract_data_empty();
+                (sp1_contract_data, risc0_contract_data)
+            }
+            ZkProof::SP1(sp1_proof) => {
+                let risc0_contract_data = Risc0Proof::contract_data_empty();
+                let sp1_contract_data = sp1_proof.contract_data();
+                (sp1_contract_data, risc0_contract_data)
+            }
+        };
+
         debug!("Sending proof for {block_number}");
-        let mut calldata = Vec::new();
 
         // IOnChainProposer
-        // function verify(uint256,bytes,bytes32,bytes32)
-        // Verifier
-        // function verify(bytes,bytes32,bytes32)
-        // blockNumber, seal, imageId, journalDigest
+        // function verify(uint256,bytes,bytes32,bytes32,bytes32,bytes,bytes)
+        // blockNumber, seal, imageId, journalDigest, programVKey, publicValues, proofBytes
         // From crates/l2/contracts/l1/interfaces/IOnChainProposer.sol
-        let verify_proof_selector = keccak(b"verify(uint256,bytes,bytes32,bytes32)")
+        let mut calldata = keccak(b"verify(uint256,bytes,bytes32,bytes32,bytes32,bytes,bytes)")
             .as_bytes()
             .get(..4)
             .ok_or(ProverServerError::Custom(
                 "Failed to get verify_proof_selector in send_proof()".to_owned(),
             ))?
             .to_vec();
-        calldata.extend(verify_proof_selector);
 
         // The calldata has to be structured in the following way:
         // block_number
         // size in bytes
-        // image_id digest
-        // journal digest
-        // size of seal
-        // seal
+        // size of block_proof
+        // block_proof
+        // image_id
+        // journal
+        // programVKey
+        // size of publicValues
+        // publicValues
+        // size of proofBytes
+        // proofBytes
 
         // extend with block_number
         calldata.extend(H256::from_low_u64_be(block_number).as_bytes());
 
         // extend with size in bytes
-        // 4 u256 goes after this field so: 0x80 == 128bytes == 32bytes * 4
-        calldata.extend(H256::from_low_u64_be(4 * 32).as_bytes());
+        // 7 u256 goes after this field so: 32bytes * 7
+        calldata.extend(H256::from_low_u64_be(7 * 32).as_bytes());
+
+        // extend with size of block_proof and block_proof
+        extend_calldata_with_bytes(&mut calldata, &risc0_contract_data.block_proof)?;
 
         // extend with image_id
-        calldata.extend(image_id.as_bytes());
+        calldata.extend(risc0_contract_data.image_id);
 
         // extend with journal_digest
-        calldata.extend(journal_digest.as_bytes());
+        calldata.extend(risc0_contract_data.journal_digest);
 
-        // extend with size of seal
-        calldata.extend(
-            H256::from_low_u64_be(seal.len().try_into().map_err(|err| {
-                ProverServerError::Custom(format!("Seal length does not fit in u64: {}", err))
-            })?)
-            .as_bytes(),
-        );
-        // extend with seal
-        calldata.extend(seal);
-        // extend with zero padding
-        let leading_zeros = 32 - ((calldata.len() - 4) % 32);
-        calldata.extend(vec![0; leading_zeros]);
+        // extend with program_vkey
+        calldata.extend(sp1_contract_data.vk);
+
+        // extend with size of public_values and public_values
+        extend_calldata_with_bytes(&mut calldata, &sp1_contract_data.public_values)?;
+
+        // extend with size of proof_bytes and proof_bytes
+        extend_calldata_with_bytes(&mut calldata, &sp1_contract_data.proof_bytes)?;
 
         let verify_tx = self
             .eth_client
@@ -507,14 +552,6 @@ impl ProverServer {
         info!("Sent proof for block {block_number}, with transaction hash {verify_tx_hash:#x}");
 
         Ok(verify_tx_hash)
-    }
-
-    pub async fn handle_sp1_zkproof(
-        &self,
-        _block_number: u64,
-        _sp1_proof: Sp1Proof,
-    ) -> Result<(), ProverServerError> {
-        todo!()
     }
 
     pub async fn main_logic_dev(&self) -> Result<(), ProverServerError> {
@@ -547,7 +584,7 @@ impl ProverServer {
 
             // IOnChainProposer
             // function verify(uint256,bytes,bytes32,bytes32,bytes32,bytes,bytes)
-            // blockNumber, seal, imageId, journalDigest, programVKey, publicValues, proofBytes
+            // blockNumber, blockProof, imageId, journalDigest, programVKey, publicValues, proofBytes
             // From crates/l2/contracts/l1/interfaces/IOnChainProposer.sol
             let mut calldata = keccak(b"verify(uint256,bytes,bytes32,bytes32,bytes32,bytes,bytes)")
                 .as_bytes()
@@ -606,4 +643,24 @@ impl ProverServer {
             );
         }
     }
+}
+
+pub fn extend_calldata_with_bytes(
+    calldata: &mut Vec<u8>,
+    bytes: &[u8],
+) -> Result<(), ProverServerError> {
+    // extend with size of bytes
+    calldata.extend(
+        H256::from_low_u64_be(bytes.len().try_into().map_err(|err| {
+            ProverServerError::Custom(format!("bytes length does not fit in u64: {}", err))
+        })?)
+        .as_bytes(),
+    );
+    // extend with bytes
+    calldata.extend(bytes);
+    // extend with zero padding
+    let leading_zeros = 32 - ((calldata.len() - 4) % 32);
+    calldata.extend(vec![0; leading_zeros]);
+
+    Ok(())
 }
