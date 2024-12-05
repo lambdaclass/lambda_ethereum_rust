@@ -1,6 +1,6 @@
 use clap::Args;
 use ethrex_l2::utils::test_data_io::{generate_program_input, read_chain_file, read_genesis_file};
-use ethrex_prover_lib::prover::{create_prover, Prover};
+use ethrex_prover_lib::prover::create_prover;
 
 #[derive(Args)]
 pub(crate) struct Command {
