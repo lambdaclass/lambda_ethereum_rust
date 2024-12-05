@@ -45,7 +45,7 @@ impl VM {
 }
 
 fn read_bytcode_slice(current_call_frame: &CallFrame, n_bytes: usize) -> Result<Vec<u8>, VMError> {
-    let pc_offest = current_call_frame
+    let pc_offset = current_call_frame
         .pc()
         // Add 1 to the PC because we don't want to include the
         // Bytecode of the current instruction in the data we're about
@@ -58,7 +58,7 @@ fn read_bytcode_slice(current_call_frame: &CallFrame, n_bytes: usize) -> Result<
 
     Ok(current_call_frame
         .bytecode
-        .get(pc_offest..)
+        .get(pc_offset..)
         .unwrap_or_default()
         .iter()
         .take(n_bytes)
