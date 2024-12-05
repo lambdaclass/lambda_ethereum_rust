@@ -17,6 +17,77 @@ use crate::{
     RpcApiContext, RpcErr, RpcHandler,
 };
 
+#[derive(Debug)]
+pub struct ForkChoiceUpdatedV2 {
+    pub fork_choice_state: ForkChoiceState,
+    pub payload_attributes: Option<PayloadAttributes>,
+}
+
+impl RpcHandler for ForkChoiceUpdatedV2 {
+    fn parse(params: &Option<Vec<Value>>) -> Result<Self, RpcErr> {
+        let (fork_choice_state, payload_attributes) = parse(params)?;
+
+        Ok(ForkChoiceUpdatedV2 {
+            fork_choice_state,
+            payload_attributes,
+        })
+    }
+
+    fn handle(&self, context: RpcApiContext) -> Result<Value, RpcErr> {
+        let (head_block_opt, mut response) =
+            handle_forkchoice(&self.fork_choice_state, context.clone(), 2)?;
+        if let (Some(head_block), Some(attributes)) = (head_block_opt, &self.payload_attributes) {
+            validate_v2(attributes, head_block, &context)?;
+            let payload_id = build_payload(attributes, context, &self.fork_choice_state, 2)?;
+            response.set_id(payload_id);
+        }
+
+        serde_json::to_value(response).map_err(|error| RpcErr::Internal(error.to_string()))
+    }
+}
+
+#[derive(Debug)]
+pub struct ForkChoiceUpdatedV3 {
+    pub fork_choice_state: ForkChoiceState,
+    pub payload_attributes: Option<PayloadAttributes>,
+}
+
+impl From<ForkChoiceUpdatedV3> for RpcRequest {
+    fn from(val: ForkChoiceUpdatedV3) -> Self {
+        RpcRequest {
+            method: "engine_forkchoiceUpdatedV3".to_string(),
+            params: Some(vec![
+                serde_json::json!(val.fork_choice_state),
+                serde_json::json!(val.payload_attributes),
+            ]),
+            ..Default::default()
+        }
+    }
+}
+
+impl RpcHandler for ForkChoiceUpdatedV3 {
+    fn parse(params: &Option<Vec<Value>>) -> Result<Self, RpcErr> {
+        let (fork_choice_state, payload_attributes) = parse(params)?;
+
+        Ok(ForkChoiceUpdatedV3 {
+            fork_choice_state,
+            payload_attributes,
+        })
+    }
+
+    fn handle(&self, context: RpcApiContext) -> Result<Value, RpcErr> {
+        let (head_block_opt, mut response) =
+            handle_forkchoice(&self.fork_choice_state, context.clone(), 2)?;
+        if let (Some(head_block), Some(attributes)) = (head_block_opt, &self.payload_attributes) {
+            validate_v3(attributes, head_block, &context)?;
+            let payload_id = build_payload(attributes, context, &self.fork_choice_state, 3)?;
+            response.set_id(payload_id);
+        }
+
+        serde_json::to_value(response).map_err(|error| RpcErr::Internal(error.to_string()))
+    }
+}
+
 fn parse(
     params: &Option<Vec<Value>>,
 ) -> Result<(ForkChoiceState, Option<PayloadAttributes>), RpcErr> {
@@ -182,75 +253,4 @@ fn build_payload(
     context.storage.add_payload(payload_id, payload)?;
 
     Ok(payload_id)
-}
-
-#[derive(Debug)]
-pub struct ForkChoiceUpdatedV2 {
-    pub fork_choice_state: ForkChoiceState,
-    pub payload_attributes: Option<PayloadAttributes>,
-}
-
-impl RpcHandler for ForkChoiceUpdatedV2 {
-    fn parse(params: &Option<Vec<Value>>) -> Result<Self, RpcErr> {
-        let (fork_choice_state, payload_attributes) = parse(params)?;
-
-        Ok(ForkChoiceUpdatedV2 {
-            fork_choice_state,
-            payload_attributes,
-        })
-    }
-
-    fn handle(&self, context: RpcApiContext) -> Result<Value, RpcErr> {
-        let (head_block_opt, mut response) =
-            handle_forkchoice(&self.fork_choice_state, context.clone(), 2)?;
-        if let (Some(head_block), Some(attributes)) = (head_block_opt, &self.payload_attributes) {
-            validate_v2(attributes, head_block, &context)?;
-            let payload_id = build_payload(attributes, context, &self.fork_choice_state, 2)?;
-            response.set_id(payload_id);
-        }
-
-        serde_json::to_value(response).map_err(|error| RpcErr::Internal(error.to_string()))
-    }
-}
-
-#[derive(Debug)]
-pub struct ForkChoiceUpdatedV3 {
-    pub fork_choice_state: ForkChoiceState,
-    pub payload_attributes: Option<PayloadAttributes>,
-}
-
-impl From<ForkChoiceUpdatedV3> for RpcRequest {
-    fn from(val: ForkChoiceUpdatedV3) -> Self {
-        RpcRequest {
-            method: "engine_forkchoiceUpdatedV3".to_string(),
-            params: Some(vec![
-                serde_json::json!(val.fork_choice_state),
-                serde_json::json!(val.payload_attributes),
-            ]),
-            ..Default::default()
-        }
-    }
-}
-
-impl RpcHandler for ForkChoiceUpdatedV3 {
-    fn parse(params: &Option<Vec<Value>>) -> Result<Self, RpcErr> {
-        let (fork_choice_state, payload_attributes) = parse(params)?;
-
-        Ok(ForkChoiceUpdatedV3 {
-            fork_choice_state,
-            payload_attributes,
-        })
-    }
-
-    fn handle(&self, context: RpcApiContext) -> Result<Value, RpcErr> {
-        let (head_block_opt, mut response) =
-            handle_forkchoice(&self.fork_choice_state, context.clone(), 2)?;
-        if let (Some(head_block), Some(attributes)) = (head_block_opt, &self.payload_attributes) {
-            validate_v3(attributes, head_block, &context)?;
-            let payload_id = build_payload(attributes, context, &self.fork_choice_state, 3)?;
-            response.set_id(payload_id);
-        }
-
-        serde_json::to_value(response).map_err(|error| RpcErr::Internal(error.to_string()))
-    }
 }
