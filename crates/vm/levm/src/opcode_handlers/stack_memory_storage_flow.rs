@@ -353,7 +353,7 @@ impl VM {
     /// JUMP* family (`JUMP` and `JUMP` ATTOW [DEC 2024]) helper
     /// function.
     /// This function will change the PC for the specified call frame
-    /// to be equal to the specified address. If the address is a
+    /// to be equal to the specified address. If the address is not a
     /// valid JUMPDEST, it will return an error
     pub fn jump(call_frame: &mut CallFrame, jump_address: U256) -> Result<(), VMError> {
         let jump_address_usize = jump_address
