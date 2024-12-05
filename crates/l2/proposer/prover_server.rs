@@ -546,10 +546,10 @@ impl ProverServer {
             info!("Last committed: {last_committed_block} - Last verified: {last_verified_block}");
 
             // IOnChainProposer
-            // function verify(uint256,bytes,bytes32,bytes32)
-            // blockNumber, seal, imageId, journalDigest
+            // function verify(uint256,bytes,bytes32,bytes32,bytes32,bytes,bytes)
+            // blockNumber, seal, imageId, journalDigest, programVKey, publicValues, proofBytes
             // From crates/l2/contracts/l1/interfaces/IOnChainProposer.sol
-            let mut calldata = keccak(b"verify(uint256,bytes,bytes32,bytes32)")
+            let mut calldata = keccak(b"verify(uint256,bytes,bytes32,bytes32,bytes32,bytes,bytes)")
                 .as_bytes()
                 .get(..4)
                 .ok_or(ProverServerError::Custom(
@@ -557,11 +557,22 @@ impl ProverServer {
                 ))?
                 .to_vec();
             calldata.extend(H256::from_low_u64_be(last_verified_block + 1).as_bytes());
-            calldata.extend(H256::from_low_u64_be(128).as_bytes());
+            // 7 inputs * 32bytes offset
+            calldata.extend(H256::from_low_u64_be(7 * 32).as_bytes());
+            // extend with size of the first bytes variable -> 32bytes
+            calldata.extend(H256::from_low_u64_be(32).as_bytes());
+            // extend with bytes, bytes32, bytes32, bytes32
+            for _ in 0..=3 {
+                calldata.extend(H256::zero().as_bytes());
+            }
+            // extend with size of the second bytes variable -> 32bytes
+            calldata.extend(H256::from_low_u64_be(32).as_bytes());
+            // Fill with zeroes
             calldata.extend(H256::zero().as_bytes());
+            // extend with size of the third bytes variable -> 32bytes
+            calldata.extend(H256::from_low_u64_be(32).as_bytes());
             calldata.extend(H256::zero().as_bytes());
-            calldata.extend(H256::zero().as_bytes());
-            calldata.extend(H256::zero().as_bytes());
+
             let verify_tx = self
                 .eth_client
                 .build_eip1559_transaction(

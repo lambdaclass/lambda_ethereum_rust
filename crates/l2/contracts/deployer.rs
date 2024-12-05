@@ -342,7 +342,7 @@ fn compile_contracts(contracts_path: &Path) -> Result<(), DeployError> {
         .success()
     {
         return Err(DeployError::CompilationError(
-            "Failed to compile OnChainProposer.sol".to_owned(),
+            "Failed to compile SP1VerifierGroth16.sol".to_owned(),
         ));
     }
     Ok(())
