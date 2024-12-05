@@ -306,6 +306,8 @@ impl VM {
 
         if !condition.is_zero() {
             current_call_frame.jump(jump_address)?;
+        } else {
+            current_call_frame.increment_pc()?;
         }
         Ok(OpcodeSuccess::Continue)
     }
