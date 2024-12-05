@@ -82,15 +82,10 @@ impl EngineClient {
         state: ForkChoiceState,
         payload_attributes: Option<PayloadAttributes>,
     ) -> Result<ForkChoiceResponse, EngineClientError> {
-        let request = ForkChoiceUpdatedV3 {
+        let request = RpcRequest::from(ForkChoiceUpdatedV3 {
             fork_choice_state: state,
             payload_attributes,
-        }
-        .try_into()
-        .map_err(|e| {
-            ForkChoiceUpdateError::ConversionError(format!("Failed to convert to RPC request: {e}"))
-        })
-        .map_err(EngineClientError::from)?;
+        });
 
         match self.send_request(request).await {
             Ok(RpcResponse::Success(result)) => serde_json::from_value(result.result)
