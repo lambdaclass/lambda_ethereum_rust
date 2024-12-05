@@ -193,9 +193,11 @@ impl VM {
             .try_into()
             .map_err(|_| VMError::VeryLargeNumber)?;
 
+        // Maybe the error raised could be different, like an OutOfGasError
+        let new_memory_size = offset.checked_add(size).ok_or(VMError::VeryLargeNumber)?;
         self.increase_consumed_gas(
             current_call_frame,
-            memory::expansion_cost(offset + size, current_call_frame.memory.len())?.into(),
+            memory::expansion_cost(new_memory_size, current_call_frame.memory.len())?.into(),
         )?;
 
         current_call_frame.returndata =
@@ -458,9 +460,11 @@ impl VM {
             .try_into()
             .map_err(|_err| VMError::VeryLargeNumber)?;
 
+        // Maybe the error raised could be different, like an OutOfGasError
+        let new_memory_size = offset.checked_add(size).ok_or(VMError::VeryLargeNumber)?;
         self.increase_consumed_gas(
             current_call_frame,
-            memory::expansion_cost(offset, size)?.into(),
+            memory::expansion_cost(new_memory_size, current_call_frame.memory.len())?.into(),
         )?;
 
         current_call_frame.returndata =
