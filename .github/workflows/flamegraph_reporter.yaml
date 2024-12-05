@@ -54,7 +54,8 @@ jobs:
       - name: Build ethrex
         run: CARGO_PROFILE_RELEASE_DEBUG=true cargo build --release --bin ethrex --features dev
 
-      - name: Generate Flamegraph data for Ethrex
+      - id: generate-flamegraph
+        name: Generate Flamegraph data for Ethrex
         shell: bash
         run: |
           CARGO_PROFILE_RELEASE_DEBUG=true cargo flamegraph -c "record -o perf.data -F997 --call-graph dwarf,16384 -g" --bin ethrex --features dev  --  --network test_data/genesis-l2.json --http.port 1729 &
@@ -176,6 +177,18 @@ jobs:
           name: flamegraph_reth.svg
           path: flamegraph_reth.svg
 
+      - name: Download time reports for ethrex
+        uses: actions/download-artifact@v4
+        with:
+          name: times_ethrex
+          path: times_ethrex.txt
+
+      - name: Download time reports for reth
+        uses: actions/download-artifact@v4
+        with:
+          name: times_reth
+          path: times_reth.txt
+
       - name: Update static page locally with new data
         shell: bash
         run: |
@@ -185,7 +198,11 @@ jobs:
           cp -r flamegraph_reth.svg pages/
           ls -las pages/
           date +'%Y-%m-%dT%H:%M:%S'
+          ethrex_time=$(cat times_ethrex.txt)
+          reth_time=$(cat times_reth.txt)
           sed -i "s/{{LAST_UPDATE}}/$(date +'%Y-%m-%dT%H:%M:%S')/g" pages/index.html
+          sed -i "s/{{ETHREX_TIME}}/$ethrex_time/g" pages/index.html
+          sed -i "s/{{RETH_TIME}}/$reth_time/g" pages/index.html
 
       - name: Setup Pages
         uses: actions/configure-pages@v5

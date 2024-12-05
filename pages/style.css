@@ -49,7 +49,7 @@ img {
     width: 80%;
     height: auto;
     max-width: 200px;
-    max-height: 150px; /* Prevent SVGs from being too tall */
+    max-height: 150px;
 }
 
 h2 {
@@ -59,4 +59,9 @@ h2 {
 
 .col-header {
     margin-bottom: 2em;
+}
+
+.time-elapsed {
+    font-size: 0.9em;
+    margin-bottom: 0.8em;
 }
