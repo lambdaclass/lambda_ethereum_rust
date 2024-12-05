@@ -142,7 +142,9 @@ impl CallFrame {
         self.pc
     }
 
-    /// Jump to the given address, returns false if the jump position wasn't a JUMPDEST
+    /// Jump to the given address. If that address is not a valid
+    /// JUMPDEST, it will return a VMError. It everything went well,
+    /// it will return nothing
     pub fn jump(&mut self, jump_address: U256) -> Result<(), VMError> {
         let jump_address_usize = jump_address
             .try_into()
