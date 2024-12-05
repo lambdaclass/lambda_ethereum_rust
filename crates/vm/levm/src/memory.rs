@@ -7,7 +7,7 @@ use ethrex_core::U256;
 pub type Memory = Vec<u8>;
 
 pub fn try_resize(memory: &mut Memory, unchecked_new_size: usize) -> Result<(), VMError> {
-    if unchecked_new_size == 0 || unchecked_new_size < memory.len() {
+    if unchecked_new_size == 0 || unchecked_new_size <= memory.len() {
         return Ok(());
     }
 
