@@ -41,13 +41,11 @@ jobs:
         uses: actions/checkout@v4
       - name: Rust toolchain install
         uses: dtolnay/rust-toolchain@stable
-      - name: RISC-V zkVM toolchain install
+      - name: RISC-V RISC0 toolchain install
         run: |
           curl -L https://risczero.com/install | bash
           ~/.risc0/bin/rzup install
-      # - name: Caching
-      #   uses: Swatinem/rust-cache@v2
-      - name: Build prover and zkVM
+      - name: Build prover and RISC0's zkVM
         run: |
           cd crates/l2/prover
           cargo build --release --features build_zkvm
@@ -55,3 +53,15 @@ jobs:
         run: |
           cd crates/l2/prover
           RUST_LOG=info make perf_test_proving
+      - name: RISC-V SP1 toolchain install
+        run: |
+          curl -L https://sp1.succinct.xyz | bash
+          ~/.sp1/bin/sp1up
+      - name: Build prover and SP1's zkVM
+        run: |
+          cd crates/l2/prover
+          cargo build --release --features build_sp1
+      - name: Test Prover Execution
+        run: |
+          cd crates/l2/prover
+          RUST_LOG=info make perf_test_sp1_proving
