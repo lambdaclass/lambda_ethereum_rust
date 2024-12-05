@@ -198,13 +198,20 @@ impl L1Watcher {
                     ))
                 })?;
 
-            let deposit_id = format!("{:#x}", log.log.topics[3])
-                .parse::<U256>()
-                .map_err(|e| {
-                    L1WatcherError::FailedToDeserializeLog(format!(
-                        "Failed to parse depositId value from log: {e:#?}"
-                    ))
-                })?;
+            let deposit_id =
+                log.log
+                    .topics
+                    .get(3)
+                    .ok_or(L1WatcherError::FailedToDeserializeLog(
+                        "Failed to parse beneficiary from log: log.topics[2] out of bounds"
+                            .to_owned(),
+                    ))?;
+
+            let deposit_id = format!("{deposit_id:#x}").parse::<U256>().map_err(|e| {
+                L1WatcherError::FailedToDeserializeLog(format!(
+                    "Failed to parse depositId value from log: {e:#?}"
+                ))
+            })?;
 
             let mut value_bytes = [0u8; 32];
             mint_value.to_big_endian(&mut value_bytes);
