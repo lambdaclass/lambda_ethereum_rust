@@ -1,6 +1,6 @@
 .DEFAULT_GOAL := help
 
-.PHONY: help init down clean init-local-l1 down-local-l1 clean-local-l1 init-l2 down-l2 deploy-l1 deploy-block-executor deploy-inbox setup-prover ci_test test update-cli update-cli-contracts
+.PHONY: help init down clean init-local-l1 down-local-l1 clean-local-l1 init-l2 down-l2 deploy-l1 deploy-block-executor deploy-inbox setup-prover test ci_test update-cli-contracts
 
 L2_GENESIS_FILE_PATH=../../test_data/genesis-l2.json
 L1_GENESIS_FILE_PATH=../../test_data/genesis-l1.json
@@ -107,11 +107,11 @@ update-cli-contracts: ## 📜 Update the CLI's config contracts
 
 # Testing
 
-ci_test: ## 🚧 Runs the L2's integration test
+ci_test: ## 🚧 Runs the L2's integration test, used by the github's CI
 	docker compose -f ${ethrex_L2_DOCKER_COMPOSE_PATH} down
 	docker compose -f ${ethrex_L2_DOCKER_COMPOSE_PATH} up -d --build
 	BRIDGE_ADDRESS=$$(grep 'L1_WATCHER_BRIDGE_ADDRESS' .env | cut -d= -f2) ON_CHAIN_PROPOSER_ADDRESS=$$(grep 'COMMITTER_ON_CHAIN_PROPOSER_ADDRESS' .env | cut -d= -f2) cargo test --release testito -- --nocapture
 	docker compose -f ${ethrex_L2_DOCKER_COMPOSE_PATH} down
 
-test:
+test: ## 🚧 Runs the L2's integration test, run `make init` and in a new terminal make test
 	BRIDGE_ADDRESS=$$(grep 'L1_WATCHER_BRIDGE_ADDRESS' .env | cut -d= -f2) ON_CHAIN_PROPOSER_ADDRESS=$$(grep 'COMMITTER_ON_CHAIN_PROPOSER_ADDRESS' .env | cut -d= -f2) cargo test --release testito -- --nocapture
