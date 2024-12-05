@@ -49,7 +49,7 @@ path = "src/main.rs"
 [features]
 default = []
 ## risc0
-build_zkvm = ["zkvm_interface/build_zkvm", "build_sp1"]
+build_zkvm = ["zkvm_interface/build_zkvm"]
 gpu = ["risc0-zkvm/cuda", "sp1-sdk/cuda"]
 ## sp1
 build_sp1 = []
