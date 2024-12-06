@@ -38,10 +38,15 @@ jobs:
           cd crates/vm/levm
           make download-evm-ef-tests
 
-      - name: Run tests
+      - name: Run tests only LEVM
         run: |
           cd crates/vm/levm
           make run-evm-ef-tests-ci
+
+      - name: Run tests LEVM and REVM
+        run: |
+          cd crates/vm/levm
+          make run-evm-ef-tests
   test:
     # "Test" is a required check, don't change the name
     name: Test
