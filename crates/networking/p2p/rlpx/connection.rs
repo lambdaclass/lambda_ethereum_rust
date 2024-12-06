@@ -356,12 +356,14 @@ impl<S: AsyncWrite + AsyncRead + std::marker::Unpin> RLPxConnection<S> {
                 self.send(Message::BlockBodies(response)).await?;
             }
             Message::GetReceipts(GetReceipts { id, block_hashes }) if peer_supports_eth => {
-                // FIXME: Remove unwrap
-                let receipts = block_hashes
+                let receipts: Result<_, _> = block_hashes
                     .iter()
-                    .map(|hash| self.storage.get_receipts_for_block(hash).unwrap())
+                    .map(|hash| self.storage.get_receipts_for_block(hash))
                     .collect();
-                let response = Receipts { id, receipts };
+                let response = Receipts {
+                    id,
+                    receipts: receipts?,
+                };
                 self.send(Message::Receipts(response)).await?;
             }
             Message::GetStorageRanges(req) => {

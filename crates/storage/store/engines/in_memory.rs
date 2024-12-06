@@ -349,14 +349,12 @@ impl StoreEngine for Store {
         Ok(self.inner().payloads.get(&payload_id).cloned())
     }
 
-    // FIXME: Implement this
     fn get_receipts_for_block(&self, block_hash: &BlockHash) -> Result<Vec<Receipt>, StoreError> {
-        // FIXME: Remove this unwrap
         let store = self.inner();
-        let mut receipts = store
-            .receipts
-            .get(&block_hash)
-            .unwrap()
+        let Some(receipts_for_block) = store.receipts.get(&block_hash) else {
+            return Ok(vec![]);
+        };
+        let mut receipts = receipts_for_block
             .iter()
             .collect::<Vec<(&Index, &Receipt)>>();
 
