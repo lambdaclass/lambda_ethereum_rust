@@ -166,6 +166,13 @@ jobs:
       #     url: ${{ secrets.LEVM_SLACK_WEBHOOK }}
       #   run: sh .github/scripts/publish_loc.sh
 
+      # This is left commented out to ease debugging later on.
+      # Comment out all the other "Post to * slack channel" directives
+      - name: Post results to test slack channel
+        env:
+          url: ${{ secrets.TEST_CHANNEL_SLACK }}
+        run: sh .github/scripts/publish.sh
+
   levm-test:
     name: Generate Report for LEVM EF Tests
     runs-on: ubuntu-latest
