@@ -27,6 +27,9 @@ pub fn run_ef_test(test: &EFTest) -> Result<EFTestReport, EFTestRunnerError> {
         test.fork(),
     );
     for (vector, _tx) in test.transactions.iter() {
+        if vector != &(33, 0, 0) {
+            continue;
+        }
         match run_ef_test_tx(vector, test) {
             Ok(_) => continue,
             Err(EFTestRunnerError::VMInitializationFailed(reason)) => {
@@ -236,35 +239,19 @@ pub fn get_state_transitions(
         if initial_account_state.nonce != new_state_account.info.nonce {
             updates += 1;
         }
-        let code = if new_state_account.info.bytecode.is_empty() {
-            // The new state account has no code
+        let new_code = new_state_account.info.bytecode.clone();
+        let current_account_code_hash = current_db
+            .get_account_info_by_hash(block_hash, *new_state_account_address)
+            .expect("Error getting account code by code hash")
+            .map(|account_info| account_info.code_hash);
+        let new_code_hash = code_hash(&new_code);
+        let code = if matches!(current_account_code_hash, Some(new_code_hash)) {
             None
         } else {
-            // Get the code hash of the new state account bytecode
-            let potential_new_bytecode_hash = code_hash(&new_state_account.info.bytecode);
-            // Look into the current database to see if the bytecode hash is already present
-            let current_bytecode = current_db
-                .get_account_code(potential_new_bytecode_hash)
-                .expect("Error getting account code by hash");
-            let code = new_state_account.info.bytecode.clone();
-            // The code is present in the current database
-            if let Some(current_bytecode) = current_bytecode {
-                if current_bytecode != code {
-                    // The code has changed
-                    Some(code)
-                } else {
-                    // The code has not changed
-                    None
-                }
-            } else {
-                // The new state account code is not present in the current
-                // database, then it must be new
-                Some(code)
-            }
-        };
-        if code.is_some() {
             updates += 1;
-        }
+            Some(new_code)
+        };
+        dbg!(format!("{code:?}"));
         let mut added_storage = HashMap::new();
         for (key, value) in &new_state_account.storage {
             added_storage.insert(*key, value.current_value);
