@@ -351,7 +351,7 @@ impl StoreEngine for Store {
 
     fn get_receipts_for_block(&self, block_hash: &BlockHash) -> Result<Vec<Receipt>, StoreError> {
         let store = self.inner();
-        let Some(receipts_for_block) = store.receipts.get(&block_hash) else {
+        let Some(receipts_for_block) = store.receipts.get(block_hash) else {
             return Ok(vec![]);
         };
         let mut receipts = receipts_for_block
