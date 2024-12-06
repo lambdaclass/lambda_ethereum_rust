@@ -25,7 +25,13 @@ interface IOnChainProposer {
     /// @dev It sets the bridge address.
     /// @param bridge the address of the bridge contract.
     /// @param r0verifier the address of the risc0 groth16 verifier.
-    function initialize(address bridge, address r0verifier, address[] calldata sequencerAddress) external;
+    /// @param sp1verifier the address of the sp1 groth16 verifier.
+    function initialize(
+        address bridge,
+        address r0verifier,
+        address sp1verifier,
+        address[] calldata sequencerAddress
+    ) external;
 
     /// @notice Commits to an L2 block.
     /// @dev Committing to an L2 block means to store the block's commitment
@@ -49,10 +55,17 @@ interface IOnChainProposer {
     /// @param blockProof is the proof of the block to be verified.
     /// @param imageId Digest of the zkVM imageid.
     /// @param journalDigest Digest of the public_inputs aka journal
+    /// ----------------------------------------------------------------------
+    /// @param programVKey Public verifying key
+    /// @param publicValues Values used to perform the execution
+    /// @param proofBytes Groth16 proof
     function verify(
         uint256 blockNumber,
         bytes calldata blockProof,
         bytes32 imageId,
-        bytes32 journalDigest
+        bytes32 journalDigest,
+        bytes32 programVKey,
+        bytes calldata publicValues,
+        bytes calldata proofBytes
     ) external;
 }
