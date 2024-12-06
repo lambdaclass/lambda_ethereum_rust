@@ -47,7 +47,6 @@ fn main() {
     let old_report: LinesOfCodeReport = std::fs::read_to_string("loc_report.json.old")
         .map(|s| serde_json::from_str(&s).unwrap())
         .unwrap_or(new_report);
-    // .expect("Expected file");
 
     std::fs::write(
         "loc_report_slack.txt",
