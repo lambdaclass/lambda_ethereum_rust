@@ -1179,6 +1179,17 @@ impl VM {
 
     /// Gets account, first checking the cache and then the database (caching in the second case)
     pub fn get_account(&mut self, address: Address) -> Account {
+        println!("TEST",);
+        println!("TEST",);
+        println!("TEST",);
+        println!("TEST",);
+        println!("TEST",);
+        println!("TEST",);
+        println!("TEST",);
+        println!("TEST",);
+        println!("TEST",);
+        println!("TEST",);
+        println!("TEST",);
         match cache::get_account(&self.cache, &address) {
             Some(acc) => acc.clone(),
             None => {
