@@ -223,7 +223,7 @@ impl VM {
                 Opcode::PUSH0 => self.op_push0(current_call_frame),
                 // PUSHn
                 op if (Opcode::PUSH1..=Opcode::PUSH32).contains(&op) => {
-                    let n_bytes = get_stack_offset(op, Opcode::PUSH1)?;
+                    let n_bytes = get_n_value(op, Opcode::PUSH1)?;
                     self.op_push(current_call_frame, n_bytes)
                 }
                 Opcode::AND => self.op_and(current_call_frame),
@@ -236,12 +236,12 @@ impl VM {
                 Opcode::SAR => self.op_sar(current_call_frame),
                 // DUPn
                 op if (Opcode::DUP1..=Opcode::DUP16).contains(&op) => {
-                    let depth = get_stack_offset(op, Opcode::DUP1)?;
+                    let depth = get_n_value(op, Opcode::DUP1)?;
                     self.op_dup(current_call_frame, depth)
                 }
                 // SWAPn
                 op if (Opcode::SWAP1..=Opcode::SWAP16).contains(&op) => {
-                    let depth = get_stack_offset(op, Opcode::SWAP1)?;
+                    let depth = get_n_value(op, Opcode::SWAP1)?;
                     self.op_swap(current_call_frame, depth)
                 }
                 Opcode::POP => self.op_pop(current_call_frame),
@@ -1189,7 +1189,7 @@ impl VM {
     }
 }
 
-fn get_stack_offset(op: Opcode, base_opcode: Opcode) -> Result<usize, VMError> {
+fn get_n_value(op: Opcode, base_opcode: Opcode) -> Result<usize, VMError> {
     let offset = (usize::from(op))
         .checked_sub(usize::from(base_opcode))
         .ok_or(VMError::InvalidOpcode)?
