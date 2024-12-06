@@ -180,7 +180,6 @@ impl VM {
 
         loop {
             let opcode = current_call_frame.next_opcode();
-            current_call_frame.increment_pc()?;
 
             let op_result: Result<OpcodeSuccess, VMError> = match opcode {
                 Opcode::STOP => Ok(OpcodeSuccess::Result(ResultReason::Stop)),
@@ -286,6 +285,10 @@ impl VM {
 
                 _ => Err(VMError::OpcodeNotFound),
             };
+
+            if opcode != Opcode::JUMP && opcode != Opcode::JUMPI {
+                current_call_frame.increment_pc()?;
+            }
 
             // Gas refunds are applied at the end of a transaction. Should it be implemented here?
 
@@ -475,7 +478,10 @@ impl VM {
 
         // Transfer value to receiver
         let receiver_address = initial_call_frame.to;
-        self.increase_account_balance(receiver_address, initial_call_frame.msg_value)?;
+        // msg_value is already transferred into the created contract at creation.
+        if !self.is_create() {
+            self.increase_account_balance(receiver_address, initial_call_frame.msg_value)?;
+        }
 
         // (3) INSUFFICIENT_MAX_FEE_PER_GAS
         if self.max_fee_per_gas_or_gasprice() < self.env.base_fee_per_gas {
@@ -596,7 +602,10 @@ impl VM {
 
         // 1. Undo value transfer if the transaction was reverted
         if let TxResult::Revert(_) = report.result {
-            self.decrease_account_balance(receiver_address, initial_call_frame.msg_value)?;
+            // msg_value was not increased in the receiver account when is a create transaction.
+            if !self.is_create() {
+                self.decrease_account_balance(receiver_address, initial_call_frame.msg_value)?;
+            }
             self.increase_account_balance(sender_address, initial_call_frame.msg_value)?;
         }
 
@@ -654,7 +663,6 @@ impl VM {
             .pop()
             .ok_or(VMError::Internal(InternalError::CouldNotPopCallframe))?;
 
-        let cache_before_execution = self.cache.clone();
         self.prepare_execution(&mut initial_call_frame)?;
 
         let mut report = self.execute(&mut initial_call_frame)?;
@@ -670,7 +678,6 @@ impl VM {
                         if report.result != TxResult::Revert(VMError::RevertOpcode) {
                             report.gas_used = self.env.gas_limit.low_u64(); // Consume all gas unless the error cause is revert opcode
                         }
-                        self.cache = cache_before_execution;
                         remove_account(&mut self.cache, &initial_call_frame.to);
                     }
                 }
