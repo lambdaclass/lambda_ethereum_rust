@@ -48,18 +48,27 @@ impl RLPEncode for Receipt {
     fn encode(&self, buf: &mut dyn bytes::BufMut) {
         // tx_type || RLP(receipt)  if tx_type != 0
         //            RLP(receipt)  else
-        let mut tmp_buff = match self.tx_type {
-            TxType::Legacy => vec![],
-            _ => vec![self.tx_type as u8],
+        match self.tx_type {
+            TxType::Legacy => {
+                Encoder::new(buf)
+                    .encode_field(&self.succeeded)
+                    .encode_field(&self.cumulative_gas_used)
+                    .encode_field(&self.bloom)
+                    .encode_field(&self.logs)
+                    .finish();
+            }
+            _ => {
+                let mut tmp_buff = vec![self.tx_type as u8];
+                Encoder::new(&mut tmp_buff)
+                    .encode_field(&self.succeeded)
+                    .encode_field(&self.cumulative_gas_used)
+                    .encode_field(&self.bloom)
+                    .encode_field(&self.logs)
+                    .finish();
+                let bytes = Bytes::from(tmp_buff);
+                bytes.encode(buf);
+            }
         };
-        Encoder::new(&mut tmp_buff)
-            .encode_field(&self.succeeded)
-            .encode_field(&self.cumulative_gas_used)
-            .encode_field(&self.bloom)
-            .encode_field(&self.logs)
-            .finish();
-        let bytes = Bytes::from(tmp_buff);
-        bytes.encode(buf);
     }
 }
 
