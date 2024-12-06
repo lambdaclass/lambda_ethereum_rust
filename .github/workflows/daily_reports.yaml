@@ -144,17 +144,22 @@ jobs:
           echo "# `ethrex` lines of code report" >> $GITHUB_STEP_SUMMARY
           cat loc_report_github.txt >> $GITHUB_STEP_SUMMARY
 
-      - name: Post results to ethrex L1 slack channel
-        env:
-          url: ${{ secrets.ETHREX_L1_SLACK_WEBHOOK }}
-        run: sh .github/scripts/publish_loc.sh
+      # TODO: DE-COMMENT THESE LINES. THIS IS ONLY DONE FOR TESTING
+      # PURPOSES
+      # - name: Post results to ethrex L1 slack channel
+      #   env:
+      #     url: ${{ secrets.ETHREX_L1_SLACK_WEBHOOK }}
+      #   run: sh .github/scripts/publish_loc.sh
 
-      - name: Post results to ethrex L2 slack channel
-        env:
-          url: ${{ secrets.ETHREX_L2_SLACK_WEBHOOK }}
-        run: sh .github/scripts/publish_loc.sh
+      # - name: Post results to ethrex L2 slack channel
+      #   env:
+      #     url: ${{ secrets.ETHREX_L2_SLACK_WEBHOOK }}
+      #   run: sh .github/scripts/publish_loc.sh
 
-      - name: Post results to levm slack channel
+      # - name: Post results to levm slack channel
+      #   env:
+      #     url: ${{ secrets.LEVM_SLACK_WEBHOOK }}
+
         env:
           url: ${{ secrets.LEVM_SLACK_WEBHOOK }}
         run: sh .github/scripts/publish_loc.sh
@@ -189,12 +194,14 @@ jobs:
           echo "# Daily LEVM EF Tests Run Report" >> $GITHUB_STEP_SUMMARY
           cat cmd/ef_tests/levm/levm_ef_tests_summary_github.txt >> $GITHUB_STEP_SUMMARY
 
-      - name: Post results to ethrex L2 slack channel
-        env:
-          url: ${{ secrets.ETHREX_L2_SLACK_WEBHOOK }}
-        run: sh .github/scripts/publish_levm_ef_tests_summary.sh
+      # TODO: DE-COMMENT THESE LINES. THIS IS ONLY DONE FOR TESTING
+      # PURPOSES
+      # - name: Post results to ethrex L2 slack channel
+      #   env:
+      #     url: ${{ secrets.ETHREX_L2_SLACK_WEBHOOK }}
+      #   run: sh .github/scripts/publish_levm_ef_tests_summary.sh
 
-      - name: Post results to levm slack channel
-        env:
-          url: ${{ secrets.LEVM_SLACK_WEBHOOK }}
-        run: sh .github/scripts/publish_levm_ef_tests_summary.sh
+      # - name: Post results to levm slack channel
+      #   env:
+      #     url: ${{ secrets.LEVM_SLACK_WEBHOOK }}
+      #   run: sh .github/scripts/publish_levm_ef_tests_summary.sh
