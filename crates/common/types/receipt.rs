@@ -45,6 +45,9 @@ fn bloom_from_logs(logs: &[Log]) -> Bloom {
 }
 
 impl RLPEncode for Receipt {
+    /// Receipts can be encoded in the following formats:
+    /// A) Legacy receipts: rlp(LegacyTransaction)
+    /// B) Non legacy receipts: rlp(Bytes(tx_type | rlp(receipt))).
     fn encode(&self, buf: &mut dyn bytes::BufMut) {
         // tx_type || RLP(receipt)  if tx_type != 0
         //            RLP(receipt)  else
@@ -75,7 +78,7 @@ impl RLPEncode for Receipt {
 impl RLPDecode for Receipt {
     /// Receipts can be encoded in the following formats:
     /// A) Legacy receipts: rlp(LegacyTransaction)
-    /// B) Non legacy receipts: rlp(tx_type | rlp(receipt)).
+    /// B) Non legacy receipts: rlp(Bytes(tx_type | rlp(receipt))).
     fn decode_unfinished(rlp: &[u8]) -> Result<(Self, &[u8]), RLPDecodeError> {
         let payload = get_rlp_bytes_item_payload(rlp);
         let tx_type = match payload.first() {
