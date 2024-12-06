@@ -236,7 +236,8 @@ impl VM {
                 Opcode::SAR => self.op_sar(current_call_frame),
                 // DUPn
                 op if (Opcode::DUP1..=Opcode::DUP16).contains(&op) => {
-                    self.op_dup(current_call_frame, op)
+                    let depth = get_n_bytes(op, Opcode::DUP1)?;
+                    self.op_dup(current_call_frame, depth)
                 }
                 // SWAPn
                 op if (Opcode::SWAP1..=Opcode::SWAP16).contains(&op) => {
