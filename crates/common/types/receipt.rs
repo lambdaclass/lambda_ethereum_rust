@@ -1,7 +1,7 @@
 use bytes::Bytes;
 use ethereum_types::{Address, Bloom, BloomInput, H256};
 use ethrex_rlp::{
-    decode::RLPDecode,
+    decode::{get_rlp_bytes_item_payload, RLPDecode},
     encode::RLPEncode,
     error::RLPDecodeError,
     structs::{Decoder, Encoder},
@@ -48,40 +48,47 @@ impl RLPEncode for Receipt {
     fn encode(&self, buf: &mut dyn bytes::BufMut) {
         // tx_type || RLP(receipt)  if tx_type != 0
         //            RLP(receipt)  else
-        match self.tx_type {
-            TxType::Legacy => {}
-            _ => buf.put_u8(self.tx_type as u8),
-        }
-        Encoder::new(buf)
+        let mut tmp_buff = match self.tx_type {
+            TxType::Legacy => vec![],
+            _ => vec![self.tx_type as u8],
+        };
+        Encoder::new(&mut tmp_buff)
             .encode_field(&self.succeeded)
             .encode_field(&self.cumulative_gas_used)
             .encode_field(&self.bloom)
             .encode_field(&self.logs)
             .finish();
+        let bytes = Bytes::from(tmp_buff);
+        bytes.encode(buf);
     }
 }
 
 impl RLPDecode for Receipt {
+    /// Receipts can be encoded in the following formats:
+    /// A) Legacy receipts: rlp(LegacyTransaction)
+    /// B) Non legacy receipts: rlp(tx_type | rlp(receipt)).
     fn decode_unfinished(rlp: &[u8]) -> Result<(Self, &[u8]), RLPDecodeError> {
-        // Decode tx type
-        let (tx_type, rlp) = match rlp.first() {
+        let payload = get_rlp_bytes_item_payload(rlp);
+        let tx_type = match payload.first() {
             Some(tx_type) if *tx_type < 0x7f => match tx_type {
-                0x0 => (TxType::Legacy, &rlp[1..]),
-                0x1 => (TxType::EIP2930, &rlp[1..]),
-                0x2 => (TxType::EIP1559, &rlp[1..]),
-                0x3 => (TxType::EIP4844, &rlp[1..]),
-                0x7e => (TxType::Privileged, &rlp[1..]),
+                0x0 => TxType::Legacy,
+                0x1 => TxType::EIP2930,
+                0x2 => TxType::EIP1559,
+                0x3 => TxType::EIP4844,
+                0x7e => TxType::Privileged,
                 ty => {
                     return Err(RLPDecodeError::Custom(format!(
                         "Invalid transaction type: {ty}"
                     )))
                 }
             },
-            // Legacy Tx
-            _ => (TxType::Legacy, rlp),
+            Some(_) => TxType::Legacy,
+            None => return Err(RLPDecodeError::InvalidLength),
         };
-        // Decode the remaining fields
-        let decoder = Decoder::new(rlp)?;
+        let Some(receipt_encoding) = &payload.get(1..) else {
+            return Err(RLPDecodeError::InvalidLength);
+        };
+        let decoder = Decoder::new(receipt_encoding)?;
         let (succeeded, decoder) = decoder.decode_field("succeeded")?;
         let (cumulative_gas_used, decoder) = decoder.decode_field("cumulative_gas_used")?;
         let (bloom, decoder) = decoder.decode_field("bloom")?;
