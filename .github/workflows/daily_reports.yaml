@@ -175,7 +175,7 @@ jobs:
       - name: Post results to test slack channel
         env:
           url: ${{ secrets.TEST_CHANNEL_SLACK }}
-        run: sh .github/scripts/publish.sh
+        run: sh .github/scripts/publish_loc.sh
 
   levm-test:
     name: Generate Report for LEVM EF Tests
