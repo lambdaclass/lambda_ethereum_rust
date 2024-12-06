@@ -5,16 +5,6 @@ use tracing::{self, debug, error, warn, Level};
 
 #[tokio::main]
 async fn main() {
-    println!("TEST ",);
-    println!("TEST ",);
-    println!("TEST ",);
-    println!("TEST ",);
-    println!("TEST ",);
-    println!("TEST ",);
-    println!("TEST ",);
-    println!("TEST ",);
-    println!("TEST ",);
-    println!("TEST ",);
     let subscriber = tracing_subscriber::FmtSubscriber::builder()
         // Hiding debug!() logs.
         .with_max_level(Level::INFO)
