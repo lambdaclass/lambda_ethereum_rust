@@ -7,8 +7,8 @@ use axum_extra::{
 use bytes::Bytes;
 use engine::{
     exchange_transition_config::ExchangeTransitionConfigV1Req,
-    fork_choice::ForkChoiceUpdatedV3,
-    payload::{GetPayloadV3Request, NewPayloadV3Request},
+    fork_choice::{ForkChoiceUpdatedV2, ForkChoiceUpdatedV3},
+    payload::{GetPayloadV2Request, GetPayloadV3Request, NewPayloadV2Request, NewPayloadV3Request},
     ExchangeCapabilitiesRequest,
 };
 use eth::{
@@ -32,6 +32,7 @@ use eth::{
         GetTransactionByHashRequest, GetTransactionReceiptRequest,
     },
 };
+use ethrex_net::sync::SyncManager;
 use serde_json::Value;
 use std::{
     collections::HashMap,
@@ -40,7 +41,7 @@ use std::{
     sync::{Arc, Mutex},
     time::Duration,
 };
-use tokio::net::TcpListener;
+use tokio::{net::TcpListener, sync::Mutex as TokioMutex};
 use tracing::info;
 use types::transaction::SendRawTransactionRequest;
 use utils::{
@@ -65,6 +66,7 @@ pub struct RpcApiContext {
     jwt_secret: Bytes,
     local_p2p_node: Node,
     active_filters: ActiveFilters,
+    syncer: Arc<TokioMutex<SyncManager>>,
 }
 
 trait RpcHandler: Sized {
@@ -92,6 +94,7 @@ pub async fn start_api(
     storage: Store,
     jwt_secret: Bytes,
     local_p2p_node: Node,
+    syncer: SyncManager,
 ) {
     // TODO: Refactor how filters are handled,
     // filters are used by the filters endpoints (eth_newFilter, eth_getFilterChanges, ...etc)
@@ -101,6 +104,7 @@ pub async fn start_api(
         jwt_secret,
         local_p2p_node,
         active_filters: active_filters.clone(),
+        syncer: Arc::new(TokioMutex::new(syncer)),
     };
 
     // Periodically clean up the active filters for the filters endpoints.
@@ -249,12 +253,15 @@ pub fn map_debug_requests(req: &RpcRequest, context: RpcApiContext) -> Result<Va
 pub fn map_engine_requests(req: &RpcRequest, context: RpcApiContext) -> Result<Value, RpcErr> {
     match req.method.as_str() {
         "engine_exchangeCapabilities" => ExchangeCapabilitiesRequest::call(req, context),
+        "engine_forkchoiceUpdatedV2" => ForkChoiceUpdatedV2::call(req, context),
         "engine_forkchoiceUpdatedV3" => ForkChoiceUpdatedV3::call(req, context),
         "engine_newPayloadV3" => NewPayloadV3Request::call(req, context),
+        "engine_newPayloadV2" => NewPayloadV2Request::call(req, context),
         "engine_exchangeTransitionConfigurationV1" => {
             ExchangeTransitionConfigV1Req::call(req, context)
         }
         "engine_getPayloadV3" => GetPayloadV3Request::call(req, context),
+        "engine_getPayloadV2" => GetPayloadV2Request::call(req, context),
         unknown_engine_method => Err(RpcErr::MethodNotFound(unknown_engine_method.to_owned())),
     }
 }
@@ -325,6 +332,7 @@ mod tests {
             storage,
             jwt_secret: Default::default(),
             active_filters: Default::default(),
+            syncer: Arc::new(TokioMutex::new(SyncManager::dummy())),
         };
         let result = map_http_requests(&request, context);
         let rpc_response = rpc_response(request.id, result);
@@ -362,6 +370,7 @@ mod tests {
             storage,
             jwt_secret: Default::default(),
             active_filters: Default::default(),
+            syncer: Arc::new(TokioMutex::new(SyncManager::dummy())),
         };
         let result = map_http_requests(&request, context);
         let response = rpc_response(request.id, result);
@@ -391,6 +400,7 @@ mod tests {
             storage,
             jwt_secret: Default::default(),
             active_filters: Default::default(),
+            syncer: Arc::new(TokioMutex::new(SyncManager::dummy())),
         };
         let result = map_http_requests(&request, context);
         let response =

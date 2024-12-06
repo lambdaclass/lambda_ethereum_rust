@@ -1,6 +1,7 @@
 use std::sync::Arc;
 
 use crate::{
+    peer_channels::PeerChannels,
     rlpx::{
         eth::{
             backend,
@@ -23,14 +24,15 @@ use crate::{
 use super::{
     error::RLPxError,
     eth::receipts::GetReceipts,
+    eth::transactions::GetPooledTransactions,
     frame,
     handshake::{decode_ack_message, decode_auth_message, encode_auth_message},
-    message as rlpx,
+    message::{self as rlpx},
     p2p::Capability,
     utils::{ecdh_xchng, pubkey2id},
 };
 use aes::cipher::KeyIvInit;
-use ethrex_blockchain::mempool;
+use ethrex_blockchain::mempool::{self};
 use ethrex_core::{H256, H512};
 use ethrex_rlp::decode::RLPDecode;
 use ethrex_storage::Store;
@@ -38,12 +40,13 @@ use k256::{
     ecdsa::{RecoveryId, Signature, SigningKey, VerifyingKey},
     PublicKey, SecretKey,
 };
+use rand::random;
 use sha3::{Digest, Keccak256};
 use tokio::{
     io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt},
     sync::{
         broadcast::{self, error::RecvError},
-        Mutex,
+        mpsc, Mutex,
     },
     task,
     time::{sleep, Instant},
@@ -153,7 +156,19 @@ impl<S: AsyncWrite + AsyncRead + std::marker::Unpin> RLPxConnection<S> {
             self.peer_conn_failed("Handshake failed", e, table).await;
         } else {
             // Handshake OK: handle connection
-            if let Err(e) = self.handle_peer_conn().await {
+            // Create channels to communicate directly to the peer
+            let (peer_channels, sender, receiver) = PeerChannels::create();
+            let Ok(node_id) = self.get_remote_node_id() else {
+                return self
+                    .peer_conn_failed(
+                        "Error during RLPx connection",
+                        RLPxError::InvalidState(),
+                        table,
+                    )
+                    .await;
+            };
+            table.lock().await.set_channels(node_id, peer_channels);
+            if let Err(e) = self.handle_peer_conn(sender, receiver).await {
                 self.peer_conn_failed("Error during RLPx connection", e, table)
                     .await;
             }
@@ -240,7 +255,11 @@ impl<S: AsyncWrite + AsyncRead + std::marker::Unpin> RLPxConnection<S> {
         }
     }
 
-    async fn handle_peer_conn(&mut self) -> Result<(), RLPxError> {
+    async fn handle_peer_conn(
+        &mut self,
+        sender: mpsc::Sender<rlpx::Message>,
+        mut receiver: mpsc::Receiver<rlpx::Message>,
+    ) -> Result<(), RLPxError> {
         if let RLPxConnectionState::Established(_) = &self.state {
             self.init_peer_conn().await?;
             debug!("Started peer main loop");
@@ -259,7 +278,7 @@ impl<S: AsyncWrite + AsyncRead + std::marker::Unpin> RLPxConnection<S> {
                 tokio::select! {
                     // TODO check if this is cancel safe, and fix it if not.
                     message = self.receive() => {
-                        self.handle_message(message?).await?;
+                        self.handle_message(message?, sender.clone()).await?;
                     }
                     // This is not ideal, but using the receiver without
                     // this function call, causes the loop to take ownwership
@@ -271,6 +290,9 @@ impl<S: AsyncWrite + AsyncRead + std::marker::Unpin> RLPxConnection<S> {
                     // ignore the returned value.
                     Some(broadcasted_msg) = Self::maybe_wait_for_broadcaster(&mut broadcaster_receive) => {
                         self.handle_broadcast(broadcasted_msg?).await?
+                    }
+                    Some(message) = receiver.recv() => {
+                        self.send(message).await?;
                     }
                     _ = sleep(PERIODIC_TASKS_CHECK_INTERVAL) => {
                         // no progress on other tasks, yield control to check
@@ -310,12 +332,16 @@ impl<S: AsyncWrite + AsyncRead + std::marker::Unpin> RLPxConnection<S> {
         Ok(())
     }
 
-    async fn handle_message(&mut self, message: Message) -> Result<(), RLPxError> {
+    async fn handle_message(
+        &mut self,
+        message: Message,
+        sender: mpsc::Sender<Message>,
+    ) -> Result<(), RLPxError> {
         let peer_supports_eth = self.capabilities.contains(&CAP_ETH);
         match message {
             Message::Disconnect(msg_data) => {
                 debug!("Received Disconnect: {:?}", msg_data.reason);
-                // Returning a Disonnect error to be handled later at the call stack
+                // Returning a Disconnect error to be handled later at the call stack
                 return Err(RLPxError::Disconnect());
             }
             Message::Ping(_) => {
@@ -366,6 +392,17 @@ impl<S: AsyncWrite + AsyncRead + std::marker::Unpin> RLPxConnection<S> {
                 };
                 self.send(Message::Receipts(response)).await?;
             }
+            Message::NewPooledTransactionHashes(new_pooled_transaction_hashes)
+                if peer_supports_eth =>
+            {
+                //TODO(#1415): evaluate keeping track of requests to avoid sending the same twice.
+                let hashes =
+                    new_pooled_transaction_hashes.get_transactions_to_request(&self.storage)?;
+
+                //TODO(#1416): Evaluate keeping track of the request-id.
+                let request = GetPooledTransactions::new(random(), hashes);
+                self.send(Message::GetPooledTransactions(request)).await?;
+            }
             Message::GetStorageRanges(req) => {
                 let response = process_storage_ranges_request(req, self.storage.clone())?;
                 self.send(Message::StorageRanges(response)).await?
@@ -378,6 +415,14 @@ impl<S: AsyncWrite + AsyncRead + std::marker::Unpin> RLPxConnection<S> {
                 let response = process_trie_nodes_request(req, self.storage.clone())?;
                 self.send(Message::TrieNodes(response)).await?
             }
+            // Send response messages to the backend
+            message @ Message::AccountRange(_)
+            | message @ Message::StorageRanges(_)
+            | message @ Message::ByteCodes(_)
+            | message @ Message::TrieNodes(_)
+            | message @ Message::BlockBodies(_)
+            | message @ Message::BlockHeaders(_)
+            | message @ Message::Receipts(_) => sender.send(message).await?,
             // TODO: Add new message types and handlers as they are implemented
             message => return Err(RLPxError::MessageNotHandled(format!("{message}"))),
         };

@@ -12,16 +12,16 @@ use crate::{
 use bytes::Bytes;
 use ethrex_core::{
     types::{
-        blobs_bundle, BlobsBundle, Block, PrivilegedL2Transaction, PrivilegedTxType, Transaction,
-        TxKind, BLOB_BASE_FEE_UPDATE_FRACTION,
+        blobs_bundle, fake_exponential, BlobsBundle, Block, PrivilegedL2Transaction,
+        PrivilegedTxType, Transaction, TxKind, BLOB_BASE_FEE_UPDATE_FRACTION,
+        MIN_BASE_FEE_PER_BLOB_GAS,
     },
     Address, H256, U256,
 };
-use ethrex_storage::Store;
+use ethrex_storage::{error::StoreError, Store};
 use ethrex_vm::{evm_state, execute_block, get_state_transitions};
 use keccak_hash::keccak;
 use secp256k1::SecretKey;
-use std::f64::consts::E;
 use std::{collections::HashMap, time::Duration};
 use tokio::time::sleep;
 use tracing::{error, info};
@@ -117,13 +117,13 @@ impl Committer {
                 }
 
                 let withdrawal_logs_merkle_root =
-                    self.get_withdrawals_merkle_root(withdrawal_hashes);
+                    self.get_withdrawals_merkle_root(withdrawal_hashes)?;
                 let deposit_logs_hash = self.get_deposit_hash(
                     deposits
                         .iter()
                         .filter_map(|tx| tx.get_deposit_hash())
                         .collect(),
-                );
+                )?;
 
                 let state_diff = self.prepare_state_diff(
                     &block_to_commit,
@@ -132,7 +132,7 @@ impl Committer {
                     deposits,
                 )?;
 
-                let blobs_bundle = self.generate_blobs_bundle(state_diff.clone())?;
+                let blobs_bundle = self.generate_blobs_bundle(&state_diff)?;
 
                 let head_block_hash = block_to_commit.hash();
                 match self
@@ -180,11 +180,14 @@ impl Committer {
         Ok(withdrawals)
     }
 
-    pub fn get_withdrawals_merkle_root(&self, withdrawals_hashes: Vec<H256>) -> H256 {
+    pub fn get_withdrawals_merkle_root(
+        &self,
+        withdrawals_hashes: Vec<H256>,
+    ) -> Result<H256, CommitterError> {
         if !withdrawals_hashes.is_empty() {
-            merkelize(withdrawals_hashes)
+            merkelize(withdrawals_hashes).map_err(CommitterError::FailedToMerkelize)
         } else {
-            H256::zero()
+            Ok(H256::zero())
         }
     }
 
@@ -206,25 +209,31 @@ impl Committer {
         deposits
     }
 
-    pub fn get_deposit_hash(&self, deposit_hashes: Vec<H256>) -> H256 {
+    pub fn get_deposit_hash(&self, deposit_hashes: Vec<H256>) -> Result<H256, CommitterError> {
         if !deposit_hashes.is_empty() {
-            H256::from_slice(
+            let deposit_hashes_len: u16 = deposit_hashes
+                .len()
+                .try_into()
+                .map_err(CommitterError::from)?;
+            Ok(H256::from_slice(
                 [
-                    &(deposit_hashes.len() as u16).to_be_bytes(),
-                    &keccak(
+                    &deposit_hashes_len.to_be_bytes(),
+                    keccak(
                         deposit_hashes
                             .iter()
                             .map(H256::as_bytes)
                             .collect::<Vec<&[u8]>>()
                             .concat(),
                     )
-                    .as_bytes()[2..32],
+                    .as_bytes()
+                    .get(2..32)
+                    .ok_or(CommitterError::FailedToDecodeDepositHash)?,
                 ]
                 .concat()
                 .as_slice(),
-            )
+            ))
         } else {
-            H256::zero()
+            Ok(H256::zero())
         }
     }
     /// Prepare the state diff for the block.
@@ -242,18 +251,38 @@ impl Committer {
         let account_updates = get_state_transitions(&mut state);
 
         let mut modified_accounts = HashMap::new();
-        account_updates.iter().for_each(|account_update| {
+        for account_update in &account_updates {
+            let prev_nonce = match state
+                .database()
+                .ok_or(CommitterError::FailedToRetrieveDataFromStorage)?
+                // If we want the state_diff of a batch, we will have to change the -1 with the `batch_size`
+                // and we may have to keep track of the latestCommittedBlock (last block of the batch),
+                // the batch_size and the latestCommittedBatch in the contract.
+                .get_account_info(block.header.number - 1, account_update.address)
+                .map_err(StoreError::from)?
+            {
+                Some(acc) => acc.nonce,
+                None => 0,
+            };
+
             modified_accounts.insert(
                 account_update.address,
                 AccountStateDiff {
                     new_balance: account_update.info.clone().map(|info| info.balance),
-                    nonce_diff: account_update.info.clone().map(|info| info.nonce as u16),
+                    nonce_diff: (account_update
+                        .info
+                        .clone()
+                        .ok_or(CommitterError::FailedToRetrieveDataFromStorage)?
+                        .nonce
+                        - prev_nonce)
+                        .try_into()
+                        .map_err(CommitterError::from)?,
                     storage: account_update.added_storage.clone().into_iter().collect(),
                     bytecode: account_update.code.clone(),
                     bytecode_hash: None,
                 },
             );
-        });
+        }
 
         let state_diff = StateDiff {
             modified_accounts,
@@ -287,7 +316,7 @@ impl Committer {
     /// Generate the blob bundle necessary for the EIP-4844 transaction.
     pub fn generate_blobs_bundle(
         &self,
-        state_diff: StateDiff,
+        state_diff: &StateDiff,
     ) -> Result<BlobsBundle, CommitterError> {
         let blob_data = state_diff.encode().map_err(CommitterError::from)?;
 
@@ -324,7 +353,7 @@ impl Committer {
         let le_bytes = estimate_blob_gas(
             &self.eth_client,
             self.arbitrary_base_blob_gas_price,
-            1.2, // 20% of headroom
+            20, // 20% of headroom
         )
         .await?
         .to_le_bytes();
@@ -370,7 +399,7 @@ impl Committer {
 /// # Parameters:
 /// - `eth_client`: The Ethereum client used to fetch the latest block.
 /// - `arbitrary_base_blob_gas_price`: The base gas price that serves as the minimum price for blob transactions.
-/// - `headroom`: A multiplier (as a float) applied to the estimated gas price to provide a buffer against fluctuations.
+/// - `headroom`: Percentage applied to the estimated gas price to provide a buffer against fluctuations.
 ///
 /// # Formula:
 /// The gas price is estimated using an exponential function based on the blob gas used in the latest block and the
@@ -381,7 +410,7 @@ impl Committer {
 async fn estimate_blob_gas(
     eth_client: &EthClient,
     arbitrary_base_blob_gas_price: u64,
-    headroom: f64,
+    headroom: u64,
 ) -> Result<u64, CommitterError> {
     let latest_block = eth_client
         .get_block_by_number(BlockByNumber::Latest)
@@ -409,15 +438,16 @@ async fn estimate_blob_gas(
     };
 
     // If the blob's market is in high demand, the equation may give a really big number.
-    let exponent = (total_blob_gas as f64) / (BLOB_BASE_FEE_UPDATE_FRACTION as f64);
-    let blob_gas = match E.powf(exponent) {
-        result if result.is_finite() => result,
-        _ => return Err(BlobEstimationError::NonFiniteResult.into()),
-    };
+    let blob_gas = fake_exponential(
+        MIN_BASE_FEE_PER_BLOB_GAS,
+        total_blob_gas,
+        BLOB_BASE_FEE_UPDATE_FRACTION,
+    );
+
+    let gas_with_headroom = (blob_gas * (100 + headroom)) / 100;
 
     // Check if we have an overflow when we take the headroom into account.
-    let gas_with_headroom = blob_gas * headroom;
-    let blob_gas = match arbitrary_base_blob_gas_price.checked_add(gas_with_headroom as u64) {
+    let blob_gas = match arbitrary_base_blob_gas_price.checked_add(gas_with_headroom) {
         Some(gas) => gas,
         None => return Err(BlobEstimationError::OverflowError.into()),
     };

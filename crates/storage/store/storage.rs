@@ -4,6 +4,8 @@ use self::engines::libmdbx::Store as LibmdbxStore;
 use self::error::StoreError;
 use bytes::Bytes;
 use engines::api::StoreEngine;
+#[cfg(feature = "redb")]
+use engines::redb::RedBStore;
 use ethereum_types::{Address, H256, U256};
 use ethrex_core::types::{
     code_hash, AccountInfo, AccountState, BlobsBundle, Block, BlockBody, BlockHash, BlockHeader,
@@ -15,7 +17,7 @@ use ethrex_rlp::encode::RLPEncode;
 use ethrex_trie::Trie;
 use serde::{Deserialize, Serialize};
 use sha3::{Digest as _, Keccak256};
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::fmt::Debug;
 use std::sync::{Arc, Mutex};
 use tracing::info;
@@ -38,6 +40,8 @@ pub enum EngineType {
     InMemory,
     #[cfg(feature = "libmdbx")]
     Libmdbx,
+    #[cfg(feature = "redb")]
+    RedB,
 }
 
 #[derive(Default, Debug, Clone, Serialize, Deserialize)]
@@ -82,6 +86,12 @@ impl Store {
             },
             EngineType::InMemory => Self {
                 engine: Arc::new(InMemoryStore::new()),
+                mempool: Arc::new(Mutex::new(HashMap::new())),
+                blobs_bundle_pool: Arc::new(Mutex::new(HashMap::new())),
+            },
+            #[cfg(feature = "redb")]
+            EngineType::RedB => Self {
+                engine: Arc::new(RedBStore::new()?),
                 mempool: Arc::new(Mutex::new(HashMap::new())),
                 blobs_bundle_pool: Arc::new(Mutex::new(HashMap::new())),
             },
@@ -313,6 +323,24 @@ impl Store {
 
         txs_by_sender.iter_mut().for_each(|(_, txs)| txs.sort());
         Ok(txs_by_sender)
+    }
+
+    /// Gets hashes from possible_hashes that are not already known in the mempool.
+    pub fn filter_unknown_transactions(
+        &self,
+        possible_hashes: &[H256],
+    ) -> Result<Vec<H256>, StoreError> {
+        let mempool = self
+            .mempool
+            .lock()
+            .map_err(|error| StoreError::Custom(error.to_string()))?;
+
+        let tx_set: HashSet<_> = mempool.iter().map(|(hash, _)| hash).collect();
+        Ok(possible_hashes
+            .iter()
+            .filter(|hash| !tx_set.contains(hash))
+            .copied()
+            .collect())
     }
 
     fn add_account_code(&self, code_hash: H256, code: Bytes) -> Result<(), StoreError> {
@@ -938,6 +966,12 @@ mod tests {
     #[test]
     fn test_libmdbx_store() {
         test_store_suite(EngineType::Libmdbx);
+    }
+
+    #[cfg(feature = "redb")]
+    #[test]
+    fn test_redb_store() {
+        test_store_suite(EngineType::RedB);
     }
 
     // Creates an empty store, runs the test and then removes the store (if needed)
