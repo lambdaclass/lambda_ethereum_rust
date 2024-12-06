@@ -124,10 +124,6 @@ jobs:
           restore-keys: |
             loc-report-
 
-      - name: Check previous loc report
-        run: |
-          cat loc_report.json
-
       - name: Rename cached loc_report.json to loc_report.json.old
         if: steps.cache-loc-report.outputs.cache-hit == 'true'
         run: |
