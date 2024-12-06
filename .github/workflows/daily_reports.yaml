@@ -4,6 +4,12 @@ on:
   schedule:
     # Every day at UTC midnight
     - cron: "0 0 * * 1,2,3,4,5"
+  # TODO: DO NOT MERGE TO MAIN THIS CONDITION. THESE 2 ARE ONLY DONE FOR
+  # TESTING PUROPOSES
+  push:
+    branches: ["main"]
+  pull_request:
+    branches: ["**"]
   workflow_dispatch:
 
 env:
