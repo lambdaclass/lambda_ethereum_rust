@@ -165,11 +165,6 @@ jobs:
         env:
           url: ${{ secrets.LEVM_SLACK_WEBHOOK }}
 
-      - name: Post results to test channel
-        env:
-          url: ${{ secrets.TEST_CHANNEL_SLACK }}
-        run: sh .github/scripts/publish_loc.sh
-
   levm-test:
     name: Generate Report for LEVM EF Tests
     runs-on: ubuntu-latest
