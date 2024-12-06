@@ -17,15 +17,11 @@ impl VM {
     pub fn op_log(
         &mut self,
         current_call_frame: &mut CallFrame,
-        op: Opcode,
+        number_of_topics: u8,
     ) -> Result<OpcodeSuccess, VMError> {
         if current_call_frame.is_static {
             return Err(VMError::OpcodeNotAllowedInStaticContext);
         }
-
-        let number_of_topics = (u8::from(op))
-            .checked_sub(u8::from(Opcode::LOG0))
-            .ok_or(VMError::InvalidOpcode)?;
 
         let offset: usize = current_call_frame
             .stack
