@@ -4,12 +4,6 @@ on:
   schedule:
     # Every day at UTC midnight
     - cron: "0 0 * * 1,2,3,4,5"
-  # TODO: DO NOT MERGE TO MAIN THIS CONDITION. THESE 2 ARE ONLY DONE FOR
-  # TESTING PUROPOSES
-  push:
-    branches: ["main"]
-  pull_request:
-    branches: ["**"]
   workflow_dispatch:
 
 env:
@@ -91,20 +85,20 @@ jobs:
           echo "# Hive coverage report" >> $GITHUB_STEP_SUMMARY
           cat results.md >> $GITHUB_STEP_SUMMARY
 
-      # - name: Post results to ethrex L1 slack channel
-      #   env:
-      #     url: ${{ secrets.ETHREX_L1_SLACK_WEBHOOK }}
-      #   run: sh .github/scripts/publish.sh
+      - name: Post results to ethrex L1 slack channel
+        env:
+          url: ${{ secrets.ETHREX_L1_SLACK_WEBHOOK }}
+        run: sh .github/scripts/publish.sh
 
-      # - name: Post results to ethrex L2 slack channel
-      #   env:
-      #     url: ${{ secrets.ETHREX_L2_SLACK_WEBHOOK }}
-      #   run: sh .github/scripts/publish.sh
+      - name: Post results to ethrex L2 slack channel
+        env:
+          url: ${{ secrets.ETHREX_L2_SLACK_WEBHOOK }}
+        run: sh .github/scripts/publish.sh
 
-      # - name: Post results to levm slack channel
-      #   env:
-      #     url: ${{ secrets.LEVM_SLACK_WEBHOOK }}
-      #   run: sh .github/scripts/publish.sh
+      - name: Post results to levm slack channel
+        env:
+          url: ${{ secrets.LEVM_SLACK_WEBHOOK }}
+        run: sh .github/scripts/publish.sh
 
   loc:
     name: Count ethrex loc and generate report
@@ -154,20 +148,20 @@ jobs:
           echo "# 'ethrex' lines of code report" >> $GITHUB_STEP_SUMMARY
           cat loc_report_github.txt >> $GITHUB_STEP_SUMMARY
 
-      # - name: Post results to ethrex L1 slack channel
-      #   env:
-      #     url: ${{ secrets.ETHREX_L1_SLACK_WEBHOOK }}
-      #   run: sh .github/scripts/publish_loc.sh
+      - name: Post results to ethrex L1 slack channel
+        env:
+          url: ${{ secrets.ETHREX_L1_SLACK_WEBHOOK }}
+        run: sh .github/scripts/publish_loc.sh
 
-      # - name: Post results to ethrex L2 slack channel
-      #   env:
-      #     url: ${{ secrets.ETHREX_L2_SLACK_WEBHOOK }}
-      #   run: sh .github/scripts/publish_loc.sh
+      - name: Post results to ethrex L2 slack channel
+        env:
+          url: ${{ secrets.ETHREX_L2_SLACK_WEBHOOK }}
+        run: sh .github/scripts/publish_loc.sh
 
-      # - name: Post results to levm slack channel
-      #   env:
-      #     url: ${{ secrets.LEVM_SLACK_WEBHOOK }}
-      #   run: sh .github/scripts/publish_loc.sh
+      - name: Post results to levm slack channel
+        env:
+          url: ${{ secrets.LEVM_SLACK_WEBHOOK }}
+        run: sh .github/scripts/publish_loc.sh
 
       # This is left commented out to ease debugging later on.
       # Comment out all the other "Post to * slack channel" directives
@@ -206,12 +200,12 @@ jobs:
           echo "# Daily LEVM EF Tests Run Report" >> $GITHUB_STEP_SUMMARY
           cat cmd/ef_tests/levm/levm_ef_tests_summary_github.txt >> $GITHUB_STEP_SUMMARY
 
-      # - name: Post results to ethrex L2 slack channel
-      #   env:
-      #     url: ${{ secrets.ETHREX_L2_SLACK_WEBHOOK }}
-      #   run: sh .github/scripts/publish_levm_ef_tests_summary.sh
+      - name: Post results to ethrex L2 slack channel
+        env:
+          url: ${{ secrets.ETHREX_L2_SLACK_WEBHOOK }}
+        run: sh .github/scripts/publish_levm_ef_tests_summary.sh
 
-      # - name: Post results to levm slack channel
-      #   env:
-      #     url: ${{ secrets.LEVM_SLACK_WEBHOOK }}
-      #   run: sh .github/scripts/publish_levm_ef_tests_summary.sh
+      - name: Post results to levm slack channel
+        env:
+          url: ${{ secrets.LEVM_SLACK_WEBHOOK }}
+        run: sh .github/scripts/publish_levm_ef_tests_summary.sh
