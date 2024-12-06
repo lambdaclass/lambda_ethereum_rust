@@ -51,6 +51,8 @@ pub struct EFTestRunnerOptions {
     pub skip: Vec<String>,
     #[arg(long, value_name = "SPINNER", default_value = "false")]
     pub spinner: bool, // Replaces prints for spinner, but execution is slower.
+    #[arg(long, value_name = "VERBOSE", default_value = "false")]
+    pub verbose: bool,
 }
 
 pub fn run_ef_tests(
@@ -83,7 +85,7 @@ fn run_with_levm(
         levm_run_spinner.stop();
     }
     for test in ef_tests.iter() {
-        if !opts.spinner {
+        if !opts.spinner && opts.verbose {
             println!("Running test: {:?}", test.name);
         }
         let ef_test_report = match levm_runner::run_ef_test(test) {
@@ -143,7 +145,7 @@ fn _run_with_revm(
         revm_run_spinner.stop();
     }
     for (idx, test) in ef_tests.iter().enumerate() {
-        if !opts.spinner {
+        if !opts.spinner && opts.verbose {
             println!("Running test: {:?}", test.name);
         }
         let total_tests = ef_tests.len();
@@ -206,7 +208,7 @@ fn re_run_with_revm(
         .filter(|report| !report.passed())
         .enumerate()
     {
-        if !opts.spinner {
+        if !opts.spinner && opts.verbose {
             println!("Running test: {:?}", failed_test_report.name);
         }
         spinner_update_text_or_print(
