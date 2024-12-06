@@ -555,7 +555,7 @@ impl StoreEngine for RedBStore {
         // So we search for values in the db that match with this kind
         // of key, until we reach an Index that returns None
         // and we stop the search.
-        // TODO: Make sure this if this is the proper way of
+        // TODO(#1436): Make sure this if this is the proper way of
         // doing a search for each key, libmdbx has cursors
         // for this purpose, we should do the equal here,
         // if this approach is not correct.
