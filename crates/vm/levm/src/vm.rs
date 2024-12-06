@@ -248,7 +248,10 @@ impl VM {
                 }
                 Opcode::POP => self.op_pop(current_call_frame),
                 op if (Opcode::LOG0..=Opcode::LOG4).contains(&op) => {
-                    self.op_log(current_call_frame, op)
+                    let number_of_topics = (u8::from(op))
+                        .checked_sub(u8::from(Opcode::LOG0))
+                        .ok_or(VMError::InvalidOpcode)?;
+                    self.op_log(current_call_frame, number_of_topics)
                 }
                 Opcode::MLOAD => self.op_mload(current_call_frame),
                 Opcode::MSTORE => self.op_mstore(current_call_frame),
