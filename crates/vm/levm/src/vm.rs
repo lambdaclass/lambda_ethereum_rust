@@ -71,6 +71,43 @@ pub fn word_to_address(word: U256) -> Address {
     Address::from_slice(&bytes[12..])
 }
 
+pub fn get_valid_jump_destinations(code: &Bytes) -> Result<HashSet<usize>, VMError> {
+    let mut valid_jump_destinations = HashSet::new();
+    let mut pc = 0;
+
+    while pc < code.len() {
+        let code_position = match code.get(pc) {
+            Some(code) => *code,
+            None => {
+                break;
+            }
+        };
+
+        let current_opcode = Opcode::from(code_position);
+
+        if current_opcode == Opcode::JUMPDEST {
+            // If current opcode is jumpdest, add it to valid destinations set
+            valid_jump_destinations.insert(pc);
+        } else if (Opcode::PUSH1..=Opcode::PUSH32).contains(&current_opcode) {
+            // If current opcode is push, skip as many positions as the size of the push
+            let pushed_size = code_position
+                .checked_sub(u8::from(Opcode::PUSH1))
+                .ok_or(VMError::InvalidBytecode)?;
+            let skip_length =
+                usize::from(pushed_size.checked_add(1).ok_or(VMError::InvalidBytecode)?);
+            pc = pc.checked_add(skip_length).ok_or(VMError::Internal(
+                InternalError::ArithmeticOperationOverflow, // to fail, pc should be at least usize max - 31
+            ))?;
+        }
+
+        pc = pc.checked_add(1).ok_or(VMError::Internal(
+            InternalError::ArithmeticOperationOverflow, // to fail, code len should be more than usize max
+        ))?;
+    }
+
+    Ok(valid_jump_destinations)
+}
+
 impl VM {
     // TODO: Refactor this.
     #[allow(clippy::too_many_arguments)]
@@ -100,6 +137,9 @@ impl VM {
                     Account::from(recipient_account_info.clone()),
                 );
 
+                let valid_jump_destinations =
+                    get_valid_jump_destinations(&recipient_account_info.bytecode)?;
+
                 // CALL tx
                 let initial_call_frame = CallFrame::new(
                     env.origin,
@@ -112,6 +152,7 @@ impl VM {
                     env.gas_limit,
                     U256::zero(),
                     0,
+                    valid_jump_destinations,
                 );
 
                 Ok(Self {
@@ -139,6 +180,8 @@ impl VM {
                 let created_contract = Account::new(value, calldata.clone(), 1, HashMap::new());
                 cache::insert_account(&mut cache, new_contract_address, created_contract);
 
+                let valid_jump_destinations = get_valid_jump_destinations(&calldata)?;
+
                 let initial_call_frame = CallFrame::new(
                     env.origin,
                     new_contract_address,
@@ -150,6 +193,7 @@ impl VM {
                     env.gas_limit,
                     U256::zero(),
                     0,
+                    valid_jump_destinations,
                 );
 
                 Ok(Self {
@@ -801,6 +845,8 @@ impl VM {
             .checked_add(1)
             .ok_or(VMError::StackOverflow)?; // Maybe could be depthOverflow but in concept is quite similar
 
+        let valid_jump_destinations = get_valid_jump_destinations(&code_account_info.bytecode)?;
+
         let mut new_call_frame = CallFrame::new(
             msg_sender,
             to,
@@ -812,6 +858,7 @@ impl VM {
             gas_limit,
             U256::zero(),
             new_depth,
+            valid_jump_destinations,
         );
 
         // TODO: Increase this to 1024
