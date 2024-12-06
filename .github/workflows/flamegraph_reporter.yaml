@@ -20,6 +20,8 @@ jobs:
   flamegraph-ethrex:
     name: Generate Flamegraph for Ethrex
     runs-on: ubuntu-latest
+    env:
+      PROGRAM: ethrex
     outputs:
       time: ${{steps.generate-flamegraph-ethrex.outputs.time}}
     steps:
@@ -65,7 +67,7 @@ jobs:
           echo "waiting to execute load test..."
           sleep 30 &&
           echo "executing load test..."
-          bash .github/scripts/flamegraph.sh &&
+          bash /home/runner/work/ethrex/ethrex/.github/scripts/flamegraph_watcher.sh &&
           echo "Load test finished"
 
       - name: Generate SVG
@@ -84,6 +86,8 @@ jobs:
   flamegraph-reth:
     name: Generate Flamegraph for Reth
     runs-on: ubuntu-latest
+    env:
+      PROGRAM: reth
     outputs:
       time: ${{steps.generate-flamegraph-reth.outputs.time}}
     steps:
@@ -135,7 +139,7 @@ jobs:
           --txpool.basefee-max-size 1000000000000 --txpool.queued-max-count 1000000000 &
           echo "waiting to execute load test..."
           sleep 180 &&
-          bash /home/runner/work/ethrex/ethrex/.github/scripts/flamegraph_reth.sh &&
+          bash /home/runner/work/ethrex/ethrex/.github/scripts/flamegraph_watcher.sh &&
           echo "Load test finished"
 
       - name: Generate SVG
