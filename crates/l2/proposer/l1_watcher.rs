@@ -57,7 +57,7 @@ impl L1Watcher {
 
     pub async fn run(&mut self, store: &Store) {
         loop {
-            if let Err(err) = self.main_logic(store.clone()).await {
+            if let Err(err) = self.main_logic(store).await {
                 error!("L1 Watcher Error: {}", err);
             }
 
@@ -65,7 +65,7 @@ impl L1Watcher {
         }
     }
 
-    async fn main_logic(&mut self, store: Store) -> Result<(), L1WatcherError> {
+    async fn main_logic(&mut self, store: &Store) -> Result<(), L1WatcherError> {
         loop {
             sleep(self.check_interval).await;
 
@@ -78,7 +78,7 @@ impl L1Watcher {
 
             let pending_deposit_logs = self.get_pending_deposit_logs().await?;
             let _deposit_txs = self
-                .process_logs(logs, &pending_deposit_logs, &store)
+                .process_logs(logs, &pending_deposit_logs, store)
                 .await?;
         }
     }
@@ -203,7 +203,7 @@ impl L1Watcher {
                     .topics
                     .get(3)
                     .ok_or(L1WatcherError::FailedToDeserializeLog(
-                        "Failed to parse beneficiary from log: log.topics[2] out of bounds"
+                        "Failed to parse beneficiary from log: log.topics[3] out of bounds"
                             .to_owned(),
                     ))?;
 
@@ -253,6 +253,11 @@ impl L1Watcher {
                         // gas_limit for this transaction is payed by the caller in
                         // the L1 as part of the deposited funds.
                         gas_limit: Some(TX_GAS_COST.mul(2)),
+                        // TODO(CHECK): Seems that when we start the L2, we need to set the gas.
+                        // Otherwise, the transaction is not included in the mempool.
+                        // We should override the blockchain to always include the transaction.
+                        priority_gas_price: Some(10000000000),
+                        gas_price: Some(1000000000),
                         ..Default::default()
                     },
                     10,
