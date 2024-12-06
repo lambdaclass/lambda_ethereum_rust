@@ -71,11 +71,9 @@ jobs:
       - name: Generate SVG
         shell: bash
         run: |
-          echo "running perf"
           perf script -v -i perf.data --no-inline > stack.data
-          inferno-collapse-perf < stack.data > collapsed.data
-          inferno-flamegraph < collapsed.data > flamegraph_ethrex.svg
-          file flamegraph_ethrex.svg
+          inferno-collapse-perf -q < stack.data > collapsed.data
+          inferno-flamegraph --title "Ethrex Flamegraph" < collapsed.data > flamegraph_ethrex.svg
 
       - name: Upload artifacts - flamegraph_ethrex.svg
         uses: actions/upload-artifact@v4
@@ -102,7 +100,6 @@ jobs:
 
       - name: Change perf settings
         run: |
-          pwd
           sudo sysctl kernel.perf_event_paranoid=-1
           sudo perf list hw
 
@@ -137,22 +134,16 @@ jobs:
           --txpool.pending-max-count 100000000 --txpool.pending-max-size 10000000000 --txpool.basefee-max-count 100000000000 \
           --txpool.basefee-max-size 1000000000000 --txpool.queued-max-count 1000000000 &
           echo "waiting to execute load test..."
-          sleep 120 &&
+          sleep 180 &&
           bash /home/runner/work/ethrex/ethrex/.github/scripts/flamegraph_reth.sh &&
           echo "Load test finished"
-          ls -las
 
       - name: Generate SVG
         shell: bash
         run: |
-          pwd
-          echo "running perf 2"
-          ls -las /home/runner/work/ethrex/
-          ls -las /home/runner/work/ethrex/ethrex/
           perf script -v -i /home/runner/work/ethrex/ethrex/reth/perf.data --no-inline > stack.data
-          inferno-collapse-perf < stack.data > collapsed.data
-          inferno-flamegraph < collapsed.data > flamegraph_reth.svg
-          file flamegraph_reth.svg
+          inferno-collapse-perf -q < stack.data > collapsed.data
+          inferno-flamegraph --title "Reth Flamegraph" < collapsed.data > flamegraph_reth.svg
 
       - name: Upload artifacts - flamegraph_reth.svg
         uses: actions/upload-artifact@v4
@@ -186,12 +177,8 @@ jobs:
       - name: Update static page locally with new data
         shell: bash
         run: |
-          file flamegraph_ethrex.svg
-          file flamegraph_reth.svg
           cp -r flamegraph_ethrex.svg pages/
           cp -r flamegraph_reth.svg pages/
-          ls -las pages/
-          date +'%Y-%m-%dT%H:%M:%S'
           sed -i "s/{{LAST_UPDATE}}/$(date +'%Y-%m-%dT%H:%M:%S')/g" pages/index.html
           sed -i "s/{{ETHREX_TIME}}/${{ needs.flamegraph-ethrex.outputs.time }}/g" pages/index.html
           sed -i "s/{{RETH_TIME}}/${{ needs.flamegraph-reth.outputs.time }}/g" pages/index.html
