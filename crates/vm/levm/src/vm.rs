@@ -827,10 +827,11 @@ impl VM {
         let tx_report = self.execute(&mut new_call_frame)?;
 
         // Add gas used by the sub-context to the current one after it's execution.
-        current_call_frame.gas_used = current_call_frame
-            .gas_used
-            .checked_add(tx_report.gas_used.into())
-            .ok_or(VMError::OutOfGas(OutOfGasError::ConsumedGasOverflow))?;
+        self.increase_consumed_gas(current_call_frame, tx_report.gas_used.into())?;
+        // current_call_frame.gas_used = current_call_frame
+        //     .gas_used
+        //     .checked_add(tx_report.gas_used.into())
+        //     .ok_or(VMError::OutOfGas(OutOfGasError::ConsumedGasOverflow))?;
         current_call_frame.logs.extend(tx_report.logs);
         memory::try_store_range(
             &mut current_call_frame.memory,
@@ -917,6 +918,7 @@ impl VM {
         code_size_in_memory: usize,
         salt: Option<U256>,
         current_call_frame: &mut CallFrame,
+        is_create2: bool,
     ) -> Result<OpcodeSuccess, VMError> {
         if code_size_in_memory > MAX_CODE_SIZE * 2 {
             current_call_frame
@@ -960,9 +962,14 @@ impl VM {
             .to_vec(),
         );
 
-        let new_address = match salt {
-            Some(salt) => Self::calculate_create2_address(current_call_frame.to, &code, salt)?,
-            None => Self::calculate_create_address(current_call_frame.msg_sender, new_nonce)?,
+        let new_address = if is_create2 {
+            Self::calculate_create2_address(
+                current_call_frame.to,
+                &code,
+                salt.ok_or(VMError::Internal(InternalError::SaltNotProvided))?,
+            )?
+        } else {
+            Self::calculate_create_address(current_call_frame.msg_sender, new_nonce)?
         };
 
         // FIXME: Shouldn't we check against the db?
@@ -973,7 +980,13 @@ impl VM {
             return Ok(OpcodeSuccess::Result(ResultReason::Revert));
         }
 
-        let new_account = Account::new(U256::zero(), code.clone(), 0, Default::default());
+        let new_account_nonce = u64::from(is_create2);
+        let new_account = Account::new(
+            U256::zero(),
+            code.clone(),
+            new_account_nonce,
+            Default::default(),
+        );
         cache::insert_account(&mut self.cache, new_address, new_account);
 
         current_call_frame
