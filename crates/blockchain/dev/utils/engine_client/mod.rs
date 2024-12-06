@@ -8,8 +8,7 @@ use ethrex_rpc::{
     engine::{
         fork_choice::ForkChoiceUpdatedV3,
         payload::{
-            GetPayloadRequest, GetPayloadRequestVersion, GetPayloadV3Request, NewPayloadRequest,
-            NewPayloadRequestVersion, NewPayloadV3Request,
+            GetPayloadV3Request, NewPayloadRequest, NewPayloadRequestVersion, NewPayloadV3Request,
         },
         ExchangeCapabilitiesRequest,
     },
@@ -110,11 +109,7 @@ impl EngineClient {
         &self,
         payload_id: u64,
     ) -> Result<ExecutionPayloadResponse, EngineClientError> {
-        let request = GetPayloadV3Request(GetPayloadRequest {
-            payload_id,
-            version: GetPayloadRequestVersion::V3,
-        })
-        .into();
+        let request = GetPayloadV3Request { payload_id }.into();
 
         match self.send_request(request).await {
             Ok(RpcResponse::Success(result)) => serde_json::from_value(result.result)
