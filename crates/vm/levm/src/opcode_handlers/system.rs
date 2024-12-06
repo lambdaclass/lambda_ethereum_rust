@@ -395,6 +395,7 @@ impl VM {
             code_size_in_memory,
             None,
             current_call_frame,
+            false,
         )
     }
 
@@ -430,12 +431,14 @@ impl VM {
             )?,
         )?;
 
+        dbg!("CHAU");
         self.create(
             value_in_wei_to_send,
             code_offset_in_memory,
             code_size_in_memory,
             Some(salt),
             current_call_frame,
+            true,
         )
     }
 
