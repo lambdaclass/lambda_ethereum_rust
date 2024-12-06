@@ -115,9 +115,9 @@ impl Risc0Proof {
 
     pub fn contract_data_empty() -> Risc0ContractData {
         Risc0ContractData {
-            block_proof: vec![32; 0],
-            image_id: vec![32; 0],
-            journal_digest: vec![32; 0],
+            block_proof: vec![0; 32],
+            image_id: vec![0; 32],
+            journal_digest: vec![0; 32],
         }
     }
 }
@@ -166,9 +166,9 @@ impl Sp1Proof {
     // TODO: better way of giving empty information
     pub fn contract_data_empty() -> Sp1ContractData {
         Sp1ContractData {
-            public_values: vec![32; 0],
-            vk: vec![32; 0],
-            proof_bytes: vec![32; 0],
+            public_values: vec![0; 32],
+            vk: vec![0; 32],
+            proof_bytes: vec![0; 32],
         }
     }
 }
@@ -492,10 +492,12 @@ impl ProverServer {
 
         // The calldata has to be structured in the following way:
         // block_number
-        // size in bytes
+        // offset of first bytes parameter
         // image_id
         // journal
         // programVKey
+        // offset of second bytes parameter
+        // offset of third bytes parameter
         // size of block_proof
         // block_proof
         // size of publicValues
@@ -506,8 +508,7 @@ impl ProverServer {
         // extend with block_number
         calldata.extend(H256::from_low_u64_be(block_number).as_bytes());
 
-        // extend with size in bytes
-        // 7 u256 goes after this field so: 32bytes * 7
+        // extend with offset in bytes
         calldata.extend(H256::from_low_u64_be(7 * 32).as_bytes());
 
         // extend with image_id
@@ -518,6 +519,38 @@ impl ProverServer {
 
         // extend with program_vkey
         calldata.extend(sp1_contract_data.vk);
+
+        // extend with offset in bytes of second bytes parameter
+        let block_proof_len: u64 =
+            risc0_contract_data
+                .block_proof
+                .len()
+                .try_into()
+                .map_err(|err| {
+                    ProverServerError::Custom(format!(
+                        "calldata length does not fit in u64: {}",
+                        err
+                    ))
+                })?;
+
+        let calldata_len: u64 = (calldata.len()).try_into().map_err(|err| {
+            ProverServerError::Custom(format!("calldata length does not fit in u64: {}", err))
+        })?;
+        let leading_zeros_after_block_proof = 32 - (calldata_len + 64 + block_proof_len - 4) % 32;
+
+        let len: u64 = calldata.len().try_into().map_err(|err| {
+            ProverServerError::Custom(format!("calldata length does not fit in u64: {}", err))
+        })?;
+
+        // 2 * 32 bytes are the offset of the second and third bytes parameter
+        // and then 32 bytes more for the len of block_proof
+        let bytes = 32 * 3;
+        let offset = len + block_proof_len + leading_zeros_after_block_proof + bytes - 4;
+        calldata.extend(H256::from_low_u64_be(offset).as_bytes());
+
+        // Adding 64 bytes more to take into account the previous 32 bytes and this 32 bytes.
+        // extend with offset in bytes of third bytes parameter
+        calldata.extend(H256::from_low_u64_be(offset + 64).as_bytes());
 
         // extend with size of block_proof and block_proof
         extend_calldata_with_bytes(&mut calldata, &risc0_contract_data.block_proof)?;
