@@ -6,7 +6,7 @@ use crate::{
 };
 use bytes::Bytes;
 use ethrex_core::{types::Log, Address, U256};
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 
 /// [EIP-1153]: https://eips.ethereum.org/EIPS/eip-1153#reference-implementation
 pub type TransientStorage = HashMap<(Address, U256), U256>;
@@ -80,6 +80,7 @@ pub struct CallFrame {
     pub transient_storage: TransientStorage,
     pub logs: Vec<Log>,
     pub depth: usize,
+    pub valid_jump_destinations: HashSet<usize>,
 }
 
 impl CallFrame {
@@ -103,6 +104,7 @@ impl CallFrame {
         gas_limit: U256,
         gas_used: U256,
         depth: usize,
+        valid_jump_destinations: HashSet<usize>,
     ) -> Self {
         Self {
             gas_limit,
@@ -115,6 +117,7 @@ impl CallFrame {
             is_static,
             depth,
             gas_used,
+            valid_jump_destinations,
             ..Default::default()
         }
     }

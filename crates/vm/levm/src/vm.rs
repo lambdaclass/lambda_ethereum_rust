@@ -137,6 +137,9 @@ impl VM {
                     Account::from(recipient_account_info.clone()),
                 );
 
+                let valid_jump_destinations =
+                    get_valid_jump_destinations(&recipient_account_info.bytecode)?;
+
                 // CALL tx
                 let initial_call_frame = CallFrame::new(
                     env.origin,
@@ -149,6 +152,7 @@ impl VM {
                     env.gas_limit,
                     U256::zero(),
                     0,
+                    valid_jump_destinations,
                 );
 
                 Ok(Self {
@@ -176,6 +180,8 @@ impl VM {
                 let created_contract = Account::new(value, calldata.clone(), 1, HashMap::new());
                 cache::insert_account(&mut cache, new_contract_address, created_contract);
 
+                let valid_jump_destinations = get_valid_jump_destinations(&calldata)?;
+
                 let initial_call_frame = CallFrame::new(
                     env.origin,
                     new_contract_address,
@@ -187,6 +193,7 @@ impl VM {
                     env.gas_limit,
                     U256::zero(),
                     0,
+                    valid_jump_destinations,
                 );
 
                 Ok(Self {
@@ -838,6 +845,8 @@ impl VM {
             .checked_add(1)
             .ok_or(VMError::StackOverflow)?; // Maybe could be depthOverflow but in concept is quite similar
 
+        let valid_jump_destinations = get_valid_jump_destinations(&code_account_info.bytecode)?;
+
         let mut new_call_frame = CallFrame::new(
             msg_sender,
             to,
@@ -849,6 +858,7 @@ impl VM {
             gas_limit,
             U256::zero(),
             new_depth,
+            valid_jump_destinations,
         );
 
         // TODO: Increase this to 1024
