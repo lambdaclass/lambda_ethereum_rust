@@ -241,7 +241,8 @@ impl VM {
                 }
                 // SWAPn
                 op if (Opcode::SWAP1..=Opcode::SWAP16).contains(&op) => {
-                    self.op_swap(current_call_frame, op)
+                    let depth = get_n_bytes(op, Opcode::SWAP1)?;
+                    self.op_swap(current_call_frame, depth)
                 }
                 Opcode::POP => self.op_pop(current_call_frame),
                 op if (Opcode::LOG0..=Opcode::LOG4).contains(&op) => {
