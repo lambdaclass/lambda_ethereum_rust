@@ -223,11 +223,7 @@ impl VM {
                 Opcode::PUSH0 => self.op_push0(current_call_frame),
                 // PUSHn
                 op if (Opcode::PUSH1..=Opcode::PUSH32).contains(&op) => {
-                    let n_bytes = (usize::from(op))
-                        .checked_sub(usize::from(Opcode::PUSH1))
-                        .ok_or(VMError::InvalidOpcode)?
-                        .checked_add(1)
-                        .ok_or(VMError::InvalidOpcode)?;
+                    let n_bytes = get_n_bytes(op, Opcode::PUSH1)?;
                     self.op_push(current_call_frame, n_bytes)
                 }
                 Opcode::AND => self.op_and(current_call_frame),
@@ -1191,4 +1187,14 @@ impl VM {
             }
         }
     }
+}
+
+fn get_n_bytes(op: Opcode, base_opcode: Opcode) -> Result<usize, VMError> {
+    let n_bytes = (usize::from(op))
+        .checked_sub(usize::from(base_opcode))
+        .ok_or(VMError::InvalidOpcode)?
+        .checked_add(1)
+        .ok_or(VMError::InvalidOpcode)?;
+
+    Ok(n_bytes)
 }
