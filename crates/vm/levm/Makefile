@@ -33,11 +33,11 @@ download-evm-ef-tests: $(SPECTEST_VECTORS_DIR) ## 📥 Download EF Tests
 
 run-evm-ef-tests: ## 🏃‍♂️ Run EF Tests
 	cd ../../../ && \
-	time cargo test -p ef_tests-levm --test ef_tests_levm --release -- --disable-spinner
+	time cargo test -p ef_tests-levm --test ef_tests_levm --release
 
 run-evm-ef-tests-ci: ## 🏃‍♂️ Run EF Tests only with LEVM and without spinner, for CI.
 	cd ../../../ && \
-	time cargo test -p ef_tests-levm --test ef_tests_levm --release -- --disable-spinner --summary
+	time cargo test -p ef_tests-levm --test ef_tests_levm --release -- --summary
 
 generate-evm-ef-tests-report: ## 📊 Generate EF Tests Report
 	cd ../../../ && \
