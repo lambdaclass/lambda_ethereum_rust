@@ -1,4 +1,4 @@
-.PHONY: all test clippy fmt usage lint run-evm-ef-tests
+.PHONY: run-evm-ef-tests
 
 run-evm-ef-tests: ## 🏃‍♂️ Run EF Tests
 	cd ../../../crates/vm/levm && \
