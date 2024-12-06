@@ -49,7 +49,7 @@ pub struct EFTestRunnerOptions {
     pub summary: bool,
     #[arg(long, value_name = "SKIP", use_value_delimiter = true)]
     pub skip: Vec<String>,
-    #[arg(long, value_name = "DISABLE_SPINNER", default_value = "false")]
+    #[arg(long, value_name = "DISABLE_SPINNER", default_value = "true")]
     pub disable_spinner: bool, // Replaces spinner for normal prints.
 }
 
