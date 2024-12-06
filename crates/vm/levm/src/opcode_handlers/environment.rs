@@ -167,8 +167,8 @@ impl VM {
             return Ok(OpcodeSuccess::Continue);
         }
 
+        let mut data = vec![0u8; size];
         if calldata_offset > current_call_frame.calldata.len().into() {
-            let data = vec![0u8; size];
             memory::try_store_data(&mut current_call_frame.memory, dest_offset, &data)?;
             return Ok(OpcodeSuccess::Continue);
         }
@@ -177,7 +177,6 @@ impl VM {
             .try_into()
             .map_err(|_err| VMError::VeryLargeNumber)?;
 
-        let mut data = vec![0u8; size];
         for (i, byte) in current_call_frame
             .calldata
             .iter()
