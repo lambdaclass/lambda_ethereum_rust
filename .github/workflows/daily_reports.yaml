@@ -169,9 +169,9 @@ jobs:
       #     url: ${{ secrets.ETHREX_L2_SLACK_WEBHOOK }}
       #   run: sh .github/scripts/publish_loc.sh
 
-      # - name: Post results to levm slack channel
-      #   env:
-      #     url: ${{ secrets.LEVM_SLACK_WEBHOOK }}
+      - name: Post results to levm slack channel
+        env:
+          url: ${{ secrets.LEVM_SLACK_WEBHOOK }}
 
       - name: Post results to test channel
         env:
