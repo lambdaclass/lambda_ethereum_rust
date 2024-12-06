@@ -421,24 +421,27 @@ impl StoreEngine for Store {
             .map(|b| b.to()))
     }
 
-    // FIXME: Comment this
     fn get_receipts_for_block(
         &self,
         block_hash: &BlockHash,
-        // FIXME: Alias this type
     ) -> std::result::Result<Vec<Receipt>, StoreError> {
         let mut receipts = vec![];
         let mut receipt_index = 0;
         let mut key: TupleRLP<BlockHash, Index> = (*block_hash, 0).into();
-        // FIXME: Remove unwrap
-        let txn = self.db.begin_read().unwrap();
-        // FIXME: Remove unwrap
-        let mut cursor = txn.cursor::<Receipts>().unwrap();
+        let txn = self.db.begin_read().map_err(|_| StoreError::ReadError)?;
+        let mut cursor = txn
+            .cursor::<Receipts>()
+            .map_err(|_| StoreError::CursorError("Receipts".to_owned()))?;
 
-        // FIXME: Remove unwrap
-        while let Some((_, encoded_receipt)) = cursor.seek_exact(key).unwrap() {
+        // We're searching receipts for a block, the keys
+        // for the receipt table are of the kind: rlp((BlockHash, Index)).
+        // So we search for values in the db that match with this kind
+        // of key, until we reach an Index that returns None
+        // and we stop the search.
+        while let Some((_, encoded_receipt)) =
+            cursor.seek_exact(key).map_err(|_| StoreError::ReadError)?
+        {
             receipt_index += 1;
-            //FIXME: Comment this idea a bit more
             key = (*block_hash, receipt_index).into();
             receipts.push(encoded_receipt);
         }
