@@ -71,7 +71,7 @@ pub fn word_to_address(word: U256) -> Address {
     Address::from_slice(&bytes[12..])
 }
 
-fn get_valid_jump_destinations(code: &Bytes) -> Result<HashSet<usize>, VMError> {
+pub fn get_valid_jump_destinations(code: &Bytes) -> Result<HashSet<usize>, VMError> {
     let mut valid_jump_destinations = HashSet::new();
     let mut pc = 0;
 

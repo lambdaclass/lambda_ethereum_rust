@@ -2,7 +2,7 @@ use crate::{
     constants::STACK_LIMIT,
     errors::{InternalError, VMError},
     memory::Memory,
-    opcodes::Opcode,
+    opcodes::Opcode, vm::get_valid_jump_destinations,
 };
 use bytes::Bytes;
 use ethrex_core::{types::Log, Address, U256};
@@ -85,9 +85,11 @@ pub struct CallFrame {
 
 impl CallFrame {
     pub fn new_from_bytecode(bytecode: Bytes) -> Self {
+        let valid_jump_destinations = get_valid_jump_destinations(&bytecode).unwrap_or_default();
         Self {
             bytecode,
             gas_limit: U256::MAX,
+            valid_jump_destinations,
             ..Default::default()
         }
     }
