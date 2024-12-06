@@ -3,7 +3,6 @@ use crate::{
     constants::WORD_SIZE_IN_BYTES_USIZE,
     errors::{OpcodeSuccess, VMError},
     gas_cost, memory,
-    opcodes::Opcode,
     vm::VM,
 };
 use bytes::Bytes;
