@@ -178,6 +178,8 @@ pub enum InternalError {
     PCOutOfBounds,
     #[error("Undefined state")]
     UndefinedState(i32), // This error is temporarily for things that cause an undefined state.
+    #[error("Tried to execute a CREATE2 without salt")]
+    SaltNotProvided,
 }
 
 #[derive(Debug, Clone)]
