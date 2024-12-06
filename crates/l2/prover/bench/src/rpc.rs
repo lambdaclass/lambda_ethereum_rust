@@ -1,5 +1,6 @@
+use bytes::Bytes;
 use ethrex_core::{
-    types::{AccountState, Block},
+    types::{AccountState, Block, EMPTY_KECCACK_HASH},
     Address, U256,
 };
 use ethrex_rlp::decode::RLPDecode;
@@ -14,6 +15,7 @@ pub struct Account {
     pub storage: Vec<(U256, U256)>,
     pub account_proof: Vec<NodeRLP>,
     pub storage_proofs: Vec<Vec<NodeRLP>>,
+    pub code: Option<Bytes>,
 }
 
 pub async fn get_block(rpc_url: &str, block_number: usize) -> Result<Block, String> {
@@ -55,8 +57,8 @@ pub async fn get_account(
 ) -> Result<Account, String> {
     let client = reqwest::Client::new();
 
-    let block_number = format!("0x{block_number:x}");
-    let address = format!("0x{address:x}");
+    let block_number_str = format!("0x{block_number:x}");
+    let address_str = format!("0x{address:x}");
     let storage_keys = storage_keys
         .iter()
         .map(|key| format!("0x{key:x}"))
@@ -67,7 +69,7 @@ pub async fn get_account(
                "id": 1,
                "jsonrpc": "2.0",
                "method": "eth_getProof",
-               "params":[address, storage_keys, block_number]
+               "params":[address_str, storage_keys, block_number_str]
            }
     );
     let response = client
@@ -142,6 +144,12 @@ pub async fn get_account(
             .map_err(|_| "failed to parse code hash".to_string())?,
     };
 
+    let code = if account_state.code_hash != *EMPTY_KECCACK_HASH {
+        Some(get_code(rpc_url, block_number, address).await?)
+    } else {
+        None
+    };
+
     let account_proof = account_proof
         .into_iter()
         .map(decode_hex)
@@ -152,7 +160,36 @@ pub async fn get_account(
         storage,
         account_proof,
         storage_proofs,
+        code,
     })
+}
+
+async fn get_code(rpc_url: &str, block_number: usize, address: &Address) -> Result<Bytes, String> {
+    let client = reqwest::Client::new();
+
+    let block_number = format!("0x{block_number:x}");
+    let address = format!("0x{address:x}");
+    let request = &json!({
+        "id": 1,
+        "jsonrpc": "2.0",
+        "method": "eth_getCode",
+        "params": [address, block_number]
+    });
+
+    let response = client
+        .post(rpc_url)
+        .json(request)
+        .send()
+        .await
+        .map_err(|err| err.to_string())?;
+
+    response
+        .json::<serde_json::Value>()
+        .await
+        .map_err(|err| err.to_string())
+        .and_then(get_result)
+        .and_then(decode_hex)
+        .map(Bytes::from_owner)
 }
 
 fn get_result<T: DeserializeOwned>(response: serde_json::Value) -> Result<T, String> {

@@ -41,6 +41,7 @@ async fn main() {
     println!("fetching touched state values");
     let mut accounts = HashMap::new();
     let mut storages = HashMap::new();
+    let mut codes = Vec::new();
     let mut account_proofs = Vec::new();
     let mut storages_proofs: HashMap<_, Vec<NodeRLP>> = HashMap::new();
 
@@ -74,11 +75,15 @@ async fn main() {
                 storage,
                 account_proof,
                 storage_proofs,
+                code,
             },
         ) in fetched_accounts
         {
             accounts.insert(address.to_owned(), account_state);
             storages.insert(address.to_owned(), storage);
+            if let Some(code) = code {
+                codes.push(code);
+            }
             account_proofs.extend(account_proof);
             storages_proofs
                 .entry(address)
@@ -132,11 +137,14 @@ async fn main() {
     let db = ExecutionDB::new(
         accounts,
         storages,
+        codes,
         account_proofs,
         storages_proofs,
         CANCUN_CONFIG,
-    );
+    )
+    .expect("failed to create execution db");
 
+    println!("proving");
     let mut prover = Prover::new();
     let receipt = prover
         .prove(ProgramInput {

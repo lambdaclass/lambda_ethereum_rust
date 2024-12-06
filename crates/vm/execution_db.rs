@@ -1,8 +1,9 @@
 use std::collections::HashMap;
 
+use bytes::Bytes;
 use ethereum_types::H160;
 use ethrex_core::{
-    types::{AccountState, Block, ChainConfig},
+    types::{code_hash, AccountState, Block, ChainConfig},
     Address, H256, U256,
 };
 use ethrex_rlp::decode::RLPDecode;
@@ -11,7 +12,7 @@ use ethrex_trie::{NodeRLP, Trie};
 use revm::{
     primitives::{
         AccountInfo as RevmAccountInfo, Address as RevmAddress, Bytecode as RevmBytecode,
-        B256 as RevmB256, U256 as RevmU256,
+        Bytes as RevmBytes, B256 as RevmB256, U256 as RevmU256,
     },
     DatabaseRef,
 };
@@ -49,10 +50,11 @@ impl ExecutionDB {
     pub fn new(
         accounts: HashMap<Address, AccountState>,
         storage: HashMap<Address, HashMap<U256, U256>>,
+        codes: Vec<Bytes>,
         account_proofs: (Option<NodeRLP>, Vec<NodeRLP>),
         storage_proofs: HashMap<Address, (Option<NodeRLP>, Vec<NodeRLP>)>,
         chain_config: ChainConfig,
-    ) -> Self {
+    ) -> Result<Self, ExecutionDBError> {
         let accounts = accounts
             .into_iter()
             .map(|(address, value)| (RevmAddress::from_slice(address.as_bytes()), value))
@@ -81,6 +83,16 @@ impl ExecutionDB {
                 )
             })
             .collect();
+        let code = codes
+            .into_iter()
+            .map(|bytecode| -> Result<_, ExecutionDBError> {
+                Ok((
+                    RevmB256::from_slice(code_hash(&bytecode).as_bytes()),
+                    RevmBytecode::new_raw_checked(RevmBytes::from(bytecode.to_vec()))
+                        .map_err(|err| ExecutionDBError::Custom(err.to_string()))?,
+                ))
+            })
+            .collect::<Result<HashMap<_, _>, _>>()?;
 
         let pruned_state_trie = account_proofs;
         let pruned_storage_tries = storage_proofs
@@ -88,15 +100,15 @@ impl ExecutionDB {
             .map(|(address, proofs)| (H160::from_slice(address.as_bytes()), proofs))
             .collect();
 
-        Self {
+        Ok(Self {
             accounts,
-            code: HashMap::new(),
+            code,
             storage,
             block_hashes: HashMap::new(),
             chain_config,
             pruned_state_trie,
             pruned_storage_tries,
-        }
+        })
     }
 
     /// Creates a database by executing a block, without performing any validation.
