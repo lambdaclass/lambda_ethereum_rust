@@ -173,9 +173,9 @@ impl VM {
             return Ok(OpcodeSuccess::Continue);
         }
 
-        let calldata_offset: usize = calldata_offset
-            .try_into()
-            .map_err(|_err| VMError::VeryLargeNumber)?;
+        let calldata_offset: usize = calldata_offset.try_into().map_err(|_err| {
+            VMError::Internal(crate::errors::InternalError::ArithmeticOperationOverflow)
+        })?;
 
         for (i, byte) in current_call_frame
             .calldata
