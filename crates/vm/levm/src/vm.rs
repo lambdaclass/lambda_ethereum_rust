@@ -812,9 +812,9 @@ impl VM {
 
         // TODO: Increase this to 1024
         if new_call_frame.depth > 1 {
-            // println!("Depth: {}", new_call_frame.depth);
+            println!("Depth: {}", new_call_frame.depth);
         }
-        if new_call_frame.depth > 512 {
+        if new_call_frame.depth > 1024 {
             // It currently breaks before reaching 1024 (at 690 approx.)
             current_call_frame.stack.push(U256::from(REVERT_FOR_CALL))?;
             return Ok(OpcodeSuccess::Continue);
