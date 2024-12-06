@@ -663,7 +663,6 @@ impl VM {
             .pop()
             .ok_or(VMError::Internal(InternalError::CouldNotPopCallframe))?;
 
-        let cache_before_execution = self.cache.clone();
         self.prepare_execution(&mut initial_call_frame)?;
 
         let mut report = self.execute(&mut initial_call_frame)?;
@@ -679,7 +678,6 @@ impl VM {
                         if report.result != TxResult::Revert(VMError::RevertOpcode) {
                             report.gas_used = self.env.gas_limit.low_u64(); // Consume all gas unless the error cause is revert opcode
                         }
-                        self.cache = cache_before_execution;
                         remove_account(&mut self.cache, &initial_call_frame.to);
                     }
                 }
