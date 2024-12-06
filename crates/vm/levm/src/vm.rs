@@ -602,7 +602,10 @@ impl VM {
 
         // 1. Undo value transfer if the transaction was reverted
         if let TxResult::Revert(_) = report.result {
-            self.decrease_account_balance(receiver_address, initial_call_frame.msg_value)?;
+            // msg_value was not increased in the receiver account when is a create transaction.
+            if !self.is_create() {
+                self.decrease_account_balance(receiver_address, initial_call_frame.msg_value)?;
+            }
             self.increase_account_balance(sender_address, initial_call_frame.msg_value)?;
         }
 
