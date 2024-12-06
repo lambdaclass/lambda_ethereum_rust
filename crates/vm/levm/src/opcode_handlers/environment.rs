@@ -1,7 +1,7 @@
 use crate::{
     call_frame::CallFrame,
     constants::WORD_SIZE_IN_BYTES_USIZE,
-    errors::{OpcodeSuccess, OutOfGasError, VMError},
+    errors::{InternalError, OpcodeSuccess, OutOfGasError, VMError},
     gas_cost, memory,
     vm::{word_to_address, VM},
 };
@@ -173,9 +173,9 @@ impl VM {
             return Ok(OpcodeSuccess::Continue);
         }
 
-        let calldata_offset: usize = calldata_offset.try_into().map_err(|_err| {
-            VMError::Internal(crate::errors::InternalError::ArithmeticOperationOverflow)
-        })?;
+        let calldata_offset: usize = calldata_offset
+            .try_into()
+            .map_err(|_err| VMError::Internal(InternalError::ConversionError))?;
 
         for (i, byte) in current_call_frame
             .calldata
