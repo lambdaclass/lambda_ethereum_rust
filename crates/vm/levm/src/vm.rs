@@ -480,7 +480,7 @@ impl VM {
         let receiver_address = initial_call_frame.to;
         // msg_value is already transferred into the created contract at creation.
         if !self.is_create() {
-        self.increase_account_balance(receiver_address, initial_call_frame.msg_value)?;
+            self.increase_account_balance(receiver_address, initial_call_frame.msg_value)?;
         }
 
         // (3) INSUFFICIENT_MAX_FEE_PER_GAS
