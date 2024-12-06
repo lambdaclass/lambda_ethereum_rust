@@ -147,7 +147,7 @@ jobs:
 
       - name: Post results in summary
         run: |
-          echo "# `ethrex` lines of code report" >> $GITHUB_STEP_SUMMARY
+          echo "# 'ethrex' lines of code report" >> $GITHUB_STEP_SUMMARY
           cat loc_report_github.txt >> $GITHUB_STEP_SUMMARY
 
       # TODO: DE-COMMENT THESE LINES. THIS IS ONLY DONE FOR TESTING
