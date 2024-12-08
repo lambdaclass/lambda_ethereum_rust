@@ -915,10 +915,13 @@ impl Store {
         self.engine.add_payload(payload_id, block)
     }
 
-    pub fn get_payload(&self, payload_id: u64) -> Result<Option<Block>, StoreError> {
+    pub fn get_payload(&self, payload_id: u64) -> Result<Option<(Block, U256, BlobsBundle, bool)>, StoreError> {
         self.engine.get_payload(payload_id)
     }
 
+    pub fn update_payload(&self, payload_id: u64, block: Block, block_value: U256, blobs_bundle: BlobsBundle, closed: bool) -> Result<(), StoreError> {
+        self.engine.update_payload(payload_id, block, block_value, blobs_bundle, closed)
+    }
     pub fn delete_payload(&self, payload_id: u64) -> Result<(), StoreError> {
         self.engine.delete_payload(payload_id)
     }
