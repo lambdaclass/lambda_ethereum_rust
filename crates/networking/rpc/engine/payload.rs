@@ -358,7 +358,6 @@ impl GetPayloadRequest {
 
         let payload = context.storage.get_payload(self.payload_id)?;
 
-
         let Some((mut payload_block, block_value, blobs_bundle, closed)) = payload else {
             return Err(RpcErr::UnknownPayload(format!(
                 "Payload with id {:#018x} not found",
@@ -386,7 +385,13 @@ impl GetPayloadRequest {
         let (blobs_bundle, block_value) = build_payload(&mut payload_block, &context.storage)
             .map_err(|err| RpcErr::Internal(err.to_string()))?;
 
-        context.storage.update_payload(self.payload_id, payload_block.clone(), block_value, blobs_bundle.clone(), true)?;
+        context.storage.update_payload(
+            self.payload_id,
+            payload_block.clone(),
+            block_value,
+            blobs_bundle.clone(),
+            true,
+        )?;
 
         let execution_payload = ExecutionPayload::from_block(payload_block);
 

@@ -9,7 +9,8 @@ use anyhow::Result;
 use bytes::Bytes;
 use ethereum_types::{H256, U256};
 use ethrex_core::types::{
-    BlobsBundle, Block, BlockBody, BlockHash, BlockHeader, BlockNumber, ChainConfig, Index, Receipt, Transaction
+    BlobsBundle, Block, BlockBody, BlockHash, BlockHeader, BlockNumber, ChainConfig, Index,
+    Receipt, Transaction,
 };
 use ethrex_rlp::decode::RLPDecode;
 use ethrex_rlp::encode::RLPEncode;
@@ -351,15 +352,31 @@ impl StoreEngine for Store {
     }
 
     fn add_payload(&self, payload_id: u64, block: Block) -> Result<(), StoreError> {
-        self.write::<Payloads>(payload_id, (block, U256::zero(), BlobsBundle::new_empty(), false).into())
+        self.write::<Payloads>(
+            payload_id,
+            (block, U256::zero(), BlobsBundle::new_empty(), false).into(),
+        )
     }
 
-    fn get_payload(&self, payload_id: u64) -> Result<Option<(Block, U256, BlobsBundle, bool)>, StoreError> {
+    fn get_payload(
+        &self,
+        payload_id: u64,
+    ) -> Result<Option<(Block, U256, BlobsBundle, bool)>, StoreError> {
         Ok(self.read::<Payloads>(payload_id)?.map(|b| b.to()))
     }
 
-    fn update_payload(&self, payload_id: u64, block: Block, block_value: U256, blobs_bundle: BlobsBundle, closed: bool) -> std::result::Result<(), StoreError> {
-        self.write::<Payloads>(payload_id, (block, block_value, blobs_bundle, closed).into())
+    fn update_payload(
+        &self,
+        payload_id: u64,
+        block: Block,
+        block_value: U256,
+        blobs_bundle: BlobsBundle,
+        closed: bool,
+    ) -> std::result::Result<(), StoreError> {
+        self.write::<Payloads>(
+            payload_id,
+            (block, block_value, blobs_bundle, closed).into(),
+        )
     }
 
     fn delete_payload(&self, payload_id: u64) -> std::result::Result<(), StoreError> {
