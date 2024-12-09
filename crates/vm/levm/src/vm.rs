@@ -1106,7 +1106,11 @@ impl VM {
     ///
     /// Accessed storage slots are stored in the `touched_storage_slots` set.
     /// Accessed storage slots take place in some gas cost computation.
-    pub fn access_storage_slot(&mut self, address: Address, key: H256) -> Result<(StorageSlot, bool), VMError> {
+    pub fn access_storage_slot(
+        &mut self,
+        address: Address,
+        key: H256,
+    ) -> Result<(StorageSlot, bool), VMError> {
         let storage_slot_was_cold = self
             .touched_storage_slots
             .entry(address)
@@ -1133,7 +1137,7 @@ impl VM {
         };
 
         let account = self.get_account_mut(address)?;
-        account.storage.insert(key,storage_slot.clone());
+        account.storage.insert(key, storage_slot.clone());
 
         Ok((storage_slot, storage_slot_was_cold))
     }
