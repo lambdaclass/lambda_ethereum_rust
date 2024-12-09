@@ -102,7 +102,7 @@ fn verify_blob_kzg_proof(
 }
 
 impl BlobsBundle {
-    pub fn new_empty() -> Self {
+    pub fn empty() -> Self {
         Self {
             blobs: Vec::new(),
             commitments: Vec::new(),

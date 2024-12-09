@@ -354,7 +354,7 @@ impl StoreEngine for Store {
     fn add_payload(&self, payload_id: u64, block: Block) -> Result<(), StoreError> {
         self.write::<Payloads>(
             payload_id,
-            (block, U256::zero(), BlobsBundle::new_empty(), false).into(),
+            (block, U256::zero(), BlobsBundle::empty(), false).into(),
         )
     }
 
