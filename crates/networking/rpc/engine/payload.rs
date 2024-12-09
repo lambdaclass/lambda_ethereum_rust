@@ -10,203 +10,55 @@ use crate::types::payload::{ExecutionPayload, ExecutionPayloadResponse, PayloadS
 use crate::utils::RpcRequest;
 use crate::{RpcApiContext, RpcErr, RpcHandler};
 
-#[derive(Debug)]
-pub enum NewPayloadRequestVersion {
-    V1,
-    V2,
-    V3 {
-        expected_blob_versioned_hashes: Vec<H256>,
-        parent_beacon_block_root: H256,
-    },
-}
-
-pub struct NewPayloadRequest {
+pub struct NewPayloadV2Request {
     pub payload: ExecutionPayload,
-    pub version: NewPayloadRequestVersion,
 }
 
-impl NewPayloadRequest {
-    fn from(&self) -> RpcRequest {
-        match &self.version {
-            NewPayloadRequestVersion::V1 => todo!(),
-            NewPayloadRequestVersion::V2 => RpcRequest {
-                method: "engine_newPayloadV2".to_string(),
-                params: Some(vec![serde_json::json!(self.payload)]),
-                ..Default::default()
-            },
-            NewPayloadRequestVersion::V3 {
-                expected_blob_versioned_hashes,
-                parent_beacon_block_root,
-            } => RpcRequest {
-                method: "engine_newPayloadV3".to_string(),
-                params: Some(vec![
-                    serde_json::json!(self.payload),
-                    serde_json::json!(expected_blob_versioned_hashes),
-                    serde_json::json!(parent_beacon_block_root),
-                ]),
-                ..Default::default()
-            },
+impl RpcHandler for NewPayloadV2Request {
+    fn parse(params: &Option<Vec<Value>>) -> Result<Self, RpcErr> {
+        let params = params
+            .as_ref()
+            .ok_or(RpcErr::BadParams("No params provided".to_owned()))?;
+        if params.len() != 1 {
+            return Err(RpcErr::BadParams("Expected 1 params".to_owned()));
         }
-    }
-
-    fn parent_beacon_block_root(&self) -> Option<H256> {
-        match self.version {
-            NewPayloadRequestVersion::V1 => None,
-            NewPayloadRequestVersion::V2 => None,
-            NewPayloadRequestVersion::V3 {
-                parent_beacon_block_root,
-                ..
-            } => Some(parent_beacon_block_root),
-        }
-    }
-
-    fn validate_execution_payload(&self) -> Result<(), RpcErr> {
-        match self.version {
-            NewPayloadRequestVersion::V1 => Ok(()),
-            NewPayloadRequestVersion::V2 => Ok(()),
-            NewPayloadRequestVersion::V3 { .. } => {
-                if self.payload.excess_blob_gas.is_none() {
-                    return Err(RpcErr::WrongParam("excess_blob_gas".to_string()));
-                }
-                if self.payload.blob_gas_used.is_none() {
-                    return Err(RpcErr::WrongParam("blob_gas_used".to_string()));
-                }
-                Ok(())
-            }
-        }
-    }
-
-    fn valid_fork(&self) -> Fork {
-        match self.version {
-            NewPayloadRequestVersion::V1 => Fork::Paris,
-            NewPayloadRequestVersion::V2 => Fork::Shanghai,
-            NewPayloadRequestVersion::V3 { .. } => Fork::Cancun,
-        }
-    }
-
-    fn are_blob_versioned_hashes_invalid(&self, block: &Block) -> bool {
-        match &self.version {
-            NewPayloadRequestVersion::V1 => false,
-            NewPayloadRequestVersion::V2 => false,
-            NewPayloadRequestVersion::V3 {
-                expected_blob_versioned_hashes,
-                ..
-            } => {
-                // Concatenate blob versioned hashes lists (tx.blob_versioned_hashes) of each blob transaction included in the payload, respecting the order of inclusion
-                // and check that the resulting array matches expected_blob_versioned_hashes
-                let blob_versioned_hashes: Vec<H256> = block
-                    .body
-                    .transactions
-                    .iter()
-                    .flat_map(|tx| tx.blob_versioned_hashes())
-                    .collect();
-                *expected_blob_versioned_hashes != blob_versioned_hashes
-            }
-        }
+        Ok(NewPayloadV2Request {
+            payload: serde_json::from_value(params[0].clone())
+                .map_err(|_| RpcErr::WrongParam("payload".to_string()))?,
+        })
     }
 
     fn handle(&self, context: RpcApiContext) -> Result<Value, RpcErr> {
-        let storage = &context.storage;
-
-        let block_hash = self.payload.block_hash;
-        info!("Received new payload with block hash: {block_hash:#x}");
-
-        let block = match self
-            .payload
-            .clone()
-            .into_block(self.parent_beacon_block_root())
-        {
-            Ok(block) => block,
-            Err(error) => {
-                let result = PayloadStatus::invalid_with_err(&error.to_string());
-                return serde_json::to_value(result)
-                    .map_err(|error| RpcErr::Internal(error.to_string()));
+        let block = get_block_from_payload(&self.payload, None)?;
+        validate_fork(&block, Fork::Shanghai, &context)?;
+        let payload_status = {
+            if let Err(RpcErr::Internal(error_msg)) = validate_block_hash(&self.payload, &block) {
+                PayloadStatus::invalid_with_err(&error_msg)
+            } else {
+                execute_payload(&block, &context)?
             }
         };
-
-        // Payload Validation
-        self.validate_execution_payload()?;
-
-        // Check timestamp is post valid fork
-        let chain_config = storage.get_chain_config()?;
-        let current_fork = chain_config.get_fork(block.header.timestamp);
-        if current_fork < self.valid_fork() {
-            return Err(RpcErr::UnsuportedFork(format!("{current_fork:?}")));
-        }
-
-        // Check that block_hash is valid
-        let actual_block_hash = block.hash();
-        if block_hash != actual_block_hash {
-            let result = PayloadStatus::invalid_with_err(&format!(
-                "Invalid block hash. Expected {actual_block_hash:#x}, got {block_hash:#x}"
-            ));
-            return serde_json::to_value(result)
-                .map_err(|error| RpcErr::Internal(error.to_string()));
-        }
-
-        info!("Block hash {block_hash} is valid");
-        if self.are_blob_versioned_hashes_invalid(&block) {
-            let result = PayloadStatus::invalid_with_err("Invalid blob_versioned_hashes");
-            return serde_json::to_value(result)
-                .map_err(|error| RpcErr::Internal(error.to_string()));
-        }
-
-        // Return the valid message directly if we have it.
-        if storage.get_block_header_by_hash(block_hash)?.is_some() {
-            let result = PayloadStatus::valid_with_hash(block_hash);
-            return serde_json::to_value(result)
-                .map_err(|error| RpcErr::Internal(error.to_string()));
-        }
-
-        // Execute and store the block
-        info!("Executing payload with block hash: {block_hash:#x}");
-        let payload_status = match add_block(&block, storage) {
-            Err(ChainError::ParentNotFound) => Ok(PayloadStatus::syncing()),
-            // Under the current implementation this is not possible: we always calculate the state
-            // transition of any new payload as long as the parent is present. If we received the
-            // parent payload but it was stashed, then new payload would stash this one too, with a
-            // ParentNotFoundError.
-            Err(ChainError::ParentStateNotFound) => {
-                let e = "Failed to obtain parent state";
-                error!("{e} for block {block_hash}");
-                Err(RpcErr::Internal(e.to_string()))
-            }
-            Err(ChainError::InvalidBlock(error)) => {
-                warn!("Error adding block: {error}");
-                // TODO(#982): this is only valid for the cases where the parent was found, but fully invalid ones may also happen.
-                Ok(PayloadStatus::invalid_with(
-                    block.header.parent_hash,
-                    error.to_string(),
-                ))
-            }
-            Err(ChainError::EvmError(error)) => {
-                warn!("Error executing block: {error}");
-                Ok(PayloadStatus::invalid_with(
-                    block.header.parent_hash,
-                    error.to_string(),
-                ))
-            }
-            Err(ChainError::StoreError(error)) => {
-                warn!("Error storing block: {error}");
-                Err(RpcErr::Internal(error.to_string()))
-            }
-            Ok(()) => {
-                info!("Block with hash {block_hash} executed and added to storage succesfully");
-                Ok(PayloadStatus::valid_with_hash(block_hash))
-            }
-        }?;
-
         serde_json::to_value(payload_status).map_err(|error| RpcErr::Internal(error.to_string()))
     }
 }
 
 pub struct NewPayloadV3Request {
-    pub new_payload_request: NewPayloadRequest,
+    pub payload: ExecutionPayload,
+    pub expected_blob_versioned_hashes: Vec<H256>,
+    pub parent_beacon_block_root: H256,
 }
 
 impl From<NewPayloadV3Request> for RpcRequest {
     fn from(val: NewPayloadV3Request) -> Self {
-        val.new_payload_request.from()
+        RpcRequest {
+            method: "engine_newPayloadV3".to_string(),
+            params: Some(vec![
+                serde_json::json!(val.payload),
+                serde_json::json!(val.expected_blob_versioned_hashes),
+                serde_json::json!(val.parent_beacon_block_root),
+            ]),
+            ..Default::default()
+        }
     }
 }
 
@@ -219,55 +71,38 @@ impl RpcHandler for NewPayloadV3Request {
             return Err(RpcErr::BadParams("Expected 3 params".to_owned()));
         }
         Ok(NewPayloadV3Request {
-            new_payload_request: NewPayloadRequest {
-                payload: serde_json::from_value(params[0].clone())
-                    .map_err(|_| RpcErr::WrongParam("payload".to_string()))?,
-                version: NewPayloadRequestVersion::V3 {
-                    expected_blob_versioned_hashes: serde_json::from_value(params[1].clone())
-                        .map_err(|_| {
-                            RpcErr::WrongParam("expected_blob_versioned_hashes".to_string())
-                        })?,
-                    parent_beacon_block_root: serde_json::from_value(params[2].clone())
-                        .map_err(|_| RpcErr::WrongParam("parent_beacon_block_root".to_string()))?,
-                },
-            },
+            payload: serde_json::from_value(params[0].clone())
+                .map_err(|_| RpcErr::WrongParam("payload".to_string()))?,
+            expected_blob_versioned_hashes: serde_json::from_value(params[1].clone())
+                .map_err(|_| RpcErr::WrongParam("expected_blob_versioned_hashes".to_string()))?,
+            parent_beacon_block_root: serde_json::from_value(params[2].clone())
+                .map_err(|_| RpcErr::WrongParam("parent_beacon_block_root".to_string()))?,
         })
     }
 
     fn handle(&self, context: RpcApiContext) -> Result<Value, RpcErr> {
-        self.new_payload_request.handle(context)
-    }
-}
+        validate_execution_payload_v3(&self.payload)?;
+        let block = get_block_from_payload(&self.payload, Some(self.parent_beacon_block_root))?;
+        validate_fork(&block, Fork::Cancun, &context)?;
+        let payload_status = {
+            if let Err(RpcErr::Internal(error_msg)) = validate_block_hash(&self.payload, &block) {
+                PayloadStatus::invalid_with_err(&error_msg)
+            } else {
+                let blob_versioned_hashes: Vec<H256> = block
+                    .body
+                    .transactions
+                    .iter()
+                    .flat_map(|tx| tx.blob_versioned_hashes())
+                    .collect();
 
-pub struct NewPayloadV2Request {
-    pub new_payload_request: NewPayloadRequest,
-}
-
-impl From<NewPayloadV2Request> for RpcRequest {
-    fn from(val: NewPayloadV2Request) -> Self {
-        val.new_payload_request.from()
-    }
-}
-
-impl RpcHandler for NewPayloadV2Request {
-    fn parse(params: &Option<Vec<Value>>) -> Result<Self, RpcErr> {
-        let params = params
-            .as_ref()
-            .ok_or(RpcErr::BadParams("No params provided".to_owned()))?;
-        if params.len() != 1 {
-            return Err(RpcErr::BadParams("Expected 1 params".to_owned()));
-        }
-        Ok(NewPayloadV2Request {
-            new_payload_request: NewPayloadRequest {
-                payload: serde_json::from_value(params[0].clone())
-                    .map_err(|_| RpcErr::WrongParam("payload".to_string()))?,
-                version: NewPayloadRequestVersion::V2,
-            },
-        })
-    }
-
-    fn handle(&self, context: RpcApiContext) -> Result<Value, RpcErr> {
-        self.new_payload_request.handle(context)
+                if self.expected_blob_versioned_hashes != blob_versioned_hashes {
+                    PayloadStatus::invalid_with_err("Invalid blob_versioned_hashes")
+                } else {
+                    execute_payload(&block, &context)?
+                }
+            }
+        };
+        serde_json::to_value(payload_status).map_err(|error| RpcErr::Internal(error.to_string()))
     }
 }
 
@@ -283,7 +118,7 @@ impl RpcHandler for GetPayloadV2Request {
 
     fn handle(&self, context: RpcApiContext) -> Result<Value, RpcErr> {
         let payload = get_payload(self.payload_id, &context)?;
-        validate(&payload, Fork::Shanghai, &context)?;
+        validate_fork(&payload, Fork::Shanghai, &context)?;
         serde_json::to_value(build_get_payload_response_v2(payload, context)?)
             .map_err(|error| RpcErr::Internal(error.to_string()))
     }
@@ -311,9 +146,91 @@ impl RpcHandler for GetPayloadV3Request {
 
     fn handle(&self, context: RpcApiContext) -> Result<Value, RpcErr> {
         let payload = get_payload(self.payload_id, &context)?;
-        validate(&payload, Fork::Cancun, &context)?;
+        validate_fork(&payload, Fork::Cancun, &context)?;
         serde_json::to_value(build_get_payload_response_v3(payload, context)?)
             .map_err(|error| RpcErr::Internal(error.to_string()))
+    }
+}
+
+fn validate_execution_payload_v3(payload: &ExecutionPayload) -> Result<(), RpcErr> {
+    if payload.excess_blob_gas.is_none() {
+        return Err(RpcErr::WrongParam("excess_blob_gas".to_string()));
+    }
+    if payload.blob_gas_used.is_none() {
+        return Err(RpcErr::WrongParam("blob_gas_used".to_string()));
+    }
+    Ok(())
+}
+
+fn get_block_from_payload(
+    payload: &ExecutionPayload,
+    parent_beacon_block_root: Option<H256>,
+) -> Result<Block, RpcErr> {
+    let block_hash = payload.block_hash;
+    info!("Received new payload with block hash: {block_hash:#x}");
+
+    payload
+        .clone()
+        .into_block(parent_beacon_block_root)
+        .map_err(|error| RpcErr::Internal(error.to_string()))
+}
+
+fn validate_block_hash(payload: &ExecutionPayload, block: &Block) -> Result<(), RpcErr> {
+    let block_hash = payload.block_hash;
+    let actual_block_hash = block.hash();
+    if block_hash != actual_block_hash {
+        return Err(RpcErr::Internal(format!(
+            "Invalid block hash. Expected {actual_block_hash:#x}, got {block_hash:#x}"
+        )));
+    }
+    info!("Block hash {block_hash} is valid");
+    Ok(())
+}
+
+fn execute_payload(block: &Block, context: &RpcApiContext) -> Result<PayloadStatus, RpcErr> {
+    let block_hash = block.hash();
+    let storage = &context.storage;
+    // Return the valid message directly if we have it.
+    if storage.get_block_header_by_hash(block_hash)?.is_some() {
+        return Ok(PayloadStatus::valid_with_hash(block_hash));
+    }
+
+    // Execute and store the block
+    info!("Executing payload with block hash: {block_hash:#x}");
+    match add_block(block, storage) {
+        Err(ChainError::ParentNotFound) => Ok(PayloadStatus::syncing()),
+        // Under the current implementation this is not possible: we always calculate the state
+        // transition of any new payload as long as the parent is present. If we received the
+        // parent payload but it was stashed, then new payload would stash this one too, with a
+        // ParentNotFoundError.
+        Err(ChainError::ParentStateNotFound) => {
+            let e = "Failed to obtain parent state";
+            error!("{e} for block {block_hash}");
+            Err(RpcErr::Internal(e.to_string()))
+        }
+        Err(ChainError::InvalidBlock(error)) => {
+            warn!("Error adding block: {error}");
+            // TODO(#982): this is only valid for the cases where the parent was found, but fully invalid ones may also happen.
+            Ok(PayloadStatus::invalid_with(
+                block.header.parent_hash,
+                error.to_string(),
+            ))
+        }
+        Err(ChainError::EvmError(error)) => {
+            warn!("Error executing block: {error}");
+            Ok(PayloadStatus::invalid_with(
+                block.header.parent_hash,
+                error.to_string(),
+            ))
+        }
+        Err(ChainError::StoreError(error)) => {
+            warn!("Error storing block: {error}");
+            Err(RpcErr::Internal(error.to_string()))
+        }
+        Ok(()) => {
+            info!("Block with hash {block_hash} executed and added to storage succesfully");
+            Ok(PayloadStatus::valid_with_hash(block_hash))
+        }
     }
 }
 
@@ -351,10 +268,10 @@ fn get_payload(payload_id: u64, context: &RpcApiContext) -> Result<Block, RpcErr
     Ok(payload)
 }
 
-fn validate(payload: &Block, fork: Fork, context: &RpcApiContext) -> Result<(), RpcErr> {
+fn validate_fork(block: &Block, fork: Fork, context: &RpcApiContext) -> Result<(), RpcErr> {
     // Check timestamp matches valid fork
     let chain_config = &context.storage.get_chain_config()?;
-    let current_fork = chain_config.get_fork(payload.header.timestamp);
+    let current_fork = chain_config.get_fork(block.header.timestamp);
     if current_fork != fork {
         return Err(RpcErr::UnsuportedFork(format!("{current_fork:?}")));
     }
