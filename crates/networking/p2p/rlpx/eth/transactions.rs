@@ -156,6 +156,25 @@ impl GetPooledTransactions {
             id,
         }
     }
+
+    pub fn handle(&self, store: &Store) -> Result<PooledTransactions, StoreError> {
+        let txs = self
+            .transaction_hashes
+            .iter()
+            .map(|hash| store.get_transaction_by_hash(*hash))
+            // Return an error in case anything failed.
+            .collect::<Result<Vec<_>, _>>()?
+            .into_iter()
+            // As per the spec, Nones are perfectly acceptable, for example if a transaction was
+            // taken out of the mempool due to payload building after being advertised.
+            .flatten()
+            .collect();
+
+        Ok(PooledTransactions {
+            id: self.id,
+            pooled_transactions: txs,
+        })
+    }
 }
 
 impl RLPxMessage for GetPooledTransactions {
@@ -182,6 +201,7 @@ impl RLPxMessage for GetPooledTransactions {
 }
 
 // https://github.com/ethereum/devp2p/blob/master/caps/eth.md#pooledtransactions-0x0a
+#[derive(Debug)]
 pub(crate) struct PooledTransactions {
     // id is a u64 chosen by the requesting peer, the responding peer must mirror the value for the response
     // https://github.com/ethereum/devp2p/blob/master/caps/eth.md#protocol-messages
