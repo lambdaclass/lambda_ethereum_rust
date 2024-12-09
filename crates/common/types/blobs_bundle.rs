@@ -103,11 +103,7 @@ fn verify_blob_kzg_proof(
 
 impl BlobsBundle {
     pub fn empty() -> Self {
-        Self {
-            blobs: Vec::new(),
-            commitments: Vec::new(),
-            proofs: Vec::new(),
-        }
+        Self::default()
     }
 
     // In the future we might want to provide a new method that calculates the commitments and proofs using the following.
