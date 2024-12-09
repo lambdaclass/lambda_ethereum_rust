@@ -22,7 +22,7 @@ use crate::{
 
 use super::{
     error::RLPxError,
-    eth::transactions::GetPooledTransactions,
+    eth::transactions::{GetPooledTransactions, PooledTransactions},
     frame,
     handshake::{decode_ack_message, decode_auth_message, encode_auth_message},
     message::{self as rlpx},
@@ -390,6 +390,13 @@ impl<S: AsyncWrite + AsyncRead + std::marker::Unpin> RLPxConnection<S> {
                 let request = GetPooledTransactions::new(random(), hashes);
                 self.send(Message::GetPooledTransactions(request)).await?;
             }
+            // TODO: Also add handler for get pooled transactions.
+            Message::GetPooledTransactions(msg) => {
+                // We need to get the transactions for each hash and build a response with the same id.
+                let response = msg.handle(&self.storage)?;
+                self.send(Message::PooledTransactions(response)).await?;
+            }
+            Message::PooledTransactions(msg) if peer_supports_eth => {}
             Message::GetStorageRanges(req) => {
                 let response = process_storage_ranges_request(req, self.storage.clone())?;
                 self.send(Message::StorageRanges(response)).await?
