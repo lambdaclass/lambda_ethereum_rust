@@ -81,7 +81,11 @@ pub fn prepare_vm_for_tx(vector: &TestVector, test: &EFTest) -> Result<VM, EFTes
             InternalError::FirstRunInternal("Failed to get transaction".to_owned()),
         ))?;
 
-    let access_lists = tx.access_list.iter().map(|arg| {(arg.address, arg.storage_keys.clone())}).collect();
+    let access_lists = tx
+        .access_list
+        .iter()
+        .map(|arg| (arg.address, arg.storage_keys.clone()))
+        .collect();
 
     VM::new(
         tx.to.clone(),
