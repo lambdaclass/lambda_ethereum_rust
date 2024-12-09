@@ -815,7 +815,6 @@ impl VM {
         );
 
         if new_call_frame.depth > 1024 {
-            // It currently breaks before reaching 1024 (at 690 approx.)
             current_call_frame.stack.push(U256::from(REVERT_FOR_CALL))?;
             return Ok(OpcodeSuccess::Continue);
         }
