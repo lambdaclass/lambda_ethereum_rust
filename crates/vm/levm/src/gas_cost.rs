@@ -162,8 +162,6 @@ pub const BLOB_GAS_PER_BLOB: U256 = U256([131072, 0, 0, 0]);
 pub const ACCESS_LIST_STORAGE_KEY_COST: U256 = U256([1900, 0, 0, 0]);
 pub const ACCESS_LIST_ADDRESS_COST: U256 = U256([2400, 0, 0, 0]);
 
-
-
 pub fn exp(exponent: U256) -> Result<U256, OutOfGasError> {
     let exponent_byte_size = (exponent
         .bits()

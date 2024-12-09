@@ -52,7 +52,7 @@ pub struct VM {
     pub db: Arc<dyn Database>,
     pub cache: CacheDB,
     pub tx_kind: TxKind,
-    pub access_list: Option<AccessList>,
+    pub access_list: AccessList,
 
     pub touched_accounts: HashSet<Address>,
     pub touched_storage_slots: HashMap<Address, HashSet<H256>>,
