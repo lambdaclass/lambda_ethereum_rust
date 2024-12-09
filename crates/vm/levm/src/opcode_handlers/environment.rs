@@ -1,6 +1,5 @@
 use crate::{
     call_frame::CallFrame,
-    constants::WORD_SIZE_IN_BYTES_USIZE,
     errors::{InternalError, OpcodeSuccess, VMError},
     gas_cost,
     memory::{self, calculate_memory_size},
