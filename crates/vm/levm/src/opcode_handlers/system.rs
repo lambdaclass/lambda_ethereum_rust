@@ -505,8 +505,7 @@ impl VM {
 
         self.increase_consumed_gas(
             current_call_frame,
-            gas_cost::selfdestruct(target_account_is_cold, target_account_info.is_empty())
-                .map_err(VMError::OutOfGas)?,
+            gas_cost::selfdestruct(target_account_is_cold, target_account_info.is_empty())?,
         )?;
 
         let (current_account_info, _current_account_is_cold) =
