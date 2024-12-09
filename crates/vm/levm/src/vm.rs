@@ -91,6 +91,7 @@ impl VM {
         calldata: Bytes,
         db: Arc<dyn Database>,
         mut cache: CacheDB,
+        access_list: Option<AccessList>,
     ) -> Result<Self, VMError> {
         // Maybe this decision should be made in an upper layer
 
@@ -133,6 +134,7 @@ impl VM {
                     tx_kind: to,
                     touched_accounts: default_touched_accounts,
                     touched_storage_slots: HashMap::new(),
+                    access_list
                 })
             }
             TxKind::Create => {
@@ -171,10 +173,10 @@ impl VM {
                     tx_kind: TxKind::Create,
                     touched_accounts: default_touched_accounts,
                     touched_storage_slots: HashMap::new(),
+                    access_list
                 })
             }
         }
-        // TODO: https://github.com/lambdaclass/ethrex/issues/1088
     }
 
     pub fn execute(
