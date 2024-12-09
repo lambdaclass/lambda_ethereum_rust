@@ -4,7 +4,6 @@ use crate::{
     errors::{OpcodeSuccess, OutOfGasError, VMError},
     gas_cost,
     memory::{self, calculate_memory_size},
-    opcodes::Opcode,
     vm::VM,
 };
 use ethrex_core::{H256, U256};
@@ -322,14 +321,7 @@ impl VM {
     /// This function returns whether the `jump_address` is a valid JUMPDEST
     /// for the specified `call_frame` or not.
     fn is_valid_jump_addr(call_frame: &CallFrame, jump_address: usize) -> bool {
-        matches!(
-            call_frame
-                .bytecode
-                .get(jump_address)
-                .copied()
-                .map(Opcode::try_from),
-            Some(Ok(Opcode::JUMPDEST))
-        )
+        call_frame.valid_jump_destinations.contains(&jump_address)
     }
 
     /// JUMP* family (`JUMP` and `JUMP` ATTOW [DEC 2024]) helper
