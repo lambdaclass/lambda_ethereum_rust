@@ -145,22 +145,23 @@ impl Sp1Proof {
         }
     }
 
-    pub fn contract_data(&self) -> Sp1ContractData {
-        let public_values = format!("0x{}", hex::encode(self.proof.public_values.as_slice()))
-            .as_bytes()
-            .to_vec();
+    pub fn contract_data(&self) -> Result<Sp1ContractData, ProverServerError> {
+        let vk = self
+            .vk
+            .bytes32()
+            .strip_prefix("0x")
+            .ok_or(ProverServerError::Custom(
+                "Failed to strip_prefix of sp1 vk".to_owned(),
+            ))?
+            .to_string();
+        let vk_bytes = hex::decode(&vk)
+            .map_err(|_| ProverServerError::Custom("Failed hex::decode(&vk)".to_owned()))?;
 
-        let vk = self.vk.bytes32().as_bytes().to_vec();
-
-        let proof_bytes = format!("0x{}", hex::encode(self.proof.bytes()))
-            .as_bytes()
-            .to_vec();
-
-        Sp1ContractData {
-            public_values,
-            vk,
-            proof_bytes,
-        }
+        Ok(Sp1ContractData {
+            public_values: self.proof.public_values.to_vec(),
+            vk: vk_bytes,
+            proof_bytes: self.proof.bytes(),
+        })
     }
 
     // TODO: better way of giving empty information
@@ -536,21 +537,49 @@ impl ProverServer {
         let calldata_len: u64 = (calldata.len()).try_into().map_err(|err| {
             ProverServerError::Custom(format!("calldata length does not fit in u64: {}", err))
         })?;
-        let leading_zeros_after_block_proof = 32 - (calldata_len + 64 + block_proof_len - 4) % 32;
 
-        let len: u64 = calldata.len().try_into().map_err(|err| {
-            ProverServerError::Custom(format!("calldata length does not fit in u64: {}", err))
-        })?;
+        let leading_zeros_after_block_proof: u64 =
+            calculate_padding(calldata_len + 64 + block_proof_len)?
+                .try_into()
+                .map_err(|err| {
+                    ProverServerError::Custom(format!(
+                        "calculate_padding length does not fit in u64: {}",
+                        err
+                    ))
+                })?;
 
-        // 2 * 32 bytes are the offset of the second and third bytes parameter
+        // 2 * 32 bytes are the offset of the second and third bytes offsets
         // and then 32 bytes more for the len of block_proof
         let bytes = 32 * 3;
-        let offset = len + block_proof_len + leading_zeros_after_block_proof + bytes - 4;
-        calldata.extend(H256::from_low_u64_be(offset).as_bytes());
+        let offset = calldata_len + block_proof_len + leading_zeros_after_block_proof + bytes;
+        calldata.extend(H256::from_low_u64_be(offset - 4).as_bytes());
 
-        // Adding 64 bytes more to take into account the previous 32 bytes and this 32 bytes.
+        // add 32 bytes to reflect the last extend()
+        let offset = offset + 32;
+        let public_values_len: u64 =
+            sp1_contract_data
+                .public_values
+                .len()
+                .try_into()
+                .map_err(|err| {
+                    ProverServerError::Custom(format!(
+                        "public_values length does not fit in u64: {}",
+                        err
+                    ))
+                })?;
+
+        let leading_zeros_after_public_values: u64 = calculate_padding(offset + public_values_len)?
+            .try_into()
+            .map_err(|err| {
+                ProverServerError::Custom(format!(
+                    "calculate_padding length does not fit in u64: {}",
+                    err
+                ))
+            })?;
+
+        let offset = offset + public_values_len + leading_zeros_after_public_values - 4;
         // extend with offset in bytes of third bytes parameter
-        calldata.extend(H256::from_low_u64_be(offset + 64).as_bytes());
+        calldata.extend(H256::from_low_u64_be(offset).as_bytes());
 
         // extend with size of block_proof and block_proof
         extend_calldata_with_bytes(&mut calldata, &risc0_contract_data.block_proof)?;
@@ -619,6 +648,21 @@ impl ProverServer {
             // function verify(uint256,bytes,bytes32,bytes32,bytes32,bytes,bytes)
             // blockNumber, blockProof, imageId, journalDigest, programVKey, publicValues, proofBytes
             // From crates/l2/contracts/l1/interfaces/IOnChainProposer.sol
+
+            // The calldata has to be structured in the following way:
+            // block_number
+            // offset of first bytes parameter
+            // image_id
+            // journal
+            // programVKey
+            // offset of second bytes parameter
+            // offset of third bytes parameter
+            // size of block_proof
+            // block_proof
+            // size of publicValues
+            // publicValues
+            // size of proofBytes
+            // proofBytes
             let mut calldata = keccak(b"verify(uint256,bytes,bytes32,bytes32,bytes32,bytes,bytes)")
                 .as_bytes()
                 .get(..4)
@@ -627,18 +671,15 @@ impl ProverServer {
                 ))?
                 .to_vec();
             calldata.extend(H256::from_low_u64_be(last_verified_block + 1).as_bytes());
-            // 7 inputs * 32bytes offset
+            // offset of first bytes parameter
             calldata.extend(H256::from_low_u64_be(7 * 32).as_bytes());
             // extend with bytes32, bytes32, bytes32
             for _ in 0..=3 {
                 calldata.extend(H256::zero().as_bytes());
             }
-            // extend with size of the first bytes variable -> 32bytes
-            calldata.extend(H256::from_low_u64_be(32).as_bytes());
-            // Fill with zeroes
-            // extend with size of the second bytes variable -> 32bytes
-            calldata.extend(H256::from_low_u64_be(32).as_bytes());
-            // Fill with zeroes
+            // offset of second bytes parameter
+            calldata.extend(H256::zero().as_bytes());
+            // offset of third bytes parameter
             calldata.extend(H256::zero().as_bytes());
             // extend with size of the third bytes variable -> 32bytes
             calldata.extend(H256::from_low_u64_be(32).as_bytes());
@@ -693,8 +734,31 @@ pub fn extend_calldata_with_bytes(
     // extend with bytes
     calldata.extend(bytes);
     // extend with zero padding
-    let leading_zeros = 32 - ((calldata.len() - 4) % 32);
+    let calldata_len: u64 = calldata.len().try_into().map_err(|err| {
+        ProverServerError::Custom(format!("calldata length does not fit in u64: {}", err))
+    })?;
+    let leading_zeros = calculate_padding(calldata_len)?;
     calldata.extend(vec![0; leading_zeros]);
 
     Ok(())
+}
+
+fn calculate_padding(calldata_len: u64) -> Result<usize, ProverServerError> {
+    let len = calldata_len - 4;
+
+    // Calculate leading zeros needed for alignment to 32 bytes
+    let leading_zeros = if len % 32 == 0 { 0 } else { 32 - (len % 32) };
+    leading_zeros
+        .try_into()
+        .map_err(|_| ProverServerError::Custom("Failed to calculate padding".to_owned()))
+}
+
+// used for debugging purposes
+#[allow(unused)]
+fn print_calldata(calldata: Vec<u8>) {
+    let mut hex_string = String::new();
+    for byte in calldata {
+        hex_string.push_str(&format!("{:02x}", byte));
+    }
+    println!("CALLDATA: {}", hex_string);
 }
