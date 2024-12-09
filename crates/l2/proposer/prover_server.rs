@@ -472,7 +472,7 @@ impl ProverServer {
             }
             ZkProof::SP1(sp1_proof) => {
                 let risc0_contract_data = Risc0Proof::contract_data_empty();
-                let sp1_contract_data = sp1_proof.contract_data();
+                let sp1_contract_data = sp1_proof.contract_data()?;
                 (sp1_contract_data, risc0_contract_data)
             }
         };
