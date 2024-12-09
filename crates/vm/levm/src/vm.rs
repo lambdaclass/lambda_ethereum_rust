@@ -799,7 +799,7 @@ impl VM {
         let new_depth = current_call_frame
             .depth
             .checked_add(1)
-            .ok_or(InternalError::ArithmeticOperationOverflow)?; // Maybe could be depthOverflow but in concept is quite similar
+            .ok_or(InternalError::ArithmeticOperationOverflow)?;
 
         let mut new_call_frame = CallFrame::new(
             msg_sender,
