@@ -19,6 +19,10 @@ use tracing::{debug, info, warn};
 
 use crate::kademlia::KademliaTable;
 
+/// Maximum amount of times we will ask a peer for an account range
+/// If the max amount of retries is exceeded we will asume that the state we are requesting is old and no longer available
+const MAX_ACCOUNT_RETRIES: usize = 10;
+
 #[derive(Debug)]
 pub enum SyncMode {
     Full,
@@ -154,6 +158,8 @@ impl SyncManager {
                 for result in set.join_all().await {
                     result?;
                 }
+                // Start state healing
+                info!("Starting state healing");
                 // Set latest block number here to avoid reading state that is currently being synced
                 store.update_latest_block_number(latest_block_number)?;
             }
@@ -285,7 +291,9 @@ async fn rebuild_state_trie(
     // We cannot keep an open trie here so we will track the root between lookups
     let mut current_state_root = *EMPTY_TRIE_HASH;
     // Fetch Account Ranges
-    loop {
+    // If we reached the maximum amount of retries then it means the state we are requesting is probably old and no longer available
+    // In that case we will delegate the work to state healing
+    for _ in 0..MAX_ACCOUNT_RETRIES {
         let peer = peers.clone().lock().await.get_peer_channels().await;
         debug!("Requesting Account Range for state root {state_root}, starting hash: {start_account_hash}");
         if let Some((account_hashes, accounts, should_continue)) = peer
