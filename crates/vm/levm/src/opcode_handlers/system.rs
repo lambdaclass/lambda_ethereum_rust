@@ -6,7 +6,7 @@ use crate::{
     memory::{self, calculate_memory_size},
     vm::{word_to_address, VM},
 };
-use ethrex_core::{types::TxKind, Address, U256};
+use ethrex_core::{Address, U256};
 
 // System Operations (10)
 // Opcodes: CREATE, CALL, CALLCODE, RETURN, DELEGATECALL, CREATE2, STATICCALL, REVERT, INVALID, SELFDESTRUCT
@@ -519,7 +519,7 @@ impl VM {
         self.increase_account_balance(target_address, balance_to_transfer)?;
         self.decrease_account_balance(current_call_frame.to, balance_to_transfer)?;
 
-        if self.tx_kind == TxKind::Create {
+        if self.created_accounts.contains(&current_call_frame.to) {
             self.accrued_substate
                 .selfdestrutct_set
                 .insert(current_call_frame.to);

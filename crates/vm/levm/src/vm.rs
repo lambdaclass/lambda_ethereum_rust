@@ -52,6 +52,7 @@ pub struct VM {
 
     pub touched_accounts: HashSet<Address>,
     pub touched_storage_slots: HashMap<Address, HashSet<H256>>,
+    pub created_accounts: HashSet<Address>,
 }
 
 pub fn address_to_word(address: Address) -> U256 {
@@ -123,6 +124,7 @@ impl VM {
                     tx_kind: to,
                     touched_accounts: default_touched_accounts,
                     touched_storage_slots: HashMap::new(),
+                    created_accounts: HashSet::new(),
                 })
             }
             TxKind::Create => {
@@ -161,6 +163,7 @@ impl VM {
                     tx_kind: TxKind::Create,
                     touched_accounts: default_touched_accounts,
                     touched_storage_slots: HashMap::new(),
+                    created_accounts: HashSet::from([new_contract_address]),
                 })
             }
         }
@@ -1004,6 +1007,8 @@ impl VM {
             .stack
             .pop()
             .map_err(|_| VMError::StackUnderflow)?;
+
+        self.created_accounts.insert(new_address);
 
         Ok(OpcodeSuccess::Continue)
     }
