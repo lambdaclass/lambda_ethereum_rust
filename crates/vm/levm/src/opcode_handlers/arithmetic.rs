@@ -1,6 +1,5 @@
 use crate::{
     call_frame::CallFrame,
-    db,
     errors::{InternalError, OpcodeSuccess, VMError},
     gas_cost,
     opcode_handlers::bitwise_comparison::checked_shift_left,
