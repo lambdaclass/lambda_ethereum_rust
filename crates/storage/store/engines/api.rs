@@ -228,6 +228,6 @@ pub trait StoreEngine: Debug + Send + Sync + RefUnwindSafe {
         block: Block,
         block_value: U256,
         blobs_bundle: BlobsBundle,
-        closed: bool,
+        completed: bool,
     ) -> Result<(), StoreError>;
 }

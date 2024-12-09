@@ -371,11 +371,11 @@ impl StoreEngine for Store {
         block: Block,
         block_value: U256,
         blobs_bundle: BlobsBundle,
-        closed: bool,
+        completed: bool,
     ) -> std::result::Result<(), StoreError> {
         self.write::<Payloads>(
             payload_id,
-            (block, block_value, blobs_bundle, closed).into(),
+            (block, block_value, blobs_bundle, completed).into(),
         )
     }
 

@@ -553,13 +553,13 @@ impl StoreEngine for RedBStore {
         block: Block,
         block_value: U256,
         blobs_bundle: BlobsBundle,
-        closed: bool,
+        completed: bool,
     ) -> Result<(), StoreError> {
         self.write(
             PAYLOADS_TABLE,
             payload_id,
             <(Block, U256, BlobsBundle, bool) as Into<Rlp<(Block, U256, BlobsBundle, bool)>>>::into(
-                (block, block_value, blobs_bundle, closed),
+                (block, block_value, blobs_bundle, completed),
             ),
         )
     }

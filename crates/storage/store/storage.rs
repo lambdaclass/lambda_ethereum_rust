@@ -923,10 +923,10 @@ impl Store {
         block: Block,
         block_value: U256,
         blobs_bundle: BlobsBundle,
-        closed: bool,
+        completed: bool,
     ) -> Result<(), StoreError> {
         self.engine
-            .update_payload(payload_id, block, block_value, blobs_bundle, closed)
+            .update_payload(payload_id, block, block_value, blobs_bundle, completed)
     }
 
     /// Creates a new state trie with an empty state root, for testing purposes only

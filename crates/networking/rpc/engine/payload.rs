@@ -358,7 +358,7 @@ impl GetPayloadRequest {
 
         let payload = context.storage.get_payload(self.payload_id)?;
 
-        let Some((mut payload_block, block_value, blobs_bundle, closed)) = payload else {
+        let Some((mut payload_block, block_value, blobs_bundle, completed)) = payload else {
             return Err(RpcErr::UnknownPayload(format!(
                 "Payload with id {:#018x} not found",
                 self.payload_id
@@ -373,7 +373,7 @@ impl GetPayloadRequest {
             return Err(RpcErr::UnsuportedFork(format!("{current_fork:?}")));
         }
 
-        if closed {
+        if completed {
             return serde_json::to_value(self.build_response(
                 ExecutionPayload::from_block(payload_block),
                 blobs_bundle,
