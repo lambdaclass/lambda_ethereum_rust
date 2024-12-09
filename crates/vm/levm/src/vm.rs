@@ -590,6 +590,7 @@ impl VM {
     /// 1. Undo value transfer if the transaction was reverted
     /// 2. Return unused gas + gas refunds to the sender.
     /// 3. Pay coinbase fee
+    /// 4. Destruct addresses in selfdestruct set.
     fn post_execution_changes(
         &mut self,
         initial_call_frame: &CallFrame,
@@ -652,6 +653,11 @@ impl VM {
         if coinbase_fee != 0 {
             self.increase_account_balance(coinbase_address, U256::from(coinbase_fee))?;
         };
+
+        // 4. Destruct addresses in selfdestruct set.
+        for address in &self.accrued_substate.selfdestrutct_set {
+            remove_account(&mut self.cache, address);
+        }
 
         Ok(())
     }
