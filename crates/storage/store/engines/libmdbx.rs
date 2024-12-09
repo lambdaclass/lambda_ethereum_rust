@@ -442,9 +442,9 @@ impl StoreEngine for Store {
         while let Some((_, encoded_receipt)) =
             cursor.seek_exact(key).map_err(|_| StoreError::ReadError)?
         {
+            receipts.push(encoded_receipt);
             receipt_index += 1;
             key = (*block_hash, receipt_index).into();
-            receipts.push(encoded_receipt);
         }
 
         Ok(receipts.into_iter().map(|receipt| receipt.to()).collect())
