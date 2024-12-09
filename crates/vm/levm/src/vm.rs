@@ -49,6 +49,7 @@ pub struct VM {
     pub db: Arc<dyn Database>,
     pub cache: CacheDB,
     pub tx_kind: TxKind,
+    pub access_list: Option<AccessList>,
 
     pub touched_accounts: HashSet<Address>,
     pub touched_storage_slots: HashMap<Address, HashSet<H256>>,
@@ -70,6 +71,15 @@ pub fn word_to_address(word: U256) -> Address {
     word.to_big_endian(&mut bytes);
     Address::from_slice(&bytes[12..])
 }
+
+// Taken from cmd/ef_tests/ethrex/types.rs, didn't want to fight dependencies yet
+#[derive(Debug, PartialEq, Eq, Clone)]
+pub struct AccessListItem {
+    pub address: Address,
+    pub storage_keys: Vec<H256>,
+}
+
+pub type AccessList = Vec<AccessListItem>;
 
 impl VM {
     // TODO: Refactor this.
