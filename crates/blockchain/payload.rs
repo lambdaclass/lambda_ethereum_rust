@@ -29,7 +29,7 @@ use crate::{
     mempool::{self, PendingTxFilter},
 };
 
-use tracing::{debug, info};
+use tracing::debug;
 
 pub struct BuildPayloadArgs {
     pub parent: BlockHash,
@@ -243,22 +243,16 @@ fn fetch_mempool_transactions(
         "no store in the context (is an ExecutionDB being used?)".to_string(),
     ))?;
     Ok((
-        {
-            // Plain txs
-            info!("Fetching plain transactions from mempool");
-            TransactionQueue::new(
-                mempool::filter_transactions(&plain_tx_filter, store)?,
-                context.base_fee_per_gas(),
-            )?
-        },
-        {
-            // Blob txs
-            info!("Fetching blob transactions from mempool");
-            TransactionQueue::new(
-                mempool::filter_transactions(&blob_tx_filter, store)?,
-                context.base_fee_per_gas(),
-            )?
-        },
+        // Plain txs
+        TransactionQueue::new(
+            mempool::filter_transactions(&plain_tx_filter, store)?,
+            context.base_fee_per_gas(),
+        )?,
+        // Blob txs
+        TransactionQueue::new(
+            mempool::filter_transactions(&blob_tx_filter, store)?,
+            context.base_fee_per_gas(),
+        )?,
     ))
 }
 
@@ -266,7 +260,7 @@ fn fetch_mempool_transactions(
 /// Returns the block value
 pub fn fill_transactions(context: &mut PayloadBuildContext) -> Result<(), ChainError> {
     let chain_config = context.chain_config()?;
-    info!("Fetching transactions from mempool");
+    debug!("Fetching transactions from mempool");
     // Fetch mempool transactions
     let (mut plain_txs, mut blob_txs) = fetch_mempool_transactions(context)?;
     // Execute and add transactions to payload (if suitable)
