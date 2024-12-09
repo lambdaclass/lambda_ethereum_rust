@@ -89,9 +89,7 @@ impl RLPDecode for Receipt {
     fn decode_unfinished(rlp: &[u8]) -> Result<(Self, &[u8]), RLPDecodeError> {
         if is_encoded_as_bytes(rlp)? {
             let payload = get_rlp_bytes_item_payload(rlp)?;
-            let tx_type = payload
-                .first()
-                .ok_or(RLPDecodeError::InvalidLength)?;
+            let tx_type = payload.first().ok_or(RLPDecodeError::InvalidLength)?;
             let receipt_encoding = &payload[1..];
             let tx_type = match tx_type {
                 0x0 => TxType::Legacy,
