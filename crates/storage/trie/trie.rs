@@ -316,6 +316,18 @@ impl Trie {
         }
     }
 
+    /// Returns a mutable reference to the trie's internal node state
+    /// [WARNING] This will allow directly manipulating the trie's state and
+    /// may lead to inconsistent trie structures if not used resposibly
+    pub fn state_mut(&mut self) -> &mut TrieState {
+        &mut self.state
+    }
+
+    /// Returns a reference to the trie's internal node state
+    pub fn state(&mut self) -> &TrieState {
+        &self.state
+    }
+
     #[cfg(all(test, feature = "libmdbx"))]
     /// Creates a new Trie based on a temporary Libmdbx DB
     fn new_temp() -> Self {
