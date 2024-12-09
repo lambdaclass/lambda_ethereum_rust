@@ -2,7 +2,8 @@ use crate::{
     call_frame::CallFrame,
     constants::{WORD_SIZE, WORD_SIZE_IN_BYTES_USIZE},
     errors::{OpcodeSuccess, OutOfGasError, VMError},
-    gas_cost, memory,
+    gas_cost,
+    memory::{self, calculate_memory_size},
     vm::VM,
 };
 use ethrex_core::{H256, U256};
@@ -63,16 +64,11 @@ impl VM {
             .try_into()
             .map_err(|_| VMError::VeryLargeNumber)?;
 
+        let new_memory_size = calculate_memory_size(offset, WORD_SIZE_IN_BYTES_USIZE)?;
+
         self.increase_consumed_gas(
             current_call_frame,
-            gas_cost::mload(
-                offset
-                    .checked_add(WORD_SIZE_IN_BYTES_USIZE)
-                    .ok_or(VMError::OutOfOffset)?
-                    .checked_next_multiple_of(WORD_SIZE_IN_BYTES_USIZE)
-                    .ok_or(VMError::OutOfOffset)?,
-                current_call_frame.memory.len(),
-            )?,
+            gas_cost::mload(new_memory_size, current_call_frame.memory.len())?,
         )?;
 
         current_call_frame
@@ -93,16 +89,11 @@ impl VM {
             .try_into()
             .map_err(|_err| VMError::VeryLargeNumber)?;
 
+        let new_memory_size = calculate_memory_size(offset, WORD_SIZE_IN_BYTES_USIZE)?;
+
         self.increase_consumed_gas(
             current_call_frame,
-            gas_cost::mstore(
-                offset
-                    .checked_add(WORD_SIZE_IN_BYTES_USIZE)
-                    .ok_or(VMError::OutOfOffset)?
-                    .checked_next_multiple_of(WORD_SIZE_IN_BYTES_USIZE)
-                    .ok_or(VMError::OutOfOffset)?,
-                current_call_frame.memory.len(),
-            )?,
+            gas_cost::mstore(new_memory_size, current_call_frame.memory.len())?,
         )?;
 
         let value = current_call_frame.stack.pop()?;
@@ -126,16 +117,11 @@ impl VM {
             .try_into()
             .map_err(|_| VMError::VeryLargeNumber)?;
 
+        let new_memory_size = calculate_memory_size(offset, 1)?;
+
         self.increase_consumed_gas(
             current_call_frame,
-            gas_cost::mstore8(
-                offset
-                    .checked_add(1)
-                    .ok_or(VMError::OutOfOffset)?
-                    .checked_next_multiple_of(WORD_SIZE_IN_BYTES_USIZE)
-                    .ok_or(VMError::OutOfOffset)?,
-                current_call_frame.memory.len(),
-            )?,
+            gas_cost::mstore8(new_memory_size, current_call_frame.memory.len())?,
         )?;
 
         let value = current_call_frame.stack.pop()?;
@@ -195,7 +181,12 @@ impl VM {
 
         self.increase_consumed_gas(
             current_call_frame,
-            gas_cost::sstore(&storage_slot, new_storage_slot_value, storage_slot_was_cold)?,
+            gas_cost::sstore(
+                &storage_slot,
+                new_storage_slot_value,
+                storage_slot_was_cold,
+                current_call_frame,
+            )?,
         )?;
 
         // Gas Refunds
@@ -289,17 +280,9 @@ impl VM {
             .try_into()
             .map_err(|_| VMError::VeryLargeNumber)?;
 
-        let new_memory_size_for_dest = dest_offset
-            .checked_add(size)
-            .ok_or(VMError::OutOfOffset)?
-            .checked_next_multiple_of(WORD_SIZE_IN_BYTES_USIZE)
-            .ok_or(VMError::OutOfOffset)?;
+        let new_memory_size_for_dest = calculate_memory_size(dest_offset, size)?;
 
-        let new_memory_size_for_src = src_offset
-            .checked_add(size)
-            .ok_or(VMError::OutOfOffset)?
-            .checked_next_multiple_of(WORD_SIZE_IN_BYTES_USIZE)
-            .ok_or(VMError::OutOfOffset)?;
+        let new_memory_size_for_src = calculate_memory_size(src_offset, size)?;
 
         self.increase_consumed_gas(
             current_call_frame,

@@ -88,8 +88,8 @@ impl CallFrame {
     pub fn new_from_bytecode(bytecode: Bytes) -> Self {
         let valid_jump_destinations = get_valid_jump_destinations(&bytecode).unwrap_or_default();
         Self {
-            bytecode,
             gas_limit: U256::MAX,
+            bytecode,
             valid_jump_destinations,
             ..Default::default()
         }
@@ -107,8 +107,8 @@ impl CallFrame {
         gas_limit: U256,
         gas_used: U256,
         depth: usize,
-        valid_jump_destinations: HashSet<usize>,
     ) -> Self {
+        let valid_jump_destinations = get_valid_jump_destinations(&bytecode).unwrap_or_default();
         Self {
             gas_limit,
             msg_sender,
