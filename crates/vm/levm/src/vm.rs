@@ -102,6 +102,17 @@ impl VM {
         let mut default_touched_accounts =
             HashSet::from_iter([env.origin, env.coinbase].iter().cloned());
 
+        let mut default_touched_storage_slots: HashMap<Address, HashSet<H256>> = HashMap::new();
+
+        for item in access_list.clone() {
+            default_touched_accounts.insert(item.0);
+            let mut warm_slots = HashSet::new();
+            for slot in item.1 {
+                warm_slots.insert(slot);
+            }
+            default_touched_storage_slots.insert(item.0, warm_slots);
+        }
+
         match to {
             TxKind::Call(address_to) => {
                 default_touched_accounts.insert(address_to);
@@ -136,7 +147,7 @@ impl VM {
                     cache,
                     tx_kind: to,
                     touched_accounts: default_touched_accounts,
-                    touched_storage_slots: HashMap::new(),
+                    touched_storage_slots: default_touched_storage_slots,
                     access_list,
                 })
             }
@@ -175,7 +186,7 @@ impl VM {
                     cache,
                     tx_kind: TxKind::Create,
                     touched_accounts: default_touched_accounts,
-                    touched_storage_slots: HashMap::new(),
+                    touched_storage_slots: default_touched_storage_slots,
                     access_list,
                 })
             }
