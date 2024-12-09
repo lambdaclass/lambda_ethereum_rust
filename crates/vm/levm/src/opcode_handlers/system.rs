@@ -509,7 +509,11 @@ impl VM {
 
         self.increase_consumed_gas(
             current_call_frame,
-            gas_cost::selfdestruct(target_account_is_cold, target_account_info.is_empty(), balance_to_transfer)?,
+            gas_cost::selfdestruct(
+                target_account_is_cold,
+                target_account_info.is_empty(),
+                balance_to_transfer,
+            )?,
         )?;
 
         self.increase_account_balance(target_address, balance_to_transfer)?;
