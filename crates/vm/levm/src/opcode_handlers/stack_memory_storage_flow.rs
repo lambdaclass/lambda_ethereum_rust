@@ -182,13 +182,6 @@ impl VM {
         if current_call_frame.is_static {
             return Err(VMError::OpcodeNotAllowedInStaticContext);
         }
-        let potential_gas_consumed = current_call_frame
-            .gas_used
-            .checked_add(gas_cost::CALL_POSITIVE_VALUE_STIPEND)
-            .ok_or(VMError::VeryLargeNumber)?;
-        if potential_gas_consumed >= current_call_frame.gas_limit {
-            return Err(VMError::OutOfGas(OutOfGasError::MaxGasLimitExceeded));
-        }
 
         let storage_slot_key = current_call_frame.stack.pop()?;
         let new_storage_slot_value = current_call_frame.stack.pop()?;
@@ -203,7 +196,12 @@ impl VM {
 
         self.increase_consumed_gas(
             current_call_frame,
-            gas_cost::sstore(&storage_slot, new_storage_slot_value, storage_slot_was_cold)?,
+            gas_cost::sstore(
+                &storage_slot,
+                new_storage_slot_value,
+                storage_slot_was_cold,
+                current_call_frame,
+            )?,
         )?;
 
         // Gas Refunds

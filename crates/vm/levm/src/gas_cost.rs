@@ -1,4 +1,5 @@
 use crate::{
+    call_frame::CallFrame,
     constants::WORD_SIZE,
     errors::{InternalError, OutOfGasError, VMError},
     memory, StorageSlot,
@@ -99,6 +100,7 @@ pub const SSTORE_COLD_DYNAMIC: U256 = U256([2100, 0, 0, 0]);
 pub const SSTORE_DEFAULT_DYNAMIC: U256 = U256([100, 0, 0, 0]);
 pub const SSTORE_STORAGE_CREATION: U256 = U256([20000, 0, 0, 0]);
 pub const SSTORE_STORAGE_MODIFICATION: U256 = U256([2900, 0, 0, 0]);
+pub const SSTORE_STIPEND: U256 = U256([2300, 0, 0, 0]);
 
 pub const BALANCE_STATIC: U256 = DEFAULT_STATIC;
 pub const BALANCE_COLD_DYNAMIC: U256 = DEFAULT_COLD_DYNAMIC;
@@ -318,7 +320,16 @@ pub fn sstore(
     storage_slot: &StorageSlot,
     new_value: U256,
     storage_slot_was_cold: bool,
+    current_call_frame: &CallFrame,
 ) -> Result<U256, VMError> {
+    let potential_gas_consumed = current_call_frame
+        .gas_used
+        .checked_add(SSTORE_STIPEND)
+        .ok_or(VMError::VeryLargeNumber)?;
+    if potential_gas_consumed >= current_call_frame.gas_limit {
+        return Err(VMError::OutOfGas(OutOfGasError::MaxGasLimitExceeded));
+    }
+
     let static_gas = SSTORE_STATIC;
 
     let mut base_dynamic_gas = if new_value == storage_slot.current_value {
