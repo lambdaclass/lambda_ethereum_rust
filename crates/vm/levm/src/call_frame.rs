@@ -86,18 +86,13 @@ pub struct CallFrame {
 
 impl CallFrame {
     pub fn new_from_bytecode(bytecode: Bytes) -> Self {
-        Self::new(
-            Default::default(),
-            Default::default(),
-            Default::default(),
+        let valid_jump_destinations = get_valid_jump_destinations(&bytecode).unwrap_or_default();
+        Self {
+            gas_limit: U256::MAX,
             bytecode,
-            Default::default(),
-            Default::default(),
-            Default::default(),
-            U256::MAX,
-            Default::default(),
-            Default::default(),
-        )
+            valid_jump_destinations,
+            ..Default::default()
+        }
     }
 
     #[allow(clippy::too_many_arguments)]
