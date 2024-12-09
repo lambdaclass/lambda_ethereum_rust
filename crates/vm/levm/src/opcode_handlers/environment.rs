@@ -1,7 +1,7 @@
 use crate::{
     call_frame::CallFrame,
     constants::WORD_SIZE_IN_BYTES_USIZE,
-    errors::{OpcodeSuccess, OutOfGasError, VMError},
+    errors::{InternalError, OpcodeSuccess, VMError},
     gas_cost, memory,
     vm::{word_to_address, VM},
 };
@@ -143,11 +143,7 @@ impl VM {
             .pop()?
             .try_into()
             .map_err(|_err| VMError::VeryLargeNumber)?;
-        let calldata_offset: usize = current_call_frame
-            .stack
-            .pop()?
-            .try_into()
-            .map_err(|_err| VMError::VeryLargeNumber)?;
+        let calldata_offset = current_call_frame.stack.pop()?;
         let size: usize = current_call_frame
             .stack
             .pop()?
@@ -172,6 +168,15 @@ impl VM {
         }
 
         let mut data = vec![0u8; size];
+        if calldata_offset > current_call_frame.calldata.len().into() {
+            memory::try_store_data(&mut current_call_frame.memory, dest_offset, &data)?;
+            return Ok(OpcodeSuccess::Continue);
+        }
+
+        let calldata_offset: usize = calldata_offset
+            .try_into()
+            .map_err(|_err| VMError::Internal(InternalError::ConversionError))?;
+
         for (i, byte) in current_call_frame
             .calldata
             .iter()
@@ -194,21 +199,11 @@ impl VM {
         &mut self,
         current_call_frame: &mut CallFrame,
     ) -> Result<OpcodeSuccess, VMError> {
-        if self
-            .env
-            .consumed_gas
-            .checked_add(gas_cost::CODESIZE)
-            .ok_or(VMError::OutOfGas(OutOfGasError::ConsumedGasOverflow))?
-            > self.env.gas_limit
-        {
-            return Err(VMError::OutOfGas(OutOfGasError::MaxGasLimitExceeded));
-        }
+        self.increase_consumed_gas(current_call_frame, gas_cost::CODESIZE)?;
 
         current_call_frame
             .stack
             .push(U256::from(current_call_frame.bytecode.len()))?;
-
-        self.increase_consumed_gas(current_call_frame, gas_cost::CODESIZE)?;
 
         Ok(OpcodeSuccess::Continue)
     }

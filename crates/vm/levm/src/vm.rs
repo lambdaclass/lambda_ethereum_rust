@@ -223,11 +223,7 @@ impl VM {
                 Opcode::PUSH0 => self.op_push0(current_call_frame),
                 // PUSHn
                 op if (Opcode::PUSH1..=Opcode::PUSH32).contains(&op) => {
-                    let n_bytes = (usize::from(op))
-                        .checked_sub(usize::from(Opcode::PUSH1))
-                        .ok_or(VMError::InvalidOpcode)?
-                        .checked_add(1)
-                        .ok_or(VMError::InvalidOpcode)?;
+                    let n_bytes = get_n_value(op, Opcode::PUSH1)?;
                     self.op_push(current_call_frame, n_bytes)
                 }
                 Opcode::AND => self.op_and(current_call_frame),
@@ -240,15 +236,18 @@ impl VM {
                 Opcode::SAR => self.op_sar(current_call_frame),
                 // DUPn
                 op if (Opcode::DUP1..=Opcode::DUP16).contains(&op) => {
-                    self.op_dup(current_call_frame, op)
+                    let depth = get_n_value(op, Opcode::DUP1)?;
+                    self.op_dup(current_call_frame, depth)
                 }
                 // SWAPn
                 op if (Opcode::SWAP1..=Opcode::SWAP16).contains(&op) => {
-                    self.op_swap(current_call_frame, op)
+                    let depth = get_n_value(op, Opcode::SWAP1)?;
+                    self.op_swap(current_call_frame, depth)
                 }
                 Opcode::POP => self.op_pop(current_call_frame),
                 op if (Opcode::LOG0..=Opcode::LOG4).contains(&op) => {
-                    self.op_log(current_call_frame, op)
+                    let number_of_topics = get_number_of_topics(op)?;
+                    self.op_log(current_call_frame, number_of_topics)
                 }
                 Opcode::MLOAD => self.op_mload(current_call_frame),
                 Opcode::MSTORE => self.op_mstore(current_call_frame),
@@ -776,7 +775,7 @@ impl VM {
             current_call_frame
                 .stack
                 .push(U256::from(SUCCESS_FOR_CALL))?;
-            return Ok(OpcodeSuccess::Result(ResultReason::Stop));
+            return Ok(OpcodeSuccess::Continue);
         }
 
         // self.cache.increment_account_nonce(&code_address); // Internal call doesn't increment account nonce.
@@ -799,7 +798,7 @@ impl VM {
         let new_depth = current_call_frame
             .depth
             .checked_add(1)
-            .ok_or(VMError::StackOverflow)?; // Maybe could be depthOverflow but in concept is quite similar
+            .ok_or(InternalError::ArithmeticOperationOverflow)?;
 
         let mut new_call_frame = CallFrame::new(
             msg_sender,
@@ -814,11 +813,9 @@ impl VM {
             new_depth,
         );
 
-        // TODO: Increase this to 1024
-        if new_call_frame.depth > 10 {
+        if new_call_frame.depth > 1024 {
             current_call_frame.stack.push(U256::from(REVERT_FOR_CALL))?;
-            // return Ok(OpcodeSuccess::Result(ResultReason::Revert));
-            return Err(VMError::StackOverflow); // This is wrong but it is for testing purposes.
+            return Ok(OpcodeSuccess::Continue);
         }
 
         current_call_frame.sub_return_data_offset = ret_offset;
@@ -1192,4 +1189,22 @@ impl VM {
             }
         }
     }
+}
+
+fn get_n_value(op: Opcode, base_opcode: Opcode) -> Result<usize, VMError> {
+    let offset = (usize::from(op))
+        .checked_sub(usize::from(base_opcode))
+        .ok_or(VMError::InvalidOpcode)?
+        .checked_add(1)
+        .ok_or(VMError::InvalidOpcode)?;
+
+    Ok(offset)
+}
+
+fn get_number_of_topics(op: Opcode) -> Result<u8, VMError> {
+    let number_of_topics = (u8::from(op))
+        .checked_sub(u8::from(Opcode::LOG0))
+        .ok_or(VMError::InvalidOpcode)?;
+
+    Ok(number_of_topics)
 }
