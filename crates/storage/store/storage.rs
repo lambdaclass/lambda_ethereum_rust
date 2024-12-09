@@ -933,9 +933,6 @@ impl Store {
         self.engine
             .update_payload(payload_id, block, block_value, blobs_bundle, closed)
     }
-    pub fn delete_payload(&self, payload_id: u64) -> Result<(), StoreError> {
-        self.engine.delete_payload(payload_id)
-    }
 
     /// Creates a new state trie with an empty state root, for testing purposes only
     pub fn new_state_trie_for_test(&self) -> Trie {

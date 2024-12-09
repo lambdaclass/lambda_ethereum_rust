@@ -230,6 +230,4 @@ pub trait StoreEngine: Debug + Send + Sync + RefUnwindSafe {
         blobs_bundle: BlobsBundle,
         closed: bool,
     ) -> Result<(), StoreError>;
-
-    fn delete_payload(&self, payload_id: u64) -> Result<(), StoreError>;
 }

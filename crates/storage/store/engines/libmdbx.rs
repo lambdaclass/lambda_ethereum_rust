@@ -379,23 +379,6 @@ impl StoreEngine for Store {
         )
     }
 
-    fn delete_payload(&self, payload_id: u64) -> std::result::Result<(), StoreError> {
-        let txn = self
-            .db
-            .begin_readwrite()
-            .map_err(StoreError::LibmdbxError)?;
-
-        if txn
-            .delete::<Payloads>(payload_id, None)
-            .map_err(StoreError::LibmdbxError)?
-        {
-            txn.commit().map_err(StoreError::LibmdbxError)?;
-            Ok(())
-        } else {
-            Err(StoreError::Custom("Payload not found".to_string()))
-        }
-    }
-
     fn get_transaction_by_hash(
         &self,
         transaction_hash: H256,

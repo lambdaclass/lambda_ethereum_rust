@@ -563,10 +563,6 @@ impl StoreEngine for RedBStore {
             ),
         )
     }
-
-    fn delete_payload(&self, payload_id: u64) -> Result<(), StoreError> {
-        self.delete(PAYLOADS_TABLE, payload_id)
-    }
 }
 
 impl redb::Value for ChainDataIndex {

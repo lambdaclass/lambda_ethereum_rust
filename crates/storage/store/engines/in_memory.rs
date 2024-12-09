@@ -368,11 +368,6 @@ impl StoreEngine for Store {
             .insert(payload_id, (block, block_value, blobs_bundle, closed));
         Ok(())
     }
-
-    fn delete_payload(&self, payload_id: u64) -> Result<(), StoreError> {
-        self.inner().payloads.remove(&payload_id);
-        Ok(())
-    }
 }
 
 impl Debug for Store {
