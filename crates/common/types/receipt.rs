@@ -46,7 +46,7 @@ impl Receipt {
             .encode_field(&self.bloom)
             .encode_field(&self.logs)
             .finish();
-        return encode_buff;
+        encode_buff
     }
 }
 
@@ -91,7 +91,7 @@ impl RLPDecode for Receipt {
             let payload = get_rlp_bytes_item_payload(rlp)?;
             let tx_type = payload
                 .first()
-                .ok_or_else(|| RLPDecodeError::InvalidLength)?;
+                .ok_or(RLPDecodeError::InvalidLength)?;
             let receipt_encoding = &payload[1..];
             let tx_type = match tx_type {
                 0x0 => TxType::Legacy,
