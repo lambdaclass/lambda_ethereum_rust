@@ -261,6 +261,10 @@ pub fn log(
     size: usize,
     number_of_topics: u8,
 ) -> Result<U256, VMError> {
+    println!(
+        "new_memory_size: {}, current_memory_size: {}, size: {}",
+        new_memory_size, current_memory_size, size
+    );
     let memory_expansion_cost = memory::expansion_cost(new_memory_size, current_memory_size)?;
 
     let topics_cost = LOGN_DYNAMIC_BASE
