@@ -7,17 +7,12 @@ use tracing::info;
 use risc0_zkvm::{default_prover, ExecutorEnv, ProverOpts};
 use zkvm_interface::{
     io::{ProgramInput, ProgramOutput},
-    methods::{ZKVM_PROGRAM_ELF, ZKVM_PROGRAM_ID},
+    methods::SP1_ELF,
+    methods::{ZKVM_RISC0_PROGRAM_ELF, ZKVM_RISC0_PROGRAM_ID},
 };
 
 // sp1
 use sp1_sdk::{ProverClient, SP1Stdin};
-
-#[cfg(all(not(clippy), feature = "build_sp1"))]
-pub const SP1_ELF: &[u8] = include_bytes!("../sp1/zkvm/elf/riscv32im-succinct-zkvm-elf");
-
-#[cfg(any(clippy, not(feature = "build_sp1")))]
-pub const SP1_ELF: &[u8] = &[0];
 
 /// Structure that wraps all the needed components for the RISC0 proving system
 pub struct Risc0Prover<'a> {
@@ -76,8 +71,8 @@ pub trait Prover {
 impl<'a> Risc0Prover<'a> {
     pub fn new() -> Self {
         Self {
-            elf: ZKVM_PROGRAM_ELF,
-            id: ZKVM_PROGRAM_ID,
+            elf: ZKVM_RISC0_PROGRAM_ELF,
+            id: ZKVM_RISC0_PROGRAM_ID,
             stdout: Vec::new(),
         }
     }

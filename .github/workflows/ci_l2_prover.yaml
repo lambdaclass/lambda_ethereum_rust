@@ -52,7 +52,7 @@ jobs:
       - name: Build prover and RISC0's zkVM
         run: |
           cd crates/l2/prover
-          cargo build --release --features build_zkvm
+          cargo build --release --features build_risc0
       - name: Test Prover Execution
         run: |
           cd crates/l2/prover

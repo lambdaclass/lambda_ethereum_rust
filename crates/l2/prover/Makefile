@@ -10,10 +10,10 @@ RISC0_DEV_MODE?=1
 RUST_LOG?="info"
 perf_test_proving:
 	@echo "Using RISC0_DEV_MODE: ${RISC0_DEV_MODE}"
-	RISC0_DEV_MODE=${RISC0_DEV_MODE} RUST_LOG=${RUST_LOG} cargo test --release --test perf_zkvm --features build_zkvm -- test_performance_zkvm --exact --show-output
+	RISC0_DEV_MODE=${RISC0_DEV_MODE} RUST_LOG=${RUST_LOG} cargo test --release --test perf_zkvm --features build_risc0 -- test_performance_zkvm --exact --show-output
 
 perf_gpu:
-	RUSTFLAGS="-C target-cpu=native" RISC0_DEV_MODE=0 RUST_LOG="debug" cargo test --release --test perf_zkvm --features "build_zkvm,gpu" -- test_performance_zkvm --exact --show-output
+	RUSTFLAGS="-C target-cpu=native" RISC0_DEV_MODE=0 RUST_LOG="debug" cargo test --release --test perf_zkvm --features "build_risc0,gpu" -- test_performance_zkvm --exact --show-output
 
 
 ########################################################################
@@ -51,7 +51,7 @@ rsp_comparison: $(ETHREX_L2_BIN) $(RSP_BIN)
 		>/dev/null
 
 $(ETHREX_L2_BIN):
-	CARGO_TARGET_DIR=target cargo build -r --manifest-path $(ROOT_DIRECTORY)/Cargo.toml --bin ethrex_l2 --features "build_zkvm,gpu,disable-dev-mode"
+	CARGO_TARGET_DIR=target cargo build -r --manifest-path $(ROOT_DIRECTORY)/Cargo.toml --bin ethrex_l2 --features "build_risc0,gpu,disable-dev-mode"
 
 $(RSP_BIN):
 	- git clone https://github.com/succinctlabs/rsp.git

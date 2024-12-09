@@ -2,18 +2,17 @@
 
 ## ToC
 
-- [ethrex L2 Prover](#ethrex-l2-prover)
-  - [ToC](#toc)
-  - [What](#what)
-  - [Workflow](#workflow)
-  - [How](#how)
-    - [Dev Mode](#dev-mode)
-      - [Quick Test](#quick-test)
-      - [Run the whole system with the prover](#run-the-whole-system-with-the-prover)
-    - [GPU mode](#gpu-mode)
-      - [Proving Process Test](#proving-process-test)
-      - [Run the whole system with the prover in Sepolia](#run-the-whole-system-with-the-prover-in-sepolia)
-  - [Configuration](#configuration)
+- [ToC](#toc)
+- [What](#what)
+- [Workflow](#workflow)
+- [How](#how)
+  - [Dev Mode](#dev-mode)
+    - [Quick Test](#quick-test)
+    - [Run the whole system with the prover](#run-the-whole-system-with-the-prover)
+  - [GPU mode](#gpu-mode)
+    - [Proving Process Test](#proving-process-test)
+    - [Run the whole system with the prover in Sepolia](#run-the-whole-system-with-the-prover-in-sepolia)
+- [Configuration](#configuration)
 
 >[!NOTE]
 > The shipping/deploying process and the `Prover` itself are under development.
@@ -57,7 +56,7 @@ To start the `prover_client`, use the following command:
 make init-l2-prover
 ```
 
-The `build_zkvm` flag is used, if you don't have the risc0's "sdk", you can build the prover without the feature to check if all the surrounding components of the `zkvm` can be compiled.
+The `build_risc0` flag is used, if you don't have the risc0's "sdk", you can build the prover without the feature to check if all the surrounding components of the `zkvm` can be compiled.
 
 #### Quick Test
 

@@ -7,13 +7,14 @@ edition = "2021"
 
 [dependencies]
 sp1-zkvm = "3.4.0"
-zkvm_interface = { path = "../../zkvm/interface" }
-ethrex-core = { path = "../../../../common", default-features = false }
-ethrex-rlp = { path = "../../../../common/rlp" }
-ethrex-vm = { path = "../../../../vm", default-features = false, features = [
+zkvm_interface = { path = "../" }
+
+ethrex-core = { path = "../../../../../common", default-features = false }
+ethrex-rlp = { path = "../../../../../common/rlp" }
+ethrex-vm = { path = "../../../../../vm", default-features = false, features = [
     "l2",
 ] }
-ethrex-blockchain = { path = "../../../../blockchain", default-features = false }
+ethrex-blockchain = { path = "../../../../../blockchain", default-features = false }
 
 [patch.crates-io]
 sha3 = { git = "https://github.com/sp1-patches/RustCrypto-hashes", branch = "patch-sha3-v0.10.8", package = "sha3" }

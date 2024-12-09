@@ -90,10 +90,10 @@ down-l2: ## 🛑 Shuts down the L2 Lambda ethrex Client
 restart-l2: down-l2 init-l2 ## 🔄 Restarts the L2 Lambda ethrex Client
 
 init-l2-prover: ## 🚀 Initializes the Prover
-	cargo run --release --features "build_zkvm,build_sp1" --manifest-path ../../Cargo.toml --bin ethrex_prover -- ${L2_PROVER_TYPE}
+	cargo run --release --features "build_risc0,build_sp1" --manifest-path ../../Cargo.toml --bin ethrex_prover -- ${L2_PROVER_TYPE}
 
 init-l2-prover-gpu: ## 🚀 Initializes the Prover with GPU support
-	cargo run --release --features "build_zkvm,gpu" --manifest-path ../../Cargo.toml --bin ethrex_prover -- ${L2_PROVER_TYPE}
+	cargo run --release --features "build_risc0,build_sp1,gpu" --manifest-path ../../Cargo.toml --bin ethrex_prover -- ${L2_PROVER_TYPE}
 
 rm_db_l2: ## 🛑 Removes the DB used by the L2
 	cargo run --release --manifest-path ../../Cargo.toml --bin ethrex -- removedb --datadir ${ethrex_L2_DEV_LIBMDBX}

@@ -2781,7 +2781,6 @@ dependencies = [
  "risc0-zkvm",
  "serde",
  "serde_json",
- "sp1-build",
  "sp1-sdk",
  "thiserror 1.0.69",
  "tokio",
@@ -9436,6 +9435,7 @@ dependencies = [
  "risc0-build",
  "serde",
  "serde_with",
+ "sp1-build",
  "thiserror 1.0.69",
 ]
 
