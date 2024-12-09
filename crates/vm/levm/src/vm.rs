@@ -75,22 +75,15 @@ pub fn get_valid_jump_destinations(code: &Bytes) -> Result<HashSet<usize>, VMErr
     let mut valid_jump_destinations = HashSet::new();
     let mut pc = 0;
 
-    while pc < code.len() {
-        let code_position = match code.get(pc) {
-            Some(code) => *code,
-            None => {
-                break;
-            }
-        };
-
-        let current_opcode = Opcode::from(code_position);
+    while let Some(&opcode_number) = code.get(pc) {
+        let current_opcode = Opcode::from(opcode_number);
 
         if current_opcode == Opcode::JUMPDEST {
             // If current opcode is jumpdest, add it to valid destinations set
             valid_jump_destinations.insert(pc);
         } else if (Opcode::PUSH1..=Opcode::PUSH32).contains(&current_opcode) {
             // If current opcode is push, skip as many positions as the size of the push
-            let pushed_size = code_position
+            let pushed_size = opcode_number
                 .checked_sub(u8::from(Opcode::PUSH1))
                 .ok_or(VMError::InvalidBytecode)?;
             let skip_length =
