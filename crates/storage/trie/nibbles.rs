@@ -177,6 +177,18 @@ impl Nibbles {
             })
             .collect::<Vec<_>>()
     }
+
+    pub fn concat(&self, other: Nibbles) -> Nibbles {
+        Nibbles {
+            data: [self.data.clone(), other.data].concat(),
+        }
+    }
+
+    pub fn append_new(&self, nibble: u8) -> Nibbles {
+        Nibbles {
+            data: [self.data.clone(), vec![nibble]].concat(),
+        }
+    }
 }
 
 impl AsRef<[u8]> for Nibbles {

@@ -1,5 +1,6 @@
 use std::sync::Arc;
 
+use bytes::Bytes;
 use ethrex_blockchain::error::ChainError;
 use ethrex_core::{
     types::{Block, BlockHash, BlockHeader, EMPTY_KECCACK_HASH},
@@ -7,7 +8,7 @@ use ethrex_core::{
 };
 use ethrex_rlp::encode::RLPEncode;
 use ethrex_storage::{error::StoreError, Store};
-use ethrex_trie::EMPTY_TRIE_HASH;
+use ethrex_trie::{Nibbles, Node, TrieError, EMPTY_TRIE_HASH};
 use tokio::{
     sync::{
         mpsc::{self, error::SendError, Receiver, Sender},
@@ -502,6 +503,66 @@ async fn fetch_storage_batch(
     }
 }
 
+async fn state_healing(
+    block_headers: Vec<BlockHeader>,
+    store: Store,
+    peers: Arc<Mutex<KademliaTable>>,
+) -> Result<(), SyncError> {
+    for header in block_headers {
+        // If we don't have the root node stored then we must fetch it
+        if !store.contains_state_node(header.state_root)? {}
+    }
+    Ok(())
+}
+
+async fn heal_state_trie(
+    state_root: H256,
+    store: Store,
+    peers: Arc<Mutex<KademliaTable>>,
+) -> Result<(), SyncError> {
+    let mut trie = store.open_state_trie(*EMPTY_TRIE_HASH);
+    let mut trie_state = trie.state_mut();
+    // Begin by requesting the root node
+    let mut paths = vec![Nibbles::default()];
+    while !paths.is_empty() {
+        let peer = peers.lock().await.get_peer_channels().await;
+        if let Some(nodes) = peer
+            .request_state_trienodes(state_root, paths.clone())
+            .await
+        {
+            // For each fetched node:
+            // - Add its children to the queue (if we don't have them already)
+            // - If it is a leaf, request its bytecode & storage
+            // - Add it to the trie's state
+            for node in nodes {
+                let path = paths.remove(0);
+                match &node {
+                    Node::Branch(node) => {
+                        // Add children to the queue
+                        for (index, child) in node.choices.iter().enumerate() {
+                            if trie_state.get_node(child.clone())?.is_none() {
+                                paths.push(path.append_new(index as u8));
+                            }
+                        }
+                    }
+                    Node::Extension(node) => {
+                        // Add child to the queue
+                        if trie_state.get_node(node.child.clone())?.is_none() {
+                            paths.push(path.concat(node.prefix.clone()));
+                        }
+                    }
+                    Node::Leaf(leaf_node) => {
+                        // Fetch bytecode & storage
+                    }
+                }
+                let hash = node.compute_hash();
+                trie_state.insert_node(node, hash);
+            }
+        }
+    }
+    Ok(())
+}
+
 #[derive(thiserror::Error, Debug)]
 enum SyncError {
     #[error(transparent)]
@@ -509,7 +570,9 @@ enum SyncError {
     #[error(transparent)]
     Store(#[from] StoreError),
     #[error(transparent)]
-    SendBytecode(#[from] SendError<Vec<H256>>),
+    SendHashes(#[from] SendError<Vec<H256>>),
     #[error(transparent)]
     SendStorage(#[from] SendError<Vec<(H256, H256)>>),
+    #[error(transparent)]
+    Trie(#[from] TrieError),
 }

@@ -5,8 +5,9 @@ use ethrex_core::{
     types::{AccountState, BlockBody, BlockHeader},
     H256, U256,
 };
-use ethrex_rlp::encode::RLPEncode;
-use ethrex_trie::verify_range;
+use ethrex_rlp::{decode::RLPDecode, encode::RLPEncode};
+use ethrex_trie::Nibbles;
+use ethrex_trie::{verify_range, Node};
 use tokio::sync::{mpsc, Mutex};
 
 use crate::{
@@ -15,7 +16,8 @@ use crate::{
             BlockBodies, BlockHeaders, GetBlockBodies, GetBlockHeaders, BLOCK_HEADER_LIMIT,
         },
         snap::{
-            AccountRange, ByteCodes, GetAccountRange, GetByteCodes, GetStorageRanges, StorageRanges,
+            AccountRange, ByteCodes, GetAccountRange, GetByteCodes, GetStorageRanges, GetTrieNodes,
+            StorageRanges, TrieNodes,
         },
     },
     snap::encodable_to_proof,
@@ -317,5 +319,54 @@ impl PeerChannels {
             storage_values.push(values);
         }
         Some((storage_keys, storage_values, should_continue))
+    }
+
+    /// Requests state trie nodes given the root of the trie where they are contained and their path (be them full or partial)
+    /// Returns the nodes or None if:
+    /// - There are no available peers (the node just started up or was rejected by all other nodes)
+    /// - The response timed out
+    /// - The response was empty or not valid
+    pub async fn request_state_trienodes(
+        &self,
+        state_root: H256,
+        paths: Vec<Nibbles>,
+    ) -> Option<Vec<Node>> {
+        let request_id = rand::random();
+        let expected_nodes = paths.len();
+        let request = RLPxMessage::GetTrieNodes(GetTrieNodes {
+            id: request_id,
+            root_hash: state_root,
+            // [acc_path, acc_path,...] -> [[acc_path], [acc_path]]
+            paths: paths
+                .into_iter()
+                .map(|vec| vec![Bytes::from(vec.encode_compact())])
+                .collect(),
+            bytes: MAX_RESPONSE_BYTES,
+        });
+        self.sender.send(request).await.ok()?;
+        let mut receiver = self.receiver.lock().await;
+        let nodes = tokio::time::timeout(PEER_REPLY_TIMOUT, async move {
+            loop {
+                match receiver.recv().await {
+                    Some(RLPxMessage::TrieNodes(TrieNodes { id, nodes })) if id == request_id => {
+                        return Some(nodes)
+                    }
+                    // Ignore replies that don't match the expected id (such as late responses)
+                    Some(_) => continue,
+                    None => return None,
+                }
+            }
+        })
+        .await
+        .ok()??;
+        (!nodes.is_empty() && nodes.len() <= expected_nodes)
+            .then(|| {
+                nodes
+                    .iter()
+                    .map(|node| Node::decode(node))
+                    .collect::<Result<Vec<_>, _>>()
+                    .ok()
+            })
+            .flatten()
     }
 }

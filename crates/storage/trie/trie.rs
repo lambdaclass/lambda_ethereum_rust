@@ -11,8 +11,6 @@ mod trie_iter;
 mod verify_range;
 use ethereum_types::H256;
 use ethrex_rlp::constants::RLP_NULL;
-use nibbles::Nibbles;
-use node::Node;
 use node_hash::NodeHash;
 use sha3::{Digest, Keccak256};
 use std::collections::HashSet;
@@ -21,6 +19,8 @@ use std::collections::HashSet;
 pub use self::db::{libmdbx::LibmdbxTrieDB, libmdbx_dupsort::LibmdbxDupsortTrieDB};
 
 pub use self::db::{in_memory::InMemoryTrieDB, TrieDB};
+pub use self::nibbles::Nibbles;
+pub use self::node::Node;
 pub use self::verify_range::verify_range;
 
 pub use self::error::TrieError;
