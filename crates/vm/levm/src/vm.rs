@@ -83,11 +83,15 @@ pub fn get_valid_jump_destinations(code: &Bytes) -> Result<HashSet<usize>, VMErr
             valid_jump_destinations.insert(pc);
         } else if (Opcode::PUSH1..=Opcode::PUSH32).contains(&current_opcode) {
             // If current opcode is push, skip as many positions as the size of the push
-            let size_to_push = opcode_number
-                .checked_sub(u8::from(Opcode::PUSH1))
-                .ok_or(VMError::Internal(InternalError::ArithmeticOperationUnderflow))?;
-            let skip_length =
-                usize::from(size_to_push.checked_add(1).ok_or(VMError::InvalidBytecode)?);
+            let size_to_push =
+                opcode_number
+                    .checked_sub(u8::from(Opcode::PUSH1))
+                    .ok_or(VMError::Internal(
+                        InternalError::ArithmeticOperationUnderflow,
+                    ))?;
+            let skip_length = usize::from(size_to_push.checked_add(1).ok_or(VMError::Internal(
+                InternalError::ArithmeticOperationOverflow,
+            ))?);
             pc = pc.checked_add(skip_length).ok_or(VMError::Internal(
                 InternalError::ArithmeticOperationOverflow, // to fail, pc should be at least usize max - 31
             ))?;
