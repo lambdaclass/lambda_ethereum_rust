@@ -466,6 +466,7 @@ mod tests {
             local_p2p_node,
             jwt_secret: Default::default(),
             active_filters: Default::default(),
+            syncer: Arc::new(TokioMutex::new(SyncManager::dummy())),
         };
         // Process request
         let result = map_http_requests(&request, context);
