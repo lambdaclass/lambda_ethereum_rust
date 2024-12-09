@@ -11,7 +11,10 @@ use crate::{
         InternalError, OpcodeSuccess, OutOfGasError, ResultReason, TransactionReport, TxResult,
         TxValidationError, VMError,
     },
-    gas_cost::{self, fake_exponential, BLOB_GAS_PER_BLOB, CREATE_BASE_COST},
+    gas_cost::{
+        self, fake_exponential, ACCESS_LIST_ADDRESS_COST, ACCESS_LIST_STORAGE_KEY_COST,
+        BLOB_GAS_PER_BLOB, CREATE_BASE_COST,
+    },
     memory,
     opcodes::Opcode,
     AccountInfo,
@@ -79,7 +82,7 @@ pub struct AccessListItem {
     pub storage_keys: Vec<H256>,
 }
 
-pub type AccessList = Vec<AccessListItem>;
+type AccessList = Vec<(Address, Vec<H256>)>;
 
 impl VM {
     // TODO: Refactor this.
@@ -91,7 +94,7 @@ impl VM {
         calldata: Bytes,
         db: Arc<dyn Database>,
         mut cache: CacheDB,
-        access_list: Option<AccessList>,
+        access_list: AccessList,
     ) -> Result<Self, VMError> {
         // Maybe this decision should be made in an upper layer
 
@@ -134,7 +137,7 @@ impl VM {
                     tx_kind: to,
                     touched_accounts: default_touched_accounts,
                     touched_storage_slots: HashMap::new(),
-                    access_list
+                    access_list,
                 })
             }
             TxKind::Create => {
@@ -173,7 +176,7 @@ impl VM {
                     tx_kind: TxKind::Create,
                     touched_accounts: default_touched_accounts,
                     touched_storage_slots: HashMap::new(),
-                    access_list
+                    access_list,
                 })
             }
         }
@@ -404,7 +407,22 @@ impl VM {
         }
 
         // Access List Cost
-        // TODO: Implement access list cost.
+        let mut access_lists_cost = U256::zero();
+        for item in self.access_list.clone() {
+            access_lists_cost = access_lists_cost
+                .checked_add(ACCESS_LIST_ADDRESS_COST)
+                .ok_or(OutOfGasError::ConsumedGasOverflow)?;
+            for _ in item.1 {
+                access_lists_cost = access_lists_cost
+                    .checked_add(ACCESS_LIST_STORAGE_KEY_COST)
+                    .ok_or(OutOfGasError::ConsumedGasOverflow)?;
+            }
+        }
+
+        println!("Access list cost is {access_lists_cost}");
+        intrinsic_gas = intrinsic_gas
+            .checked_add(access_lists_cost)
+            .ok_or(OutOfGasError::ConsumedGasOverflow)?;
 
         self.increase_consumed_gas(initial_call_frame, intrinsic_gas)
             .map_err(|_| TxValidationError::IntrinsicGasTooLow)?;
@@ -589,6 +607,8 @@ impl VM {
                 ));
             }
         }
+
+        // Access List validations ?
 
         if self.is_create() {
             // Assign bytecode to context and empty calldata
