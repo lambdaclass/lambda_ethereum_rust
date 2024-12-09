@@ -129,7 +129,6 @@ jobs:
           cat loc_report.json
 
       - name: Rename cached loc_report.json to loc_report.json.old
-        if: steps.cache-loc-report.outputs.cache-hit == 'true'
         run: mv loc_report.json loc_report.json.old
 
       - name: Generate the loc report
