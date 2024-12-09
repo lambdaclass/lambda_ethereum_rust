@@ -312,12 +312,8 @@ impl Store {
             .lock()
             .map_err(|error| StoreError::Custom(error.to_string()))?;
 
-        info!("Mempool tx count: {}", mempool.len());
-        let mut filtered_count = 0;
-
         for (_, tx) in mempool.iter() {
             if filter(tx) {
-                filtered_count += 1;
                 txs_by_sender
                     .entry(tx.sender())
                     .or_default()
@@ -325,7 +321,6 @@ impl Store {
             }
         }
 
-        info!("Filtered tx count: {}", filtered_count);
         txs_by_sender.iter_mut().for_each(|(_, txs)| txs.sort());
         Ok(txs_by_sender)
     }
