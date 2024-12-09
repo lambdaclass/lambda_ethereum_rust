@@ -32,13 +32,13 @@ async fn main() {
                 "sp1" => ProverType::SP1,
                 "risc0" => ProverType::RISC0,
                 _ => {
-                    error!("Wrong argument, try with 'risc0' or 'sp1'");
+                    error!("Wrong argument, try with 'risc0' or 'sp1'.");
                     return;
                 }
             }
         }
         _ => {
-            error!("Try passing risc0 or sp1 as argument.");
+            error!("Try passing 'risc0' or 'sp1' as argument.");
             return;
         }
     };

@@ -1,7 +1,8 @@
-use ethrex_core::H256;
+use crate::errors::ProverError;
 use ethrex_l2::proposer::prover_server::Risc0Proof;
 use ethrex_l2::proposer::prover_server::Sp1Proof;
 use tracing::info;
+
 // risc0
 use risc0_zkvm::{default_prover, ExecutorEnv, ProverOpts};
 use zkvm_interface::{
@@ -12,14 +13,13 @@ use zkvm_interface::{
 // sp1
 use sp1_sdk::{ProverClient, SP1Stdin};
 
-use crate::errors::ProverError;
-
 #[cfg(all(not(clippy), feature = "build_sp1"))]
 pub const SP1_ELF: &[u8] = include_bytes!("../sp1/zkvm/elf/riscv32im-succinct-zkvm-elf");
 
 #[cfg(any(clippy, not(feature = "build_sp1")))]
 pub const SP1_ELF: &[u8] = &[0];
 
+/// Structure that wraps all the needed components for the RISC0 proving system
 pub struct Risc0Prover<'a> {
     elf: &'a [u8],
     pub id: [u32; 8],
@@ -32,6 +32,7 @@ impl<'a> Default for Risc0Prover<'a> {
     }
 }
 
+/// Structure that wraps all the needed components for the SP1 proving system
 pub struct Sp1Prover<'a> {
     elf: &'a [u8],
 }
@@ -42,17 +43,19 @@ impl<'a> Default for Sp1Prover<'a> {
     }
 }
 
-// Boxing because of a clippy warning
+/// Enum used to handle all the possible proofs of each proving system
 pub enum ProvingOutput {
     Risc0Prover(Risc0Proof),
     Sp1Prover(Sp1Proof),
 }
 
+/// Enum used to identify the different proving systems.
 pub enum ProverType {
     RISC0,
     SP1,
 }
 
+/// Creates a prover depending on the [ProverType]
 pub fn create_prover(prover_type: ProverType) -> Box<dyn Prover> {
     match prover_type {
         ProverType::RISC0 => Box::new(Risc0Prover::new()),
@@ -60,15 +63,14 @@ pub fn create_prover(prover_type: ProverType) -> Box<dyn Prover> {
     }
 }
 
-// Implement the Prover trait for the enum
+/// Trait in common with all proving systems, it can be thought as the common interface.
 pub trait Prover {
+    /// Generates the groth16 proof
     fn prove(&mut self, input: ProgramInput) -> Result<ProvingOutput, Box<dyn std::error::Error>>;
+    /// Verifies the proof
     fn verify(&self, proving_output: &ProvingOutput) -> Result<(), Box<dyn std::error::Error>>;
+    /// Gets the EVM gas consumed by the verified block
     fn get_gas(&self) -> Result<u64, Box<dyn std::error::Error>>;
-    fn get_commitment(
-        &self,
-        proving_output: &ProvingOutput,
-    ) -> Result<ProgramOutput, Box<dyn std::error::Error>>;
 }
 
 impl<'a> Risc0Prover<'a> {
@@ -78,6 +80,17 @@ impl<'a> Risc0Prover<'a> {
             id: ZKVM_PROGRAM_ID,
             stdout: Vec::new(),
         }
+    }
+
+    pub fn get_commitment(
+        &self,
+        proving_output: &ProvingOutput,
+    ) -> Result<ProgramOutput, Box<dyn std::error::Error>> {
+        let commitment = match proving_output {
+            ProvingOutput::Risc0Prover(proof) => proof.receipt.journal.decode()?,
+            ProvingOutput::Sp1Prover(_) => return Err(Box::new(ProverError::IncorrectProverType)),
+        };
+        Ok(commitment)
     }
 }
 
@@ -119,17 +132,6 @@ impl<'a> Prover for Risc0Prover<'a> {
         Ok(risc0_zkvm::serde::from_slice(
             self.stdout.get(..8).unwrap_or_default(), // first 8 bytes
         )?)
-    }
-
-    fn get_commitment(
-        &self,
-        proving_output: &ProvingOutput,
-    ) -> Result<ProgramOutput, Box<dyn std::error::Error>> {
-        let commitment = match proving_output {
-            ProvingOutput::Risc0Prover(proof) => proof.receipt.journal.decode()?,
-            ProvingOutput::Sp1Prover(_) => return Err(Box::new(ProverError::IncorrectProverType)),
-        };
-        Ok(commitment)
     }
 }
 
@@ -174,26 +176,5 @@ impl<'a> Prover for Sp1Prover<'a> {
 
     fn get_gas(&self) -> Result<u64, Box<dyn std::error::Error>> {
         todo!()
-    }
-
-    fn get_commitment(
-        &self,
-        proving_output: &ProvingOutput,
-    ) -> Result<ProgramOutput, Box<dyn std::error::Error>> {
-        // TODO
-        match proving_output {
-            // TODO decode
-            ProvingOutput::Sp1Prover(_complete_proof) => {
-                //todo
-            }
-            ProvingOutput::Risc0Prover(_) => {
-                return Err(Box::new(ProverError::IncorrectProverType))
-            }
-        }
-
-        Ok(ProgramOutput {
-            initial_state_hash: H256::zero(),
-            final_state_hash: H256::zero(),
-        })
     }
 }
