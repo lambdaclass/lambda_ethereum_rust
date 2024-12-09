@@ -8,7 +8,7 @@ use ethrex_rlp::{
 };
 use serde::{Deserialize, Serialize};
 
-use super::{PrivilegedL2Transaction, TxType};
+use crate::types::TxType;
 pub type Index = u64;
 
 /// Result of a transaction
@@ -87,11 +87,11 @@ impl RLPDecode for Receipt {
     /// A) Legacy receipts: rlp(LegacyTransaction)
     /// B) Non legacy receipts: rlp(Bytes(tx_type | rlp(receipt))).
     fn decode_unfinished(rlp: &[u8]) -> Result<(Self, &[u8]), RLPDecodeError> {
-        // FIXME: Remove unwrap
-        if is_encoded_as_bytes(rlp).unwrap() {
-            let payload = get_rlp_bytes_item_payload(rlp);
-            // FIXME: Remove unwrap
-            let tx_type = payload.first().unwrap();
+        if is_encoded_as_bytes(rlp)? {
+            let payload = get_rlp_bytes_item_payload(rlp)?;
+            let tx_type = payload
+                .first()
+                .ok_or_else(|| RLPDecodeError::InvalidLength)?;
             let receipt_encoding = &payload[1..];
             let tx_type = match tx_type {
                 0x0 => TxType::Legacy,
