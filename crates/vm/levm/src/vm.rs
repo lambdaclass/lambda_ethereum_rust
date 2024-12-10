@@ -988,13 +988,14 @@ impl VM {
             return Ok(OpcodeSuccess::Continue);
         }
 
-        let new_nonce = match self.increment_account_nonce(current_call_frame.to) {
+        let sender_address = current_call_frame.to;
+        let new_nonce = match self.increment_account_nonce(sender_address) {
             Ok(nonce) => nonce,
             Err(_) => {
                 current_call_frame
                     .stack
                     .push(U256::from(CREATE_DEPLOYMENT_FAIL))?;
-                return Ok(OpcodeSuccess::Result(ResultReason::Revert));
+                return Ok(OpcodeSuccess::Continue);
             }
         };
 
@@ -1008,8 +1009,8 @@ impl VM {
         );
 
         let new_address = match salt {
-            Some(salt) => Self::calculate_create2_address(current_call_frame.to, &code, salt)?,
-            None => Self::calculate_create_address(current_call_frame.msg_sender, new_nonce)?,
+            Some(salt) => Self::calculate_create2_address(sender_address, &code, salt)?,
+            None => Self::calculate_create_address(sender_address, new_nonce)?,
         };
 
         // FIXME: Shouldn't we check against the db?
