@@ -61,7 +61,7 @@ To start the `prover_client`, use the following command:
 make init-prover T="prover_type (risc0 or sp1) G=true"
 ```
 
-The `build_risc0` flag is used, if you don't have the risc0's "sdk", you can build the prover without the feature to check if all the surrounding components of the `zkvm` can be compiled.
+If neither `risc0` nor `sp1` is installed on the system, the prover can be built without the "build" features to check whether all the surrounding components of the prover (except for the RISC-V zkVMs) can be compiled.
 
 #### Quick Test
 
@@ -140,7 +140,7 @@ SP1_PROVER=local
 - `Finally`, to start the `prover_client`/`zkvm`, run:
    - `make init-prover T=(risc0 or sp1) G=true`
 
-2.  `prover_server`/`proposer` &rarr; this server just needs rust installed.
+2. `prover_server`/`proposer` &rarr; this server just needs rust installed.
     1. `cd ethrex/crates/l2`
     2. `cp .example.env` and change the addresses and the following fields:
        - `PROVER_SERVER_LISTEN_IP=0.0.0.0` &rarr; used to handle the tcp communication with the other server.
