@@ -1,4 +1,4 @@
-.PHONY: perf_test_proving perf_gpu rsp_comparison
+
 .PHONY: perf_test_sp1_proving
 
 ROOT_DIRECTORY := ../../..
@@ -6,24 +6,32 @@ ROOT_DIRECTORY := ../../..
 ########################################################################
 ###############                 RISC0                    ###############
 ########################################################################
+.PHONY: perf-risc0 perf-risc0-gpu 
+
 RISC0_DEV_MODE?=1
 RUST_LOG?="info"
-perf_test_proving:
+perf-risc0:
 	@echo "Using RISC0_DEV_MODE: ${RISC0_DEV_MODE}"
 	RISC0_DEV_MODE=${RISC0_DEV_MODE} RUST_LOG=${RUST_LOG} cargo test --release --test perf_zkvm --features build_risc0 -- test_performance_zkvm --exact --show-output
 
-perf_gpu:
-	RUSTFLAGS="-C target-cpu=native" RISC0_DEV_MODE=0 RUST_LOG="debug" cargo test --release --test perf_zkvm --features "build_risc0,gpu" -- test_performance_zkvm --exact --show-output
-
+perf-risc0-gpu:
+	RUSTFLAGS="-C target-cpu=native" RISC0_DEV_MODE=0 RUST_LOG=${RUST_LOG} cargo test --release --test perf_zkvm --features "build_risc0,gpu" -- test_performance_zkvm --exact --show-output
 
 ########################################################################
 ###############                  SP1                     ###############
 ########################################################################
+########################################################################
+.PHONY: perf-sp1 perf-sp1-gpu 
+
 SP1_PROVER?=mock
-RUST_LOG?="debug"
-perf_test_sp1_proving:
+RUST_LOG?="info"
+perf-sp1:
 	@echo "Using SP1_PROVER: ${SP1_PROVER}"
 	SP1_PROVER=${SP1_PROVER} RUST_LOG=${RUST_LOG} cargo test --release --test perf_zkvm --features build_sp1 -- test_performance_sp1_zkvm --exact --show-output
+	
+perf-sp1-gpu:
+	@echo "Using SP1_PROVER: ${SP1_PROVER}"
+	SP1_PROVER=${SP1_PROVER} RUST_LOG=${RUST_LOG} cargo test --release --test perf_zkvm --features "build_sp1, gpu" -- test_performance_sp1_zkvm --exact --show-output
 
 ########################################################################
 ########## L2 Prover comparison with rsp. Uses GPU by default ##########
