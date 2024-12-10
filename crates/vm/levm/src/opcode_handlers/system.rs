@@ -519,7 +519,11 @@ impl VM {
         self.increase_account_balance(target_address, balance_to_transfer)?;
         self.decrease_account_balance(current_call_frame.to, balance_to_transfer)?;
 
-        if self.created_accounts.contains(&current_call_frame.to) {
+        if self
+            .accrued_substate
+            .created_accounts
+            .contains(&current_call_frame.to)
+        {
             self.accrued_substate
                 .selfdestrutct_set
                 .insert(current_call_frame.to);

@@ -36,6 +36,9 @@ pub struct Substate {
     // pub accessed_addresses: HashSet<Address>,
     // pub accessed_storage_keys: HashSet<(Address, U256)>,
     pub selfdestrutct_set: HashSet<Address>,
+    pub touched_accounts: HashSet<Address>,
+    pub touched_storage_slots: HashMap<Address, HashSet<H256>>,
+    pub created_accounts: HashSet<Address>,
 }
 
 pub struct VM {
@@ -49,10 +52,6 @@ pub struct VM {
     pub db: Arc<dyn Database>,
     pub cache: CacheDB,
     pub tx_kind: TxKind,
-
-    pub touched_accounts: HashSet<Address>,
-    pub touched_storage_slots: HashMap<Address, HashSet<H256>>,
-    pub created_accounts: HashSet<Address>,
 }
 
 pub fn address_to_word(address: Address) -> U256 {
@@ -115,16 +114,20 @@ impl VM {
                     0,
                 );
 
+                let substate = Substate {
+                    selfdestrutct_set: HashSet::new(),
+                    touched_accounts: default_touched_accounts,
+                    touched_storage_slots: HashMap::new(),
+                    created_accounts: HashSet::new(),
+                };
+
                 Ok(Self {
                     call_frames: vec![initial_call_frame],
                     db,
                     env,
-                    accrued_substate: Substate::default(),
+                    accrued_substate: substate,
                     cache,
                     tx_kind: to,
-                    touched_accounts: default_touched_accounts,
-                    touched_storage_slots: HashMap::new(),
-                    created_accounts: HashSet::new(),
                 })
             }
             TxKind::Create => {
@@ -154,16 +157,20 @@ impl VM {
                     0,
                 );
 
+                let substate = Substate {
+                    selfdestrutct_set: HashSet::new(),
+                    touched_accounts: default_touched_accounts,
+                    touched_storage_slots: HashMap::new(),
+                    created_accounts: HashSet::new(),
+                };
+
                 Ok(Self {
                     call_frames: vec![initial_call_frame],
                     db,
                     env,
-                    accrued_substate: Substate::default(),
+                    accrued_substate: substate,
                     cache,
                     tx_kind: TxKind::Create,
-                    touched_accounts: default_touched_accounts,
-                    touched_storage_slots: HashMap::new(),
-                    created_accounts: HashSet::from([new_contract_address]),
                 })
             }
         }
@@ -1008,7 +1015,7 @@ impl VM {
             .pop()
             .map_err(|_| VMError::StackUnderflow)?;
 
-        self.created_accounts.insert(new_address);
+        self.accrued_substate.created_accounts.insert(new_address);
 
         Ok(OpcodeSuccess::Continue)
     }
@@ -1055,7 +1062,7 @@ impl VM {
     /// Accessed accounts take place in some gas cost computation.
     #[must_use]
     pub fn access_account(&mut self, address: Address) -> (AccountInfo, bool) {
-        let address_was_cold = self.touched_accounts.insert(address);
+        let address_was_cold = self.accrued_substate.touched_accounts.insert(address);
         let account = match cache::get_account(&self.cache, &address) {
             Some(account) => account.info.clone(),
             None => self.db.get_account_info(address),
@@ -1069,6 +1076,7 @@ impl VM {
     /// Accessed storage slots take place in some gas cost computation.
     pub fn access_storage_slot(&mut self, address: Address, key: H256) -> (StorageSlot, bool) {
         let storage_slot_was_cold = self
+            .accrued_substate
             .touched_storage_slots
             .entry(address)
             .or_default()
