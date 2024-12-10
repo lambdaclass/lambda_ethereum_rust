@@ -1,7 +1,7 @@
 use crate::{
     call_frame::CallFrame,
     constants::WORD_SIZE_IN_BYTES_USIZE,
-    errors::{InternalError, OpcodeSuccess, ResultReason, VMError},
+    errors::{InternalError, OpcodeSuccess, OutOfGasError, ResultReason, VMError},
     gas_cost,
     memory::{self, calculate_memory_size},
     vm::{word_to_address, VM},
@@ -192,17 +192,18 @@ impl VM {
         &mut self,
         current_call_frame: &mut CallFrame,
     ) -> Result<OpcodeSuccess, VMError> {
-        let offset: usize = current_call_frame
-            .stack
-            .pop()?
-            .try_into()
-            .map_err(|_| VMError::VeryLargeNumber)?;
-        let size = current_call_frame
-            .stack
-            .pop()?
+        let offset_u256 = current_call_frame.stack.pop()?;
+        let size_u256 = current_call_frame.stack.pop()?;
+
+        if size_u256 == U256::zero() {
+            return Ok(OpcodeSuccess::Result(ResultReason::Return));
+        }
+
+        let offset: usize = offset_u256
             .try_into()
             .map_err(|_| VMError::VeryLargeNumber)?;
 
+        let size = size_u256.try_into().map_err(|_| VMError::VeryLargeNumber)?;
         let new_memory_size = calculate_memory_size(offset, size)?;
         self.increase_consumed_gas(
             current_call_frame,
