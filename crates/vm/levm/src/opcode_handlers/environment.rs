@@ -103,7 +103,9 @@ impl VM {
             current_call_frame.stack.push(U256::zero())?;
             return Ok(OpcodeSuccess::Continue);
         };
-        let offset: usize = offset.try_into().map_err(|_| VMError::VeryLargeNumber)?;
+        let offset: usize = offset
+            .try_into()
+            .map_err(|_| VMError::Internal(InternalError::ConversionError))?;
 
         // All bytes after the end of the calldata are set to 0.
         let mut data = [0u8; 32];
