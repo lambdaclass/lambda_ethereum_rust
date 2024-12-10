@@ -558,6 +558,7 @@ async fn heal_state_trie(
             .request_state_trienodes(state_root, paths.clone())
             .await
         {
+            // TODO: THIS SHOULD BE HASHED ADDRESSES!!1
             let mut storage_roots = vec![];
             let mut code_hashes = vec![];
             // For each fetched node:
