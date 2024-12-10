@@ -8,10 +8,11 @@ pub mod methods {
     include!(concat!(env!("OUT_DIR"), "/methods.rs"));
 
     #[cfg(all(not(clippy), feature = "build_sp1"))]
-    pub const SP1_ELF: &[u8] = include_bytes!("../sp1/elf/riscv32im-succinct-zkvm-elf");
+    pub const ZKVM_SP1_PROGRAM_ELF: &[u8] =
+        include_bytes!("../sp1/elf/riscv32im-succinct-zkvm-elf");
 
     #[cfg(any(clippy, not(feature = "build_sp1")))]
-    pub const SP1_ELF: &[u8] = &[0];
+    pub const ZKVM_SP1_PROGRAM_ELF: &[u8] = &[0];
 }
 
 pub mod io {

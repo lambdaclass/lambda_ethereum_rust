@@ -7,7 +7,7 @@ use tracing::info;
 use risc0_zkvm::{default_prover, ExecutorEnv, ProverOpts};
 use zkvm_interface::{
     io::{ProgramInput, ProgramOutput},
-    methods::SP1_ELF,
+    methods::ZKVM_SP1_PROGRAM_ELF,
     methods::{ZKVM_RISC0_PROGRAM_ELF, ZKVM_RISC0_PROGRAM_ID},
 };
 
@@ -132,7 +132,9 @@ impl<'a> Prover for Risc0Prover<'a> {
 
 impl<'a> Sp1Prover<'a> {
     pub fn new() -> Self {
-        Self { elf: SP1_ELF }
+        Self {
+            elf: ZKVM_SP1_PROGRAM_ELF,
+        }
     }
 }
 
