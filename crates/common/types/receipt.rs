@@ -127,15 +127,14 @@ impl RLPDecode for Receipt {
                     logs,
                     cumulative_gas_used,
                 },
-                decoder.finish().unwrap(),
+                decoder.finish()?,
             ))
         } else {
             let decoder = Decoder::new(rlp)?;
-            let (succeeded, decoder) = decoder.decode_field("succeded").unwrap();
-            let (cumulative_gas_used, decoder) =
-                decoder.decode_field("cumulative gas used").unwrap();
-            let (bloom, decoder) = decoder.decode_field("bloom").unwrap();
-            let (logs, decoder) = decoder.decode_field("logs").unwrap();
+            let (succeeded, decoder) = decoder.decode_field("succeded")?;
+            let (cumulative_gas_used, decoder) = decoder.decode_field("cumulative gas used")?;
+            let (bloom, decoder) = decoder.decode_field("bloom")?;
+            let (logs, decoder) = decoder.decode_field("logs")?;
             Ok((
                 Receipt {
                     tx_type: TxType::Legacy,
@@ -144,7 +143,7 @@ impl RLPDecode for Receipt {
                     logs,
                     cumulative_gas_used,
                 },
-                decoder.finish().unwrap(),
+                decoder.finish()?,
             ))
         }
     }
