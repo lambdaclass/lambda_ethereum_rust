@@ -1,6 +1,6 @@
-use crate::prover::{create_prover, ProverType, ProvingOutput};
+use crate::prover::create_prover;
 use ethrex_l2::{
-    proposer::prover_server::{ProofData, ZkProof},
+    proposer::prover_server::{ProofData, ProverType, ProvingOutput},
     utils::config::prover_client::ProverClientConfig,
 };
 use std::{
@@ -98,11 +98,11 @@ impl ProverClient {
 
     fn submit_proof(&self, block_number: u64, proving_output: ProvingOutput) -> Result<(), String> {
         let submit = match proving_output {
-            ProvingOutput::Risc0Prover(risc0_proof) => {
-                ProofData::submit(block_number, ZkProof::RISC0(risc0_proof))
+            ProvingOutput::RISC0(risc0_proof) => {
+                ProofData::submit(block_number, ProvingOutput::RISC0(risc0_proof))
             }
-            ProvingOutput::Sp1Prover(sp1_proof) => {
-                ProofData::submit(block_number, ZkProof::SP1(sp1_proof))
+            ProvingOutput::SP1(sp1_proof) => {
+                ProofData::submit(block_number, ProvingOutput::SP1(sp1_proof))
             }
         };
 

@@ -1,6 +1,5 @@
 use crate::errors::ProverError;
-use ethrex_l2::proposer::prover_server::Risc0Proof;
-use ethrex_l2::proposer::prover_server::Sp1Proof;
+use ethrex_l2::proposer::prover_server::{ProverType, ProvingOutput, Risc0Proof, Sp1Proof};
 use tracing::info;
 
 // risc0
@@ -38,18 +37,6 @@ impl<'a> Default for Sp1Prover<'a> {
     }
 }
 
-/// Enum used to handle all the possible proofs of each proving system
-pub enum ProvingOutput {
-    Risc0Prover(Risc0Proof),
-    Sp1Prover(Sp1Proof),
-}
-
-/// Enum used to identify the different proving systems.
-pub enum ProverType {
-    RISC0,
-    SP1,
-}
-
 /// Creates a prover depending on the [ProverType]
 pub fn create_prover(prover_type: ProverType) -> Box<dyn Prover> {
     match prover_type {
@@ -82,8 +69,8 @@ impl<'a> Risc0Prover<'a> {
         proving_output: &ProvingOutput,
     ) -> Result<ProgramOutput, Box<dyn std::error::Error>> {
         let commitment = match proving_output {
-            ProvingOutput::Risc0Prover(proof) => proof.receipt.journal.decode()?,
-            ProvingOutput::Sp1Prover(_) => return Err(Box::new(ProverError::IncorrectProverType)),
+            ProvingOutput::RISC0(proof) => proof.receipt.journal.decode()?,
+            ProvingOutput::SP1(_) => return Err(Box::new(ProverError::IncorrectProverType)),
         };
         Ok(commitment)
     }
@@ -107,7 +94,7 @@ impl<'a> Prover for Risc0Prover<'a> {
         let receipt = prove_info.receipt;
 
         info!("Successfully generated execution receipt.");
-        Ok(ProvingOutput::Risc0Prover(Risc0Proof::new(
+        Ok(ProvingOutput::RISC0(Risc0Proof::new(
             receipt,
             self.id.to_vec(),
         )))
@@ -116,8 +103,8 @@ impl<'a> Prover for Risc0Prover<'a> {
     fn verify(&self, proving_output: &ProvingOutput) -> Result<(), Box<dyn std::error::Error>> {
         // Verify the proof.
         match proving_output {
-            ProvingOutput::Risc0Prover(proof) => proof.receipt.verify(self.id)?,
-            ProvingOutput::Sp1Prover(_) => return Err(Box::new(ProverError::IncorrectProverType)),
+            ProvingOutput::RISC0(proof) => proof.receipt.verify(self.id)?,
+            ProvingOutput::SP1(_) => return Err(Box::new(ProverError::IncorrectProverType)),
         }
 
         Ok(())
@@ -153,19 +140,17 @@ impl<'a> Prover for Sp1Prover<'a> {
         // Wrap Proof and vk
         let sp1_proof = Sp1Proof::new(proof, vk);
         info!("Successfully generated SP1Proof.");
-        Ok(ProvingOutput::Sp1Prover(sp1_proof))
+        Ok(ProvingOutput::SP1(sp1_proof))
     }
 
     fn verify(&self, proving_output: &ProvingOutput) -> Result<(), Box<dyn std::error::Error>> {
         // Verify the proof.
         match proving_output {
-            ProvingOutput::Sp1Prover(complete_proof) => {
+            ProvingOutput::SP1(complete_proof) => {
                 let client = ProverClient::new();
                 client.verify(&complete_proof.proof, &complete_proof.vk)?;
             }
-            ProvingOutput::Risc0Prover(_) => {
-                return Err(Box::new(ProverError::IncorrectProverType))
-            }
+            ProvingOutput::RISC0(_) => return Err(Box::new(ProverError::IncorrectProverType)),
         }
 
         Ok(())
