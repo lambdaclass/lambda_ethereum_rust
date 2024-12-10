@@ -7,7 +7,7 @@ use axum_extra::{
 use bytes::Bytes;
 use engine::{
     exchange_transition_config::ExchangeTransitionConfigV1Req,
-    fork_choice::{ForkChoiceUpdatedV2, ForkChoiceUpdatedV3},
+    fork_choice::{ForkChoiceUpdatedV1, ForkChoiceUpdatedV2, ForkChoiceUpdatedV3},
     payload::{GetPayloadV2Request, GetPayloadV3Request, NewPayloadV2Request, NewPayloadV3Request},
     ExchangeCapabilitiesRequest,
 };
@@ -255,6 +255,7 @@ pub fn map_debug_requests(req: &RpcRequest, context: RpcApiContext) -> Result<Va
 pub fn map_engine_requests(req: &RpcRequest, context: RpcApiContext) -> Result<Value, RpcErr> {
     match req.method.as_str() {
         "engine_exchangeCapabilities" => ExchangeCapabilitiesRequest::call(req, context),
+        "engine_forkchoiceUpdatedV1" => ForkChoiceUpdatedV1::call(req, context),
         "engine_forkchoiceUpdatedV2" => ForkChoiceUpdatedV2::call(req, context),
         "engine_forkchoiceUpdatedV3" => ForkChoiceUpdatedV3::call(req, context),
         "engine_newPayloadV3" => NewPayloadV3Request::call(req, context),

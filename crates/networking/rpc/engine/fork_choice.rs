@@ -18,6 +18,35 @@ use crate::{
 };
 
 #[derive(Debug)]
+pub struct ForkChoiceUpdatedV1 {
+    pub fork_choice_state: ForkChoiceState,
+    pub payload_attributes: Option<PayloadAttributesV3>,
+}
+
+impl RpcHandler for ForkChoiceUpdatedV1 {
+    fn parse(params: &Option<Vec<Value>>) -> Result<Self, RpcErr> {
+        let (fork_choice_state, payload_attributes) = parse(params)?;
+
+        Ok(ForkChoiceUpdatedV1 {
+            fork_choice_state,
+            payload_attributes,
+        })
+    }
+
+    fn handle(&self, context: RpcApiContext) -> Result<Value, RpcErr> {
+        let (head_block_opt, mut response) =
+            handle_forkchoice(&self.fork_choice_state, context.clone(), 1)?;
+        if let (Some(head_block), Some(attributes)) = (head_block_opt, &self.payload_attributes) {
+            validate_v2(attributes, head_block, &context)?;
+            let payload_id = build_payload(attributes, context, &self.fork_choice_state, 1)?;
+            response.set_id(payload_id);
+        }
+
+        serde_json::to_value(response).map_err(|error| RpcErr::Internal(error.to_string()))
+    }
+}
+
+#[derive(Debug)]
 pub struct ForkChoiceUpdatedV2 {
     pub fork_choice_state: ForkChoiceState,
     pub payload_attributes: Option<PayloadAttributesV3>,
