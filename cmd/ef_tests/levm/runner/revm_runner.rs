@@ -420,8 +420,8 @@ pub fn _ensure_post_state_revm(
             match test.post.vector_post_value(vector).expect_exception {
                 // Execution result was successful but an exception was expected.
                 Some(expected_exception) => {
-                    let error_reason = format!("Expected exception: {expected_exception}");
-                    println!("Expected exception: {expected_exception}");
+                    let error_reason = format!("Expected exception: {expected_exception:?}");
+                    println!("Expected exception: {expected_exception:?}");
                     return Err(EFTestRunnerError::FailedToEnsurePostState(
                         TransactionReport {
                             result: TxResult::Success,
