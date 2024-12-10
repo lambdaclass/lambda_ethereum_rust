@@ -972,10 +972,7 @@ impl VM {
         }
 
         if code_size_in_memory > INIT_CODE_MAX_SIZE {
-            current_call_frame
-                .stack
-                .push(U256::from(CREATE_DEPLOYMENT_FAIL))?;
-            return Ok(OpcodeSuccess::Continue);
+            return Err(VMError::OutOfGas(OutOfGasError::ConsumedGasOverflow));
         }
 
         let (sender_account_info, _sender_address_was_cold) =
@@ -1013,12 +1010,11 @@ impl VM {
             None => Self::calculate_create_address(sender_address, new_nonce)?,
         };
 
-        // FIXME: Shouldn't we check against the db?
-        if cache::is_account_cached(&self.cache, &new_address) {
+        if !self.get_account(new_address).is_empty() {
             current_call_frame
                 .stack
                 .push(U256::from(CREATE_DEPLOYMENT_FAIL))?;
-            return Ok(OpcodeSuccess::Result(ResultReason::Revert));
+            return Ok(OpcodeSuccess::Continue);
         }
 
         let new_account = Account::new(U256::zero(), code.clone(), 0, Default::default());
