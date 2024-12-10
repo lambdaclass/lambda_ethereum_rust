@@ -17,7 +17,7 @@ use ethrex_rlp::encode::RLPEncode;
 use ethrex_trie::Trie;
 use serde::{Deserialize, Serialize};
 use sha3::{Digest as _, Keccak256};
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::fmt::Debug;
 use std::sync::{Arc, Mutex};
 use tracing::info;
@@ -343,6 +343,24 @@ impl Store {
 
         txs_by_sender.iter_mut().for_each(|(_, txs)| txs.sort());
         Ok(txs_by_sender)
+    }
+
+    /// Gets hashes from possible_hashes that are not already known in the mempool.
+    pub fn filter_unknown_transactions(
+        &self,
+        possible_hashes: &[H256],
+    ) -> Result<Vec<H256>, StoreError> {
+        let mempool = self
+            .mempool
+            .lock()
+            .map_err(|error| StoreError::Custom(error.to_string()))?;
+
+        let tx_set: HashSet<_> = mempool.iter().map(|(hash, _)| hash).collect();
+        Ok(possible_hashes
+            .iter()
+            .filter(|hash| !tx_set.contains(hash))
+            .copied()
+            .collect())
     }
 
     fn add_account_code(&self, code_hash: H256, code: Bytes) -> Result<(), StoreError> {
@@ -903,8 +921,23 @@ impl Store {
         self.engine.add_payload(payload_id, block)
     }
 
-    pub fn get_payload(&self, payload_id: u64) -> Result<Option<Block>, StoreError> {
+    pub fn get_payload(
+        &self,
+        payload_id: u64,
+    ) -> Result<Option<(Block, U256, BlobsBundle, bool)>, StoreError> {
         self.engine.get_payload(payload_id)
+    }
+
+    pub fn update_payload(
+        &self,
+        payload_id: u64,
+        block: Block,
+        block_value: U256,
+        blobs_bundle: BlobsBundle,
+        completed: bool,
+    ) -> Result<(), StoreError> {
+        self.engine
+            .update_payload(payload_id, block, block_value, blobs_bundle, completed)
     }
 
     /// Creates a new state trie with an empty state root, for testing purposes only
