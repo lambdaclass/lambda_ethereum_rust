@@ -17,6 +17,8 @@ use ethrex_rlp::{
     structs::{Decoder, Encoder},
 };
 
+use super::BlobsBundle;
+
 // The `#[serde(untagged)]` attribute allows the `Transaction` enum to be serialized without
 // a tag indicating the variant type. This means that Serde will serialize the enum's variants
 // directly according to the structure of the variant itself.
@@ -33,6 +35,53 @@ pub enum Transaction {
     EIP1559Transaction(EIP1559Transaction),
     EIP4844Transaction(EIP4844Transaction),
     PrivilegedL2Transaction(PrivilegedL2Transaction),
+}
+
+#[derive(Debug)]
+pub enum P2PTransaction {
+    LegacyTransaction(LegacyTransaction),
+    EIP2930Transaction(EIP2930Transaction),
+    EIP1559Transaction(EIP1559Transaction),
+    WrappedEIP4844Transaction(WrappedEIP4844Transaction),
+    PrivilegedL2Transaction(PrivilegedL2Transaction),
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct WrappedEIP4844Transaction {
+    pub tx: EIP4844Transaction,
+    pub blobs_bundle: BlobsBundle,
+}
+
+impl RLPEncode for WrappedEIP4844Transaction {
+    fn encode(&self, buf: &mut dyn bytes::BufMut) {
+        let encoder = Encoder::new(buf);
+        encoder
+            .encode_field(&self.tx)
+            .encode_field(&self.blobs_bundle.blobs)
+            .encode_field(&self.blobs_bundle.commitments)
+            .encode_field(&self.blobs_bundle.proofs)
+            .finish();
+    }
+}
+
+impl RLPDecode for WrappedEIP4844Transaction {
+    fn decode_unfinished(rlp: &[u8]) -> Result<(WrappedEIP4844Transaction, &[u8]), RLPDecodeError> {
+        let decoder = Decoder::new(rlp)?;
+        let (tx, decoder) = decoder.decode_field("tx")?;
+        let (blobs, decoder) = decoder.decode_field("blobs")?;
+        let (commitments, decoder) = decoder.decode_field("commitments")?;
+        let (proofs, decoder) = decoder.decode_field("proofs")?;
+
+        let wrapped = WrappedEIP4844Transaction {
+            tx,
+            blobs_bundle: BlobsBundle {
+                blobs,
+                commitments,
+                proofs,
+            },
+        };
+        Ok((wrapped, decoder.finish()?))
+    }
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Default)]

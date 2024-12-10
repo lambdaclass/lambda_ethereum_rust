@@ -1,5 +1,7 @@
 use bytes::BufMut;
 use bytes::Bytes;
+use ethrex_blockchain::mempool;
+use ethrex_core::types::P2PTransaction;
 use ethrex_core::{types::Transaction, H256};
 use ethrex_rlp::{
     error::{RLPDecodeError, RLPEncodeError},
@@ -170,6 +172,7 @@ impl GetPooledTransactions {
             .flatten()
             .collect();
 
+        // TODO: add getting of the blob bundle, as we'll implement this as a p2p transaction.
         Ok(PooledTransactions {
             id: self.id,
             pooled_transactions: txs,
@@ -206,15 +209,25 @@ pub(crate) struct PooledTransactions {
     // id is a u64 chosen by the requesting peer, the responding peer must mirror the value for the response
     // https://github.com/ethereum/devp2p/blob/master/caps/eth.md#protocol-messages
     id: u64,
-    pooled_transactions: Vec<Transaction>,
+    pooled_transactions: Vec<P2PTransaction>,
 }
 
 impl PooledTransactions {
-    pub fn new(id: u64, pooled_transactions: Vec<Transaction>) -> Self {
+    pub fn new(id: u64, pooled_transactions: Vec<P2PTransaction>) -> Self {
         Self {
             pooled_transactions,
             id,
         }
+    }
+
+    pub fn handle(&self, store: &Store) -> Result<(), StoreError> {
+        // We need to save all transactions, one by one, and we also need the senders.
+        for tx in self.pooled_transactions {
+            if let P2PTransaction::WrappedEIP4844Transaction() = tx {
+                mempool::add_blob_transaction(transaction, blobs_bundle, store)
+            }
+        }
+        Err(StoreError::Custom("Implement this plz".to_string()))
     }
 }
 
@@ -234,7 +247,7 @@ impl RLPxMessage for PooledTransactions {
         let decompressed_data = snappy_decompress(msg_data)?;
         let decoder = Decoder::new(&decompressed_data)?;
         let (id, decoder): (u64, _) = decoder.decode_field("request-id")?;
-        let (pooled_transactions, _): (Vec<Transaction>, _) =
+        let (pooled_transactions, _): (Vec<P2PTransaction>, _) =
             decoder.decode_field("pooledTransactions")?;
 
         Ok(Self::new(id, pooled_transactions))
