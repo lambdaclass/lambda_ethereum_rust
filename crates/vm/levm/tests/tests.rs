@@ -1490,8 +1490,11 @@ fn mstore_saves_correct_value() {
     let mut current_call_frame = vm.call_frames.pop().unwrap();
     vm.execute(&mut current_call_frame).unwrap();
 
-    let stored_value =
-        memory::load_word(&mut vm.current_call_frame_mut().unwrap().memory, 0).unwrap();
+    let stored_value = memory::load_word(
+        &mut vm.current_call_frame_mut().unwrap().memory,
+        U256::zero(),
+    )
+    .unwrap();
 
     assert_eq!(stored_value, U256::from(0x33333));
 
@@ -1514,8 +1517,11 @@ fn mstore8() {
     let mut current_call_frame = vm.call_frames.pop().unwrap();
     vm.execute(&mut current_call_frame).unwrap();
 
-    let stored_value =
-        memory::load_word(&mut vm.current_call_frame_mut().unwrap().memory, 0).unwrap();
+    let stored_value = memory::load_word(
+        &mut vm.current_call_frame_mut().unwrap().memory,
+        U256::zero(),
+    )
+    .unwrap();
 
     let mut value_bytes = [0u8; 32];
     stored_value.to_big_endian(&mut value_bytes);
@@ -1543,8 +1549,11 @@ fn mcopy() {
     let mut current_call_frame = vm.call_frames.pop().unwrap();
     vm.execute(&mut current_call_frame).unwrap();
 
-    let copied_value =
-        memory::load_word(&mut vm.current_call_frame_mut().unwrap().memory, 64).unwrap();
+    let copied_value = memory::load_word(
+        &mut vm.current_call_frame_mut().unwrap().memory,
+        U256::from(64),
+    )
+    .unwrap();
     assert_eq!(copied_value, U256::from(0x33333));
 
     let memory_size = vm.current_call_frame_mut().unwrap().stack.pop().unwrap();
@@ -1787,8 +1796,12 @@ fn call_changes_callframe_and_stores() {
     let ret_size = current_call_frame.sub_return_data_size;
 
     // Return data of the sub-context will be in the memory position of the current context reserved for that purpose (ret_offset and ret_size)
-    let return_data =
-        memory::load_range(&mut current_call_frame.memory, ret_offset, ret_size).unwrap();
+    let return_data = memory::load_range(
+        &mut current_call_frame.memory,
+        U256::from(ret_offset),
+        ret_size,
+    )
+    .unwrap();
 
     assert_eq!(U256::from_big_endian(return_data), U256::from(0xAAAAAAA));
 }
@@ -1951,7 +1964,7 @@ fn staticcall_changes_callframe_is_static() {
 
     let mut current_call_frame = vm.call_frames[0].clone();
 
-    let ret_offset = 0;
+    let ret_offset = U256::zero();
     let ret_size = 32;
     let return_data =
         memory::load_range(&mut current_call_frame.memory, ret_offset, ret_size).unwrap();
@@ -2485,11 +2498,11 @@ fn calldataload_being_set_by_parent() {
 
     assert_eq!(
         expected_data,
-        memory::load_word(&mut current_call_frame.memory, 0).unwrap()
+        memory::load_word(&mut current_call_frame.memory, U256::zero()).unwrap()
     );
     assert_eq!(
         expected_data,
-        memory::load_word(&mut current_call_frame.memory, 0).unwrap()
+        memory::load_word(&mut current_call_frame.memory, U256::zero()).unwrap()
     );
 }
 
@@ -2528,7 +2541,7 @@ fn calldatacopy() {
     vm.execute(&mut current_call_frame).unwrap();
 
     let current_call_frame = vm.current_call_frame_mut().unwrap();
-    let memory = memory::load_range(&mut current_call_frame.memory, 0, 2).unwrap();
+    let memory = memory::load_range(&mut current_call_frame.memory, U256::zero(), 2).unwrap();
     assert_eq!(memory, vec![0x22, 0x33]);
     assert_eq!(vm.env.consumed_gas, TX_BASE_COST + 18);
 }
@@ -2568,7 +2581,7 @@ fn returndatacopy() {
     vm.execute(&mut current_call_frame).unwrap();
 
     let current_call_frame = vm.current_call_frame_mut().unwrap();
-    let memory = memory::load_range(&mut current_call_frame.memory, 0, 2).unwrap();
+    let memory = memory::load_range(&mut current_call_frame.memory, U256::zero(), 2).unwrap();
     assert_eq!(memory, vec![0xBB, 0xCC]);
     assert_eq!(vm.env.consumed_gas, TX_BASE_COST + 18);
 }
@@ -2618,7 +2631,7 @@ fn returndatacopy_being_set_by_parent() {
 
     let current_call_frame = vm.current_call_frame_mut().unwrap();
 
-    let result = memory::load_word(&mut current_call_frame.memory, 0).unwrap();
+    let result = memory::load_word(&mut current_call_frame.memory, U256::zero()).unwrap();
 
     assert_eq!(result, U256::from(0xAAAAAAA));
 }
@@ -4512,7 +4525,11 @@ fn codecopy_op() {
     vm.execute(&mut current_call_frame).unwrap();
 
     assert_eq!(
-        memory::load_word(&mut vm.current_call_frame_mut().unwrap().memory, 0).unwrap(),
+        memory::load_word(
+            &mut vm.current_call_frame_mut().unwrap().memory,
+            U256::zero()
+        )
+        .unwrap(),
         expected_memory
     );
     assert_eq!(
@@ -4592,7 +4609,12 @@ fn extcodecopy_existing_account() {
     let mut current_call_frame = vm.call_frames.pop().unwrap();
     vm.execute(&mut current_call_frame).unwrap();
     assert_eq!(
-        memory::load_range(&mut vm.current_call_frame_mut().unwrap().memory, 0, size).unwrap(),
+        memory::load_range(
+            &mut vm.current_call_frame_mut().unwrap().memory,
+            U256::zero(),
+            size
+        )
+        .unwrap(),
         vec![0x60]
     );
     assert_eq!(vm.env.consumed_gas, 23616.into());
@@ -4617,7 +4639,12 @@ fn extcodecopy_non_existing_account() {
     let mut current_call_frame = vm.call_frames.pop().unwrap();
     vm.execute(&mut current_call_frame).unwrap();
     assert_eq!(
-        memory::load_range(&mut vm.current_call_frame_mut().unwrap().memory, 0, size).unwrap(),
+        memory::load_range(
+            &mut vm.current_call_frame_mut().unwrap().memory,
+            U256::zero(),
+            size
+        )
+        .unwrap(),
         vec![0; size]
     );
     assert_eq!(vm.env.consumed_gas, 23616.into());

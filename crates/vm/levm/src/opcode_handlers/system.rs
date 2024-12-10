@@ -1,7 +1,7 @@
 use crate::{
     call_frame::CallFrame,
     constants::WORD_SIZE_IN_BYTES_USIZE,
-    errors::{OpcodeSuccess, OutOfGasError, ResultReason, VMError},
+    errors::{OpcodeSuccess, ResultReason, VMError},
     gas_cost,
     memory::{self, calculate_memory_size},
     vm::{word_to_address, VM},
@@ -25,21 +25,13 @@ impl VM {
             return Err(VMError::OpcodeNotAllowedInStaticContext);
         }
 
-        let args_start_offset: usize = current_call_frame
+        let args_start_offset = current_call_frame.stack.pop()?;
+        let args_size = current_call_frame
             .stack
             .pop()?
             .try_into()
             .map_err(|_| VMError::VeryLargeNumber)?;
-        let args_size: usize = current_call_frame
-            .stack
-            .pop()?
-            .try_into()
-            .map_err(|_| VMError::VeryLargeNumber)?;
-        let return_data_start_offset: usize = current_call_frame
-            .stack
-            .pop()?
-            .try_into()
-            .map_err(|_| VMError::VeryLargeNumber)?;
+        let return_data_start_offset = current_call_frame.stack.pop()?;
         let return_data_size: usize = current_call_frame
             .stack
             .pop()?
@@ -47,24 +39,10 @@ impl VM {
             .map_err(|_| VMError::VeryLargeNumber)?;
 
         let current_memory_size = current_call_frame.memory.len();
-        let new_memory_size_for_args = if args_size > 0 {
-            (args_start_offset
-                .checked_add(args_size)
-                .ok_or(VMError::OutOfGas(OutOfGasError::MaxGasLimitExceeded))?)
-            .checked_next_multiple_of(WORD_SIZE_IN_BYTES_USIZE)
-            .ok_or(VMError::OutOfGas(OutOfGasError::MaxGasLimitExceeded))?
-        } else {
-            current_memory_size
-        };
-        let new_memory_size_for_return_data = if return_data_size > 0 {
-            (return_data_start_offset
-                .checked_add(return_data_size)
-                .ok_or(VMError::OutOfGas(OutOfGasError::MaxGasLimitExceeded))?)
-            .checked_next_multiple_of(WORD_SIZE_IN_BYTES_USIZE)
-            .ok_or(VMError::OutOfGas(OutOfGasError::MaxGasLimitExceeded))?
-        } else {
-            current_memory_size
-        };
+
+        let new_memory_size_for_args = calculate_memory_size(args_start_offset, args_size)?;
+        let new_memory_size_for_return_data =
+            calculate_memory_size(return_data_start_offset, return_data_size)?;
         let new_memory_size = new_memory_size_for_args.max(new_memory_size_for_return_data);
 
         let (account_info, address_was_cold) = self.access_account(callee);
@@ -110,21 +88,13 @@ impl VM {
         let gas = current_call_frame.stack.pop()?;
         let code_address = word_to_address(current_call_frame.stack.pop()?);
         let value_to_transfer = current_call_frame.stack.pop()?;
-        let args_start_offset: usize = current_call_frame
-            .stack
-            .pop()?
-            .try_into()
-            .map_err(|_err| VMError::VeryLargeNumber)?;
+        let args_start_offset = current_call_frame.stack.pop()?;
         let args_size = current_call_frame
             .stack
             .pop()?
             .try_into()
             .map_err(|_err| VMError::VeryLargeNumber)?;
-        let return_data_start_offset: usize = current_call_frame
-            .stack
-            .pop()?
-            .try_into()
-            .map_err(|_err| VMError::VeryLargeNumber)?;
+        let return_data_start_offset = current_call_frame.stack.pop()?;
         let return_data_size = current_call_frame
             .stack
             .pop()?
@@ -132,25 +102,10 @@ impl VM {
             .map_err(|_err| VMError::VeryLargeNumber)?;
 
         let current_memory_size = current_call_frame.memory.len();
-        let new_memory_size_for_args = if args_size > 0 {
-            (args_start_offset
-                .checked_add(args_size)
-                .ok_or(VMError::OutOfGas(OutOfGasError::MaxGasLimitExceeded))?)
-            .checked_next_multiple_of(WORD_SIZE_IN_BYTES_USIZE)
-            .ok_or(VMError::OutOfGas(OutOfGasError::MaxGasLimitExceeded))?
-        } else {
-            current_memory_size
-        };
+        let new_memory_size_for_args = calculate_memory_size(args_start_offset, args_size)?;
 
-        let new_memory_size_for_return_data = if return_data_size > 0 {
-            (return_data_start_offset
-                .checked_add(return_data_size)
-                .ok_or(VMError::OutOfGas(OutOfGasError::MaxGasLimitExceeded))?)
-            .checked_next_multiple_of(WORD_SIZE_IN_BYTES_USIZE)
-            .ok_or(VMError::OutOfGas(OutOfGasError::MaxGasLimitExceeded))?
-        } else {
-            current_memory_size
-        };
+        let new_memory_size_for_return_data =
+            calculate_memory_size(return_data_start_offset, return_data_size)?;
         let new_memory_size = new_memory_size_for_args.max(new_memory_size_for_return_data);
 
         let (_account_info, address_was_cold) = self.access_account(code_address);
@@ -192,18 +147,17 @@ impl VM {
         &mut self,
         current_call_frame: &mut CallFrame,
     ) -> Result<OpcodeSuccess, VMError> {
-        let offset_u256 = current_call_frame.stack.pop()?;
-        let size_u256 = current_call_frame.stack.pop()?;
+        let offset = current_call_frame.stack.pop()?;
+        let size = current_call_frame
+            .stack
+            .pop()?
+            .try_into()
+            .map_err(|_err| VMError::VeryLargeNumber)?;
 
-        if size_u256 == U256::zero() {
+        if size == 0 {
             return Ok(OpcodeSuccess::Result(ResultReason::Return));
         }
 
-        let offset: usize = offset_u256
-            .try_into()
-            .map_err(|_| VMError::VeryLargeNumber)?;
-
-        let size = size_u256.try_into().map_err(|_| VMError::VeryLargeNumber)?;
         let new_memory_size = calculate_memory_size(offset, size)?;
         self.increase_consumed_gas(
             current_call_frame,
@@ -226,21 +180,13 @@ impl VM {
     ) -> Result<OpcodeSuccess, VMError> {
         let gas = current_call_frame.stack.pop()?;
         let code_address = word_to_address(current_call_frame.stack.pop()?);
-        let args_start_offset: usize = current_call_frame
-            .stack
-            .pop()?
-            .try_into()
-            .map_err(|_err| VMError::VeryLargeNumber)?;
+        let args_start_offset = current_call_frame.stack.pop()?;
         let args_size = current_call_frame
             .stack
             .pop()?
             .try_into()
             .map_err(|_err| VMError::VeryLargeNumber)?;
-        let return_data_start_offset: usize = current_call_frame
-            .stack
-            .pop()?
-            .try_into()
-            .map_err(|_err| VMError::VeryLargeNumber)?;
+        let return_data_start_offset = current_call_frame.stack.pop()?;
         let return_data_size = current_call_frame
             .stack
             .pop()?
@@ -255,24 +201,9 @@ impl VM {
         let (_account_info, address_was_cold) = self.access_account(code_address);
 
         let current_memory_size = current_call_frame.memory.len();
-        let new_memory_size_for_args = if args_size > 0 {
-            (args_start_offset
-                .checked_add(args_size)
-                .ok_or(VMError::OutOfGas(OutOfGasError::MaxGasLimitExceeded))?)
-            .checked_next_multiple_of(WORD_SIZE_IN_BYTES_USIZE)
-            .ok_or(VMError::OutOfGas(OutOfGasError::MaxGasLimitExceeded))?
-        } else {
-            current_memory_size
-        };
-        let new_memory_size_for_return_data = if return_data_size > 0 {
-            (return_data_start_offset
-                .checked_add(return_data_size)
-                .ok_or(VMError::OutOfGas(OutOfGasError::MaxGasLimitExceeded))?)
-            .checked_next_multiple_of(WORD_SIZE_IN_BYTES_USIZE)
-            .ok_or(VMError::OutOfGas(OutOfGasError::MaxGasLimitExceeded))?
-        } else {
-            current_memory_size
-        };
+        let new_memory_size_for_args = calculate_memory_size(args_start_offset, args_size)?;
+        let new_memory_size_for_return_data =
+            calculate_memory_size(return_data_start_offset, return_data_size)?;
         let new_memory_size = new_memory_size_for_args.max(new_memory_size_for_return_data);
 
         self.increase_consumed_gas(
@@ -305,21 +236,15 @@ impl VM {
     ) -> Result<OpcodeSuccess, VMError> {
         let gas = current_call_frame.stack.pop()?;
         let code_address = word_to_address(current_call_frame.stack.pop()?);
-        let args_start_offset: usize = current_call_frame
-            .stack
-            .pop()?
-            .try_into()
-            .map_err(|_err| VMError::VeryLargeNumber)?;
+        let args_start_offset = current_call_frame.stack.pop()?;
+
         let args_size = current_call_frame
             .stack
             .pop()?
             .try_into()
             .map_err(|_err| VMError::VeryLargeNumber)?;
-        let return_data_start_offset: usize = current_call_frame
-            .stack
-            .pop()?
-            .try_into()
-            .map_err(|_err| VMError::VeryLargeNumber)?;
+        let return_data_start_offset = current_call_frame.stack.pop()?;
+
         let return_data_size = current_call_frame
             .stack
             .pop()?
@@ -329,24 +254,9 @@ impl VM {
         let (_account_info, address_was_cold) = self.access_account(code_address);
 
         let current_memory_size = current_call_frame.memory.len();
-        let new_memory_size_for_args = if args_size > 0 {
-            (args_start_offset
-                .checked_add(args_size)
-                .ok_or(VMError::OutOfGas(OutOfGasError::MaxGasLimitExceeded))?)
-            .checked_next_multiple_of(WORD_SIZE_IN_BYTES_USIZE)
-            .ok_or(VMError::OutOfGas(OutOfGasError::MaxGasLimitExceeded))?
-        } else {
-            current_memory_size
-        };
-        let new_memory_size_for_return_data = if return_data_size > 0 {
-            (return_data_start_offset
-                .checked_add(return_data_size)
-                .ok_or(VMError::OutOfGas(OutOfGasError::MaxGasLimitExceeded))?)
-            .checked_next_multiple_of(WORD_SIZE_IN_BYTES_USIZE)
-            .ok_or(VMError::OutOfGas(OutOfGasError::MaxGasLimitExceeded))?
-        } else {
-            current_memory_size
-        };
+        let new_memory_size_for_args = calculate_memory_size(args_start_offset, args_size)?;
+        let new_memory_size_for_return_data =
+            calculate_memory_size(return_data_start_offset, return_data_size)?;
         let new_memory_size = new_memory_size_for_args.max(new_memory_size_for_return_data);
 
         self.increase_consumed_gas(
@@ -382,25 +292,26 @@ impl VM {
         current_call_frame: &mut CallFrame,
     ) -> Result<OpcodeSuccess, VMError> {
         let value_in_wei_to_send = current_call_frame.stack.pop()?;
-        let code_offset_in_memory: usize = current_call_frame
-            .stack
-            .pop()?
-            .try_into()
-            .map_err(|_err| VMError::VeryLargeNumber)?;
-        let code_size_in_memory = current_call_frame
+        let code_offset_in_memory = current_call_frame.stack.pop()?;
+        let code_size_in_memory: usize = current_call_frame
             .stack
             .pop()?
             .try_into()
             .map_err(|_err| VMError::VeryLargeNumber)?;
 
+        let new_size: usize = code_offset_in_memory
+            .checked_add(code_size_in_memory.into())
+            .ok_or(VMError::OutOfOffset)?
+            .try_into()
+            .map_err(|_err| VMError::VeryLargeNumber)?;
+        let new_size = new_size
+            .checked_next_multiple_of(WORD_SIZE_IN_BYTES_USIZE)
+            .ok_or(VMError::OutOfOffset)?;
+
         self.increase_consumed_gas(
             current_call_frame,
             gas_cost::create(
-                code_offset_in_memory
-                    .checked_add(code_size_in_memory)
-                    .ok_or(VMError::OutOfOffset)?
-                    .checked_next_multiple_of(WORD_SIZE_IN_BYTES_USIZE)
-                    .ok_or(VMError::OutOfOffset)?,
+                new_size,
                 current_call_frame.memory.len(),
                 code_size_in_memory,
             )?,
@@ -422,11 +333,7 @@ impl VM {
         current_call_frame: &mut CallFrame,
     ) -> Result<OpcodeSuccess, VMError> {
         let value_in_wei_to_send = current_call_frame.stack.pop()?;
-        let code_offset_in_memory: usize = current_call_frame
-            .stack
-            .pop()?
-            .try_into()
-            .map_err(|_err| VMError::VeryLargeNumber)?;
+        let code_offset_in_memory = current_call_frame.stack.pop()?;
         let code_size_in_memory: usize = current_call_frame
             .stack
             .pop()?
@@ -434,14 +341,19 @@ impl VM {
             .map_err(|_err| VMError::VeryLargeNumber)?;
         let salt = current_call_frame.stack.pop()?;
 
+        let new_size: usize = code_offset_in_memory
+            .checked_add(code_size_in_memory.into())
+            .ok_or(VMError::OutOfOffset)?
+            .try_into()
+            .map_err(|_err| VMError::VeryLargeNumber)?;
+        let new_size = new_size
+            .checked_next_multiple_of(WORD_SIZE_IN_BYTES_USIZE)
+            .ok_or(VMError::OutOfOffset)?;
+
         self.increase_consumed_gas(
             current_call_frame,
             gas_cost::create_2(
-                code_offset_in_memory
-                    .checked_add(code_size_in_memory)
-                    .ok_or(VMError::OutOfOffset)?
-                    .checked_next_multiple_of(WORD_SIZE_IN_BYTES_USIZE)
-                    .ok_or(VMError::OutOfOffset)?,
+                new_size,
                 current_call_frame.memory.len(),
                 code_size_in_memory,
             )?,
@@ -466,11 +378,7 @@ impl VM {
         // Notes:
         //      The actual reversion of changes is made in the execute() function.
 
-        let offset: usize = current_call_frame
-            .stack
-            .pop()?
-            .try_into()
-            .map_err(|_err| VMError::VeryLargeNumber)?;
+        let offset = current_call_frame.stack.pop()?;
 
         let size = current_call_frame
             .stack

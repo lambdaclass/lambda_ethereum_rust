@@ -138,11 +138,7 @@ impl VM {
         &mut self,
         current_call_frame: &mut CallFrame,
     ) -> Result<OpcodeSuccess, VMError> {
-        let dest_offset: usize = current_call_frame
-            .stack
-            .pop()?
-            .try_into()
-            .map_err(|_err| VMError::VeryLargeNumber)?;
+        let dest_offset = current_call_frame.stack.pop()?;
         let calldata_offset = current_call_frame.stack.pop()?;
         let size: usize = current_call_frame
             .stack
@@ -207,11 +203,7 @@ impl VM {
         &mut self,
         current_call_frame: &mut CallFrame,
     ) -> Result<OpcodeSuccess, VMError> {
-        let destination_offset: usize = current_call_frame
-            .stack
-            .pop()?
-            .try_into()
-            .map_err(|_| VMError::VeryLargeNumber)?;
+        let destination_offset = current_call_frame.stack.pop()?;
         let code_offset: usize = current_call_frame
             .stack
             .pop()?
@@ -288,11 +280,7 @@ impl VM {
         current_call_frame: &mut CallFrame,
     ) -> Result<OpcodeSuccess, VMError> {
         let address = word_to_address(current_call_frame.stack.pop()?);
-        let dest_offset: usize = current_call_frame
-            .stack
-            .pop()?
-            .try_into()
-            .map_err(|_| VMError::VeryLargeNumber)?;
+        let dest_offset = current_call_frame.stack.pop()?;
         let offset: usize = current_call_frame
             .stack
             .pop()?
@@ -358,11 +346,7 @@ impl VM {
         &mut self,
         current_call_frame: &mut CallFrame,
     ) -> Result<OpcodeSuccess, VMError> {
-        let dest_offset: usize = current_call_frame
-            .stack
-            .pop()?
-            .try_into()
-            .map_err(|_| VMError::VeryLargeNumber)?;
+        let dest_offset = current_call_frame.stack.pop()?;
         let returndata_offset: usize = current_call_frame
             .stack
             .pop()?

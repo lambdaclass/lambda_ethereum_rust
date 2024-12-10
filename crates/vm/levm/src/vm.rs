@@ -786,9 +786,9 @@ impl VM {
         code_address: Address,
         _should_transfer_value: bool,
         is_static: bool,
-        args_offset: usize,
+        args_offset: U256,
         args_size: usize,
-        ret_offset: usize,
+        ret_offset: U256,
         ret_size: usize,
         should_transfer_value: bool,
     ) -> Result<OpcodeSuccess, VMError> {
@@ -853,7 +853,9 @@ impl VM {
             return Ok(OpcodeSuccess::Continue);
         }
 
-        current_call_frame.sub_return_data_offset = ret_offset;
+        current_call_frame.sub_return_data_offset = ret_offset
+            .try_into()
+            .map_err(|_err| VMError::VeryLargeNumber)?;
         current_call_frame.sub_return_data_size = ret_size;
 
         let tx_report = self.execute(&mut new_call_frame)?;
@@ -945,7 +947,7 @@ impl VM {
     pub fn create(
         &mut self,
         value_in_wei_to_send: U256,
-        code_offset_in_memory: usize,
+        code_offset_in_memory: U256,
         code_size_in_memory: usize,
         salt: Option<U256>,
         current_call_frame: &mut CallFrame,
