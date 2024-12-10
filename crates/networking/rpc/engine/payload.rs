@@ -1,7 +1,7 @@
 use ethrex_blockchain::add_block;
 use ethrex_blockchain::error::ChainError;
 use ethrex_blockchain::payload::build_payload;
-use ethrex_core::types::{Block, Fork};
+use ethrex_core::types::{BlobsBundle, Block, Fork};
 use ethrex_core::{H256, U256};
 use serde_json::Value;
 use tracing::{error, info, warn};
@@ -117,9 +117,9 @@ impl RpcHandler for GetPayloadV2Request {
     }
 
     fn handle(&self, context: RpcApiContext) -> Result<Value, RpcErr> {
-        let payload = get_payload(self.payload_id, &context)?;
-        validate_fork(&payload, Fork::Shanghai, &context)?;
-        serde_json::to_value(build_get_payload_response_v2(payload, context)?)
+        let execution_payload_response =
+            build_execution_payload_response(self.payload_id, Fork::Shanghai, None, context)?;
+        serde_json::to_value(execution_payload_response)
             .map_err(|error| RpcErr::Internal(error.to_string()))
     }
 }
@@ -145,9 +145,9 @@ impl RpcHandler for GetPayloadV3Request {
     }
 
     fn handle(&self, context: RpcApiContext) -> Result<Value, RpcErr> {
-        let payload = get_payload(self.payload_id, &context)?;
-        validate_fork(&payload, Fork::Cancun, &context)?;
-        serde_json::to_value(build_get_payload_response_v3(payload, context)?)
+        let execution_payload_response =
+            build_execution_payload_response(self.payload_id, Fork::Cancun, Some(false), context)?;
+        serde_json::to_value(execution_payload_response)
             .map_err(|error| RpcErr::Internal(error.to_string()))
     }
 }
@@ -257,15 +257,20 @@ fn parse_get_payload_request(params: &Option<Vec<Value>>) -> Result<u64, RpcErr>
     Ok(payload_id)
 }
 
-fn get_payload(payload_id: u64, context: &RpcApiContext) -> Result<Block, RpcErr> {
+fn get_payload(
+    payload_id: u64,
+    context: &RpcApiContext,
+) -> Result<(Block, U256, BlobsBundle, bool), RpcErr> {
     info!("Requested payload with id: {:#018x}", payload_id);
-    let Some(payload) = context.storage.get_payload(payload_id)? else {
+    let payload = context.storage.get_payload(payload_id)?;
+
+    let Some((payload_block, block_value, blobs_bundle, completed)) = payload else {
         return Err(RpcErr::UnknownPayload(format!(
             "Payload with id {:#018x} not found",
             payload_id
         )));
     };
-    Ok(payload)
+    Ok((payload_block, block_value, blobs_bundle, completed))
 }
 
 fn validate_fork(block: &Block, fork: Fork, context: &RpcApiContext) -> Result<(), RpcErr> {
@@ -278,34 +283,40 @@ fn validate_fork(block: &Block, fork: Fork, context: &RpcApiContext) -> Result<(
     Ok(())
 }
 
-fn build_get_payload_response_v2(
-    mut payload: Block,
+fn build_execution_payload_response(
+    payload_id: u64,
+    fork: Fork,
+    should_override_builder: Option<bool>,
     context: RpcApiContext,
 ) -> Result<ExecutionPayloadResponse, RpcErr> {
-    let (_blobs_bundle, block_value) = build_payload(&mut payload, &context.storage)
-        .map_err(|err| RpcErr::Internal(err.to_string()))?;
-    let execution_payload = ExecutionPayload::from_block(payload);
+    let (mut payload_block, block_value, blobs_bundle, completed) =
+        get_payload(payload_id, &context)?;
+    validate_fork(&payload_block, fork, &context)?;
 
-    Ok(ExecutionPayloadResponse {
-        execution_payload,
-        block_value,
-        blobs_bundle: None,
-        should_override_builder: None,
-    })
-}
+    if completed {
+        Ok(ExecutionPayloadResponse {
+            execution_payload: ExecutionPayload::from_block(payload_block),
+            block_value,
+            blobs_bundle: Some(blobs_bundle),
+            should_override_builder,
+        })
+    } else {
+        let (blobs_bundle, block_value) = build_payload(&mut payload_block, &context.storage)
+            .map_err(|err| RpcErr::Internal(err.to_string()))?;
 
-fn build_get_payload_response_v3(
-    mut payload: Block,
-    context: RpcApiContext,
-) -> Result<ExecutionPayloadResponse, RpcErr> {
-    let (blobs_bundle, block_value) = build_payload(&mut payload, &context.storage)
-        .map_err(|err| RpcErr::Internal(err.to_string()))?;
-    let execution_payload = ExecutionPayload::from_block(payload);
+        context.storage.update_payload(
+            payload_id,
+            payload_block.clone(),
+            block_value,
+            blobs_bundle.clone(),
+            true,
+        )?;
 
-    Ok(ExecutionPayloadResponse {
-        execution_payload,
-        block_value,
-        blobs_bundle: Some(blobs_bundle),
-        should_override_builder: Some(false),
-    })
+        Ok(ExecutionPayloadResponse {
+            execution_payload: ExecutionPayload::from_block(payload_block),
+            block_value,
+            blobs_bundle: Some(blobs_bundle),
+            should_override_builder,
+        })
+    }
 }
