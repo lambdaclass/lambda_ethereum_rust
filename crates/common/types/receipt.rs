@@ -31,6 +31,19 @@ impl Receipt {
             logs,
         }
     }
+    // By reading the typed transactions EIP, and some geth code:
+    // - https://eips.ethereum.org/EIPS/eip-2718
+    // - https://github.com/ethereum/go-ethereum/blob/330190e476e2a2de4aac712551629a4134f802d5/core/types/receipt.go#L143
+    // We've noticed the are some subtleties around encoding receipts and transactions.
+    // First, `inner_encode_receipt` will encode a receipt according
+    // to the RLP of its fields, if typed, the RLP of the fields
+    // is padded with the byte representing this type.
+    // For P2P messages, receipts are re-encoded as bytes
+    // (see the `encode` implementation for receipt).
+    // For debug and computing receipt roots, the expected
+    // RLP encodings are the ones returned by `inner_encode_receipt`.
+    // On some documentations, this is also called the `consensus-encoding`
+    // for a receipt.
     pub fn inner_encode_receipt(&self) -> Vec<u8> {
         let mut encode_buff = match self.tx_type {
             TxType::Legacy => {
@@ -66,8 +79,6 @@ impl RLPEncode for Receipt {
     /// A) Legacy receipts: rlp(LegacyTransaction)
     /// B) Non legacy receipts: rlp(Bytes(tx_type | rlp(receipt))).
     fn encode(&self, buf: &mut dyn bytes::BufMut) {
-        // tx_type || RLP(receipt)  if tx_type != 0
-        //            RLP(receipt)  else
         match self.tx_type {
             TxType::Legacy => {
                 let legacy_encoded = self.inner_encode_receipt();
@@ -103,13 +114,11 @@ impl RLPDecode for Receipt {
                     )))
                 }
             };
-            // FIXME: Remove unwrap
-            let decoder = Decoder::new(receipt_encoding).unwrap();
-            let (succeeded, decoder) = decoder.decode_field("succeded").unwrap();
-            let (cumulative_gas_used, decoder) =
-                decoder.decode_field("cumulative gas used").unwrap();
-            let (bloom, decoder) = decoder.decode_field("bloom").unwrap();
-            let (logs, decoder) = decoder.decode_field("logs").unwrap();
+            let decoder = Decoder::new(receipt_encoding)?;
+            let (succeeded, decoder) = decoder.decode_field("succeded")?;
+            let (cumulative_gas_used, decoder) = decoder.decode_field("cumulative gas used")?;
+            let (bloom, decoder) = decoder.decode_field("bloom")?;
+            let (logs, decoder) = decoder.decode_field("logs")?;
             Ok((
                 Receipt {
                     tx_type,
@@ -121,7 +130,7 @@ impl RLPDecode for Receipt {
                 decoder.finish().unwrap(),
             ))
         } else {
-            let decoder = Decoder::new(rlp).unwrap();
+            let decoder = Decoder::new(rlp)?;
             let (succeeded, decoder) = decoder.decode_field("succeded").unwrap();
             let (cumulative_gas_used, decoder) =
                 decoder.decode_field("cumulative gas used").unwrap();
