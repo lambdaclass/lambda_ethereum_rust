@@ -665,6 +665,7 @@ impl VM {
         };
 
         // 4. Destruct addresses in selfdestruct set.
+        // In Cancun the only addresses destroyed are contracts created in this transaction, so we 'destroy' them by just removing them from the cache, as if they never existed.
         for address in &self.accrued_substate.selfdestrutct_set {
             remove_account(&mut self.cache, address);
         }
