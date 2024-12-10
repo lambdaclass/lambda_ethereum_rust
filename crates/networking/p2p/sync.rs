@@ -559,7 +559,7 @@ async fn heal_state_trie(
             .await
         {
             // TODO: THIS SHOULD BE HASHED ADDRESSES!!1
-            let mut storage_roots = vec![];
+            let mut hahsed_addresses = vec![];
             let mut code_hashes = vec![];
             // For each fetched node:
             // - Add its children to the queue (if we don't have them already)
@@ -574,14 +574,20 @@ async fn heal_state_trie(
                 if let Node::Leaf(node) = &node {
                     // Fetch bytecode & storage
                     let account = AccountState::decode(&node.value)?;
-                    storage_roots.push(account.storage_root);
+                    // By now we should have the full path = account hash
+                    let path = &path.concat(node.partial.clone()).to_bytes();
+                    if path.len() != 32 {
+                        // Something went wrong
+                        return Err(SyncError::CorruptPath)
+                    }
+                    hahsed_addresses.push(H256::from_slice(&path));
                     code_hashes.push(account.code_hash);
                 }
                 let hash = node.compute_hash();
                 trie_state.write_node(node, hash)?;
             }
             // Send storage & bytecode requests
-            storage_sender.send(storage_roots).await?;
+            storage_sender.send(hahsed_addresses).await?;
             bytecode_sender.send(code_hashes).await?;
         }
     }
@@ -733,4 +739,6 @@ enum SyncError {
     Trie(#[from] TrieError),
     #[error(transparent)]
     RLP(#[from] RLPDecodeError),
+    #[error("Corrupt path during state healing")]
+    CorruptPath
 }
