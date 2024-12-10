@@ -6,9 +6,9 @@ use ethrex_core::{types::TxKind, Address, H256, U256};
 use ethrex_levm::{
     account::Account,
     constants::*,
-    db::{Cache, Db},
-    errors::{TxResult, VMError},
-    gas_cost,
+    db::{cache, CacheDB, Db},
+    errors::{OutOfGasError, TxResult, VMError},
+    gas_cost, memory,
     operations::Operation,
     utils::{new_vm_with_ops, new_vm_with_ops_addr_bal_db, new_vm_with_ops_db, ops_to_bytecode},
     vm::{word_to_address, Storage, VM},
@@ -176,7 +176,10 @@ fn smod_op() {
     let mut current_call_frame = vm.call_frames.pop().unwrap();
     vm.execute(&mut current_call_frame).unwrap();
 
-    assert!(vm.current_call_frame_mut().unwrap().stack.pop().unwrap() == U256::from(1));
+    assert_eq!(
+        vm.current_call_frame_mut().unwrap().stack.pop().unwrap(),
+        U256::one()
+    );
 
     // Second Example
     // Example taken from evm.codes
@@ -209,7 +212,7 @@ fn smod_op() {
     )
     .unwrap();
 
-    assert!(vm.current_call_frame_mut().unwrap().stack.pop().unwrap() == c);
+    assert_eq!(vm.current_call_frame_mut().unwrap().stack.pop().unwrap(), c);
 }
 
 #[test]
@@ -1486,7 +1489,8 @@ fn mstore_saves_correct_value() {
     let mut current_call_frame = vm.call_frames.pop().unwrap();
     vm.execute(&mut current_call_frame).unwrap();
 
-    let stored_value = vm.current_call_frame_mut().unwrap().memory.load(0).unwrap();
+    let stored_value =
+        memory::load_word(&mut vm.current_call_frame_mut().unwrap().memory, 0).unwrap();
 
     assert_eq!(stored_value, U256::from(0x33333));
 
@@ -1509,7 +1513,8 @@ fn mstore8() {
     let mut current_call_frame = vm.call_frames.pop().unwrap();
     vm.execute(&mut current_call_frame).unwrap();
 
-    let stored_value = vm.current_call_frame_mut().unwrap().memory.load(0).unwrap();
+    let stored_value =
+        memory::load_word(&mut vm.current_call_frame_mut().unwrap().memory, 0).unwrap();
 
     let mut value_bytes = [0u8; 32];
     stored_value.to_big_endian(&mut value_bytes);
@@ -1537,12 +1542,8 @@ fn mcopy() {
     let mut current_call_frame = vm.call_frames.pop().unwrap();
     vm.execute(&mut current_call_frame).unwrap();
 
-    let copied_value = vm
-        .current_call_frame_mut()
-        .unwrap()
-        .memory
-        .load(64)
-        .unwrap();
+    let copied_value =
+        memory::load_word(&mut vm.current_call_frame_mut().unwrap().memory, 64).unwrap();
     assert_eq!(copied_value, U256::from(0x33333));
 
     let memory_size = vm.current_call_frame_mut().unwrap().stack.pop().unwrap();
@@ -1716,8 +1717,8 @@ fn call_returns_if_bytecode_empty() {
     let mut db = Db::new();
     db.add_accounts(vec![(callee_address, callee_account.clone())]);
 
-    let mut cache = Cache::default();
-    cache.add_account(&callee_address, &callee_account);
+    let mut cache = CacheDB::default();
+    cache::insert_account(&mut cache, callee_address, callee_account);
 
     let mut vm = new_vm_with_ops_addr_bal_db(
         ops_to_bytecode(&caller_ops).unwrap(),
@@ -1760,8 +1761,8 @@ fn call_changes_callframe_and_stores() {
     let mut db = Db::new();
     db.add_accounts(vec![(callee_address, callee_account.clone())]);
 
-    let mut cache = Cache::default();
-    cache.add_account(&callee_address, &callee_account);
+    let mut cache = CacheDB::default();
+    cache::insert_account(&mut cache, callee_address, callee_account);
 
     let mut vm = new_vm_with_ops_addr_bal_db(
         ops_to_bytecode(&caller_ops).unwrap(),
@@ -1785,12 +1786,10 @@ fn call_changes_callframe_and_stores() {
     let ret_size = current_call_frame.sub_return_data_size;
 
     // Return data of the sub-context will be in the memory position of the current context reserved for that purpose (ret_offset and ret_size)
-    let return_data = current_call_frame
-        .memory
-        .load_range(ret_offset, ret_size)
-        .unwrap();
+    let return_data =
+        memory::load_range(&mut current_call_frame.memory, ret_offset, ret_size).unwrap();
 
-    assert_eq!(U256::from_big_endian(&return_data), U256::from(0xAAAAAAA));
+    assert_eq!(U256::from_big_endian(return_data), U256::from(0xAAAAAAA));
 }
 
 #[test]
@@ -1861,9 +1860,9 @@ fn nested_calls() {
         (callee3_address, callee3_account.clone()),
     ]);
 
-    let mut cache = Cache::default();
-    cache.add_account(&callee2_address, &callee2_account);
-    cache.add_account(&callee3_address, &callee3_account);
+    let mut cache = CacheDB::default();
+    cache::insert_account(&mut cache, callee2_address, callee2_account);
+    cache::insert_account(&mut cache, callee3_address, callee3_account);
 
     let mut vm = new_vm_with_ops_addr_bal_db(
         ops_to_bytecode(&caller_ops).unwrap(),
@@ -1934,8 +1933,8 @@ fn staticcall_changes_callframe_is_static() {
     let mut db = Db::new();
     db.add_accounts(vec![(callee_address, callee_account.clone())]);
 
-    let mut cache = Cache::default();
-    cache.add_account(&callee_address, &callee_account);
+    let mut cache = CacheDB::default();
+    cache::insert_account(&mut cache, callee_address, callee_account);
 
     let mut vm = new_vm_with_ops_addr_bal_db(
         ops_to_bytecode(&caller_ops).unwrap(),
@@ -1953,12 +1952,10 @@ fn staticcall_changes_callframe_is_static() {
 
     let ret_offset = 0;
     let ret_size = 32;
-    let return_data = current_call_frame
-        .memory
-        .load_range(ret_offset, ret_size)
-        .unwrap();
+    let return_data =
+        memory::load_range(&mut current_call_frame.memory, ret_offset, ret_size).unwrap();
 
-    assert_eq!(U256::from_big_endian(&return_data), U256::from(0xAAAAAAA));
+    assert_eq!(U256::from_big_endian(return_data), U256::from(0xAAAAAAA));
     assert!(current_call_frame.is_static);
 }
 
@@ -2050,8 +2047,8 @@ fn pc_op_with_push_offset() {
 //     let mut db = Db::new();
 //     db.add_accounts(vec![(callee_address, callee_account.clone())]);
 
-//     let mut cache = Cache::default();
-//     cache.add_account(&callee_address, &callee_account);
+//     let mut cache = CacheDB::default();
+//     cache::insert_account(&mut cache, callee_address, callee_account);
 
 //     let mut vm = new_vm_with_ops_addr_bal_db(
 //         ops_to_bytecode(&caller_ops).unwrap(),
@@ -2114,8 +2111,8 @@ fn pc_op_with_push_offset() {
 //     let mut db = Db::new();
 //     db.add_accounts(vec![(callee_address, callee_account.clone())]);
 
-//     let mut cache = Cache::default();
-//     cache.add_account(&callee_address, &callee_account);
+//     let mut cache = CacheDB::default();
+//     cache::insert_account(&mut cache, callee_address, callee_account);
 
 //     let mut vm = new_vm_with_ops_addr_bal_db(
 //         ops_to_bytecode(&caller_ops).unwrap(),
@@ -2176,8 +2173,8 @@ fn pc_op_with_push_offset() {
 //     let mut db = Db::new();
 //     db.add_accounts(vec![(callee_address, callee_account.clone())]);
 
-//     let mut cache = Cache::default();
-//     cache.add_account(&callee_address, &callee_account);
+//     let mut cache = CacheDB::default();
+//     cache::insert_account(&mut cache, callee_address, callee_account);
 
 //     let mut vm = new_vm_with_ops_addr_bal_db(
 //         ops_to_bytecode(&caller_ops).unwrap(),
@@ -2237,8 +2234,8 @@ fn pc_op_with_push_offset() {
 //     let mut db = Db::new();
 //     db.add_accounts(vec![(callee_address, callee_account.clone())]);
 
-//     let mut cache = Cache::default();
-//     cache.add_account(&callee_address, &callee_account);
+//     let mut cache = CacheDB::default();
+//     cache::insert_account(&mut cache, callee_address, callee_account);
 
 //     let mut vm = new_vm_with_ops_addr_bal_db(
 //         ops_to_bytecode(&caller_ops).unwrap(),
@@ -2460,8 +2457,8 @@ fn calldataload_being_set_by_parent() {
     let mut db = Db::new();
     db.add_accounts(vec![(callee_address, callee_account.clone())]);
 
-    let mut cache = Cache::default();
-    cache.add_account(&callee_address, &callee_account);
+    let mut cache = CacheDB::default();
+    cache::insert_account(&mut cache, callee_address, callee_account);
 
     let mut vm = new_vm_with_ops_addr_bal_db(
         ops_to_bytecode(&caller_ops).unwrap(),
@@ -2485,8 +2482,14 @@ fn calldataload_being_set_by_parent() {
 
     let expected_data = U256::from_big_endian(&calldata[..32]);
 
-    assert_eq!(expected_data, current_call_frame.memory.load(0).unwrap());
-    assert_eq!(expected_data, current_call_frame.memory.load(0).unwrap());
+    assert_eq!(
+        expected_data,
+        memory::load_word(&mut current_call_frame.memory, 0).unwrap()
+    );
+    assert_eq!(
+        expected_data,
+        memory::load_word(&mut current_call_frame.memory, 0).unwrap()
+    );
 }
 
 #[test]
@@ -2524,7 +2527,7 @@ fn calldatacopy() {
     vm.execute(&mut current_call_frame).unwrap();
 
     let current_call_frame = vm.current_call_frame_mut().unwrap();
-    let memory = current_call_frame.memory.load_range(0, 2).unwrap();
+    let memory = memory::load_range(&mut current_call_frame.memory, 0, 2).unwrap();
     assert_eq!(memory, vec![0x22, 0x33]);
     assert_eq!(vm.env.consumed_gas, U256::from(18));
 }
@@ -2564,7 +2567,7 @@ fn returndatacopy() {
     vm.execute(&mut current_call_frame).unwrap();
 
     let current_call_frame = vm.current_call_frame_mut().unwrap();
-    let memory = current_call_frame.memory.load_range(0, 2).unwrap();
+    let memory = memory::load_range(&mut current_call_frame.memory, 0, 2).unwrap();
     assert_eq!(memory, vec![0xBB, 0xCC]);
     assert_eq!(vm.env.consumed_gas, U256::from(18));
 }
@@ -2597,8 +2600,8 @@ fn returndatacopy_being_set_by_parent() {
     let mut db = Db::new();
     db.add_accounts(vec![(callee_address, callee_account.clone())]);
 
-    let mut cache = Cache::default();
-    cache.add_account(&callee_address, &callee_account);
+    let mut cache = CacheDB::default();
+    cache::insert_account(&mut cache, callee_address, callee_account);
 
     let mut vm = new_vm_with_ops_addr_bal_db(
         ops_to_bytecode(&caller_ops).unwrap(),
@@ -2614,7 +2617,7 @@ fn returndatacopy_being_set_by_parent() {
 
     let current_call_frame = vm.current_call_frame_mut().unwrap();
 
-    let result = current_call_frame.memory.load(0).unwrap();
+    let result = memory::load_word(&mut current_call_frame.memory, 0).unwrap();
 
     assert_eq!(result, U256::from(0xAAAAAAA));
 }
@@ -2640,7 +2643,7 @@ fn blockhash_op() {
         Address::default(),
         U256::MAX,
         db,
-        Cache::default(),
+        CacheDB::default(),
     )
     .unwrap();
 
@@ -2708,7 +2711,7 @@ fn blockhash_block_number_not_from_recent_256() {
         Address::default(),
         U256::MAX,
         db,
-        Cache::default(),
+        CacheDB::default(),
     )
     .unwrap();
 
@@ -2807,7 +2810,7 @@ fn gaslimit_op() {
     let operations = [Operation::Gaslimit, Operation::Stop];
 
     let mut vm = new_vm_with_ops(&operations).unwrap();
-    vm.env.gas_limit = gas_limit;
+    vm.env.block_gas_limit = gas_limit;
 
     let mut current_call_frame = vm.call_frames.pop().unwrap();
     vm.execute(&mut current_call_frame).unwrap();
@@ -2817,6 +2820,32 @@ fn gaslimit_op() {
         gas_limit
     );
     assert_eq!(vm.env.consumed_gas, U256::from(2));
+}
+
+#[test]
+/// Test that the VM detects that it has no more gas.
+fn no_more_gas() {
+    let operations = [
+        Operation::Push((32, U256::one())),
+        Operation::Push((32, U256::from(100))),
+        Operation::Add,
+        Operation::Stop,
+    ];
+
+    let mut vm = new_vm_with_ops(&operations).unwrap();
+
+    // We are NOT gonna add the costs of the ADD operation; in order
+    // for the vm to run out of gas.
+    let not_enough_funds = gas_cost::PUSHN + gas_cost::PUSHN + gas_cost::STOP;
+
+    let mut current_call_frame = vm.call_frames.pop().unwrap();
+    current_call_frame.gas_limit = not_enough_funds;
+    let tx_report = vm.execute(&mut current_call_frame).unwrap();
+
+    assert_eq!(
+        tx_report.result,
+        TxResult::Revert(VMError::OutOfGas(OutOfGasError::MaxGasLimitExceeded))
+    );
 }
 
 #[test]
@@ -2987,9 +3016,10 @@ fn sstore_op() {
     key.to_big_endian(&mut bytes);
     let key = H256::from(bytes);
 
-    let stored_value = vm.cache.get_storage_slot(sender_address, key).unwrap();
+    let (storage_slot, _storage_slot_was_cold) =
+        vm.access_storage_slot(sender_address, key).unwrap();
 
-    assert_eq!(value, stored_value.current_value);
+    assert_eq!(value, storage_slot.current_value);
 }
 
 #[test]
@@ -3411,8 +3441,8 @@ fn logs_from_multiple_callers() {
     let mut db = Db::new();
     db.add_accounts(vec![(callee_address, callee_account.clone())]);
 
-    let mut cache = Cache::default();
-    cache.add_account(&callee_address, &callee_account);
+    let mut cache = CacheDB::default();
+    cache::insert_account(&mut cache, callee_address, callee_account);
 
     let mut vm = new_vm_with_ops_addr_bal_db(
         ops_to_bytecode(&caller_ops).unwrap(),
@@ -3784,7 +3814,7 @@ fn create_happy_path() {
         sender_addr,
         sender_balance,
         Db::new(),
-        Cache::default(),
+        CacheDB::default(),
     )
     .unwrap();
     vm.current_call_frame_mut().unwrap().msg_sender = sender_addr;
@@ -3799,15 +3829,12 @@ fn create_happy_path() {
     assert_eq!(word_to_address(returned_address), expected_address);
 
     // check the created account is correct
-    let new_account = vm
-        .cache
-        .get_account(word_to_address(returned_address))
-        .unwrap();
+    let new_account = cache::get_account(&vm.cache, &word_to_address(returned_address)).unwrap();
     assert_eq!(new_account.info.balance, U256::from(value_to_transfer));
     assert_eq!(new_account.info.nonce, 0); // This was previously set to 1 but I understand that a new account should have nonce 0
 
     // Check that the sender account is updated
-    let sender_account = vm.cache.get_account(sender_addr).unwrap();
+    let sender_account = cache::get_account(&vm.cache, &sender_addr).unwrap();
     assert_eq!(sender_account.info.nonce, sender_nonce + 1);
     assert_eq!(
         sender_account.info.balance,
@@ -3831,7 +3858,7 @@ fn cant_create_with_size_longer_than_max_code_size() {
         sender_addr,
         sender_balance,
         Db::new(),
-        Cache::default(),
+        CacheDB::default(),
     )
     .unwrap();
     vm.current_call_frame_mut().unwrap().msg_sender = sender_addr;
@@ -3844,7 +3871,7 @@ fn cant_create_with_size_longer_than_max_code_size() {
     assert_eq!(create_return_value, U256::from(REVERT_FOR_CREATE));
 
     // Check that the sender account is updated
-    let sender_account = vm.cache.get_account(sender_addr).unwrap();
+    let sender_account = cache::get_account(&vm.cache, &sender_addr).unwrap();
     assert_eq!(sender_account.info.nonce, sender_nonce);
     assert_eq!(sender_account.info.balance, sender_balance);
 }
@@ -3865,7 +3892,7 @@ fn cant_create_on_static_contexts() {
         sender_addr,
         sender_balance,
         Db::new(),
-        Cache::default(),
+        CacheDB::default(),
     )
     .unwrap();
     vm.current_call_frame_mut().unwrap().msg_sender = sender_addr;
@@ -3879,7 +3906,7 @@ fn cant_create_on_static_contexts() {
     assert_eq!(create_return_value, U256::from(REVERT_FOR_CREATE));
 
     // Check that the sender account is updated
-    let sender_account = vm.cache.get_account(sender_addr).unwrap();
+    let sender_account = cache::get_account(&vm.cache, &sender_addr).unwrap();
     assert_eq!(sender_account.info.nonce, sender_nonce);
     assert_eq!(sender_account.info.balance, sender_balance);
 }
@@ -3900,7 +3927,7 @@ fn cant_create_if_transfer_value_bigger_than_balance() {
         sender_addr,
         sender_balance,
         Db::new(),
-        Cache::default(),
+        CacheDB::default(),
     )
     .unwrap();
     vm.current_call_frame_mut().unwrap().msg_sender = sender_addr;
@@ -3913,7 +3940,7 @@ fn cant_create_if_transfer_value_bigger_than_balance() {
     assert_eq!(create_return_value, U256::from(REVERT_FOR_CREATE));
 
     // Check that the sender account is updated
-    let sender_account = vm.cache.get_account(sender_addr).unwrap();
+    let sender_account = cache::get_account(&vm.cache, &sender_addr).unwrap();
     assert_eq!(sender_account.info.nonce, sender_nonce);
     assert_eq!(sender_account.info.balance, sender_balance);
 }
@@ -3947,7 +3974,7 @@ fn cant_create_if_sender_nonce_would_overflow() {
     assert_eq!(create_return_value, U256::from(REVERT_FOR_CREATE));
 
     // Check that the sender account is updated
-    let sender_account = vm.cache.get_account(sender_addr).unwrap();
+    let sender_account = cache::get_account(&vm.cache, &sender_addr).unwrap();
     assert_eq!(sender_account.info.nonce, sender_nonce);
     assert_eq!(sender_account.info.balance, sender_balance);
 }
@@ -4056,7 +4083,7 @@ fn create2_happy_path() {
         sender_addr,
         sender_balance,
         Db::new(),
-        Cache::default(),
+        CacheDB::default(),
     )
     .unwrap();
     vm.current_call_frame_mut().unwrap().msg_sender = sender_addr;
@@ -4068,15 +4095,12 @@ fn create2_happy_path() {
     let returned_address = call_frame.stack.pop().unwrap();
     assert_eq!(word_to_address(returned_address), expected_address);
     // check the created account is correct
-    let new_account = vm
-        .cache
-        .get_account(word_to_address(returned_address))
-        .unwrap();
+    let new_account = cache::get_account(&vm.cache, &word_to_address(returned_address)).unwrap();
     assert_eq!(new_account.info.balance, U256::from(value));
     assert_eq!(new_account.info.nonce, 0); // I understand new account should have nonce 0, not 1.
 
     // Check that the sender account is updated
-    let sender_account = vm.cache.get_account(sender_addr).unwrap();
+    let sender_account = cache::get_account(&vm.cache, &sender_addr).unwrap();
     assert_eq!(sender_account.info.nonce, sender_nonce + 1);
     assert_eq!(sender_account.info.balance, sender_balance - value);
 }
@@ -4124,10 +4148,11 @@ fn caller_op() {
         Account::default().with_bytecode(ops_to_bytecode(&operations).unwrap()),
     )]);
 
-    let mut cache = Cache::default();
-    cache.add_account(
-        &address_that_has_the_code,
-        &Account::default().with_bytecode(ops_to_bytecode(&operations).unwrap()),
+    let mut cache = CacheDB::default();
+    cache::insert_account(
+        &mut cache,
+        address_that_has_the_code,
+        Account::default().with_bytecode(ops_to_bytecode(&operations).unwrap()),
     );
 
     let env = Environment::default_from_address(caller);
@@ -4165,10 +4190,11 @@ fn origin_op() {
         Account::default().with_bytecode(ops_to_bytecode(&operations).unwrap()),
     )]);
 
-    let mut cache = Cache::default();
-    cache.add_account(
-        &msg_sender,
-        &Account::default().with_bytecode(ops_to_bytecode(&operations).unwrap()),
+    let mut cache = CacheDB::default();
+    cache::insert_account(
+        &mut cache,
+        msg_sender,
+        Account::default().with_bytecode(ops_to_bytecode(&operations).unwrap()),
     );
 
     let env = Environment::default_from_address(msg_sender);
@@ -4208,7 +4234,7 @@ fn balance_op() {
         Address::from_low_u64_be(address),
         U256::from(1234),
         Db::new(),
-        Cache::default(),
+        CacheDB::default(),
     )
     .unwrap();
 
@@ -4233,10 +4259,11 @@ fn address_op() {
         Account::default().with_bytecode(ops_to_bytecode(&operations).unwrap()),
     )]);
 
-    let mut cache = Cache::default();
-    cache.add_account(
-        &address_that_has_the_code,
-        &Account::default().with_bytecode(ops_to_bytecode(&operations).unwrap()),
+    let mut cache = CacheDB::default();
+    cache::insert_account(
+        &mut cache,
+        address_that_has_the_code,
+        Account::default().with_bytecode(ops_to_bytecode(&operations).unwrap()),
     );
 
     let env = Environment::default_from_address(Address::from_low_u64_be(42));
@@ -4276,10 +4303,11 @@ fn selfbalance_op() {
             .with_balance(balance),
     )]);
 
-    let mut cache = Cache::default();
-    cache.add_account(
-        &address_that_has_the_code,
-        &Account::default()
+    let mut cache = CacheDB::default();
+    cache::insert_account(
+        &mut cache,
+        address_that_has_the_code,
+        Account::default()
             .with_bytecode(ops_to_bytecode(&operations).unwrap())
             .with_balance(balance),
     );
@@ -4320,10 +4348,11 @@ fn callvalue_op() {
         Account::default().with_bytecode(ops_to_bytecode(&operations).unwrap()),
     )]);
 
-    let mut cache = Cache::default();
-    cache.add_account(
-        &address_that_has_the_code,
-        &Account::default().with_bytecode(ops_to_bytecode(&operations).unwrap()),
+    let mut cache = CacheDB::default();
+    cache::insert_account(
+        &mut cache,
+        address_that_has_the_code,
+        Account::default().with_bytecode(ops_to_bytecode(&operations).unwrap()),
     );
 
     let env = Environment::default_from_address(Address::from_low_u64_be(42));
@@ -4361,10 +4390,11 @@ fn codesize_op() {
         Account::default().with_bytecode(ops_to_bytecode(&operations).unwrap()),
     )]);
 
-    let mut cache = Cache::default();
-    cache.add_account(
-        &address_that_has_the_code,
-        &Account::default().with_bytecode(ops_to_bytecode(&operations).unwrap()),
+    let mut cache = CacheDB::default();
+    cache::insert_account(
+        &mut cache,
+        address_that_has_the_code,
+        Account::default().with_bytecode(ops_to_bytecode(&operations).unwrap()),
     );
 
     let env = Environment::default_from_address(Address::from_low_u64_be(42));
@@ -4400,10 +4430,11 @@ fn gasprice_op() {
         Account::default().with_bytecode(ops_to_bytecode(&operations).unwrap()),
     )]);
 
-    let mut cache = Cache::default();
-    cache.add_account(
-        &address_that_has_the_code,
-        &Account::default().with_bytecode(ops_to_bytecode(&operations).unwrap()),
+    let mut cache = CacheDB::default();
+    cache::insert_account(
+        &mut cache,
+        address_that_has_the_code,
+        Account::default().with_bytecode(ops_to_bytecode(&operations).unwrap()),
     );
 
     let mut env = Environment::default_from_address(Address::from_low_u64_be(42));
@@ -4457,10 +4488,11 @@ fn codecopy_op() {
         Account::default().with_bytecode(ops_to_bytecode(&operations).unwrap()),
     )]);
 
-    let mut cache = Cache::default();
-    cache.add_account(
-        &address_that_has_the_code,
-        &Account::default().with_bytecode(ops_to_bytecode(&operations).unwrap()),
+    let mut cache = CacheDB::default();
+    cache::insert_account(
+        &mut cache,
+        address_that_has_the_code,
+        Account::default().with_bytecode(ops_to_bytecode(&operations).unwrap()),
     );
 
     let env = Environment::default_from_address(Address::from_low_u64_be(42));
@@ -4479,7 +4511,7 @@ fn codecopy_op() {
     vm.execute(&mut current_call_frame).unwrap();
 
     assert_eq!(
-        vm.current_call_frame_mut().unwrap().memory.load(0).unwrap(),
+        memory::load_word(&mut vm.current_call_frame_mut().unwrap().memory, 0).unwrap(),
         expected_memory
     );
     assert_eq!(
@@ -4559,11 +4591,7 @@ fn extcodecopy_existing_account() {
     let mut current_call_frame = vm.call_frames.pop().unwrap();
     vm.execute(&mut current_call_frame).unwrap();
     assert_eq!(
-        vm.current_call_frame_mut()
-            .unwrap()
-            .memory
-            .load_range(0, size)
-            .unwrap(),
+        memory::load_range(&mut vm.current_call_frame_mut().unwrap().memory, 0, size).unwrap(),
         vec![0x60]
     );
     assert_eq!(vm.env.consumed_gas, 2616.into());
@@ -4588,11 +4616,7 @@ fn extcodecopy_non_existing_account() {
     let mut current_call_frame = vm.call_frames.pop().unwrap();
     vm.execute(&mut current_call_frame).unwrap();
     assert_eq!(
-        vm.current_call_frame_mut()
-            .unwrap()
-            .memory
-            .load_range(0, size)
-            .unwrap(),
+        memory::load_range(&mut vm.current_call_frame_mut().unwrap().memory, 0, size).unwrap(),
         vec![0; size]
     );
     assert_eq!(vm.env.consumed_gas, 2616.into());
@@ -4695,7 +4719,7 @@ fn revert_sstore() {
 
     let mut vm = new_vm_with_ops(&operations).unwrap();
     vm.current_call_frame_mut().unwrap().code_address = sender_address;
-    vm.cache.add_account(&sender_address, &Account::default());
+    cache::insert_account(&mut vm.cache, sender_address, Account::default());
 
     let mut current_call_frame = vm.call_frames.pop().unwrap();
 

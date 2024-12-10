@@ -1,11 +1,12 @@
 use crate::account::Account;
 use bytes::Bytes;
 use ethrex_core::{types::Log, Address};
+use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use thiserror;
 
 /// Errors that halt the program
-#[derive(Debug, Clone, PartialEq, Eq, thiserror::Error)]
+#[derive(Debug, Clone, PartialEq, Eq, thiserror::Error, Serialize, Deserialize)]
 pub enum VMError {
     #[error("Stack Underflow")]
     StackUnderflow,
@@ -87,15 +88,61 @@ pub enum VMError {
     Type3TxBlobCountExceeded,
     #[error("Type3TxContractCreation")]
     Type3TxContractCreation,
+    #[error("Nonce overflowed")]
+    NonceOverflow,
+    #[error("Nonce underflowed")]
+    NonceUnderflow,
     // OutOfGas
     #[error("Out Of Gas")]
     OutOfGas(#[from] OutOfGasError),
     // Internal
     #[error("Internal error: {0}")]
     Internal(#[from] InternalError),
+    #[error("Transaction validation error: {0}")]
+    TxValidation(#[from] TxValidationError),
+    #[error("Offset out of bounds")]
+    OutOfOffset,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Hash, thiserror::Error)]
+impl VMError {
+    pub fn is_internal(&self) -> bool {
+        matches!(self, VMError::Internal(_))
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, thiserror::Error, Serialize, Deserialize)]
+pub enum TxValidationError {
+    #[error("Sender account should not have bytecode")]
+    SenderNotEOA,
+    #[error("Insufficient account founds")]
+    InsufficientAccountFunds,
+    #[error("Nonce is max (overflow)")]
+    NonceIsMax,
+    #[error("Initcode size exceeded")]
+    InitcodeSizeExceeded,
+    #[error("Priority fee greater than max fee per gas")]
+    PriorityGreaterThanMaxFeePerGas,
+    #[error("Intrinsic gas too low")]
+    IntrinsicGasTooLow,
+    #[error("Gas allowance exceeded")]
+    GasAllowanceExceeded,
+    #[error("Insufficient max fee per gas")]
+    InsufficientMaxFeePerGas,
+    #[error("Insufficient max fee per blob gas")]
+    InsufficientMaxFeePerBlobGas,
+    #[error("Type3TxZeroBlobs")]
+    Type3TxZeroBlobs,
+    #[error("Type3TxInvalidBlobVersionedHash")]
+    Type3TxInvalidBlobVersionedHash,
+    #[error("Type3TxBlobCountExceeded")]
+    Type3TxBlobCountExceeded,
+    #[error("Type3TxContractCreation")]
+    Type3TxContractCreation,
+    #[error("Gas limit price product overflow")]
+    GasLimitPriceProductOverflow,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash, thiserror::Error, Serialize, Deserialize)]
 pub enum OutOfGasError {
     #[error("Gas Cost Overflow")]
     GasCostOverflow,
@@ -109,14 +156,12 @@ pub enum OutOfGasError {
     MaxGasLimitExceeded,
     #[error("Arithmetic operation divided by zero in gas calculation")]
     ArithmeticOperationDividedByZero,
+    #[error("Memory Expansion Cost Overflow")]
+    MemoryExpansionCostOverflow,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, thiserror::Error)]
+#[derive(Debug, Clone, PartialEq, Eq, thiserror::Error, Serialize, Deserialize)]
 pub enum InternalError {
-    #[error("Overflowed when incrementing nonce")]
-    NonceOverflowed,
-    #[error("Underflowed when incrementing nonce")]
-    NonceUnderflowed,
     #[error("Overflowed when incrementing program counter")]
     PCOverflowed,
     #[error("Underflowed when decrementing program counter")]
@@ -151,14 +196,10 @@ pub enum InternalError {
     ExcessBlobGasShouldNotBeNone,
     #[error("Error in utils file")]
     UtilsError,
-    #[error("Overflow error")]
-    OperationOverflow,
-}
-
-impl VMError {
-    pub fn is_internal(&self) -> bool {
-        matches!(self, VMError::Internal(_))
-    }
+    #[error("PC out of bounds")]
+    PCOutOfBounds,
+    #[error("Undefined state")]
+    UndefinedState(i32), // This error is temporarily for things that cause an undefined state.
 }
 
 #[derive(Debug, Clone)]
@@ -175,13 +216,13 @@ pub enum ResultReason {
     SelfDestruct,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub enum TxResult {
     Success,
     Revert(VMError),
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct TransactionReport {
     pub result: TxResult,
     pub new_state: HashMap<Address, Account>,
@@ -195,13 +236,18 @@ pub struct TransactionReport {
 }
 
 impl TransactionReport {
-    /// Function to add gas to report, if it exceeds max gas limit it should return OutOfGas error. Only used for adding gas after execution.
+    /// Function to add gas to report without exceeding the maximum gas limit
     pub fn add_gas_with_max(&mut self, gas: u64, max: u64) -> Result<(), VMError> {
-        self.gas_used = self
+        let new_gas_used = self
             .gas_used
             .checked_add(gas)
-            .filter(|&total| total <= max)
-            .ok_or(VMError::OutOfGas(OutOfGasError::MaxGasLimitExceeded))?;
+            .ok_or(OutOfGasError::MaxGasLimitExceeded)?;
+
+        if new_gas_used > max {
+            return Err(VMError::OutOfGas(OutOfGasError::MaxGasLimitExceeded));
+        }
+
+        self.gas_used = new_gas_used;
         Ok(())
     }
 

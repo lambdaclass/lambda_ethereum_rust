@@ -1,39 +1,21 @@
-use serde::Deserialize;
 use tracing::info;
 
 // risc0
-use zkvm_interface::methods::{ZKVM_PROGRAM_ELF, ZKVM_PROGRAM_ID};
-
-use risc0_zkvm::{default_prover, ExecutorEnv, ExecutorEnvBuilder, ProverOpts};
-
-use ethrex_core::types::Receipt;
-use ethrex_l2::{
-    proposer::prover_server::ProverInputData, utils::config::prover_client::ProverClientConfig,
+use zkvm_interface::{
+    io::{ProgramInput, ProgramOutput},
+    methods::{ZKVM_PROGRAM_ELF, ZKVM_PROGRAM_ID},
 };
-use ethrex_rlp::encode::RLPEncode;
-use ethrex_vm::execution_db::ExecutionDB;
 
-// The order of variables in this structure should match the order in which they were
-// committed in the zkVM, with each variable represented by a field.
-#[derive(Debug, Deserialize)]
-pub struct ProverOutputData {
-    /// It is rlp encoded, it has to be decoded.
-    /// Block::decode(&prover_output_data.block).unwrap());
-    pub _block: Vec<u8>,
-    pub _execution_db: ExecutionDB,
-    pub _parent_block_header: Vec<u8>,
-    pub block_receipts: Vec<Receipt>,
-}
+use risc0_zkvm::{default_prover, ExecutorEnv, ProverOpts};
 
 pub struct Prover<'a> {
-    env_builder: ExecutorEnvBuilder<'a>,
     elf: &'a [u8],
     pub id: [u32; 8],
+    pub stdout: Vec<u8>,
 }
 
 impl<'a> Default for Prover<'a> {
     fn default() -> Self {
-        let _config = ProverClientConfig::from_env().unwrap();
         Self::new()
     }
 }
@@ -41,29 +23,20 @@ impl<'a> Default for Prover<'a> {
 impl<'a> Prover<'a> {
     pub fn new() -> Self {
         Self {
-            env_builder: ExecutorEnv::builder(),
             elf: ZKVM_PROGRAM_ELF,
             id: ZKVM_PROGRAM_ID,
+            stdout: Vec::new(),
         }
     }
 
-    pub fn set_input(&mut self, input: ProverInputData) -> &mut Self {
-        let head_block_rlp = input.block.encode_to_vec();
-        let parent_header_rlp = input.parent_header.encode_to_vec();
-
-        // We should pass the inputs as a whole struct
-        self.env_builder.write(&head_block_rlp).unwrap();
-        self.env_builder.write(&input.db).unwrap();
-        self.env_builder.write(&parent_header_rlp).unwrap();
-
-        self
-    }
-
-    /// Example:
-    /// let prover = Prover::new();
-    /// let proof = prover.set_input(inputs).prove().unwrap();
-    pub fn prove(&mut self) -> Result<risc0_zkvm::Receipt, Box<dyn std::error::Error>> {
-        let env = self.env_builder.build()?;
+    pub fn prove(
+        &mut self,
+        input: ProgramInput,
+    ) -> Result<risc0_zkvm::Receipt, Box<dyn std::error::Error>> {
+        let env = ExecutorEnv::builder()
+            .stdout(&mut self.stdout)
+            .write(&input)?
+            .build()?;
 
         // Generate the Receipt
         let prover = default_prover();
@@ -72,7 +45,7 @@ impl<'a> Prover<'a> {
         // This struct contains the receipt along with statistics about execution of the guest
         let prove_info = prover.prove_with_opts(env, self.elf, &ProverOpts::groth16())?;
 
-        // extract the receipt.
+        // Extract the receipt.
         let receipt = prove_info.receipt;
 
         info!("Successfully generated execution receipt.");
@@ -85,10 +58,15 @@ impl<'a> Prover<'a> {
         Ok(())
     }
 
+    pub fn get_gas(&self) -> Result<u64, Box<dyn std::error::Error>> {
+        Ok(risc0_zkvm::serde::from_slice(
+            self.stdout.get(..8).unwrap_or_default(), // first 8 bytes
+        )?)
+    }
+
     pub fn get_commitment(
         receipt: &risc0_zkvm::Receipt,
-    ) -> Result<ProverOutputData, Box<dyn std::error::Error>> {
-        let commitment: ProverOutputData = receipt.journal.decode()?;
-        Ok(commitment)
+    ) -> Result<ProgramOutput, Box<dyn std::error::Error>> {
+        Ok(receipt.journal.decode()?)
     }
 }

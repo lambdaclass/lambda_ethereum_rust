@@ -1,31 +1,32 @@
 use bytes::Bytes;
 use directories::ProjectDirs;
-
-use ethrex_blockchain::add_block;
-use ethrex_blockchain::fork_choice::apply_fork_choice;
-use ethrex_core::types::{Block, Genesis};
-use ethrex_core::H256;
-use ethrex_net::bootnode::BootNode;
-use ethrex_net::node_id_from_signing_key;
-use ethrex_net::types::Node;
+use ethrex_blockchain::{add_block, fork_choice::apply_fork_choice};
+use ethrex_core::{
+    types::{Block, Genesis},
+    H256,
+};
+use ethrex_net::{
+    bootnode::BootNode,
+    node_id_from_signing_key, peer_table,
+    sync::{SyncManager, SyncMode},
+    types::Node,
+};
 use ethrex_rlp::decode::RLPDecode;
 use ethrex_storage::{EngineType, Store};
 use k256::ecdsa::SigningKey;
 use local_ip_address::local_ip;
-use std::fs;
-use std::future::IntoFuture;
-use std::path::Path;
-use std::str::FromStr as _;
-use std::time::Duration;
 use std::{
-    fs::File,
+    fs::{self, File},
+    future::IntoFuture,
     io,
     net::{Ipv4Addr, SocketAddr, ToSocketAddrs},
+    path::Path,
+    str::FromStr as _,
+    time::Duration,
 };
 use tokio_util::task::TaskTracker;
 use tracing::{error, info, warn};
-use tracing_subscriber::filter::Directive;
-use tracing_subscriber::{EnvFilter, FmtSubscriber};
+use tracing_subscriber::{filter::Directive, EnvFilter, FmtSubscriber};
 mod cli;
 mod decode;
 
@@ -117,7 +118,17 @@ async fn main() {
         .get_one::<String>("datadir")
         .map_or(set_datadir(DEFAULT_DATADIR), |datadir| set_datadir(datadir));
 
-    let store = Store::new(&data_dir, EngineType::Libmdbx).expect("Failed to create Store");
+    let sync_mode = sync_mode(&matches);
+
+    cfg_if::cfg_if! {
+        if #[cfg(feature = "redb")] {
+            let store = Store::new(&data_dir, EngineType::RedB).expect("Failed to create Store");
+        } else if #[cfg(feature = "libmdbx")] {
+            let store = Store::new(&data_dir, EngineType::Libmdbx).expect("Failed to create Store");
+        } else {
+            let store = Store::new(&data_dir, EngineType::InMemory).expect("Failed to create Store");
+        }
+    }
 
     let genesis = read_genesis_file(genesis_file_path);
     store
@@ -152,7 +163,7 @@ async fn main() {
     let jwt_secret = read_jwtsecret_file(authrpc_jwtsecret);
 
     // TODO Learn how should the key be created
-    // https://github.com/lambdaclass/lambda_ethrex/issues/836
+    // https://github.com/lambdaclass/ethrex/issues/836
     //let signer = SigningKey::random(&mut OsRng);
     let key_bytes =
         H256::from_str("577d8278cc7748fad214b5378669b420f8221afb45ce930b7f22da49cbc545f3").unwrap();
@@ -173,6 +184,10 @@ async fn main() {
         tcp_port: tcp_socket_addr.port(),
         node_id: local_node_id,
     };
+    // Create Kademlia Table here so we can access it from rpc server (for syncing)
+    let peer_table = peer_table(signer.clone());
+    // Create SyncManager
+    let syncer = SyncManager::new(peer_table.clone(), sync_mode);
 
     // TODO: Check every module starts properly.
     let tracker = TaskTracker::new();
@@ -182,11 +197,12 @@ async fn main() {
         store.clone(),
         jwt_secret,
         local_p2p_node,
+        syncer,
     )
     .into_future();
 
     // TODO Find a proper place to show node information
-    // https://github.com/lambdaclass/lambda_ethrex/issues/836
+    // https://github.com/lambdaclass/ethrex/issues/836
     let enode = local_p2p_node.enode_url();
     info!("Node: {enode}");
 
@@ -215,6 +231,7 @@ async fn main() {
                 tcp_socket_addr,
                 bootnodes,
                 signer,
+                peer_table,
                 store,
             )
             .into_future();
@@ -280,6 +297,19 @@ fn parse_socket_addr(addr: &str, port: &str) -> io::Result<SocketAddr> {
             io::ErrorKind::NotFound,
             "Failed to parse socket address",
         ))
+}
+
+fn sync_mode(matches: &clap::ArgMatches) -> SyncMode {
+    let syncmode = matches.get_one::<String>("syncmode");
+    if let Some(syncmode) = syncmode {
+        match &**syncmode {
+            "full" => SyncMode::Full,
+            "snap" => SyncMode::Snap,
+            other => panic!("Invalid syncmode {other} expected either snap or full"),
+        }
+    } else {
+        SyncMode::Snap
+    }
 }
 
 fn set_datadir(datadir: &str) -> String {

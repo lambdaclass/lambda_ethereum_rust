@@ -1,5 +1,5 @@
 pub mod db;
-mod errors;
+pub mod errors;
 pub mod execution_db;
 mod execution_result;
 #[cfg(feature = "l2")]
@@ -23,7 +23,7 @@ use revm::{
     inspector_handle_register,
     inspectors::TracerEip3155,
     precompile::{PrecompileSpecId, Precompiles},
-    primitives::{BlobExcessGasAndPrice, BlockEnv, TxEnv, B256, U256 as RevmU256},
+    primitives::{BlobExcessGasAndPrice, BlockEnv, TxEnv, B256},
     Database, DatabaseCommit, Evm,
 };
 use revm_inspectors::access_list::AccessListInspector;
@@ -35,7 +35,7 @@ use revm_primitives::{
 // Export needed types
 pub use errors::EvmError;
 pub use execution_result::*;
-pub use revm::primitives::{Address as RevmAddress, SpecId};
+pub use revm::primitives::{Address as RevmAddress, SpecId, U256 as RevmU256};
 
 type AccessList = Vec<(Address, Vec<H256>)>;
 
@@ -80,7 +80,7 @@ impl From<ExecutionDB> for EvmState {
 cfg_if::cfg_if! {
     if #[cfg(feature = "levm")] {
         use ethrex_levm::{
-            db::{Cache, Database as LevmDatabase},
+            db::{CacheDB, Database as LevmDatabase},
             errors::{TransactionReport, TxResult, VMError},
             vm::VM,
             Environment,
@@ -94,10 +94,14 @@ cfg_if::cfg_if! {
             state: &mut EvmState,
         ) -> Result<(Vec<Receipt>, Vec<AccountUpdate>), EvmError> {
             let block_header = &block.header;
-            let spec_id = spec_id(&state.chain_config()?, block_header.timestamp);
             //eip 4788: execute beacon_root_contract_call before block transactions
-            if block_header.parent_beacon_block_root.is_some() && spec_id == SpecId::CANCUN {
-                beacon_root_contract_call(state, block_header, spec_id)?;
+            cfg_if::cfg_if! {
+                if #[cfg(not(feature = "l2"))] {
+                    let spec_id = spec_id(&state.chain_config()?, block_header.timestamp);
+                    if block_header.parent_beacon_block_root.is_some() && spec_id == SpecId::CANCUN {
+                        beacon_root_contract_call(state, block_header, spec_id)?;
+                    }
+                }
             }
             let mut receipts = Vec::new();
             let mut cumulative_gas_used = 0;
@@ -116,8 +120,7 @@ cfg_if::cfg_if! {
                     transaction.tx_type(),
                     matches!(result.result, TxResult::Success),
                     cumulative_gas_used,
-                    // TODO: https://github.com/lambdaclass/lambda_ethrex/issues/1089
-                    vec![],
+                    result.logs,
                 );
                 receipts.push(receipt);
 
@@ -178,11 +181,11 @@ cfg_if::cfg_if! {
                 gas_price,
                 block_excess_blob_gas: block_header.excess_blob_gas.map(U256::from),
                 block_blob_gas_used: block_header.blob_gas_used.map(U256::from),
-                tx_blob_hashes: None,
-                block_gas_limit: block_header.gas_limit.into(),
+                tx_blob_hashes: tx.blob_versioned_hashes(),
                 tx_max_priority_fee_per_gas: tx.max_priority_fee().map(U256::from),
                 tx_max_fee_per_gas: tx.max_fee_per_gas().map(U256::from),
                 tx_max_fee_per_blob_gas: tx.max_fee_per_blob_gas().map(U256::from),
+                block_gas_limit: block_header.gas_limit.into(),
             };
 
             let mut vm = VM::new(
@@ -191,7 +194,7 @@ cfg_if::cfg_if! {
                 tx.value(),
                 tx.data().clone(),
                 db,
-                Cache::default(),
+                CacheDB::default(),
             )?;
 
             vm.transact()
@@ -202,8 +205,13 @@ cfg_if::cfg_if! {
             let block_header = &block.header;
             let spec_id = spec_id(&state.chain_config()?, block_header.timestamp);
             //eip 4788: execute beacon_root_contract_call before block transactions
-            if block_header.parent_beacon_block_root.is_some() && spec_id == SpecId::CANCUN {
-                beacon_root_contract_call(state, block_header, spec_id)?;
+            cfg_if::cfg_if! {
+                if #[cfg(not(feature = "l2"))] {
+                    //eip 4788: execute beacon_root_contract_call before block transactions
+                    if block_header.parent_beacon_block_root.is_some() && spec_id == SpecId::CANCUN {
+                        beacon_root_contract_call(state, block_header, spec_id)?;
+                    }
+                }
             }
             let mut receipts = Vec::new();
             let mut cumulative_gas_used = 0;

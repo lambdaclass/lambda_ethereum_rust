@@ -4,6 +4,8 @@ use self::engines::libmdbx::Store as LibmdbxStore;
 use self::error::StoreError;
 use bytes::Bytes;
 use engines::api::StoreEngine;
+#[cfg(feature = "redb")]
+use engines::redb::RedBStore;
 use ethereum_types::{Address, H256, U256};
 use ethrex_core::types::{
     code_hash, AccountInfo, AccountState, BlobsBundle, Block, BlockBody, BlockHash, BlockHeader,
@@ -13,8 +15,9 @@ use ethrex_core::types::{
 use ethrex_rlp::decode::RLPDecode;
 use ethrex_rlp::encode::RLPEncode;
 use ethrex_trie::Trie;
+use serde::{Deserialize, Serialize};
 use sha3::{Digest as _, Keccak256};
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::fmt::Debug;
 use std::sync::{Arc, Mutex};
 use tracing::info;
@@ -37,9 +40,11 @@ pub enum EngineType {
     InMemory,
     #[cfg(feature = "libmdbx")]
     Libmdbx,
+    #[cfg(feature = "redb")]
+    RedB,
 }
 
-#[derive(Default, Debug)]
+#[derive(Default, Debug, Clone, Serialize, Deserialize)]
 pub struct AccountUpdate {
     pub address: Address,
     pub removed: bool,
@@ -81,6 +86,12 @@ impl Store {
             },
             EngineType::InMemory => Self {
                 engine: Arc::new(InMemoryStore::new()),
+                mempool: Arc::new(Mutex::new(HashMap::new())),
+                blobs_bundle_pool: Arc::new(Mutex::new(HashMap::new())),
+            },
+            #[cfg(feature = "redb")]
+            EngineType::RedB => Self {
+                engine: Arc::new(RedBStore::new()?),
                 mempool: Arc::new(Mutex::new(HashMap::new())),
                 blobs_bundle_pool: Arc::new(Mutex::new(HashMap::new())),
             },
@@ -221,6 +232,26 @@ impl Store {
             .add_transaction_location(transaction_hash, block_number, block_hash, index)
     }
 
+    pub fn add_transaction_locations(
+        &self,
+        transactions: &[Transaction],
+        block_number: BlockNumber,
+        block_hash: BlockHash,
+    ) -> Result<(), StoreError> {
+        let mut locations = vec![];
+
+        for (index, transaction) in transactions.iter().enumerate() {
+            locations.push((
+                transaction.compute_hash(),
+                block_number,
+                block_hash,
+                index as Index,
+            ));
+        }
+
+        self.engine.add_transaction_locations(locations)
+    }
+
     pub fn get_transaction_location(
         &self,
         transaction_hash: H256,
@@ -314,7 +345,25 @@ impl Store {
         Ok(txs_by_sender)
     }
 
-    fn add_account_code(&self, code_hash: H256, code: Bytes) -> Result<(), StoreError> {
+    /// Gets hashes from possible_hashes that are not already known in the mempool.
+    pub fn filter_unknown_transactions(
+        &self,
+        possible_hashes: &[H256],
+    ) -> Result<Vec<H256>, StoreError> {
+        let mempool = self
+            .mempool
+            .lock()
+            .map_err(|error| StoreError::Custom(error.to_string()))?;
+
+        let tx_set: HashSet<_> = mempool.iter().map(|(hash, _)| hash).collect();
+        Ok(possible_hashes
+            .iter()
+            .filter(|hash| !tx_set.contains(hash))
+            .copied()
+            .collect())
+    }
+
+    pub fn add_account_code(&self, code_hash: H256, code: Bytes) -> Result<(), StoreError> {
         self.engine.add_account_code(code_hash, code)
     }
 
@@ -455,6 +504,14 @@ impl Store {
         self.engine.add_receipt(block_hash, index, receipt)
     }
 
+    pub fn add_receipts(
+        &self,
+        block_hash: BlockHash,
+        receipts: Vec<Receipt>,
+    ) -> Result<(), StoreError> {
+        self.engine.add_receipts(block_hash, receipts)
+    }
+
     pub fn get_receipt(
         &self,
         block_number: BlockNumber,
@@ -477,23 +534,6 @@ impl Store {
         self.add_block_number(hash, number)?;
         self.add_block_total_difficulty(hash, block_total_difficulty)?;
         self.update_latest_total_difficulty(block_total_difficulty)
-    }
-
-    fn add_transaction_locations(
-        &self,
-        transactions: &[Transaction],
-        block_number: BlockNumber,
-        block_hash: BlockHash,
-    ) -> Result<(), StoreError> {
-        for (index, transaction) in transactions.iter().enumerate() {
-            self.add_transaction_location(
-                transaction.compute_hash(),
-                block_number,
-                block_hash,
-                index as Index,
-            )?;
-        }
-        Ok(())
     }
 
     pub fn add_initial_state(&self, genesis: Genesis) -> Result<(), StoreError> {
@@ -881,13 +921,40 @@ impl Store {
         self.engine.add_payload(payload_id, block)
     }
 
-    pub fn get_payload(&self, payload_id: u64) -> Result<Option<Block>, StoreError> {
+    pub fn get_payload(
+        &self,
+        payload_id: u64,
+    ) -> Result<Option<(Block, U256, BlobsBundle, bool)>, StoreError> {
         self.engine.get_payload(payload_id)
+    }
+
+    pub fn update_payload(
+        &self,
+        payload_id: u64,
+        block: Block,
+        block_value: U256,
+        blobs_bundle: BlobsBundle,
+        completed: bool,
+    ) -> Result<(), StoreError> {
+        self.engine
+            .update_payload(payload_id, block, block_value, blobs_bundle, completed)
     }
 
     /// Creates a new state trie with an empty state root, for testing purposes only
     pub fn new_state_trie_for_test(&self) -> Trie {
         self.engine.open_state_trie(*EMPTY_TRIE_HASH)
+    }
+
+    // Obtain a state trie from the given state root
+    // Doesn't check if the state root is valid
+    pub fn open_state_trie(&self, state_root: H256) -> Trie {
+        self.engine.open_state_trie(state_root)
+    }
+
+    // Obtain a storage trie from the given address and storage_root
+    // Doesn't check if the account is stored
+    pub fn open_storage_trie(&self, account_hash: H256, storage_root: H256) -> Trie {
+        self.engine.open_storage_trie(account_hash, storage_root)
     }
 }
 
@@ -933,6 +1000,12 @@ mod tests {
     #[test]
     fn test_libmdbx_store() {
         test_store_suite(EngineType::Libmdbx);
+    }
+
+    #[cfg(feature = "redb")]
+    #[test]
+    fn test_redb_store() {
+        test_store_suite(EngineType::RedB);
     }
 
     // Creates an empty store, runs the test and then removes the store (if needed)
@@ -1212,8 +1285,12 @@ mod tests {
     use hex_literal::hex;
 
     fn test_filter_mempool_transactions(store: Store) {
-        let plain_tx = MempoolTransaction::new(Transaction::decode_canonical(&hex!("f86d80843baa0c4082f618946177843db3138ae69679a54b95cf345ed759450d870aa87bee538000808360306ba0151ccc02146b9b11adf516e6787b59acae3e76544fdcd75e77e67c6b598ce65da064c5dd5aae2fbb535830ebbdad0234975cd7ece3562013b63ea18cc0df6c97d4")).unwrap());
-        let blob_tx = MempoolTransaction::new(Transaction::decode_canonical(&hex!("03f88f0780843b9aca008506fc23ac00830186a09400000000000000000000000000000000000001008080c001e1a0010657f37554c781402a22917dee2f75def7ab966d7b770905398eba3c44401401a0840650aa8f74d2b07f40067dc33b715078d73422f01da17abdbd11e02bbdfda9a04b2260f6022bf53eadb337b3e59514936f7317d872defb891a708ee279bdca90")).unwrap());
+        let plain_tx_decoded = Transaction::decode_canonical(&hex!("f86d80843baa0c4082f618946177843db3138ae69679a54b95cf345ed759450d870aa87bee538000808360306ba0151ccc02146b9b11adf516e6787b59acae3e76544fdcd75e77e67c6b598ce65da064c5dd5aae2fbb535830ebbdad0234975cd7ece3562013b63ea18cc0df6c97d4")).unwrap();
+        let plain_tx_sender = plain_tx_decoded.sender();
+        let plain_tx = MempoolTransaction::new(plain_tx_decoded, plain_tx_sender);
+        let blob_tx_decoded = Transaction::decode_canonical(&hex!("03f88f0780843b9aca008506fc23ac00830186a09400000000000000000000000000000000000001008080c001e1a0010657f37554c781402a22917dee2f75def7ab966d7b770905398eba3c44401401a0840650aa8f74d2b07f40067dc33b715078d73422f01da17abdbd11e02bbdfda9a04b2260f6022bf53eadb337b3e59514936f7317d872defb891a708ee279bdca90")).unwrap();
+        let blob_tx_sender = blob_tx_decoded.sender();
+        let blob_tx = MempoolTransaction::new(blob_tx_decoded, blob_tx_sender);
         let plain_tx_hash = plain_tx.compute_hash();
         let blob_tx_hash = blob_tx.compute_hash();
         let filter =

@@ -350,7 +350,7 @@ pub fn calculate_base_fee_per_blob_gas(parent_excess_blob_gas: u64) -> u64 {
 }
 
 // Defined in [EIP-4844](https://eips.ethereum.org/EIPS/eip-4844)
-fn fake_exponential(factor: u64, numerator: u64, denominator: u64) -> u64 {
+pub fn fake_exponential(factor: u64, numerator: u64, denominator: u64) -> u64 {
     let mut i = 1;
     let mut output = 0;
     let mut numerator_accum = factor * denominator;
@@ -360,6 +360,48 @@ fn fake_exponential(factor: u64, numerator: u64, denominator: u64) -> u64 {
         i += 1;
     }
     output / denominator
+}
+
+#[derive(Debug, thiserror::Error)]
+pub enum FakeExponentialError {
+    #[error("Denominator cannot be zero.")]
+    DenominatorIsZero,
+    #[error("Checked div failed is None.")]
+    CheckedDiv,
+    #[error("Checked mul failed is None.")]
+    CheckedMul,
+}
+
+pub fn fake_exponential_checked(
+    factor: u64,
+    numerator: u64,
+    denominator: u64,
+) -> Result<u64, FakeExponentialError> {
+    let mut i = 1_u64;
+    let mut output = 0_u64;
+    let mut numerator_accum = factor * denominator;
+    if denominator == 0 {
+        return Err(FakeExponentialError::DenominatorIsZero);
+    }
+
+    while numerator_accum > 0 {
+        output = output.saturating_add(numerator_accum);
+
+        let denominator_i = denominator
+            .checked_mul(i)
+            .ok_or(FakeExponentialError::CheckedMul)?;
+
+        if denominator_i == 0 {
+            return Err(FakeExponentialError::DenominatorIsZero);
+        }
+
+        numerator_accum = numerator_accum * numerator / denominator_i;
+        i += 1;
+    }
+
+    output
+        .checked_div(denominator)
+        .ok_or(FakeExponentialError::CheckedDiv)
 }
 
 // Calculates the base fee for the current block based on its gas_limit and parent's gas and fee

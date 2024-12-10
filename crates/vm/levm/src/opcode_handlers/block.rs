@@ -7,7 +7,7 @@ use crate::{
 };
 use ethrex_core::{
     types::{BLOB_BASE_FEE_UPDATE_FRACTION, MIN_BASE_FEE_PER_BLOB_GAS},
-    H256, U256,
+    U256,
 };
 
 // Block Information (11)
@@ -110,7 +110,7 @@ impl VM {
     ) -> Result<OpcodeSuccess, VMError> {
         self.increase_consumed_gas(current_call_frame, gas_cost::GASLIMIT)?;
 
-        current_call_frame.stack.push(self.env.gas_limit)?;
+        current_call_frame.stack.push(self.env.block_gas_limit)?;
 
         Ok(OpcodeSuccess::Continue)
     }
@@ -136,7 +136,7 @@ impl VM {
 
         // the current account should have been cached when the contract was called
         let balance = self
-            .get_account(&current_call_frame.code_address)
+            .get_account(current_call_frame.code_address)
             .info
             .balance;
 
@@ -164,28 +164,21 @@ impl VM {
     ) -> Result<OpcodeSuccess, VMError> {
         self.increase_consumed_gas(current_call_frame, gas_cost::BLOBHASH)?;
 
-        let index: usize = current_call_frame
-            .stack
-            .pop()?
-            .try_into()
-            .map_err(|_err| VMError::VeryLargeNumber)?;
-
-        let blob_hash: H256 = match &self.env.tx_blob_hashes {
-            Some(vec) => match vec.get(index) {
-                Some(el) => *el,
-                None => {
-                    return Err(VMError::BlobHashIndexOutOfBounds);
-                }
-            },
-            None => {
-                return Err(VMError::MissingBlobHashes);
-            }
+        let Ok(index) = TryInto::<usize>::try_into(current_call_frame.stack.pop()?) else {
+            current_call_frame.stack.push(U256::zero())?;
+            return Ok(OpcodeSuccess::Continue);
         };
 
-        // Could not find a better way to translate from H256 to U256
-        let u256_blob = U256::from(blob_hash.as_bytes());
+        let blob_hashes = &self.env.tx_blob_hashes;
 
-        current_call_frame.stack.push(u256_blob)?;
+        blob_hashes
+            .get(index)
+            .map(|el| {
+                current_call_frame
+                    .stack
+                    .push(U256::from_big_endian(el.as_bytes()))
+            })
+            .unwrap_or_else(|| current_call_frame.stack.push(U256::zero()))?;
 
         Ok(OpcodeSuccess::Continue)
     }

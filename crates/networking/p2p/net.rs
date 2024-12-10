@@ -16,9 +16,10 @@ use k256::{
     ecdsa::SigningKey,
     elliptic_curve::{sec1::ToEncodedPoint, PublicKey},
 };
-use kademlia::{bucket_number, KademliaTable, MAX_NODES_PER_BUCKET};
+pub use kademlia::KademliaTable;
+use kademlia::{bucket_number, MAX_NODES_PER_BUCKET};
 use rand::rngs::OsRng;
-use rlpx::{connection::RLPxConnection, error::RLPxError, message::Message as RLPxMessage};
+use rlpx::{connection::RLPxConnection, message::Message as RLPxMessage};
 use tokio::{
     net::{TcpSocket, TcpStream, UdpSocket},
     sync::{broadcast, Mutex},
@@ -30,8 +31,10 @@ use types::{Endpoint, Node};
 pub mod bootnode;
 pub(crate) mod discv4;
 pub(crate) mod kademlia;
+pub mod peer_channels;
 pub mod rlpx;
 pub(crate) mod snap;
+pub mod sync;
 pub mod types;
 
 const MAX_DISC_PACKET_SIZE: usize = 1280;
@@ -42,17 +45,21 @@ const MAX_DISC_PACKET_SIZE: usize = 1280;
 // we should bump this limit.
 const MAX_MESSAGES_TO_BROADCAST: usize = 1000;
 
+pub fn peer_table(signer: SigningKey) -> Arc<Mutex<KademliaTable>> {
+    let local_node_id = node_id_from_signing_key(&signer);
+    Arc::new(Mutex::new(KademliaTable::new(local_node_id)))
+}
+
 pub async fn start_network(
     udp_addr: SocketAddr,
     tcp_addr: SocketAddr,
     bootnodes: Vec<BootNode>,
     signer: SigningKey,
+    peer_table: Arc<Mutex<KademliaTable>>,
     storage: Store,
 ) {
     info!("Starting discovery service at {udp_addr}");
     info!("Listening for requests at {tcp_addr}");
-    let local_node_id = node_id_from_signing_key(&signer);
-    let table = Arc::new(Mutex::new(KademliaTable::new(local_node_id)));
     let (channel_broadcast_send_end, _) = tokio::sync::broadcast::channel::<(
         tokio::task::Id,
         Arc<RLPxMessage>,
@@ -61,7 +68,7 @@ pub async fn start_network(
         udp_addr,
         signer.clone(),
         storage.clone(),
-        table.clone(),
+        peer_table.clone(),
         bootnodes,
         channel_broadcast_send_end.clone(),
     ));
@@ -69,7 +76,7 @@ pub async fn start_network(
         tcp_addr,
         signer.clone(),
         storage.clone(),
-        table.clone(),
+        peer_table.clone(),
         channel_broadcast_send_end,
     ));
 
@@ -345,7 +352,7 @@ async fn discovery_startup(
             ip: bootnode.socket_address.ip(),
             udp_port: bootnode.socket_address.port(),
             // TODO: udp port can differ from tcp port.
-            // see https://github.com/lambdaclass/lambda_ethrex/issues/905
+            // see https://github.com/lambdaclass/ethrex/issues/905
             tcp_port: bootnode.socket_address.port(),
             node_id: bootnode.node_id,
         });
@@ -782,8 +789,8 @@ async fn handle_peer_as_receiver(
     table: Arc<Mutex<KademliaTable>>,
     connection_broadcast: broadcast::Sender<(tokio::task::Id, Arc<RLPxMessage>)>,
 ) {
-    let conn = RLPxConnection::receiver(signer, stream, storage, connection_broadcast);
-    handle_peer(conn, table).await;
+    let mut conn = RLPxConnection::receiver(signer, stream, storage, connection_broadcast);
+    conn.start_peer(table).await;
 }
 
 async fn handle_peer_as_initiator(
@@ -794,44 +801,17 @@ async fn handle_peer_as_initiator(
     table: Arc<Mutex<KademliaTable>>,
     connection_broadcast: broadcast::Sender<(tokio::task::Id, Arc<RLPxMessage>)>,
 ) {
-    info!("Trying RLPx connection with {node:?}");
+    debug!("Trying RLPx connection with {node:?}");
     let stream = TcpSocket::new_v4()
         .unwrap()
         .connect(SocketAddr::new(node.ip, node.tcp_port))
         .await
         .unwrap();
     match RLPxConnection::initiator(signer, msg, stream, storage, connection_broadcast).await {
-        Ok(conn) => handle_peer(conn, table).await,
+        Ok(mut conn) => conn.start_peer(table).await,
         Err(e) => {
             error!("Error: {e}, Could not start connection with {node:?}");
         }
-    }
-}
-
-async fn handle_peer(mut conn: RLPxConnection<TcpStream>, table: Arc<Mutex<KademliaTable>>) {
-    // Perform handshake
-    if let Err(e) = conn.handshake().await {
-        peer_conn_failed("Handshake failed", e, conn, table).await;
-    } else {
-        // Handshake OK: handle connection
-        if let Err(e) = conn.handle_peer_conn().await {
-            peer_conn_failed("Error during RLPx connection", e, conn, table).await;
-        }
-    }
-}
-
-async fn peer_conn_failed(
-    error_text: &str,
-    error: RLPxError,
-    conn: RLPxConnection<TcpStream>,
-    table: Arc<Mutex<KademliaTable>>,
-) {
-    if let Ok(node_id) = conn.get_remote_node_id() {
-        // Discard peer from kademlia table
-        info!("{error_text}: ({error}), discarding peer {node_id}");
-        table.lock().await.replace_peer(node_id);
-    } else {
-        info!("{error_text}: ({error}), unknown peer")
     }
 }
 

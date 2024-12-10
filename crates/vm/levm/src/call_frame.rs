@@ -3,10 +3,11 @@ use crate::{
     errors::{InternalError, VMError},
     memory::Memory,
     opcodes::Opcode,
+    vm::get_valid_jump_destinations,
 };
 use bytes::Bytes;
 use ethrex_core::{types::Log, Address, U256};
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 
 /// [EIP-1153]: https://eips.ethereum.org/EIPS/eip-1153#reference-implementation
 pub type TransientStorage = HashMap<(Address, U256), U256>;
@@ -80,13 +81,16 @@ pub struct CallFrame {
     pub transient_storage: TransientStorage,
     pub logs: Vec<Log>,
     pub depth: usize,
+    pub valid_jump_destinations: HashSet<usize>,
 }
 
 impl CallFrame {
     pub fn new_from_bytecode(bytecode: Bytes) -> Self {
+        let valid_jump_destinations = get_valid_jump_destinations(&bytecode).unwrap_or_default();
         Self {
-            bytecode,
             gas_limit: U256::MAX,
+            bytecode,
+            valid_jump_destinations,
             ..Default::default()
         }
     }
@@ -104,6 +108,7 @@ impl CallFrame {
         gas_used: U256,
         depth: usize,
     ) -> Self {
+        let valid_jump_destinations = get_valid_jump_destinations(&bytecode).unwrap_or_default();
         Self {
             gas_limit,
             msg_sender,
@@ -115,14 +120,16 @@ impl CallFrame {
             is_static,
             depth,
             gas_used,
+            valid_jump_destinations,
             ..Default::default()
         }
     }
 
-    pub fn next_opcode(&mut self) -> Result<Option<Opcode>, VMError> {
-        let opcode = self.opcode_at(self.pc);
-        self.increment_pc()?;
-        Ok(opcode)
+    pub fn next_opcode(&mut self) -> Opcode {
+        match self.bytecode.get(self.pc).copied().map(Opcode::from) {
+            Some(opcode) => opcode,
+            None => Opcode::STOP,
+        }
     }
 
     pub fn increment_pc_by(&mut self, count: usize) -> Result<(), VMError> {
@@ -139,32 +146,5 @@ impl CallFrame {
 
     pub fn pc(&self) -> usize {
         self.pc
-    }
-
-    /// Jump to the given address, returns false if the jump position wasn't a JUMPDEST
-    pub fn jump(&mut self, jump_address: U256) -> Result<bool, VMError> {
-        let jump_address_usize = jump_address
-            .try_into()
-            .map_err(|_err| VMError::VeryLargeNumber)?;
-
-        if !self.valid_jump(jump_address_usize) {
-            return Ok(false);
-        }
-        self.pc = jump_address_usize;
-        Ok(true)
-    }
-
-    fn valid_jump(&self, jump_address: usize) -> bool {
-        self.opcode_at(jump_address)
-            .map(|opcode| opcode.eq(&Opcode::JUMPDEST))
-            .is_some_and(|is_jumpdest| is_jumpdest)
-    }
-
-    fn opcode_at(&self, offset: usize) -> Option<Opcode> {
-        self.bytecode
-            .get(offset)
-            .copied()
-            .map(Opcode::try_from)?
-            .ok()
     }
 }

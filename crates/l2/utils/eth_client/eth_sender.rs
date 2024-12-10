@@ -80,17 +80,21 @@ impl EthClient {
         overrides: Overrides,
     ) -> Result<(H256, Address), EthClientError> {
         let mut deploy_tx = self
-            .build_eip1559_transaction(Address::zero(), init_code, overrides)
+            .build_eip1559_transaction(Address::zero(), deployer, init_code, overrides, 10)
             .await?;
         deploy_tx.to = TxKind::Create;
         let deploy_tx_hash = self
-            .send_eip1559_transaction(deploy_tx, &deployer_private_key)
+            .send_eip1559_transaction(&deploy_tx, &deployer_private_key)
             .await?;
 
         let encoded_from = deployer.encode_to_vec();
         // FIXME: We'll probably need to use nonce - 1 since it was updated above.
-        let encoded_nonce = self.get_nonce(deployer).await.unwrap().encode_to_vec();
-        let mut encoded = vec![(0xc0 + encoded_from.len() + encoded_nonce.len()) as u8];
+        let encoded_nonce = self.get_nonce(deployer).await?.encode_to_vec();
+        let mut encoded = vec![(0xc0 + encoded_from.len() + encoded_nonce.len())
+            .try_into()
+            .map_err(|err| {
+                EthClientError::Custom(format!("Failed to encode deployed_address {}", err))
+            })?];
         encoded.extend(encoded_from.clone());
         encoded.extend(encoded_nonce.clone());
         let deployed_address = Address::from(keccak(encoded));

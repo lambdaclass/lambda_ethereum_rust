@@ -1,4 +1,4 @@
-.PHONY: all test clippy fmt usage lint eth-tests
+.PHONY: all test clippy fmt usage lint eth-tests run-evm-ef-tests
 
 all: test clippy fmt ## 🚀 Runs all tests, linter and formatter
 
@@ -29,13 +29,21 @@ $(SPECTEST_VECTORS_DIR): $(SPECTEST_ARTIFACT)
 	tar -xzf $(SPECTEST_ARTIFACT) -C tmp
 	mv tmp/tests-14.1/GeneralStateTests $(SPECTEST_VECTORS_DIR)
 
-download-ef-tests: $(SPECTEST_VECTORS_DIR) ## 📥 Download EF Tests
+download-evm-ef-tests: $(SPECTEST_VECTORS_DIR) ## 📥 Download EF Tests
 
-run-ef-tests: ## 🏃‍♂️ Run EF Tests
+run-evm-ef-tests: ## 🏃‍♂️ Run EF Tests
 	cd ../../../ && \
-	cargo test -p ef_tests-levm --tests test
+	time cargo test -p ef_tests-levm --test ef_tests_levm --release -- $(flags)
 
-clean-ef-tests: ## 🗑️  Clean test vectors
+run-evm-ef-tests-ci: ## 🏃‍♂️ Run EF Tests only with LEVM and without spinner, for CI.
+	cd ../../../ && \
+	time cargo test -p ef_tests-levm --test ef_tests_levm --release -- --summary
+
+generate-evm-ef-tests-report: ## 📊 Generate EF Tests Report
+	cd ../../../ && \
+	cargo test -p ef_tests-levm --test ef_tests_levm --release -- --summary
+
+clean-evm-ef-tests: ## 🗑️  Clean test vectors
 	rm -rf $(SPECTEST_VECTORS_DIR)
 
 ###### Benchmarks ######

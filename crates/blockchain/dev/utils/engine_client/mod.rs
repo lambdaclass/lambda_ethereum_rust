@@ -12,7 +12,7 @@ use ethrex_rpc::{
     },
     types::{
         fork_choice::{ForkChoiceResponse, ForkChoiceState, PayloadAttributesV3},
-        payload::{ExecutionPayloadResponse, ExecutionPayloadV3, PayloadStatus},
+        payload::{ExecutionPayload, ExecutionPayloadResponse, PayloadStatus},
     },
     utils::{RpcErrorResponse, RpcRequest, RpcSuccessResponse},
 };
@@ -68,7 +68,11 @@ impl EngineClient {
                 .map_err(ExchangeCapabilitiesError::SerdeJSONError)
                 .map_err(EngineClientError::from),
             Ok(RpcResponse::Error(error_response)) => {
-                Err(ExchangeCapabilitiesError::RPCError(error_response.error.message).into())
+                Err(ExchangeCapabilitiesError::RPCError(format!(
+                    "{}: {:?}",
+                    error_response.error.message, error_response.error.data
+                ))
+                .into())
             }
             Err(error) => Err(error),
         }
@@ -79,22 +83,21 @@ impl EngineClient {
         state: ForkChoiceState,
         payload_attributes: Option<PayloadAttributesV3>,
     ) -> Result<ForkChoiceResponse, EngineClientError> {
-        let request = ForkChoiceUpdatedV3 {
+        let request = RpcRequest::from(ForkChoiceUpdatedV3 {
             fork_choice_state: state,
-            payload_attributes: Ok(payload_attributes),
-        }
-        .try_into()
-        .map_err(|e| {
-            ForkChoiceUpdateError::ConversionError(format!("Failed to convert to RPC request: {e}"))
-        })
-        .map_err(EngineClientError::from)?;
+            payload_attributes,
+        });
 
         match self.send_request(request).await {
             Ok(RpcResponse::Success(result)) => serde_json::from_value(result.result)
                 .map_err(ForkChoiceUpdateError::SerdeJSONError)
                 .map_err(EngineClientError::from),
             Ok(RpcResponse::Error(error_response)) => {
-                Err(ForkChoiceUpdateError::RPCError(error_response.error.message).into())
+                Err(ForkChoiceUpdateError::RPCError(format!(
+                    "{}: {:?}",
+                    error_response.error.message, error_response.error.data
+                ))
+                .into())
             }
             Err(error) => Err(error),
         }
@@ -110,16 +113,18 @@ impl EngineClient {
             Ok(RpcResponse::Success(result)) => serde_json::from_value(result.result)
                 .map_err(GetPayloadError::SerdeJSONError)
                 .map_err(EngineClientError::from),
-            Ok(RpcResponse::Error(error_response)) => {
-                Err(GetPayloadError::RPCError(error_response.error.message).into())
-            }
+            Ok(RpcResponse::Error(error_response)) => Err(GetPayloadError::RPCError(format!(
+                "{}: {:?}",
+                error_response.error.message, error_response.error.data
+            ))
+            .into()),
             Err(error) => Err(error),
         }
     }
 
     pub async fn engine_new_payload_v3(
         &self,
-        execution_payload: ExecutionPayloadV3,
+        execution_payload: ExecutionPayload,
         expected_blob_versioned_hashes: Vec<H256>,
         parent_beacon_block_root: H256,
     ) -> Result<PayloadStatus, EngineClientError> {
@@ -134,9 +139,11 @@ impl EngineClient {
             Ok(RpcResponse::Success(result)) => serde_json::from_value(result.result)
                 .map_err(NewPayloadError::SerdeJSONError)
                 .map_err(EngineClientError::from),
-            Ok(RpcResponse::Error(error_response)) => {
-                Err(NewPayloadError::RPCError(error_response.error.message).into())
-            }
+            Ok(RpcResponse::Error(error_response)) => Err(NewPayloadError::RPCError(format!(
+                "{}: {:?}",
+                error_response.error.message, error_response.error.data
+            ))
+            .into()),
             Err(error) => Err(error),
         }
     }

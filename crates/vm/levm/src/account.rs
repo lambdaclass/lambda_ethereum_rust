@@ -1,13 +1,11 @@
-use crate::{
-    constants::EMPTY_CODE_HASH,
-    errors::{InternalError, VMError},
-};
+use crate::constants::EMPTY_CODE_HASH;
 use bytes::Bytes;
 use ethrex_core::{H256, U256};
 use keccak_hash::keccak;
+use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
-#[derive(Clone, Default, Debug, PartialEq, Eq)]
+#[derive(Clone, Default, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct AccountInfo {
     pub balance: U256,
     pub bytecode: Bytes,
@@ -18,15 +16,23 @@ impl AccountInfo {
     pub fn is_empty(&self) -> bool {
         self.balance.is_zero() && self.nonce == 0 && self.bytecode.is_empty()
     }
+
+    pub fn has_code(&self) -> bool {
+        !(self.bytecode.is_empty() || self.bytecode_hash() == EMPTY_CODE_HASH)
+    }
+
+    pub fn bytecode_hash(&self) -> H256 {
+        keccak(self.bytecode.as_ref()).0.into()
+    }
 }
 
-#[derive(Clone, Default, Debug, PartialEq, Eq)]
+#[derive(Clone, Default, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Account {
     pub info: AccountInfo,
     pub storage: HashMap<H256, StorageSlot>,
 }
 
-#[derive(Debug, Clone, Default, PartialEq, Eq)]
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
 pub struct StorageSlot {
     pub original_value: U256,
     pub current_value: U256,
@@ -59,11 +65,11 @@ impl Account {
     }
 
     pub fn has_code(&self) -> bool {
-        !(self.info.bytecode.is_empty() || self.bytecode_hash() == EMPTY_CODE_HASH)
+        self.info.has_code()
     }
 
     pub fn bytecode_hash(&self) -> H256 {
-        keccak(self.info.bytecode.as_ref()).0.into()
+        self.info.bytecode_hash()
     }
 
     pub fn is_empty(&self) -> bool {
@@ -88,15 +94,5 @@ impl Account {
     pub fn with_nonce(mut self, nonce: u64) -> Self {
         self.info.nonce = nonce;
         self
-    }
-
-    // TODO: Replace nonce increments with this or cache's analog (currently does not have senders)
-    pub fn increment_nonce(&mut self) -> Result<(), VMError> {
-        self.info.nonce = self
-            .info
-            .nonce
-            .checked_add(1)
-            .ok_or(VMError::Internal(InternalError::NonceOverflowed))?;
-        Ok(())
     }
 }

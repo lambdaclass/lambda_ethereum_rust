@@ -135,6 +135,18 @@ pub enum TxType {
     Privileged = 0x7e,
 }
 
+impl From<TxType> for u8 {
+    fn from(val: TxType) -> Self {
+        match val {
+            TxType::Legacy => 0x00,
+            TxType::EIP2930 => 0x01,
+            TxType::EIP1559 => 0x02,
+            TxType::EIP4844 => 0x03,
+            TxType::Privileged => 0x7e,
+        }
+    }
+}
+
 pub trait Signable {
     fn sign(&self, private_key: &SecretKey) -> Self
     where
@@ -1139,7 +1151,7 @@ impl PrivilegedL2Transaction {
 
     /// Returns the formated hash of the deposit transaction,
     /// or None if the transaction is not a deposit.
-    /// The hash is computed as keccak256(to || value)
+    /// The hash is computed as keccak256(to || value || deposit_id == nonce)
     pub fn get_deposit_hash(&self) -> Option<H256> {
         match self.tx_type {
             PrivilegedTxType::Deposit => {
@@ -1151,7 +1163,13 @@ impl PrivilegedL2Transaction {
                 let value = &mut [0u8; 32];
                 self.value.to_big_endian(value);
 
-                Some(keccak_hash::keccak([to.as_bytes(), value].concat()))
+                // The nonce should be a U256,
+                // in solidity the depositId is a U256.
+                let u256_nonce = U256::from(self.nonce);
+                let nonce = &mut [0u8; 32];
+                u256_nonce.to_big_endian(nonce);
+
+                Some(keccak_hash::keccak([to.as_bytes(), value, nonce].concat()))
             }
             _ => None,
         }
@@ -2122,21 +2140,27 @@ mod mempool {
     pub struct MempoolTransaction {
         // Unix timestamp (in microseconds) created once the transaction reached the MemPool
         timestamp: u128,
+        sender: Address,
         inner: Transaction,
     }
 
     impl MempoolTransaction {
-        pub fn new(tx: Transaction) -> Self {
+        pub fn new(tx: Transaction, sender: Address) -> Self {
             Self {
                 timestamp: SystemTime::now()
                     .duration_since(UNIX_EPOCH)
                     .expect("Invalid system time")
                     .as_micros(),
+                sender,
                 inner: tx,
             }
         }
         pub fn time(&self) -> u128 {
             self.timestamp
+        }
+
+        pub fn sender(&self) -> Address {
+            self.sender
         }
     }
 
@@ -2153,8 +2177,16 @@ mod mempool {
         fn decode_unfinished(rlp: &[u8]) -> Result<(Self, &[u8]), RLPDecodeError> {
             let decoder = Decoder::new(rlp)?;
             let (timestamp, decoder) = decoder.decode_field("timestamp")?;
+            let (sender, decoder) = decoder.decode_field("sender")?;
             let (inner, decoder) = decoder.decode_field("inner")?;
-            Ok((Self { timestamp, inner }, decoder.finish()?))
+            Ok((
+                Self {
+                    timestamp,
+                    sender,
+                    inner,
+                },
+                decoder.finish()?,
+            ))
         }
     }
 

@@ -143,6 +143,7 @@ pub enum RpcNamespace {
     Admin,
     Debug,
     Web3,
+    Net,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -170,6 +171,7 @@ impl RpcRequest {
                 "admin" => Ok(RpcNamespace::Admin),
                 "debug" => Ok(RpcNamespace::Debug),
                 "web3" => Ok(RpcNamespace::Web3),
+                "net" => Ok(RpcNamespace::Net),
                 _ => Err(RpcErr::MethodNotFound(self.method.clone())),
             }
         } else {
@@ -247,7 +249,7 @@ pub mod test_utils {
     use std::{net::SocketAddr, str::FromStr};
 
     use ethrex_core::H512;
-    use ethrex_net::types::Node;
+    use ethrex_net::{sync::SyncManager, types::Node};
     use ethrex_storage::{EngineType, Store};
 
     use crate::start_api;
@@ -285,6 +287,14 @@ pub mod test_utils {
 
         let jwt_secret = Default::default();
         let local_p2p_node = example_p2p_node();
-        start_api(http_addr, authrpc_addr, storage, jwt_secret, local_p2p_node).await;
+        start_api(
+            http_addr,
+            authrpc_addr,
+            storage,
+            jwt_secret,
+            local_p2p_node,
+            SyncManager::dummy(),
+        )
+        .await;
     }
 }
