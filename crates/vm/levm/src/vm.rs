@@ -967,17 +967,15 @@ impl VM {
         salt: Option<U256>,
         current_call_frame: &mut CallFrame,
     ) -> Result<OpcodeSuccess, VMError> {
-        if code_size_in_memory > MAX_CODE_SIZE * 2 {
-            current_call_frame
-                .stack
-                .push(U256::from(REVERT_FOR_CREATE))?;
-            return Ok(OpcodeSuccess::Result(ResultReason::Revert));
-        }
         if current_call_frame.is_static {
+            return Err(VMError::OpcodeNotAllowedInStaticContext);
+        }
+
+        if code_size_in_memory > INIT_CODE_MAX_SIZE {
             current_call_frame
                 .stack
-                .push(U256::from(REVERT_FOR_CREATE))?;
-            return Ok(OpcodeSuccess::Result(ResultReason::Revert));
+                .push(U256::from(CREATE_DEPLOYMENT_FAIL))?;
+            return Ok(OpcodeSuccess::Continue);
         }
 
         let (sender_account_info, _sender_address_was_cold) =
@@ -986,16 +984,16 @@ impl VM {
         if sender_account_info.balance < value_in_wei_to_send {
             current_call_frame
                 .stack
-                .push(U256::from(REVERT_FOR_CREATE))?;
-            return Ok(OpcodeSuccess::Result(ResultReason::Revert));
+                .push(U256::from(CREATE_DEPLOYMENT_FAIL))?;
+            return Ok(OpcodeSuccess::Continue);
         }
 
-        let new_nonce = match self.increment_account_nonce(current_call_frame.msg_sender) {
+        let new_nonce = match self.increment_account_nonce(current_call_frame.to) {
             Ok(nonce) => nonce,
             Err(_) => {
                 current_call_frame
                     .stack
-                    .push(U256::from(REVERT_FOR_CREATE))?;
+                    .push(U256::from(CREATE_DEPLOYMENT_FAIL))?;
                 return Ok(OpcodeSuccess::Result(ResultReason::Revert));
             }
         };
@@ -1018,7 +1016,7 @@ impl VM {
         if cache::is_account_cached(&self.cache, &new_address) {
             current_call_frame
                 .stack
-                .push(U256::from(REVERT_FOR_CREATE))?;
+                .push(U256::from(CREATE_DEPLOYMENT_FAIL))?;
             return Ok(OpcodeSuccess::Result(ResultReason::Revert));
         }
 

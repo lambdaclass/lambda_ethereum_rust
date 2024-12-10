@@ -3869,7 +3869,7 @@ fn cant_create_with_size_longer_than_max_code_size() {
 
     let call_frame = vm.current_call_frame_mut().unwrap();
     let create_return_value = call_frame.stack.pop().unwrap();
-    assert_eq!(create_return_value, U256::from(REVERT_FOR_CREATE));
+    assert_eq!(create_return_value, U256::from(CREATE_DEPLOYMENT_FAIL));
 
     // Check that the sender account is updated
     let sender_account = cache::get_account(&vm.cache, &sender_addr).unwrap();
@@ -3904,7 +3904,7 @@ fn cant_create_on_static_contexts() {
 
     let call_frame = vm.current_call_frame_mut().unwrap();
     let create_return_value = call_frame.stack.pop().unwrap();
-    assert_eq!(create_return_value, U256::from(REVERT_FOR_CREATE));
+    assert_eq!(create_return_value, U256::from(CREATE_DEPLOYMENT_FAIL));
 
     // Check that the sender account is updated
     let sender_account = cache::get_account(&vm.cache, &sender_addr).unwrap();
@@ -3938,7 +3938,7 @@ fn cant_create_if_transfer_value_bigger_than_balance() {
 
     let call_frame = vm.current_call_frame_mut().unwrap();
     let create_return_value = call_frame.stack.pop().unwrap();
-    assert_eq!(create_return_value, U256::from(REVERT_FOR_CREATE));
+    assert_eq!(create_return_value, U256::from(CREATE_DEPLOYMENT_FAIL));
 
     // Check that the sender account is updated
     let sender_account = cache::get_account(&vm.cache, &sender_addr).unwrap();
@@ -3972,7 +3972,7 @@ fn cant_create_if_sender_nonce_would_overflow() {
 
     let call_frame = vm.current_call_frame_mut().unwrap();
     let create_return_value = call_frame.stack.pop().unwrap();
-    assert_eq!(create_return_value, U256::from(REVERT_FOR_CREATE));
+    assert_eq!(create_return_value, U256::from(CREATE_DEPLOYMENT_FAIL));
 
     // Check that the sender account is updated
     let sender_account = cache::get_account(&vm.cache, &sender_addr).unwrap();
