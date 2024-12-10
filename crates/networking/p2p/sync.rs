@@ -142,7 +142,7 @@ impl SyncManager {
                     .map(|header| header.state_root)
                     .collect::<Vec<_>>();
                 sync_set.spawn(fetch_snap_state(
-                    bytecode_sender,
+                    bytecode_sender.clone(),
                     state_roots.clone(),
                     self.peers.clone(),
                     store.clone(),
@@ -164,6 +164,7 @@ impl SyncManager {
                 // Start state healing
                 info!("Starting state healing");
                 healing_set.spawn(state_healing(
+                    bytecode_sender,
                     state_roots.clone(),
                     store.clone(),
                     self.peers.clone(),
@@ -277,9 +278,6 @@ async fn fetch_snap_state(
         )
         .await?
     }
-    // We finished syncing the available state, lets make the fetcher processes aware
-    // Send empty batches to signal that no more batches are incoming
-    bytecode_sender.send(vec![]).await?;
     Ok(())
 }
 
@@ -515,6 +513,7 @@ async fn fetch_storage_batch(
 }
 
 async fn state_healing(
+    bytecode_sender: Sender<Vec<H256>>,
     state_roots: Vec<H256>,
     store: Store,
     peers: Arc<Mutex<KademliaTable>>,
@@ -522,13 +521,23 @@ async fn state_healing(
     for state_root in state_roots {
         // If we don't have the root node stored then we must fetch it
         if !store.contains_state_node(state_root)? {
-            heal_state_trie(state_root, store.clone(), peers.clone()).await?;
+            heal_state_trie(
+                bytecode_sender.clone(),
+                state_root,
+                store.clone(),
+                peers.clone(),
+            )
+            .await?;
         }
     }
+    // We finished both sync & healing, lets make the bytecode fetcher process aware
+    // Send empty batches to signal that no more batches are incoming
+    bytecode_sender.send(vec![]).await?;
     Ok(())
 }
 
 async fn heal_state_trie(
+    bytecode_sender: Sender<Vec<H256>>,
     state_root: H256,
     store: Store,
     peers: Arc<Mutex<KademliaTable>>,
@@ -572,7 +581,7 @@ async fn heal_state_trie(
             }
             // Send storage & bytecode requests
             storage_sender.send(storage_roots).await?;
-            //TODO: send bytecode request here
+            bytecode_sender.send(code_hashes).await?;
         }
     }
     // Send empty batch to signal that no more batches are incoming
