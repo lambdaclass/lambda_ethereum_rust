@@ -254,22 +254,26 @@ impl VM {
 
         let (_account_info, address_was_cold) = self.access_account(code_address);
 
-        let new_memory_size_for_args = (args_start_offset
-            .checked_add(args_size)
-            .ok_or(InternalError::ArithmeticOperationOverflow)?)
-        .checked_next_multiple_of(WORD_SIZE_IN_BYTES_USIZE)
-        .ok_or(VMError::Internal(
-            InternalError::ArithmeticOperationOverflow,
-        ))?;
-        let new_memory_size_for_return_data = (return_data_start_offset
-            .checked_add(return_data_size)
-            .ok_or(InternalError::ArithmeticOperationOverflow)?)
-        .checked_next_multiple_of(WORD_SIZE_IN_BYTES_USIZE)
-        .ok_or(VMError::Internal(
-            InternalError::ArithmeticOperationOverflow,
-        ))?;
-        let new_memory_size = new_memory_size_for_args.max(new_memory_size_for_return_data);
         let current_memory_size = current_call_frame.memory.len();
+        let new_memory_size_for_args = if args_size > 0 {
+            (args_start_offset
+                .checked_add(args_size)
+                .ok_or(VMError::OutOfGas(OutOfGasError::MaxGasLimitExceeded))?)
+            .checked_next_multiple_of(WORD_SIZE_IN_BYTES_USIZE)
+            .ok_or(VMError::OutOfGas(OutOfGasError::MaxGasLimitExceeded))?
+        } else {
+            current_memory_size
+        };
+        let new_memory_size_for_return_data = if return_data_size > 0 {
+            (return_data_start_offset
+                .checked_add(return_data_size)
+                .ok_or(VMError::OutOfGas(OutOfGasError::MaxGasLimitExceeded))?)
+            .checked_next_multiple_of(WORD_SIZE_IN_BYTES_USIZE)
+            .ok_or(VMError::OutOfGas(OutOfGasError::MaxGasLimitExceeded))?
+        } else {
+            current_memory_size
+        };
+        let new_memory_size = new_memory_size_for_args.max(new_memory_size_for_return_data);
 
         self.increase_consumed_gas(
             current_call_frame,
