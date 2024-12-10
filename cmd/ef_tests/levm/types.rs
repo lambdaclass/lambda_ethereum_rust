@@ -2,8 +2,8 @@ use crate::{
     deserialize::{
         deserialize_access_lists, deserialize_ef_post_value_indexes,
         deserialize_h256_vec_optional_safe, deserialize_hex_bytes, deserialize_hex_bytes_vec,
-        deserialize_transaction_expected_exception, deserialize_u256_optional_safe, deserialize_u256_safe,
-        deserialize_u256_valued_hashmap_safe, deserialize_u256_vec_safe,
+        deserialize_transaction_expected_exception, deserialize_u256_optional_safe,
+        deserialize_u256_safe, deserialize_u256_valued_hashmap_safe, deserialize_u256_vec_safe,
     },
     report::TestVector,
 };

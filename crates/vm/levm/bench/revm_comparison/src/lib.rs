@@ -32,7 +32,7 @@ pub fn run_with_levm(program: &str, runs: usize, number_of_iterations: u32) {
     let tx_report = black_box(vm.execute(&mut current_call_frame).unwrap());
     assert!(tx_report.result == TxResult::Success);
 
-    match tx_report.unwrap().result {
+    match tx_report.result {
         TxResult::Success => {
             println!("\t\t0x{}", hex::encode(current_call_frame.returndata));
         }
