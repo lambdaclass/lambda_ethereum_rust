@@ -104,13 +104,13 @@ impl VM {
 
         let mut default_touched_storage_slots: HashMap<Address, HashSet<H256>> = HashMap::new();
 
-        for item in access_list.clone() {
-            default_touched_accounts.insert(item.0);
+        for (address, keys) in access_list.clone() {
+            default_touched_accounts.insert(address);
             let mut warm_slots = HashSet::new();
-            for slot in item.1 {
+            for slot in keys {
                 warm_slots.insert(slot);
             }
-            default_touched_storage_slots.insert(item.0, warm_slots);
+            default_touched_storage_slots.insert(address, warm_slots);
         }
 
         match to {
@@ -418,11 +418,11 @@ impl VM {
 
         // Access List Cost
         let mut access_lists_cost = U256::zero();
-        for item in self.access_list.clone() {
+        for (_, keys) in self.access_list.clone() {
             access_lists_cost = access_lists_cost
                 .checked_add(ACCESS_LIST_ADDRESS_COST)
                 .ok_or(OutOfGasError::ConsumedGasOverflow)?;
-            for _ in item.1 {
+            for _ in keys {
                 access_lists_cost = access_lists_cost
                     .checked_add(ACCESS_LIST_STORAGE_KEY_COST)
                     .ok_or(OutOfGasError::ConsumedGasOverflow)?;
