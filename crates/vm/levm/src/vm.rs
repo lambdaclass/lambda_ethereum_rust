@@ -966,9 +966,9 @@ impl VM {
         if code_size_in_memory > INIT_CODE_MAX_SIZE {
             return Err(VMError::OutOfGas(OutOfGasError::ConsumedGasOverflow));
         }
+        let sender_address = current_call_frame.to;
 
-        let (sender_account_info, _sender_address_was_cold) =
-            self.access_account(current_call_frame.msg_sender);
+        let (sender_account_info, _sender_address_was_cold) = self.access_account(sender_address);
 
         if sender_account_info.balance < value_in_wei_to_send {
             current_call_frame
@@ -977,7 +977,6 @@ impl VM {
             return Ok(OpcodeSuccess::Continue);
         }
 
-        let sender_address = current_call_frame.to;
         let new_nonce = match self.increment_account_nonce(sender_address) {
             Ok(nonce) => nonce,
             Err(_) => {
@@ -1012,33 +1011,55 @@ impl VM {
         let new_account = Account::new(U256::zero(), code.clone(), 0, Default::default());
         cache::insert_account(&mut self.cache, new_address, new_account);
 
-        current_call_frame
-            .stack
-            .push(address_to_word(new_address))?;
+        let new_depth = current_call_frame
+            .depth
+            .checked_add(1)
+            .ok_or(InternalError::ArithmeticOperationOverflow)?;
 
-        self.generic_call(
-            current_call_frame,
-            U256::MAX, // FIXME: Why we send U256::MAX here?
+        if new_depth > 1024 {
+            current_call_frame
+                .stack
+                .push(U256::from(CREATE_DEPLOYMENT_FAIL))?;
+            return Ok(OpcodeSuccess::Continue);
+        }
+
+        let max_message_call_gas = max_message_call_gas(&current_call_frame)?;
+
+        let mut new_call_frame = CallFrame::new(
+            sender_address,
+            new_address,
+            new_address,
+            code,
             value_in_wei_to_send,
-            current_call_frame.msg_sender,
-            new_address,
-            new_address,
-            true,
+            Bytes::new(),
             false,
-            code_offset_in_memory,
-            code_size_in_memory,
-            code_offset_in_memory,
-            code_size_in_memory,
-            true,
-        )?;
+            max_message_call_gas,
+            U256::zero(),
+            new_depth,
+        );
 
-        // Erases the success value in the stack result of calling generic call, probably this should be refactored soon...
-        current_call_frame
-            .stack
-            .pop()
-            .map_err(|_| VMError::StackUnderflow)?;
+        let tx_report = self.execute(&mut new_call_frame)?;
 
-        self.accrued_substate.created_accounts.insert(new_address);
+        current_call_frame.gas_used = current_call_frame
+            .gas_used
+            .checked_add(tx_report.gas_used.into())
+            .ok_or(VMError::OutOfGas(OutOfGasError::ConsumedGasOverflow))?;
+        current_call_frame.logs.extend(tx_report.logs);
+
+        match tx_report.result {
+            TxResult::Success => {
+                self.accrued_substate.created_accounts.insert(new_address);
+                current_call_frame
+                    .stack
+                    .push(address_to_word(new_address))?;
+            }
+            TxResult::Revert(_) => {
+                // Push 0 to stack
+                current_call_frame
+                    .stack
+                    .push(U256::from(CREATE_DEPLOYMENT_FAIL))?;
+            }
+        }
 
         Ok(OpcodeSuccess::Continue)
     }
