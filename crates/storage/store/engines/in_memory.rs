@@ -368,7 +368,7 @@ impl StoreEngine for Store {
 
         Ok(receipts
             .into_iter()
-           .map(|(_index, receipt)| receipt.clone())
+            .map(|(_index, receipt)| receipt.clone())
             .collect())
     }
 
