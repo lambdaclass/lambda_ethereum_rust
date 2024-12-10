@@ -876,7 +876,7 @@ impl VM {
             memory::load_range(&mut current_call_frame.memory, args_offset, args_size)?.to_vec();
 
         // I don't know if this gas limit should be calculated before or after consuming gas
-        let potential_remaining_gas = max_message_call_gas(&current_call_frame)?;
+        let potential_remaining_gas = max_message_call_gas(current_call_frame)?;
         let gas_limit = std::cmp::min(gas_limit, potential_remaining_gas);
 
         let new_depth = current_call_frame
@@ -1063,7 +1063,7 @@ impl VM {
             return Ok(OpcodeSuccess::Continue);
         }
 
-        let max_message_call_gas = max_message_call_gas(&current_call_frame)?;
+        let max_message_call_gas = max_message_call_gas(current_call_frame)?;
 
         let mut new_call_frame = CallFrame::new(
             sender_address,
