@@ -178,7 +178,12 @@ pub enum InternalError {
     PCOutOfBounds,
     #[error("Undefined state")]
     UndefinedState(i32), // This error is temporarily for things that cause an undefined state.
+    #[error("Invalid precompile address. Tried to execute a precompile that does not exist.")]
+    InvalidPrecompileAddress,
 }
+
+#[derive(Debug, Clone, PartialEq, Eq, thiserror::Error, Serialize, Deserialize)]
+pub enum PrecompileError {}
 
 #[derive(Debug, Clone)]
 pub enum OpcodeSuccess {
