@@ -107,7 +107,7 @@ impl RLPDecode for Receipt {
                 0x1 => TxType::EIP2930,
                 0x2 => TxType::EIP1559,
                 0x3 => TxType::EIP4844,
-                // 0x7e => TxType::PrivilegedL2Transaction,
+                0x7e => TxType::Privileged,
                 ty => {
                     return Err(RLPDecodeError::Custom(format!(
                         "Invalid transaction type: {ty}"
