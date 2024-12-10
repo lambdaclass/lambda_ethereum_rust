@@ -150,7 +150,7 @@ impl VM {
         let storage_slot_key = H256::from(bytes);
 
         let (storage_slot, storage_slot_was_cold) =
-            self.access_storage_slot(address, storage_slot_key);
+            self.access_storage_slot(address, storage_slot_key)?;
 
         self.increase_consumed_gas(current_call_frame, gas_cost::sload(storage_slot_was_cold)?)?;
 
@@ -177,7 +177,7 @@ impl VM {
         let key = H256::from(bytes);
 
         let (storage_slot, storage_slot_was_cold) =
-            self.access_storage_slot(current_call_frame.to, key);
+            self.access_storage_slot(current_call_frame.to, key)?;
 
         self.increase_consumed_gas(
             current_call_frame,
