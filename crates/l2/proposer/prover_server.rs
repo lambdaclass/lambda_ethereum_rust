@@ -225,10 +225,10 @@ impl ProofData {
     }
 
     /// Builder function for creating a Submit
-    pub fn submit(block_number: u64, receipt: (risc0_zkvm::Receipt, Vec<u32>)) -> Self {
+    pub fn submit(block_number: u64, zk_proof: ZkProof) -> Self {
         ProofData::Submit {
             block_number,
-            receipt: Box::new(receipt),
+            zk_proof,
         }
     }
 

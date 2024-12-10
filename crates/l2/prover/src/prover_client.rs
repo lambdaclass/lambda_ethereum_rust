@@ -1,8 +1,5 @@
 use crate::prover::{create_prover, ProverType, ProvingOutput};
 use ethrex_l2::{
-    proposer::prover_server::ProofData, utils::config::prover_client::ProverClientConfig,
-};
-use ethrex_l2::{
     proposer::prover_server::{ProofData, ZkProof},
     utils::config::prover_client::ProverClientConfig,
 };
@@ -101,14 +98,12 @@ impl ProverClient {
 
     fn submit_proof(&self, block_number: u64, proving_output: ProvingOutput) -> Result<(), String> {
         let submit = match proving_output {
-            ProvingOutput::Risc0Prover(risc0_proof) => ProofData::Submit {
-                block_number,
-                zk_proof: ZkProof::RISC0(risc0_proof),
-            },
-            ProvingOutput::Sp1Prover(sp1_proof) => ProofData::Submit {
-                block_number,
-                zk_proof: ZkProof::SP1(sp1_proof),
-            },
+            ProvingOutput::Risc0Prover(risc0_proof) => {
+                ProofData::submit(block_number, ZkProof::RISC0(risc0_proof))
+            }
+            ProvingOutput::Sp1Prover(sp1_proof) => {
+                ProofData::submit(block_number, ZkProof::SP1(sp1_proof))
+            }
         };
 
         let submit_ack = connect_to_prover_server_wr(&self.prover_server_endpoint, &submit)
