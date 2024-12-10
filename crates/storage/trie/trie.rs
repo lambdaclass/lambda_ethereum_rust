@@ -20,11 +20,11 @@ pub use self::db::{libmdbx::LibmdbxTrieDB, libmdbx_dupsort::LibmdbxDupsortTrieDB
 
 pub use self::db::{in_memory::InMemoryTrieDB, TrieDB};
 pub use self::nibbles::Nibbles;
-pub use self::node::Node;
 pub use self::verify_range::verify_range;
+pub use self::{node::Node, state::TrieState};
 
 pub use self::error::TrieError;
-use self::{node::LeafNode, state::TrieState, trie_iter::TrieIterator};
+use self::{node::LeafNode, trie_iter::TrieIterator};
 
 use lazy_static::lazy_static;
 

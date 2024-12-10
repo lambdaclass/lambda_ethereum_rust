@@ -1,14 +1,12 @@
-use std::sync::Arc;
-
-use bytes::Bytes;
 use ethrex_blockchain::error::ChainError;
 use ethrex_core::{
-    types::{Block, BlockHash, BlockHeader, EMPTY_KECCACK_HASH},
+    types::{AccountState, Block, BlockHash, BlockHeader, EMPTY_KECCACK_HASH},
     H256,
 };
-use ethrex_rlp::encode::RLPEncode;
+use ethrex_rlp::{decode::RLPDecode, encode::RLPEncode, error::RLPDecodeError};
 use ethrex_storage::{error::StoreError, Store};
-use ethrex_trie::{Nibbles, Node, TrieError, EMPTY_TRIE_HASH};
+use ethrex_trie::{Nibbles, Node, TrieError, TrieState, EMPTY_TRIE_HASH};
+use std::{collections::BTreeMap, sync::Arc};
 use tokio::{
     sync::{
         mpsc::{self, error::SendError, Receiver, Sender},
@@ -124,13 +122,17 @@ impl SyncManager {
                 // TODO: We are currently testing against our implementation that doesn't hold an independant snapshot and can provide all historic state
                 //       We should fetch all available state and then resort to state healing to fetch the rest
                 let (bytecode_sender, bytecode_receiver) = mpsc::channel::<Vec<H256>>(500);
-                let mut set = tokio::task::JoinSet::new();
-                set.spawn(bytecode_fetcher(
+                // First set of tasks will be in charge of fetching all available state (state not older than 128 blocks)
+                let mut sync_set = tokio::task::JoinSet::new();
+                // Second state of tasks will be active during the healing phase where we fetch the state we weren't able to in the first phase
+                let mut healing_set = tokio::task::JoinSet::new();
+                // We need the bytecode fetcher to be active during healing too
+                healing_set.spawn(bytecode_fetcher(
                     bytecode_receiver,
                     self.peers.clone(),
                     store.clone(),
                 ));
-                set.spawn(fetch_blocks_and_receipts(
+                sync_set.spawn(fetch_blocks_and_receipts(
                     all_block_hashes.clone(),
                     self.peers.clone(),
                     store.clone(),
@@ -139,7 +141,7 @@ impl SyncManager {
                     .iter()
                     .map(|header| header.state_root)
                     .collect::<Vec<_>>();
-                set.spawn(fetch_snap_state(
+                sync_set.spawn(fetch_snap_state(
                     bytecode_sender,
                     state_roots.clone(),
                     self.peers.clone(),
@@ -156,11 +158,20 @@ impl SyncManager {
                     store.add_block_header(hash, header)?;
                 }
                 // If all processes failed then they are likely to have a common cause (such as unaccessible storage), so return the first error
-                for result in set.join_all().await {
+                for result in sync_set.join_all().await {
                     result?;
                 }
                 // Start state healing
                 info!("Starting state healing");
+                healing_set.spawn(state_healing(
+                    state_roots.clone(),
+                    store.clone(),
+                    self.peers.clone(),
+                ));
+                for result in healing_set.join_all().await {
+                    result?;
+                }
+
                 // Set latest block number here to avoid reading state that is currently being synced
                 store.update_latest_block_number(latest_block_number)?;
             }
@@ -504,13 +515,15 @@ async fn fetch_storage_batch(
 }
 
 async fn state_healing(
-    block_headers: Vec<BlockHeader>,
+    state_roots: Vec<H256>,
     store: Store,
     peers: Arc<Mutex<KademliaTable>>,
 ) -> Result<(), SyncError> {
-    for header in block_headers {
+    for state_root in state_roots {
         // If we don't have the root node stored then we must fetch it
-        if !store.contains_state_node(header.state_root)? {}
+        if !store.contains_state_node(state_root)? {
+            heal_state_trie(state_root, store.clone(), peers.clone()).await?;
+        }
     }
     Ok(())
 }
@@ -520,8 +533,14 @@ async fn heal_state_trie(
     store: Store,
     peers: Arc<Mutex<KademliaTable>>,
 ) -> Result<(), SyncError> {
-    let mut trie = store.open_state_trie(*EMPTY_TRIE_HASH);
-    let mut trie_state = trie.state_mut();
+    // Spawn a storage healer for this blocks's storage
+    let (storage_sender, storage_receiver) = mpsc::channel::<Vec<H256>>(500);
+    let storage_healer_handler = tokio::spawn(storage_healer(
+        state_root,
+        storage_receiver,
+        peers.clone(),
+        store.clone(),
+    ));
     // Begin by requesting the root node
     let mut paths = vec![Nibbles::default()];
     while !paths.is_empty() {
@@ -530,37 +549,164 @@ async fn heal_state_trie(
             .request_state_trienodes(state_root, paths.clone())
             .await
         {
+            let mut storage_roots = vec![];
+            let mut code_hashes = vec![];
             // For each fetched node:
             // - Add its children to the queue (if we don't have them already)
             // - If it is a leaf, request its bytecode & storage
             // - Add it to the trie's state
             for node in nodes {
                 let path = paths.remove(0);
-                match &node {
-                    Node::Branch(node) => {
-                        // Add children to the queue
-                        for (index, child) in node.choices.iter().enumerate() {
-                            if trie_state.get_node(child.clone())?.is_none() {
-                                paths.push(path.append_new(index as u8));
-                            }
-                        }
-                    }
-                    Node::Extension(node) => {
-                        // Add child to the queue
-                        if trie_state.get_node(node.child.clone())?.is_none() {
-                            paths.push(path.concat(node.prefix.clone()));
-                        }
-                    }
-                    Node::Leaf(leaf_node) => {
-                        // Fetch bytecode & storage
-                    }
+                // We cannot keep the trie state open
+                let mut trie = store.open_state_trie(*EMPTY_TRIE_HASH);
+                let mut trie_state = trie.state_mut();
+                paths.extend(node_missing_children(&node, &path, &trie_state)?);
+                if let Node::Leaf(node) = &node {
+                    // Fetch bytecode & storage
+                    let account = AccountState::decode(&node.value)?;
+                    storage_roots.push(account.storage_root);
+                    code_hashes.push(account.code_hash);
                 }
                 let hash = node.compute_hash();
-                trie_state.insert_node(node, hash);
+                trie_state.write_node(node, hash)?;
+            }
+            // Send storage & bytecode requests
+            storage_sender.send(storage_roots).await?;
+            //TODO: send bytecode request here
+        }
+    }
+    // Send empty batch to signal that no more batches are incoming
+    storage_sender.send(vec![]).await?;
+    storage_healer_handler
+        .await
+        .map_err(|_| StoreError::Custom(String::from("Failed to join storage_handler task")))??;
+    Ok(())
+}
+
+/// Waits for incoming hashed addresses from the receiver channel endpoint and queues the associated root nodes for state retrieval
+/// Also retrieves their children nodes until we have the full storage trie stored
+async fn storage_healer(
+    state_root: H256,
+    mut receiver: Receiver<Vec<H256>>,
+    peers: Arc<Mutex<KademliaTable>>,
+    store: Store,
+) -> Result<(), SyncError> {
+    const BATCH_SIZE: usize = 200;
+    // Pending list of bytecodes to fetch
+    let mut pending_storages: Vec<(H256, Nibbles)> = vec![];
+    loop {
+        match receiver.recv().await {
+            Some(account_paths) if !account_paths.is_empty() => {
+                // Add the root paths of each account trie to the queue
+                pending_storages.extend(
+                    account_paths
+                        .into_iter()
+                        .map(|acc_path| (acc_path, Nibbles::default())),
+                );
+                // If we have enought pending storages to fill a batch, spawn a fetch process
+                while pending_storages.len() >= BATCH_SIZE {
+                    let mut next_batch: BTreeMap<H256, Vec<Nibbles>> = BTreeMap::new();
+                    // Group pending storages by account path
+                    // We do this here instead of keeping them sorted so we don't prioritize further nodes from the first tries
+                    for (account, path) in pending_storages.drain(..BATCH_SIZE) {
+                        next_batch.entry(account).or_default().push(path);
+                    }
+                    let return_batch =
+                        heal_storage_batch(state_root, next_batch, peers.clone(), store.clone())
+                            .await?;
+                    for (acc_path, paths) in return_batch {
+                        for path in paths {
+                            pending_storages.push((acc_path, path));
+                        }
+                    }
+                }
+            }
+            // Disconnect / Empty message signaling no more bytecodes to sync
+            _ => break,
+        }
+    }
+    // We have no more incoming requests, process the remaining batches
+    while !pending_storages.is_empty() {
+        let mut next_batch: BTreeMap<H256, Vec<Nibbles>> = BTreeMap::new();
+        // Group pending storages by account path
+        // We do this here instead of keeping them sorted so we don't prioritize further nodes from the first tries
+        for (account, path) in pending_storages.drain(..BATCH_SIZE.min(pending_storages.len())) {
+            next_batch.entry(account).or_default().push(path);
+        }
+        let return_batch =
+            heal_storage_batch(state_root, next_batch, peers.clone(), store.clone()).await?;
+        for (acc_path, paths) in return_batch {
+            for path in paths {
+                pending_storages.push((acc_path, path));
             }
         }
     }
     Ok(())
+}
+
+/// Receives a set of storage trie paths (grouped by their corresponding account's state trie path),
+/// fetches their respective nodes, stores them, and returns their children paths and the paths that couldn't be fetched so they can be returned to the queue
+async fn heal_storage_batch(
+    state_root: H256,
+    mut batch: BTreeMap<H256, Vec<Nibbles>>,
+    peers: Arc<Mutex<KademliaTable>>,
+    store: Store,
+) -> Result<BTreeMap<H256, Vec<Nibbles>>, StoreError> {
+    loop {
+        let peer = peers.lock().await.get_peer_channels().await;
+        if let Some(mut nodes) = peer
+            .request_storage_trienodes(state_root, batch.clone())
+            .await
+        {
+            debug!("Received {} nodes", nodes.len());
+            // Process the nodes for each account path
+            for (acc_path, paths) in batch.iter_mut() {
+                let mut trie = store.open_storage_trie(*acc_path, *EMPTY_TRIE_HASH);
+                let mut trie_state = trie.state_mut();
+                // Get the corresponding nodes
+                for node in nodes.drain(..paths.len().min(nodes.len())) {
+                    let path = paths.remove(0);
+                    // Add children to batch
+                    let children = node_missing_children(&node, &path, trie_state)?;
+                    paths.extend(children);
+                    // Add node to the state
+                    let hash = node.compute_hash();
+                    trie_state.write_node(node, hash)?;
+                }
+                // Cut the loop if we ran out of nodes
+                if nodes.is_empty() {
+                    break;
+                }
+            }
+            // Return remaining and added paths to be added to the queue
+            return Ok(batch);
+        }
+    }
+}
+
+/// Returns the partial paths to the node's children if they are not already part of the trie state
+fn node_missing_children(
+    node: &Node,
+    parent_path: &Nibbles,
+    trie_state: &TrieState,
+) -> Result<Vec<Nibbles>, TrieError> {
+    let mut paths = Vec::new();
+    match &node {
+        Node::Branch(node) => {
+            for (index, child) in node.choices.iter().enumerate() {
+                if trie_state.get_node(child.clone())?.is_none() {
+                    paths.push(parent_path.append_new(index as u8));
+                }
+            }
+        }
+        Node::Extension(node) => {
+            if trie_state.get_node(node.child.clone())?.is_none() {
+                paths.push(parent_path.concat(node.prefix.clone()));
+            }
+        }
+        _ => {}
+    }
+    Ok(paths)
 }
 
 #[derive(thiserror::Error, Debug)]
@@ -575,4 +721,6 @@ enum SyncError {
     SendStorage(#[from] SendError<Vec<(H256, H256)>>),
     #[error(transparent)]
     Trie(#[from] TrieError),
+    #[error(transparent)]
+    RLP(#[from] RLPDecodeError),
 }

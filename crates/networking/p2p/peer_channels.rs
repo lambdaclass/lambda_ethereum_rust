@@ -1,4 +1,4 @@
-use std::{sync::Arc, time::Duration};
+use std::{collections::BTreeMap, sync::Arc, time::Duration};
 
 use bytes::Bytes;
 use ethrex_core::{
@@ -340,6 +340,62 @@ impl PeerChannels {
             paths: paths
                 .into_iter()
                 .map(|vec| vec![Bytes::from(vec.encode_compact())])
+                .collect(),
+            bytes: MAX_RESPONSE_BYTES,
+        });
+        self.sender.send(request).await.ok()?;
+        let mut receiver = self.receiver.lock().await;
+        let nodes = tokio::time::timeout(PEER_REPLY_TIMOUT, async move {
+            loop {
+                match receiver.recv().await {
+                    Some(RLPxMessage::TrieNodes(TrieNodes { id, nodes })) if id == request_id => {
+                        return Some(nodes)
+                    }
+                    // Ignore replies that don't match the expected id (such as late responses)
+                    Some(_) => continue,
+                    None => return None,
+                }
+            }
+        })
+        .await
+        .ok()??;
+        (!nodes.is_empty() && nodes.len() <= expected_nodes)
+            .then(|| {
+                nodes
+                    .iter()
+                    .map(|node| Node::decode(node))
+                    .collect::<Result<Vec<_>, _>>()
+                    .ok()
+            })
+            .flatten()
+    }
+
+    /// Requests storage trie nodes given the root of the state trie where they are contained and
+    /// a hashmap mapping the path to the account in the state trie (aka hashed address) to the paths to the nodes in its storage trie (can be full or partial)
+    /// Returns the nodes or None if:
+    /// - There are no available peers (the node just started up or was rejected by all other nodes)
+    /// - The response timed out
+    /// - The response was empty or not valid
+    pub async fn request_storage_trienodes(
+        &self,
+        state_root: H256,
+        paths: BTreeMap<H256, Vec<Nibbles>>,
+    ) -> Option<Vec<Node>> {
+        let request_id = rand::random();
+        let expected_nodes = paths.iter().fold(0, |acc, item| acc + item.1.len());
+        let request = RLPxMessage::GetTrieNodes(GetTrieNodes {
+            id: request_id,
+            root_hash: state_root,
+            // {acc_path: [path, path, ...]} -> [[acc_path, path, path, ...]]
+            paths: paths
+                .into_iter()
+                .map(|(acc_path, paths)| {
+                    [vec![Nibbles::from_hex(acc_path.0.to_vec())], paths]
+                        .concat()
+                        .into_iter()
+                        .map(|path| Bytes::from(path.encode_compact()))
+                        .collect()
+                })
                 .collect(),
             bytes: MAX_RESPONSE_BYTES,
         });
