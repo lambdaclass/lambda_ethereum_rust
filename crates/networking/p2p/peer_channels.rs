@@ -5,7 +5,7 @@ use ethrex_core::{
     types::{AccountState, BlockBody, BlockHeader},
     H256, U256,
 };
-use ethrex_rlp::{decode::RLPDecode, encode::RLPEncode};
+use ethrex_rlp::encode::RLPEncode;
 use ethrex_trie::Nibbles;
 use ethrex_trie::{verify_range, Node};
 use tokio::sync::{mpsc, Mutex};
@@ -363,7 +363,7 @@ impl PeerChannels {
             .then(|| {
                 nodes
                     .iter()
-                    .map(|node| Node::decode(node))
+                    .map(|node| Node::decode_raw(node))
                     .collect::<Result<Vec<_>, _>>()
                     .ok()
             })
@@ -419,7 +419,7 @@ impl PeerChannels {
             .then(|| {
                 nodes
                     .iter()
-                    .map(|node| Node::decode(node))
+                    .map(|node| Node::decode_raw(node))
                     .collect::<Result<Vec<_>, _>>()
                     .ok()
             })

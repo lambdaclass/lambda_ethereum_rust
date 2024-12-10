@@ -49,22 +49,6 @@ impl NewPayloadRequest {
         }
     }
 
-<<<<<<< HEAD
-impl RpcHandler for NewPayloadV3Request {
-    fn parse(params: &Option<Vec<Value>>) -> Result<Self, RpcErr> {
-        let params = params
-            .as_ref()
-            .ok_or(RpcErr::BadParams("No params provided".to_owned()))?;
-        // if params.len() != 3 {
-        //     return Err(RpcErr::BadParams("Expected 3 params".to_owned()));
-        // }
-        Ok(NewPayloadV3Request {
-            payload: serde_json::from_value(params[0].clone())
-                .map_err(|_| RpcErr::WrongParam("payload".to_string()))?,
-            expected_blob_versioned_hashes: vec![],
-            parent_beacon_block_root: H256::zero(),
-        })
-=======
     fn parent_beacon_block_root(&self) -> Option<H256> {
         match self.version {
             NewPayloadRequestVersion::V1 => None,
@@ -119,7 +103,6 @@ impl RpcHandler for NewPayloadV3Request {
                 *expected_blob_versioned_hashes != blob_versioned_hashes
             }
         }
->>>>>>> 514885f1dc7b533e609d1dd9b73cb4b6c45cac92
     }
 
     fn handle(&self, context: RpcApiContext) -> Result<Value, RpcErr> {
@@ -146,17 +129,10 @@ impl RpcHandler for NewPayloadV3Request {
 
         // Check timestamp is post valid fork
         let chain_config = storage.get_chain_config()?;
-<<<<<<< HEAD
-        // let current_fork = chain_config.get_fork(block.header.timestamp);
-        // if current_fork < Fork::Cancun {
-        //     return Err(RpcErr::UnsuportedFork(format!("{current_fork:?}")));
-        // }
-=======
         let current_fork = chain_config.get_fork(block.header.timestamp);
         if current_fork < self.valid_fork() {
             return Err(RpcErr::UnsuportedFork(format!("{current_fork:?}")));
         }
->>>>>>> 514885f1dc7b533e609d1dd9b73cb4b6c45cac92
 
         // Check that block_hash is valid
         let actual_block_hash = block.hash();

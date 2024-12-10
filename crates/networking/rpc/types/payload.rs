@@ -35,12 +35,6 @@ pub struct ExecutionPayload {
     pub block_hash: H256,
     transactions: Vec<EncodedTransaction>,
     withdrawals: Vec<Withdrawal>,
-<<<<<<< HEAD
-    #[serde(with = "serde_utils::u64::hex_str", default)]
-    blob_gas_used: u64,
-    #[serde(with = "serde_utils::u64::hex_str", default)]
-    excess_blob_gas: u64,
-=======
     // ExecutionPayloadV3 fields. Optional since we support V2 too
     #[serde(
         skip_serializing_if = "Option::is_none",
@@ -54,7 +48,6 @@ pub struct ExecutionPayload {
         default
     )]
     pub excess_blob_gas: Option<u64>,
->>>>>>> 514885f1dc7b533e609d1dd9b73cb4b6c45cac92
 }
 
 #[derive(Clone, Debug)]

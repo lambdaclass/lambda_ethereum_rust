@@ -259,11 +259,7 @@ pub fn map_engine_requests(req: &RpcRequest, context: RpcApiContext) -> Result<V
         "engine_forkchoiceUpdatedV3" => ForkChoiceUpdatedV3::call(req, context),
         "engine_forkchoiceUpdatedV2" => ForkChoiceUpdatedV3::call(req, context),
         "engine_newPayloadV3" => NewPayloadV3Request::call(req, context),
-<<<<<<< HEAD
-        "engine_newPayloadV2" => NewPayloadV3Request::call(req, context),
-=======
         "engine_newPayloadV2" => NewPayloadV2Request::call(req, context),
->>>>>>> 514885f1dc7b533e609d1dd9b73cb4b6c45cac92
         "engine_exchangeTransitionConfigurationV1" => {
             ExchangeTransitionConfigV1Req::call(req, context)
         }
