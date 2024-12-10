@@ -28,6 +28,7 @@ pub async fn start_l1_watcher(store: Store) -> Result<(), ConfigError> {
 
 pub struct L1Watcher {
     eth_client: EthClient,
+    l2_client: EthClient,
     address: Address,
     max_block_step: U256,
     last_block_fetched: U256,
@@ -41,12 +42,14 @@ impl L1Watcher {
         eth_config: EthConfig,
     ) -> Result<Self, EthClientError> {
         let eth_client = EthClient::new_from_config(eth_config);
+        let l2_client = EthClient::new("http://localhost:1729");
         let last_block_fetched =
             EthClient::get_last_fetched_l1_block(&eth_client, watcher_config.bridge_address)
                 .await?
                 .into();
         Ok(Self {
             eth_client,
+            l2_client,
             address: watcher_config.bridge_address,
             max_block_step: watcher_config.max_block_step,
             last_block_fetched,
@@ -227,6 +230,14 @@ impl L1Watcher {
 
             info!("Initiating mint transaction for {beneficiary:#x} with value {mint_value:#x} and depositId: {deposit_id:#}",);
 
+            let gas_price = self.l2_client.get_gas_price().await?;
+            // Avoid panicking when using as_u64()
+            let gas_price = if gas_price > u64::MAX.into() {
+                u64::MAX
+            } else {
+                gas_price.as_u64()
+            };
+
             let mut mint_transaction = self
                 .eth_client
                 .build_privileged_transaction(
@@ -256,8 +267,8 @@ impl L1Watcher {
                         // TODO(CHECK): Seems that when we start the L2, we need to set the gas.
                         // Otherwise, the transaction is not included in the mempool.
                         // We should override the blockchain to always include the transaction.
-                        priority_gas_price: Some(10000000000),
-                        gas_price: Some(1000000000),
+                        priority_gas_price: Some(gas_price),
+                        gas_price: Some(gas_price),
                         ..Default::default()
                     },
                     10,
