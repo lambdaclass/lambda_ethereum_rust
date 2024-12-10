@@ -715,7 +715,7 @@ fn node_missing_children(
             }
         }
         Node::Extension(node) => {
-            if child.is_valid() && trie_state.get_node(node.child.clone())?.is_none() {
+            if node.child.is_valid() && trie_state.get_node(node.child.clone())?.is_none() {
                 paths.push(parent_path.concat(node.prefix.clone()));
             }
         }
