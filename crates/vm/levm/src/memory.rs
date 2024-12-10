@@ -119,14 +119,20 @@ fn try_store(
 
 pub fn try_copy_within(
     memory: &mut Memory,
-    from_offset: usize,
-    to_offset: usize,
+    from_offset: U256,
+    to_offset: U256,
     size: usize,
 ) -> Result<(), VMError> {
     if size == 0 {
         return Ok(());
     }
 
+    let from_offset: usize = from_offset
+        .try_into()
+        .map_err(|_err| VMError::VeryLargeNumber)?;
+    let to_offset: usize = to_offset
+        .try_into()
+        .map_err(|_err| VMError::VeryLargeNumber)?;
     try_resize(
         memory,
         to_offset.checked_add(size).ok_or(VMError::OutOfOffset)?,

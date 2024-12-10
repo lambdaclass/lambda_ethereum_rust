@@ -275,12 +275,8 @@ impl VM {
 
         memory::try_copy_within(
             &mut current_call_frame.memory,
-            src_offset
-                .try_into()
-                .map_err(|_err| VMError::VeryLargeNumber)?,
-            dest_offset
-                .try_into()
-                .map_err(|_err| VMError::VeryLargeNumber)?,
+            src_offset,
+            dest_offset,
             size,
         )?;
 
