@@ -1,20 +1,19 @@
+use crate::prover::{create_prover, ProverType, ProvingOutput};
+use ethrex_l2::{
+    proposer::prover_server::ProofData, utils::config::prover_client::ProverClientConfig,
+};
+use ethrex_l2::{
+    proposer::prover_server::{ProofData, ZkProof},
+    utils::config::prover_client::ProverClientConfig,
+};
 use std::{
     io::{BufReader, BufWriter},
     net::TcpStream,
     time::Duration,
 };
-
 use tokio::time::sleep;
 use tracing::{debug, error, info, warn};
-
 use zkvm_interface::io::ProgramInput;
-
-use ethrex_l2::{
-    proposer::prover_server::{ProofData, ZkProof},
-    utils::config::prover_client::ProverClientConfig,
-};
-
-use crate::prover::{create_prover, ProverType, ProvingOutput};
 
 pub async fn start_proof_data_client(config: ProverClientConfig, prover_type: ProverType) {
     let proof_data_client = ProverClient::new(config);
@@ -70,7 +69,7 @@ impl ProverClient {
 
     fn request_new_input(&self) -> Result<ProverData, String> {
         // Request the input with the correct block_number
-        let request = ProofData::Request;
+        let request = ProofData::request();
         let response = connect_to_prover_server_wr(&self.prover_server_endpoint, &request)
             .map_err(|e| format!("Failed to get Response: {e}"))?;
 
