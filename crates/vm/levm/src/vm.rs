@@ -617,8 +617,6 @@ impl VM {
             }
         }
 
-        // Access List validations ?
-
         if self.is_create() {
             // Assign bytecode to context and empty calldata
             initial_call_frame.bytecode = initial_call_frame.calldata.clone();
