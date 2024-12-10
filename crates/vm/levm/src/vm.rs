@@ -429,7 +429,6 @@ impl VM {
             }
         }
 
-        println!("Access list cost is {access_lists_cost}");
         intrinsic_gas = intrinsic_gas
             .checked_add(access_lists_cost)
             .ok_or(OutOfGasError::ConsumedGasOverflow)?;
