@@ -11,12 +11,12 @@ use ethrex_levm::{
     gas_cost, memory,
     operations::Operation,
     utils::{new_vm_with_ops, new_vm_with_ops_addr_bal_db, new_vm_with_ops_db, ops_to_bytecode},
-    vm::{word_to_address, Storage, VM},
+    vm::{Storage, VM},
     Environment,
 };
 use std::{collections::HashMap, sync::Arc};
 
-fn create_opcodes(size: usize, offset: usize, value_to_transfer: usize) -> Vec<Operation> {
+fn _create_opcodes(size: usize, offset: usize, value_to_transfer: usize) -> Vec<Operation> {
     vec![
         Operation::Push((16, U256::from(size))),
         Operation::Push((1, U256::from(offset))),
