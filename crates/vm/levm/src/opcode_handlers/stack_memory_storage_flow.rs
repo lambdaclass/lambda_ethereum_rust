@@ -1,8 +1,10 @@
 use crate::{
     call_frame::CallFrame,
-    constants::WORD_SIZE,
-    errors::{InternalError, OpcodeSuccess, OutOfGasError, VMError},
+    constants::{WORD_SIZE, WORD_SIZE_IN_BYTES_USIZE},
+    errors::{OpcodeSuccess, OutOfGasError, VMError},
     gas_cost,
+    memory::{self, calculate_memory_size},
+    opcodes::Opcode,
     vm::VM,
 };
 use ethrex_core::{H256, U256};
@@ -63,12 +65,16 @@ impl VM {
             .try_into()
             .map_err(|_| VMError::VeryLargeNumber)?;
 
-        let gas_cost = gas_cost::mload(current_call_frame, offset).map_err(VMError::OutOfGas)?;
+        let new_memory_size = calculate_memory_size(offset, WORD_SIZE_IN_BYTES_USIZE)?;
 
-        self.increase_consumed_gas(current_call_frame, gas_cost)?;
+        self.increase_consumed_gas(
+            current_call_frame,
+            gas_cost::mload(new_memory_size, current_call_frame.memory.len())?,
+        )?;
 
-        let value = current_call_frame.memory.load(offset)?;
-        current_call_frame.stack.push(value)?;
+        current_call_frame
+            .stack
+            .push(memory::load_word(&mut current_call_frame.memory, offset)?)?;
 
         Ok(OpcodeSuccess::Continue)
     }
@@ -84,17 +90,18 @@ impl VM {
             .try_into()
             .map_err(|_err| VMError::VeryLargeNumber)?;
 
-        let gas_cost = gas_cost::mstore(current_call_frame, offset).map_err(VMError::OutOfGas)?;
+        let new_memory_size = calculate_memory_size(offset, WORD_SIZE_IN_BYTES_USIZE)?;
 
-        self.increase_consumed_gas(current_call_frame, gas_cost)?;
+        self.increase_consumed_gas(
+            current_call_frame,
+            gas_cost::mstore(new_memory_size, current_call_frame.memory.len())?,
+        )?;
 
         let value = current_call_frame.stack.pop()?;
         let mut value_bytes = [0u8; WORD_SIZE];
         value.to_big_endian(&mut value_bytes);
 
-        current_call_frame
-            .memory
-            .store_bytes(offset, &value_bytes)?;
+        memory::try_store_data(&mut current_call_frame.memory, offset, &value_bytes)?;
 
         Ok(OpcodeSuccess::Continue)
     }
@@ -111,17 +118,22 @@ impl VM {
             .try_into()
             .map_err(|_| VMError::VeryLargeNumber)?;
 
-        let gas_cost = gas_cost::mstore8(current_call_frame, offset).map_err(VMError::OutOfGas)?;
+        let new_memory_size = calculate_memory_size(offset, 1)?;
 
-        self.increase_consumed_gas(current_call_frame, gas_cost)?;
+        self.increase_consumed_gas(
+            current_call_frame,
+            gas_cost::mstore8(new_memory_size, current_call_frame.memory.len())?,
+        )?;
 
         let value = current_call_frame.stack.pop()?;
         let mut value_bytes = [0u8; WORD_SIZE];
         value.to_big_endian(&mut value_bytes);
 
-        current_call_frame
-            .memory
-            .store_bytes(offset, value_bytes[WORD_SIZE - 1..WORD_SIZE].as_ref())?;
+        memory::try_store_data(
+            &mut current_call_frame.memory,
+            offset,
+            &value_bytes[WORD_SIZE - 1..WORD_SIZE],
+        )?;
 
         Ok(OpcodeSuccess::Continue)
     }
@@ -170,7 +182,12 @@ impl VM {
 
         self.increase_consumed_gas(
             current_call_frame,
-            gas_cost::sstore(&storage_slot, new_storage_slot_value, storage_slot_was_cold)?,
+            gas_cost::sstore(
+                &storage_slot,
+                new_storage_slot_value,
+                storage_slot_was_cold,
+                current_call_frame,
+            )?,
         )?;
 
         // Gas Refunds
@@ -178,7 +195,7 @@ impl VM {
         let mut gas_refunds = U256::zero();
         if new_storage_slot_value != storage_slot.current_value {
             if storage_slot.current_value == storage_slot.original_value {
-                if storage_slot.original_value.is_zero() && new_storage_slot_value.is_zero() {
+                if !storage_slot.original_value.is_zero() && new_storage_slot_value.is_zero() {
                     gas_refunds = gas_refunds
                         .checked_add(U256::from(4800))
                         .ok_or(VMError::GasRefundsOverflow)?;
@@ -225,7 +242,7 @@ impl VM {
         self.increase_consumed_gas(current_call_frame, gas_cost::MSIZE)?;
         current_call_frame
             .stack
-            .push(current_call_frame.memory.size())?;
+            .push(current_call_frame.memory.len().into())?;
         Ok(OpcodeSuccess::Continue)
     }
 
@@ -233,13 +250,10 @@ impl VM {
     pub fn op_gas(&mut self, current_call_frame: &mut CallFrame) -> Result<OpcodeSuccess, VMError> {
         self.increase_consumed_gas(current_call_frame, gas_cost::GAS)?;
 
-        let remaining_gas = self
-            .env
+        let remaining_gas = current_call_frame
             .gas_limit
-            .checked_sub(self.env.consumed_gas)
-            .ok_or(VMError::OutOfGas(OutOfGasError::ConsumedGasOverflow))?
-            .checked_sub(gas_cost::GAS)
-            .ok_or(VMError::OutOfGas(OutOfGasError::ConsumedGasOverflow))?;
+            .checked_sub(current_call_frame.gas_used)
+            .ok_or(OutOfGasError::ConsumedGasOverflow)?;
         // Note: These are not consumed gas calculations, but are related, so I used this wrapping here
         current_call_frame.stack.push(remaining_gas)?;
 
@@ -267,16 +281,25 @@ impl VM {
             .try_into()
             .map_err(|_| VMError::VeryLargeNumber)?;
 
-        let gas_cost = gas_cost::mcopy(current_call_frame, size, src_offset, dest_offset)
-            .map_err(VMError::OutOfGas)?;
+        let new_memory_size_for_dest = calculate_memory_size(dest_offset, size)?;
 
-        self.increase_consumed_gas(current_call_frame, gas_cost)?;
+        let new_memory_size_for_src = calculate_memory_size(src_offset, size)?;
 
-        if size > 0 {
-            current_call_frame
-                .memory
-                .copy(src_offset, dest_offset, size)?;
-        }
+        self.increase_consumed_gas(
+            current_call_frame,
+            gas_cost::mcopy(
+                new_memory_size_for_dest.max(new_memory_size_for_src),
+                current_call_frame.memory.len(),
+                size,
+            )?,
+        )?;
+
+        memory::try_copy_within(
+            &mut current_call_frame.memory,
+            src_offset,
+            dest_offset,
+            size,
+        )?;
 
         Ok(OpcodeSuccess::Continue)
     }
@@ -289,9 +312,43 @@ impl VM {
         self.increase_consumed_gas(current_call_frame, gas_cost::JUMP)?;
 
         let jump_address = current_call_frame.stack.pop()?;
-        current_call_frame.jump(jump_address)?;
+        Self::jump(current_call_frame, jump_address)?;
 
         Ok(OpcodeSuccess::Continue)
+    }
+
+    /// JUMP* family (`JUMP` and `JUMP` ATTOW [DEC 2024]) helper
+    /// function.
+    /// This function returns whether the `jump_address` is a valid JUMPDEST
+    /// for the specified `call_frame` or not.
+    fn is_valid_jump_addr(call_frame: &CallFrame, jump_address: usize) -> bool {
+        matches!(
+            call_frame
+                .bytecode
+                .get(jump_address)
+                .copied()
+                .map(Opcode::try_from),
+            Some(Ok(Opcode::JUMPDEST))
+        )
+    }
+
+    /// JUMP* family (`JUMP` and `JUMP` ATTOW [DEC 2024]) helper
+    /// function.
+    /// This function will change the PC for the specified call frame
+    /// to be equal to the specified address. If the address is not a
+    /// valid JUMPDEST, it will return an error
+    pub fn jump(call_frame: &mut CallFrame, jump_address: U256) -> Result<(), VMError> {
+        let jump_address_usize = jump_address
+            .try_into()
+            .map_err(|_err| VMError::VeryLargeNumber)?;
+
+        match Self::is_valid_jump_addr(call_frame, jump_address_usize) {
+            true => {
+                call_frame.pc = jump_address_usize;
+                Ok(())
+            }
+            false => Err(VMError::InvalidJump),
+        }
     }
 
     // JUMPI operation
@@ -305,7 +362,9 @@ impl VM {
         self.increase_consumed_gas(current_call_frame, gas_cost::JUMPI)?;
 
         if !condition.is_zero() {
-            current_call_frame.jump(jump_address)?;
+            Self::jump(current_call_frame, jump_address)?
+        } else {
+            current_call_frame.increment_pc()?;
         }
         Ok(OpcodeSuccess::Continue)
     }
@@ -323,12 +382,9 @@ impl VM {
     pub fn op_pc(&mut self, current_call_frame: &mut CallFrame) -> Result<OpcodeSuccess, VMError> {
         self.increase_consumed_gas(current_call_frame, gas_cost::PC)?;
 
-        current_call_frame.stack.push(U256::from(
-            current_call_frame
-                .pc
-                .checked_sub(1)
-                .ok_or(VMError::Internal(InternalError::PCUnderflowed))?,
-        ))?;
+        current_call_frame
+            .stack
+            .push(U256::from(current_call_frame.pc))?;
 
         Ok(OpcodeSuccess::Continue)
     }

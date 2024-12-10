@@ -1,6 +1,6 @@
 use crate::{
     call_frame::CallFrame,
-    constants::{WORD_SIZE, WORD_SIZE_IN_BYTES},
+    constants::WORD_SIZE,
     errors::{InternalError, OutOfGasError, VMError},
     memory, StorageSlot,
 };
@@ -9,6 +9,7 @@ use bytes::Bytes;
 use ethrex_core::U256;
 
 // Opcodes cost
+pub const STOP: U256 = U256::zero();
 pub const ADD: U256 = U256([3, 0, 0, 0]);
 pub const MUL: U256 = U256([5, 0, 0, 0]);
 pub const SUB: U256 = U256([3, 0, 0, 0]);
@@ -100,6 +101,7 @@ pub const SSTORE_COLD_DYNAMIC: U256 = U256([2100, 0, 0, 0]);
 pub const SSTORE_DEFAULT_DYNAMIC: U256 = U256([100, 0, 0, 0]);
 pub const SSTORE_STORAGE_CREATION: U256 = U256([20000, 0, 0, 0]);
 pub const SSTORE_STORAGE_MODIFICATION: U256 = U256([2900, 0, 0, 0]);
+pub const SSTORE_STIPEND: U256 = U256([2300, 0, 0, 0]);
 
 pub const BALANCE_STATIC: U256 = DEFAULT_STATIC;
 pub const BALANCE_COLD_DYNAMIC: U256 = DEFAULT_COLD_DYNAMIC;
@@ -158,107 +160,110 @@ pub const CALLDATA_COST_NON_ZERO_BYTE: U256 = U256([16, 0, 0, 0]);
 // Blob gas costs
 pub const BLOB_GAS_PER_BLOB: U256 = U256([131072, 0, 0, 0]);
 
-pub fn exp(exponent_bits: u64) -> Result<U256, OutOfGasError> {
-    let exponent_byte_size = (exponent_bits
+pub fn exp(exponent: U256) -> Result<U256, OutOfGasError> {
+    let exponent_byte_size = (exponent
+        .bits()
         .checked_add(7)
         .ok_or(OutOfGasError::GasCostOverflow)?)
         / 8;
+
     let exponent_byte_size_cost = EXP_DYNAMIC_BASE
         .checked_mul(exponent_byte_size.into())
         .ok_or(OutOfGasError::GasCostOverflow)?;
+
     EXP_STATIC
         .checked_add(exponent_byte_size_cost)
         .ok_or(OutOfGasError::GasCostOverflow)
 }
 
 pub fn calldatacopy(
-    current_call_frame: &CallFrame,
+    new_memory_size: usize,
+    current_memory_size: usize,
     size: usize,
-    dest_offset: usize,
-) -> Result<U256, OutOfGasError> {
+) -> Result<U256, VMError> {
     copy_behavior(
+        new_memory_size,
+        current_memory_size,
+        size,
         CALLDATACOPY_DYNAMIC_BASE,
         CALLDATACOPY_STATIC,
-        current_call_frame,
-        size,
-        dest_offset,
     )
 }
 
 pub fn codecopy(
-    current_call_frame: &CallFrame,
+    new_memory_size: usize,
+    current_memory_size: usize,
     size: usize,
-    dest_offset: usize,
-) -> Result<U256, OutOfGasError> {
+) -> Result<U256, VMError> {
     copy_behavior(
+        new_memory_size,
+        current_memory_size,
+        size,
         CODECOPY_DYNAMIC_BASE,
         CODECOPY_STATIC,
-        current_call_frame,
-        size,
-        dest_offset,
     )
 }
 
 pub fn returndatacopy(
-    current_call_frame: &CallFrame,
+    new_memory_size: usize,
+    current_memory_size: usize,
     size: usize,
-    dest_offset: usize,
-) -> Result<U256, OutOfGasError> {
+) -> Result<U256, VMError> {
     copy_behavior(
+        new_memory_size,
+        current_memory_size,
+        size,
         RETURNDATACOPY_DYNAMIC_BASE,
         RETURNDATACOPY_STATIC,
-        current_call_frame,
-        size,
-        dest_offset,
     )
 }
 
 fn copy_behavior(
+    new_memory_size: usize,
+    current_memory_size: usize,
+    size: usize,
     dynamic_base: U256,
     static_cost: U256,
-    current_call_frame: &CallFrame,
-    size: usize,
-    offset: usize,
-) -> Result<U256, OutOfGasError> {
+) -> Result<U256, VMError> {
     let minimum_word_size = (size
         .checked_add(WORD_SIZE)
         .ok_or(OutOfGasError::GasCostOverflow)?
         .saturating_sub(1))
         / WORD_SIZE;
 
-    let memory_expansion_cost = current_call_frame.memory.expansion_cost(offset, size)?;
+    let memory_expansion_cost = memory::expansion_cost(new_memory_size, current_memory_size)?;
 
     let minimum_word_size_cost = dynamic_base
         .checked_mul(minimum_word_size.into())
         .ok_or(OutOfGasError::GasCostOverflow)?;
-    static_cost
+    Ok(static_cost
         .checked_add(minimum_word_size_cost)
         .ok_or(OutOfGasError::GasCostOverflow)?
-        .checked_add(memory_expansion_cost)
-        .ok_or(OutOfGasError::GasCostOverflow)
+        .checked_add(memory_expansion_cost.into())
+        .ok_or(OutOfGasError::GasCostOverflow)?)
 }
 
 pub fn keccak256(
-    current_call_frame: &CallFrame,
+    new_memory_size: usize,
+    current_memory_size: usize,
     size: usize,
-    offset: usize,
-) -> Result<U256, OutOfGasError> {
+) -> Result<U256, VMError> {
     copy_behavior(
+        new_memory_size,
+        current_memory_size,
+        size,
         KECCAK25_DYNAMIC_BASE,
         KECCAK25_STATIC,
-        current_call_frame,
-        size,
-        offset,
     )
 }
 
 pub fn log(
-    current_call_frame: &CallFrame,
+    new_memory_size: usize,
+    current_memory_size: usize,
     size: usize,
-    offset: usize,
     number_of_topics: u8,
-) -> Result<U256, OutOfGasError> {
-    let memory_expansion_cost = current_call_frame.memory.expansion_cost(offset, size)?;
+) -> Result<U256, VMError> {
+    let memory_expansion_cost = memory::expansion_cost(new_memory_size, current_memory_size)?;
 
     let topics_cost = LOGN_DYNAMIC_BASE
         .checked_mul(number_of_topics.into())
@@ -266,39 +271,36 @@ pub fn log(
     let bytes_cost = LOGN_DYNAMIC_BYTE_BASE
         .checked_mul(size.into())
         .ok_or(OutOfGasError::GasCostOverflow)?;
-    topics_cost
+    Ok(topics_cost
         .checked_add(LOGN_STATIC)
         .ok_or(OutOfGasError::GasCostOverflow)?
         .checked_add(bytes_cost)
         .ok_or(OutOfGasError::GasCostOverflow)?
-        .checked_add(memory_expansion_cost)
-        .ok_or(OutOfGasError::GasCostOverflow)
+        .checked_add(memory_expansion_cost.into())
+        .ok_or(OutOfGasError::GasCostOverflow)?)
 }
 
-pub fn mload(current_call_frame: &CallFrame, offset: usize) -> Result<U256, OutOfGasError> {
-    mem_expansion_behavior(current_call_frame, offset, WORD_SIZE, MLOAD_STATIC)
+pub fn mload(new_memory_size: usize, current_memory_size: usize) -> Result<U256, VMError> {
+    mem_expansion_behavior(new_memory_size, current_memory_size, MLOAD_STATIC)
 }
 
-pub fn mstore(current_call_frame: &CallFrame, offset: usize) -> Result<U256, OutOfGasError> {
-    mem_expansion_behavior(current_call_frame, offset, WORD_SIZE, MSTORE_STATIC)
+pub fn mstore(new_memory_size: usize, current_memory_size: usize) -> Result<U256, VMError> {
+    mem_expansion_behavior(new_memory_size, current_memory_size, MSTORE_STATIC)
 }
 
-pub fn mstore8(current_call_frame: &CallFrame, offset: usize) -> Result<U256, OutOfGasError> {
-    mem_expansion_behavior(current_call_frame, offset, 1, MSTORE8_STATIC)
+pub fn mstore8(new_memory_size: usize, current_memory_size: usize) -> Result<U256, VMError> {
+    mem_expansion_behavior(new_memory_size, current_memory_size, MSTORE8_STATIC)
 }
 
 fn mem_expansion_behavior(
-    current_call_frame: &CallFrame,
-    offset: usize,
-    offset_add: usize,
+    new_memory_size: usize,
+    current_memory_size: usize,
     static_cost: U256,
-) -> Result<U256, OutOfGasError> {
-    let memory_expansion_cost = current_call_frame
-        .memory
-        .expansion_cost(offset, offset_add)?;
-    static_cost
-        .checked_add(memory_expansion_cost)
-        .ok_or(OutOfGasError::GasCostOverflow)
+) -> Result<U256, VMError> {
+    let memory_expansion_cost = memory::expansion_cost(new_memory_size, current_memory_size)?;
+    Ok(static_cost
+        .checked_add(memory_expansion_cost.into())
+        .ok_or(OutOfGasError::GasCostOverflow)?)
 }
 
 pub fn sload(storage_slot_was_cold: bool) -> Result<U256, VMError> {
@@ -319,7 +321,17 @@ pub fn sstore(
     storage_slot: &StorageSlot,
     new_value: U256,
     storage_slot_was_cold: bool,
+    current_call_frame: &CallFrame,
 ) -> Result<U256, VMError> {
+    // EIP-2200
+    let gas_left = current_call_frame
+        .gas_limit
+        .checked_sub(current_call_frame.gas_used)
+        .ok_or(OutOfGasError::ConsumedGasOverflow)?;
+    if gas_left <= SSTORE_STIPEND {
+        return Err(VMError::OutOfGas(OutOfGasError::MaxGasLimitExceeded));
+    }
+
     let static_gas = SSTORE_STATIC;
 
     let mut base_dynamic_gas = if new_value == storage_slot.current_value {
@@ -346,74 +358,61 @@ pub fn sstore(
 }
 
 pub fn mcopy(
-    current_call_frame: &CallFrame,
+    new_memory_size: usize,
+    current_memory_size: usize,
     size: usize,
-    src_offset: usize,
-    dest_offset: usize,
-) -> Result<U256, OutOfGasError> {
+) -> Result<U256, VMError> {
     let words_copied = (size
         .checked_add(WORD_SIZE)
         .ok_or(OutOfGasError::GasCostOverflow)?
         .saturating_sub(1))
         / WORD_SIZE;
 
-    let src_sum = src_offset
-        .checked_add(size)
-        .ok_or(OutOfGasError::GasCostOverflow)?;
-    let dest_sum = dest_offset
-        .checked_add(size)
-        .ok_or(OutOfGasError::GasCostOverflow)?;
-
-    let memory_expansion_cost = if src_sum > dest_sum {
-        current_call_frame.memory.expansion_cost(src_offset, size)?
-    } else {
-        current_call_frame
-            .memory
-            .expansion_cost(dest_offset, size)?
-    };
+    let memory_expansion_cost = memory::expansion_cost(new_memory_size, current_memory_size)?;
 
     let copied_words_cost = MCOPY_DYNAMIC_BASE
         .checked_mul(words_copied.into())
         .ok_or(OutOfGasError::GasCostOverflow)?;
-    MCOPY_STATIC
+
+    Ok(MCOPY_STATIC
         .checked_add(copied_words_cost)
         .ok_or(OutOfGasError::GasCostOverflow)?
-        .checked_add(memory_expansion_cost)
-        .ok_or(OutOfGasError::GasCostOverflow)
+        .checked_add(memory_expansion_cost.into())
+        .ok_or(OutOfGasError::GasCostOverflow)?)
 }
 
 pub fn create(
-    current_call_frame: &mut CallFrame,
-    code_offset_in_memory: usize,
+    new_memory_size: usize,
+    current_memory_size: usize,
     code_size_in_memory: usize,
-) -> Result<U256, OutOfGasError> {
+) -> Result<U256, VMError> {
     compute_gas_create(
-        current_call_frame,
-        code_offset_in_memory,
+        new_memory_size,
+        current_memory_size,
         code_size_in_memory,
         false,
     )
 }
 
 pub fn create_2(
-    current_call_frame: &mut CallFrame,
-    code_offset_in_memory: usize,
+    new_memory_size: usize,
+    current_memory_size: usize,
     code_size_in_memory: usize,
-) -> Result<U256, OutOfGasError> {
+) -> Result<U256, VMError> {
     compute_gas_create(
-        current_call_frame,
-        code_offset_in_memory,
+        new_memory_size,
+        current_memory_size,
         code_size_in_memory,
         true,
     )
 }
 
 fn compute_gas_create(
-    current_call_frame: &mut CallFrame,
-    code_offset_in_memory: usize,
+    new_memory_size: usize,
+    current_memory_size: usize,
     code_size_in_memory: usize,
     is_create_2: bool,
-) -> Result<U256, OutOfGasError> {
+) -> Result<U256, VMError> {
     let minimum_word_size = (code_size_in_memory
         .checked_add(31)
         .ok_or(OutOfGasError::GasCostOverflow)?)
@@ -428,9 +427,7 @@ fn compute_gas_create(
         .checked_mul(CODE_DEPOSIT_COST.as_usize()) // will not panic since it's 200
         .ok_or(OutOfGasError::GasCostOverflow)?;
 
-    let memory_expansion_cost = current_call_frame
-        .memory
-        .expansion_cost(code_offset_in_memory, code_size_in_memory)?;
+    let memory_expansion_cost = memory::expansion_cost(new_memory_size, current_memory_size)?;
 
     let hash_cost = if is_create_2 {
         minimum_word_size
@@ -440,7 +437,7 @@ fn compute_gas_create(
         0
     };
 
-    memory_expansion_cost
+    Ok(U256::from(memory_expansion_cost)
         .checked_add(init_code_cost.into())
         .ok_or(OutOfGasError::CreationCostIsTooHigh)?
         .checked_add(code_deposit_cost.into())
@@ -448,7 +445,7 @@ fn compute_gas_create(
         .checked_add(CREATE_BASE_COST)
         .ok_or(OutOfGasError::CreationCostIsTooHigh)?
         .checked_add(hash_cost.into())
-        .ok_or(OutOfGasError::CreationCostIsTooHigh)
+        .ok_or(OutOfGasError::CreationCostIsTooHigh)?)
 }
 
 pub fn selfdestruct(address_was_cold: bool, account_is_empty: bool) -> Result<U256, OutOfGasError> {
@@ -522,37 +519,6 @@ fn address_access_cost(
         .ok_or(OutOfGasError::GasCostOverflow)?)
 }
 
-fn memory_access_cost(
-    new_memory_size: U256,
-    current_memory_size: U256,
-    static_cost: U256,
-    dynamic_base_cost: U256,
-) -> Result<U256, VMError> {
-    let minimum_word_size = new_memory_size
-        .checked_add(
-            WORD_SIZE_IN_BYTES
-                .checked_sub(U256::one())
-                .ok_or(InternalError::ArithmeticOperationUnderflow)?,
-        )
-        .ok_or(OutOfGasError::MemoryExpansionCostOverflow)?
-        .checked_div(WORD_SIZE_IN_BYTES)
-        .ok_or(OutOfGasError::MemoryExpansionCostOverflow)?;
-
-    let static_gas = static_cost;
-    let dynamic_cost = dynamic_base_cost
-        .checked_mul(minimum_word_size)
-        .ok_or(OutOfGasError::MemoryExpansionCostOverflow)?
-        .checked_add(memory::expansion_cost(
-            new_memory_size,
-            current_memory_size,
-        )?)
-        .ok_or(OutOfGasError::MemoryExpansionCostOverflow)?;
-
-    Ok(static_gas
-        .checked_add(dynamic_cost)
-        .ok_or(OutOfGasError::GasCostOverflow)?)
-}
-
 pub fn balance(address_was_cold: bool) -> Result<U256, VMError> {
     address_access_cost(
         address_was_cold,
@@ -572,11 +538,11 @@ pub fn extcodesize(address_was_cold: bool) -> Result<U256, VMError> {
 }
 
 pub fn extcodecopy(
-    new_memory_size: U256,
-    current_memory_size: U256,
+    new_memory_size: usize,
+    current_memory_size: usize,
     address_was_cold: bool,
 ) -> Result<U256, VMError> {
-    Ok(memory_access_cost(
+    Ok(memory::access_cost(
         new_memory_size,
         current_memory_size,
         EXTCODECOPY_STATIC,
@@ -601,8 +567,8 @@ pub fn extcodehash(address_was_cold: bool) -> Result<U256, VMError> {
 }
 
 pub fn call(
-    new_memory_size: U256,
-    current_memory_size: U256,
+    new_memory_size: usize,
+    current_memory_size: usize,
     address_was_cold: bool,
     address_is_empty: bool,
     value_to_transfer: U256,
@@ -630,7 +596,7 @@ pub fn call(
     };
 
     // Note: code_execution_cost will be charged from the sub context post-state.
-    let dynamic_gas = memory_expansion_cost
+    let dynamic_gas = U256::from(memory_expansion_cost)
         .checked_add(address_access_cost)
         .ok_or(OutOfGasError::GasCostOverflow)?
         .checked_add(positive_value_cost)
@@ -644,8 +610,8 @@ pub fn call(
 }
 
 pub fn callcode(
-    new_memory_size: U256,
-    current_memory_size: U256,
+    new_memory_size: usize,
+    current_memory_size: usize,
     address_was_cold: bool,
     value_to_transfer: U256,
 ) -> Result<U256, VMError> {
@@ -667,7 +633,7 @@ pub fn callcode(
     };
 
     // Note: code_execution_cost will be charged from the sub context post-state.
-    let dynamic_gas = memory_expansion_cost
+    let dynamic_gas = U256::from(memory_expansion_cost)
         .checked_add(address_access_cost)
         .ok_or(OutOfGasError::GasCostOverflow)?
         .checked_add(positive_value_cost)
@@ -679,8 +645,8 @@ pub fn callcode(
 }
 
 pub fn delegatecall(
-    new_memory_size: U256,
-    current_memory_size: U256,
+    new_memory_size: usize,
+    current_memory_size: usize,
     address_was_cold: bool,
 ) -> Result<U256, VMError> {
     let static_gas = DELEGATECALL_STATIC;
@@ -694,7 +660,7 @@ pub fn delegatecall(
     )?;
 
     // Note: code_execution_cost will be charged from the sub context post-state.
-    let dynamic_gas = memory_expansion_cost
+    let dynamic_gas = U256::from(memory_expansion_cost)
         .checked_add(address_access_cost)
         .ok_or(OutOfGasError::GasCostOverflow)?;
 
@@ -704,8 +670,8 @@ pub fn delegatecall(
 }
 
 pub fn staticcall(
-    new_memory_size: U256,
-    current_memory_size: U256,
+    new_memory_size: usize,
+    current_memory_size: usize,
     address_was_cold: bool,
 ) -> Result<U256, VMError> {
     let static_gas = STATICCALL_STATIC;
@@ -719,7 +685,7 @@ pub fn staticcall(
     )?;
 
     // Note: code_execution_cost will be charged from the sub context post-state.
-    let dynamic_gas = memory_expansion_cost
+    let dynamic_gas = U256::from(memory_expansion_cost)
         .checked_add(address_access_cost)
         .ok_or(OutOfGasError::GasCostOverflow)?;
 

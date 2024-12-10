@@ -12,6 +12,7 @@ use crate::{
         TxValidationError, VMError,
     },
     gas_cost::{self, fake_exponential, BLOB_GAS_PER_BLOB, CREATE_BASE_COST},
+    memory,
     opcodes::Opcode,
     AccountInfo,
 };
@@ -138,15 +139,13 @@ impl VM {
                 let created_contract = Account::new(value, calldata.clone(), 1, HashMap::new());
                 cache::insert_account(&mut cache, new_contract_address, created_contract);
 
-                let bytecode: Bytes = calldata.clone();
-
                 let initial_call_frame = CallFrame::new(
                     env.origin,
                     new_contract_address,
                     new_contract_address,
-                    bytecode,
+                    Bytes::new(), // Bytecode is assigned after passing validations.
                     value,
-                    Bytes::new(), // Contract creation does not have calldata
+                    calldata, // Calldata is removed after passing validations.
                     false,
                     env.gas_limit,
                     U256::zero(),
@@ -181,7 +180,6 @@ impl VM {
 
         loop {
             let opcode = current_call_frame.next_opcode();
-            current_call_frame.increment_pc()?;
 
             let op_result: Result<OpcodeSuccess, VMError> = match opcode {
                 Opcode::STOP => Ok(OpcodeSuccess::Result(ResultReason::Stop)),
@@ -225,7 +223,8 @@ impl VM {
                 Opcode::PUSH0 => self.op_push0(current_call_frame),
                 // PUSHn
                 op if (Opcode::PUSH1..=Opcode::PUSH32).contains(&op) => {
-                    self.op_push(current_call_frame, op)
+                    let n_bytes = get_n_value(op, Opcode::PUSH1)?;
+                    self.op_push(current_call_frame, n_bytes)
                 }
                 Opcode::AND => self.op_and(current_call_frame),
                 Opcode::OR => self.op_or(current_call_frame),
@@ -237,15 +236,18 @@ impl VM {
                 Opcode::SAR => self.op_sar(current_call_frame),
                 // DUPn
                 op if (Opcode::DUP1..=Opcode::DUP16).contains(&op) => {
-                    self.op_dup(current_call_frame, op)
+                    let depth = get_n_value(op, Opcode::DUP1)?;
+                    self.op_dup(current_call_frame, depth)
                 }
                 // SWAPn
                 op if (Opcode::SWAP1..=Opcode::SWAP16).contains(&op) => {
-                    self.op_swap(current_call_frame, op)
+                    let depth = get_n_value(op, Opcode::SWAP1)?;
+                    self.op_swap(current_call_frame, depth)
                 }
                 Opcode::POP => self.op_pop(current_call_frame),
                 op if (Opcode::LOG0..=Opcode::LOG4).contains(&op) => {
-                    self.op_log(current_call_frame, op)
+                    let number_of_topics = get_number_of_topics(op)?;
+                    self.op_log(current_call_frame, number_of_topics)
                 }
                 Opcode::MLOAD => self.op_mload(current_call_frame),
                 Opcode::MSTORE => self.op_mstore(current_call_frame),
@@ -282,6 +284,10 @@ impl VM {
 
                 _ => Err(VMError::OpcodeNotFound),
             };
+
+            if opcode != Opcode::JUMP && opcode != Opcode::JUMPI {
+                current_call_frame.increment_pc()?;
+            }
 
             // Gas refunds are applied at the end of a transaction. Should it be implemented here?
 
@@ -373,12 +379,7 @@ impl VM {
                 .checked_add(CREATE_BASE_COST)
                 .ok_or(OutOfGasError::ConsumedGasOverflow)?;
 
-            let number_of_words: u64 = initial_call_frame
-                .calldata
-                .chunks(WORD_SIZE)
-                .len()
-                .try_into()
-                .map_err(|_| InternalError::ConversionError)?;
+            let number_of_words = initial_call_frame.calldata.len().div_ceil(WORD_SIZE);
 
             intrinsic_gas = intrinsic_gas
                 .checked_add(
@@ -415,7 +416,7 @@ impl VM {
             .tx_max_fee_per_blob_gas
             .unwrap_or_default()
             .checked_mul(blob_gas_used)
-            .ok_or(TxValidationError::UndefinedState(1))?;
+            .ok_or(InternalError::UndefinedState(1))?;
 
         Ok(blob_gas_cost)
     }
@@ -430,12 +431,13 @@ impl VM {
 
     /// ## Description
     /// This method performs validations and returns an error if any of the validations fail.
-    /// It also makes initial changes alongside the validations:
+    /// It also makes pre-execution changes:
     /// - It increases sender nonce
-    /// - It substracts up-front-cost from sender balance. (Not doing this for now)
+    /// - It substracts up-front-cost from sender balance.
+    /// - It adds value to receiver balance.
     /// - It calculates and adds intrinsic gas to the 'gas used' of callframe and environment.
     ///   See 'docs' for more information about validations.
-    fn validate_transaction(&mut self, initial_call_frame: &mut CallFrame) -> Result<(), VMError> {
+    fn prepare_execution(&mut self, initial_call_frame: &mut CallFrame) -> Result<(), VMError> {
         //TODO: This should revert the transaction, not throw an error. And I don't know if it should be done here...
         // if self.is_create() {
         //     // If address is already in db, there's an error
@@ -464,19 +466,21 @@ impl VM {
 
         let up_front_cost = gaslimit_price_product
             .checked_add(value)
-            .ok_or(TxValidationError::UndefinedState(1))?
+            .ok_or(InternalError::UndefinedState(1))?
             .checked_add(blob_gas_cost)
-            .ok_or(TxValidationError::UndefinedState(1))?;
+            .ok_or(InternalError::UndefinedState(1))?;
         // There is no error specified for overflow in up_front_cost in ef_tests. Maybe we can go with GasLimitPriceProductOverflow or InsufficientAccountFunds.
 
         // (2) INSUFFICIENT_ACCOUNT_FUNDS
-        // NOT CHANGING SENDER BALANCE HERE FOR NOW
-        // This will be increment_account_balance
-        sender_account
-            .info
-            .balance
-            .checked_sub(up_front_cost)
-            .ok_or(TxValidationError::InsufficientAccountFunds)?;
+        self.decrease_account_balance(sender_address, up_front_cost)
+            .map_err(|_| TxValidationError::InsufficientAccountFunds)?;
+
+        // Transfer value to receiver
+        let receiver_address = initial_call_frame.to;
+        // msg_value is already transferred into the created contract at creation.
+        if !self.is_create() {
+            self.increase_account_balance(receiver_address, initial_call_frame.msg_value)?;
+        }
 
         // (3) INSUFFICIENT_MAX_FEE_PER_GAS
         if self.max_fee_per_gas_or_gasprice() < self.env.base_fee_per_gas {
@@ -488,7 +492,7 @@ impl VM {
         // (4) INITCODE_SIZE_EXCEEDED
         if self.is_create() {
             // INITCODE_SIZE_EXCEEDED
-            if initial_call_frame.bytecode.len() > INIT_CODE_MAX_SIZE {
+            if initial_call_frame.calldata.len() > INIT_CODE_MAX_SIZE {
                 return Err(VMError::TxValidation(
                     TxValidationError::InitcodeSizeExceeded,
                 ));
@@ -499,7 +503,8 @@ impl VM {
         self.add_intrinsic_gas(initial_call_frame)?;
 
         // (6) NONCE_IS_MAX
-        self.increment_account_nonce(sender_address)?;
+        self.increment_account_nonce(sender_address)
+            .map_err(|_| VMError::TxValidation(TxValidationError::NonceIsMax))?;
 
         // (7) PRIORITY_GREATER_THAN_MAX_FEE_PER_GAS
         if let (Some(tx_max_priority_fee), Some(tx_max_fee_per_gas)) = (
@@ -572,6 +577,82 @@ impl VM {
             }
         }
 
+        if self.is_create() {
+            // Assign bytecode to context and empty calldata
+            initial_call_frame.bytecode = initial_call_frame.calldata.clone();
+            initial_call_frame.calldata = Bytes::new();
+        }
+
+        Ok(())
+    }
+
+    /// ## Changes post execution
+    /// 1. Undo value transfer if the transaction was reverted
+    /// 2. Return unused gas + gas refunds to the sender.
+    /// 3. Pay coinbase fee
+    fn post_execution_changes(
+        &mut self,
+        initial_call_frame: &CallFrame,
+        report: &TransactionReport,
+    ) -> Result<(), VMError> {
+        // POST-EXECUTION Changes
+        let sender_address = initial_call_frame.msg_sender;
+        let receiver_address = initial_call_frame.to;
+
+        // 1. Undo value transfer if the transaction was reverted
+        if let TxResult::Revert(_) = report.result {
+            // msg_value was not increased in the receiver account when is a create transaction.
+            if !self.is_create() {
+                self.decrease_account_balance(receiver_address, initial_call_frame.msg_value)?;
+            }
+            self.increase_account_balance(sender_address, initial_call_frame.msg_value)?;
+        }
+
+        // 2. Return unused gas + gas refunds to the sender.
+        let max_gas = self.env.gas_limit.low_u64();
+        let consumed_gas = report.gas_used;
+        let refunded_gas = report.gas_refunded.min(
+            consumed_gas
+                .checked_div(5)
+                .ok_or(VMError::Internal(InternalError::UndefinedState(-1)))?,
+        );
+        // "The max refundable proportion of gas was reduced from one half to one fifth by EIP-3529 by Buterin and Swende [2021] in the London release"
+
+        let gas_to_return = max_gas
+            .checked_sub(consumed_gas)
+            .and_then(|gas| gas.checked_add(refunded_gas))
+            .ok_or(VMError::Internal(InternalError::UndefinedState(0)))?;
+
+        let gas_return_amount = self
+            .env
+            .gas_price
+            .low_u64()
+            .checked_mul(gas_to_return)
+            .ok_or(VMError::Internal(InternalError::UndefinedState(1)))?;
+
+        self.increase_account_balance(sender_address, U256::from(gas_return_amount))?;
+
+        // 3. Pay coinbase fee
+        let coinbase_address = self.env.coinbase;
+
+        let gas_to_pay_coinbase = consumed_gas
+            .checked_sub(refunded_gas)
+            .ok_or(VMError::Internal(InternalError::UndefinedState(2)))?;
+
+        let priority_fee_per_gas = self
+            .env
+            .gas_price
+            .low_u64()
+            .checked_sub(self.env.base_fee_per_gas.low_u64())
+            .ok_or(VMError::GasPriceIsLowerThanBaseFee)?;
+        let coinbase_fee = gas_to_pay_coinbase
+            .checked_mul(priority_fee_per_gas)
+            .ok_or(VMError::BalanceOverflow)?;
+
+        if coinbase_fee != 0 {
+            self.increase_account_balance(coinbase_address, U256::from(coinbase_fee))?;
+        };
+
         Ok(())
     }
 
@@ -581,21 +662,9 @@ impl VM {
             .pop()
             .ok_or(VMError::Internal(InternalError::CouldNotPopCallframe))?;
 
-        let cache_before_execution = self.cache.clone();
-        self.validate_transaction(&mut initial_call_frame)?;
-
-        // Maybe can be done in validate_transaction
-        let sender = initial_call_frame.msg_sender;
-        let receiver_address = initial_call_frame.to;
-        self.decrease_account_balance(sender, initial_call_frame.msg_value)?;
-        self.increase_account_balance(receiver_address, initial_call_frame.msg_value)?;
+        self.prepare_execution(&mut initial_call_frame)?;
 
         let mut report = self.execute(&mut initial_call_frame)?;
-
-        if let TxResult::Revert(_) = report.result {
-            self.decrease_account_balance(receiver_address, initial_call_frame.msg_value)?;
-            self.increase_account_balance(sender, initial_call_frame.msg_value)?;
-        }
 
         if self.is_create() {
             match self.create_post_execution(&mut initial_call_frame, &mut report) {
@@ -605,36 +674,17 @@ impl VM {
                         return Err(error);
                     } else {
                         report.result = TxResult::Revert(error);
-                        report.gas_used = self.env.gas_limit.low_u64();
-                        self.cache = cache_before_execution;
+                        if report.result != TxResult::Revert(VMError::RevertOpcode) {
+                            report.gas_used = self.env.gas_limit.low_u64(); // Consume all gas unless the error cause is revert opcode
+                        }
                         remove_account(&mut self.cache, &initial_call_frame.to);
                     }
                 }
             };
         }
 
-        let coinbase_address = self.env.coinbase;
-
-        self.decrease_account_balance(
-            sender,
-            U256::from(report.gas_used)
-                .checked_mul(self.env.gas_price)
-                .ok_or(VMError::GasLimitPriceProductOverflow)?,
-        )?;
-
-        // Send coinbase fee
-        let priority_fee_per_gas = self
-            .env
-            .gas_price
-            .checked_sub(self.env.base_fee_per_gas)
-            .ok_or(VMError::GasPriceIsLowerThanBaseFee)?;
-        let coinbase_fee = (U256::from(report.gas_used))
-            .checked_mul(priority_fee_per_gas)
-            .ok_or(VMError::BalanceOverflow)?;
-
-        if !coinbase_fee.is_zero() {
-            self.increase_account_balance(coinbase_address, coinbase_fee)?;
-        }
+        self.post_execution_changes(&initial_call_frame, &report)?;
+        // There shouldn't be any errors here but I don't know what the desired behavior is if something goes wrong.
 
         report.new_state.clone_from(&self.cache);
 
@@ -725,15 +775,13 @@ impl VM {
             current_call_frame
                 .stack
                 .push(U256::from(SUCCESS_FOR_CALL))?;
-            return Ok(OpcodeSuccess::Result(ResultReason::Stop));
+            return Ok(OpcodeSuccess::Continue);
         }
 
         // self.cache.increment_account_nonce(&code_address); // Internal call doesn't increment account nonce.
 
-        let calldata = current_call_frame
-            .memory
-            .load_range(args_offset, args_size)?
-            .into();
+        let calldata =
+            memory::load_range(&mut current_call_frame.memory, args_offset, args_size)?.to_vec();
 
         // I don't know if this gas limit should be calculated before or after consuming gas
         let mut potential_remaining_gas = current_call_frame
@@ -750,7 +798,7 @@ impl VM {
         let new_depth = current_call_frame
             .depth
             .checked_add(1)
-            .ok_or(VMError::StackOverflow)?; // Maybe could be depthOverflow but in concept is quite similar
+            .ok_or(InternalError::ArithmeticOperationOverflow)?;
 
         let mut new_call_frame = CallFrame::new(
             msg_sender,
@@ -758,18 +806,16 @@ impl VM {
             code_address,
             code_account_info.bytecode,
             value,
-            calldata,
+            calldata.into(),
             is_static,
             gas_limit,
             U256::zero(),
             new_depth,
         );
 
-        // TODO: Increase this to 1024
-        if new_call_frame.depth > 10 {
+        if new_call_frame.depth > 1024 {
             current_call_frame.stack.push(U256::from(REVERT_FOR_CALL))?;
-            // return Ok(OpcodeSuccess::Result(ResultReason::Revert));
-            return Err(VMError::StackOverflow); // This is wrong but it is for testing purposes.
+            return Ok(OpcodeSuccess::Continue);
         }
 
         current_call_frame.sub_return_data_offset = ret_offset;
@@ -783,9 +829,12 @@ impl VM {
             .checked_add(tx_report.gas_used.into())
             .ok_or(VMError::OutOfGas(OutOfGasError::ConsumedGasOverflow))?;
         current_call_frame.logs.extend(tx_report.logs);
-        current_call_frame
-            .memory
-            .store_n_bytes(ret_offset, &tx_report.output, ret_size)?;
+        memory::try_store_range(
+            &mut current_call_frame.memory,
+            ret_offset,
+            ret_size,
+            &tx_report.output,
+        )?;
         current_call_frame.sub_return_data = tx_report.output;
 
         // What to do, depending on TxResult
@@ -900,9 +949,12 @@ impl VM {
         };
 
         let code = Bytes::from(
-            current_call_frame
-                .memory
-                .load_range(code_offset_in_memory, code_size_in_memory)?,
+            memory::load_range(
+                &mut current_call_frame.memory,
+                code_offset_in_memory,
+                code_size_in_memory,
+            )?
+            .to_vec(),
         );
 
         let new_address = match salt {
@@ -1066,7 +1118,7 @@ impl VM {
             .info
             .nonce
             .checked_add(1)
-            .ok_or(VMError::TxValidation(TxValidationError::NonceIsMax))?;
+            .ok_or(VMError::NonceOverflow)?;
         Ok(account.info.nonce)
     }
 
@@ -1137,4 +1189,22 @@ impl VM {
             }
         }
     }
+}
+
+fn get_n_value(op: Opcode, base_opcode: Opcode) -> Result<usize, VMError> {
+    let offset = (usize::from(op))
+        .checked_sub(usize::from(base_opcode))
+        .ok_or(VMError::InvalidOpcode)?
+        .checked_add(1)
+        .ok_or(VMError::InvalidOpcode)?;
+
+    Ok(offset)
+}
+
+fn get_number_of_topics(op: Opcode) -> Result<u8, VMError> {
+    let number_of_topics = (u8::from(op))
+        .checked_sub(u8::from(Opcode::LOG0))
+        .ok_or(VMError::InvalidOpcode)?;
+
+    Ok(number_of_topics)
 }
