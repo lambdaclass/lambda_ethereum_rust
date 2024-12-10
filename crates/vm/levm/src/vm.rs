@@ -617,7 +617,6 @@ impl VM {
                 .ok_or(VMError::Internal(InternalError::UndefinedState(-1)))?,
         );
         // "The max refundable proportion of gas was reduced from one half to one fifth by EIP-3529 by Buterin and Swende [2021] in the London release"
-        // We update the report to the actual gas refunded so that the diff in the test reports is correct
         report.gas_refunded = refunded_gas;
 
         let gas_to_return = max_gas
