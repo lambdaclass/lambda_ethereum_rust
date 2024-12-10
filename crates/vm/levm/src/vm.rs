@@ -1120,9 +1120,8 @@ impl VM {
             }
         };
 
-        // Note: this is done because in update_account_storage the slot is searched in account storage, so
-        // if we do not add it here the slot is not found, so the original_value is set with 0. This is not entirely
-        // correct because caching a slot does not imply caching an account, but it is a patch (a TODO)
+        // When updating account storage of an account that's not yet cached we need to store the StorageSlot in the account
+        // Note: We end up caching the account because it is the most straightforward way of doing it.
         let account = self.get_account_mut(address)?;
         account.storage.insert(key, storage_slot.clone());
 
