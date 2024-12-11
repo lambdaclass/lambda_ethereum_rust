@@ -378,10 +378,30 @@ impl ProverServer {
             last_verified_block
         };
 
+        let block_to_verify = last_verified_block + 1;
+
+        let mut tx_submitted = false;
+
+        if let Some(inner_hmap) = self.proving_output_per_block.get(&block_to_verify) {
+            // If we have all the proofs send a transaction to verify them on chain
+            if inner_hmap.contains_key(&ProverType::RISC0)
+                && inner_hmap.contains_key(&ProverType::SP1)
+            {
+                self.handle_proof_submission(block_to_verify).await?;
+                // Remove the Proofs for the block_number
+                self.proving_output_per_block.remove(&block_to_verify);
+                tx_submitted = true;
+                info!("HMAP {:?}", self.proving_output_per_block);
+            }
+        }
+
         let data: Result<ProofData, _> = serde_json::de::from_reader(buf_reader);
         match data {
             Ok(ProofData::Request) => {
-                if let Err(e) = self.handle_request(&stream, last_verified_block + 1).await {
+                if let Err(e) = self
+                    .handle_request(&stream, block_to_verify, tx_submitted)
+                    .await
+                {
                     warn!("Failed to handle request: {e}");
                 }
             }
@@ -391,13 +411,22 @@ impl ProverServer {
             }) => {
                 self.handle_submit(&mut stream, block_number)?;
 
+                // Avoid storing a proof of a future block_number
+                // CHECK: maybe we would like to store all the proofs given the case in which
+                // the provers generate them fast enough. In this way, we will avoid unneeded reexecution.
+                if block_number != (block_to_verify) {
+                    return Err(ProverServerError::Custom(format!("Prover Client submitted an invalid block_number: {block_number}. The last_proved_block is: {last_verified_block}")));
+                }
+
+                // The proof is stored,
+                // then if we have all the proofs, we send it in the loop's next iteration.
                 // Check if we have an entry for the block_number
                 let inner_hmap = self
                     .proving_output_per_block
                     .entry(block_number)
                     .or_default();
 
-                // Get the ProverType implicitly set by the ProvingOutput
+                // Get the ProverType, implicitly set by the ProvingOutput
                 let proving_type = match proving_output {
                     ProvingOutput::RISC0(_) => ProverType::RISC0,
                     ProvingOutput::SP1(_) => ProverType::SP1,
@@ -406,23 +435,6 @@ impl ProverServer {
                 // Check if we have the proof for that ProverType
                 // If we don't have it, insert it.
                 inner_hmap.entry(proving_type).or_insert(proving_output);
-
-                if block_number != (last_verified_block + 1) {
-                    return Err(ProverServerError::Custom(format!("Prover Client submitted an invalid block_number: {block_number}. The last_proved_block is: {}", last_verified_block)));
-                }
-
-                let inner_hmap = self
-                    .proving_output_per_block
-                    .get(&block_number)
-                    .ok_or(ProverServerError::Custom("Custom".to_owned()))?;
-                // Wait for all the ProverTypes
-                if inner_hmap.contains_key(&ProverType::RISC0)
-                    && inner_hmap.contains_key(&ProverType::SP1)
-                {
-                    self.handle_proof_submission(block_number).await?;
-                    // Remove the Proofs for the block_number
-                    self.proving_output_per_block.remove(&block_number);
-                }
             }
             Err(e) => {
                 warn!("Failed to parse request: {e}");
@@ -440,6 +452,7 @@ impl ProverServer {
         &self,
         stream: &TcpStream,
         block_number: u64,
+        tx_submitted: bool,
     ) -> Result<(), ProverServerError> {
         debug!("Request received");
 
@@ -450,7 +463,11 @@ impl ProverServer {
 
         let response = if block_number > latest_block_number {
             let response = ProofData::response(None, None);
-            warn!("Didn't send response");
+            debug!("Didn't send response");
+            response
+        } else if tx_submitted {
+            let response = ProofData::response(None, None);
+            debug!("Block: {block_number} has been submitted.");
             response
         } else {
             let input = self.create_prover_input(block_number)?;
