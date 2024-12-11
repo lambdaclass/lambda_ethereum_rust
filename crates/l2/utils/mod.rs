@@ -8,7 +8,7 @@ pub mod config;
 pub mod error;
 pub mod eth_client;
 pub mod merkle_tree;
-pub mod save_prover_state;
+pub mod prover;
 pub mod test_data_io;
 
 pub fn secret_key_deserializer<'de, D>(deserializer: D) -> Result<SecretKey, D::Error>

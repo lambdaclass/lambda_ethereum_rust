@@ -9,9 +9,11 @@ use std::{
     io::{BufWriter, Write},
 };
 
+use super::proving_systems::ProvingOutput;
+
 #[derive(Serialize, Deserialize, Debug)]
 pub enum StateType {
-    Proof(Box<(risc0_zkvm::Receipt, Vec<u32>)>),
+    Proof(ProvingOutput),
     AccountUpdates(Vec<AccountUpdate>),
 }
 
@@ -177,8 +179,8 @@ pub fn read_state_file_for_block_number(
 
     let state = match state_file_type {
         StateFileType::Proof => {
-            let state: (risc0_zkvm::Receipt, Vec<u32>) = serde_json::from_str(&buf)?;
-            StateType::Proof(Box::new(state))
+            let state: ProvingOutput = serde_json::from_str(&buf)?;
+            StateType::Proof(state)
         }
         StateFileType::AccountUpdates => {
             let state: Vec<AccountUpdate> = serde_json::from_str(&buf)?;
@@ -297,6 +299,7 @@ pub fn block_number_has_state_file(
 }
 
 #[cfg(test)]
+#[allow(clippy::expect_used)]
 mod tests {
     use ethrex_blockchain::add_block;
     use ethrex_storage::{EngineType, Store};
@@ -304,7 +307,7 @@ mod tests {
     use risc0_zkvm::sha::Digest;
 
     use super::*;
-    use crate::utils::test_data_io;
+    use crate::utils::{prover::proving_systems::Risc0Proof, test_data_io};
     use std::fs::{self};
 
     #[test]
@@ -360,9 +363,13 @@ mod tests {
                 StateFileType::AccountUpdates,
             )?;
 
+            let risc0_proof = ProvingOutput::RISC0(Risc0Proof {
+                receipt: Box::new(receipt.clone()),
+                prover_id: vec![5u32; 8],
+            });
             write_state_in_block_state_path(
                 block.header.number,
-                StateType::Proof(Box::new((receipt.clone(), vec![5u32; 8]))),
+                StateType::Proof(risc0_proof),
                 StateFileType::Proof,
             )?;
         }
@@ -436,11 +443,10 @@ mod tests {
                 StateType::AccountUpdates(_) => unimplemented!(),
             };
 
-        assert_eq!(
-            read_proof_updates_blk2.0.journal.bytes,
-            receipt.journal.bytes
-        );
-        assert_eq!(read_proof_updates_blk2.1, vec![5u32; 8]);
+        if let ProvingOutput::RISC0(risc0_proof) = read_proof_updates_blk2 {
+            assert_eq!(risc0_proof.receipt.journal.bytes, receipt.journal.bytes);
+            assert_eq!(risc0_proof.prover_id, vec![5u32; 8]);
+        }
 
         fs::remove_dir_all(default_datadir()?)?;
 
