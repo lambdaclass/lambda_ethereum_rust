@@ -296,7 +296,7 @@ pub fn ensure_post_state(
                             }
                         };
                         return Err(EFTestRunnerError::ExpectedExceptionDoesNotMatchReceived(
-                            format!("Post-state condition failed: {error_reason}").into(),
+                            format!("Post-state condition failed: {error_reason}"),
                         ));
                     }
                 }
