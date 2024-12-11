@@ -391,7 +391,6 @@ impl ProverServer {
                 // Remove the Proofs for the block_number
                 self.proving_output_per_block.remove(&block_to_verify);
                 tx_submitted = true;
-                info!("HMAP {:?}", self.proving_output_per_block);
             }
         }
 
