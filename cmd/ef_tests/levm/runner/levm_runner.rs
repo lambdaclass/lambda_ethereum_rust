@@ -180,7 +180,6 @@ fn exception_is_expected(
     returned_error: VMError,
 ) -> bool {
     expected_exceptions.iter().any(|exception| {
-        println!("Comparo la excepcion esperada {exception:?} con el retornado {returned_error:?}");
         matches!(
             (exception, &returned_error),
             (
