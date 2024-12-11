@@ -1,14 +1,14 @@
 use bytes::Bytes;
 use ethereum_types::{Address, Bloom, BloomInput, H256};
 use ethrex_rlp::{
-    decode::RLPDecode,
+    decode::{get_rlp_bytes_item_payload, is_encoded_as_bytes, RLPDecode},
     encode::RLPEncode,
     error::RLPDecodeError,
     structs::{Decoder, Encoder},
 };
 use serde::{Deserialize, Serialize};
 
-use super::TxType;
+use crate::types::TxType;
 pub type Index = u64;
 
 /// Result of a transaction
@@ -31,6 +31,36 @@ impl Receipt {
             logs,
         }
     }
+    // By reading the typed transactions EIP, and some geth code:
+    // - https://eips.ethereum.org/EIPS/eip-2718
+    // - https://github.com/ethereum/go-ethereum/blob/330190e476e2a2de4aac712551629a4134f802d5/core/types/receipt.go#L143
+    // We've noticed the are some subtleties around encoding receipts and transactions.
+    // First, `inner_encode_receipt` will encode a receipt according
+    // to the RLP of its fields, if typed, the RLP of the fields
+    // is padded with the byte representing this type.
+    // For P2P messages, receipts are re-encoded as bytes
+    // (see the `encode` implementation for receipt).
+    // For debug and computing receipt roots, the expected
+    // RLP encodings are the ones returned by `inner_encode_receipt`.
+    // On some documentations, this is also called the `consensus-encoding`
+    // for a receipt.
+    pub fn inner_encode_receipt(&self) -> Vec<u8> {
+        let mut encode_buff = match self.tx_type {
+            TxType::Legacy => {
+                vec![]
+            }
+            _ => {
+                vec![self.tx_type as u8]
+            }
+        };
+        Encoder::new(&mut encode_buff)
+            .encode_field(&self.succeeded)
+            .encode_field(&self.cumulative_gas_used)
+            .encode_field(&self.bloom)
+            .encode_field(&self.logs)
+            .finish();
+        encode_buff
+    }
 }
 
 fn bloom_from_logs(logs: &[Log]) -> Bloom {
@@ -45,55 +75,77 @@ fn bloom_from_logs(logs: &[Log]) -> Bloom {
 }
 
 impl RLPEncode for Receipt {
+    /// Receipts can be encoded in the following formats:
+    /// A) Legacy receipts: rlp(LegacyTransaction)
+    /// B) Non legacy receipts: rlp(Bytes(tx_type | rlp(receipt))).
     fn encode(&self, buf: &mut dyn bytes::BufMut) {
-        // tx_type || RLP(receipt)  if tx_type != 0
-        //            RLP(receipt)  else
         match self.tx_type {
-            TxType::Legacy => {}
-            _ => buf.put_u8(self.tx_type as u8),
-        }
-        Encoder::new(buf)
-            .encode_field(&self.succeeded)
-            .encode_field(&self.cumulative_gas_used)
-            .encode_field(&self.bloom)
-            .encode_field(&self.logs)
-            .finish();
+            TxType::Legacy => {
+                let legacy_encoded = self.inner_encode_receipt();
+                buf.put_slice(&legacy_encoded);
+            }
+            _ => {
+                let typed_recepipt_encoded = self.inner_encode_receipt();
+                let bytes = Bytes::from(typed_recepipt_encoded);
+                bytes.encode(buf);
+            }
+        };
     }
 }
 
 impl RLPDecode for Receipt {
+    /// Receipts can be encoded in the following formats:
+    /// A) Legacy receipts: rlp(LegacyTransaction)
+    /// B) Non legacy receipts: rlp(Bytes(tx_type | rlp(receipt))).
     fn decode_unfinished(rlp: &[u8]) -> Result<(Self, &[u8]), RLPDecodeError> {
-        // Decode tx type
-        let (tx_type, rlp) = match rlp.first() {
-            Some(tx_type) if *tx_type < 0x7f => match tx_type {
-                0x0 => (TxType::Legacy, &rlp[1..]),
-                0x1 => (TxType::EIP2930, &rlp[1..]),
-                0x2 => (TxType::EIP1559, &rlp[1..]),
-                0x3 => (TxType::EIP4844, &rlp[1..]),
-                0x7e => (TxType::Privileged, &rlp[1..]),
+        if is_encoded_as_bytes(rlp)? {
+            let payload = get_rlp_bytes_item_payload(rlp)?;
+            let tx_type = payload.first().ok_or(RLPDecodeError::InvalidLength)?;
+            let receipt_encoding = &payload[1..];
+            let tx_type = match tx_type {
+                0x0 => TxType::Legacy,
+                0x1 => TxType::EIP2930,
+                0x2 => TxType::EIP1559,
+                0x3 => TxType::EIP4844,
+                0x7e => TxType::Privileged,
                 ty => {
                     return Err(RLPDecodeError::Custom(format!(
                         "Invalid transaction type: {ty}"
                     )))
                 }
-            },
-            // Legacy Tx
-            _ => (TxType::Legacy, rlp),
-        };
-        // Decode the remaining fields
-        let decoder = Decoder::new(rlp)?;
-        let (succeeded, decoder) = decoder.decode_field("succeeded")?;
-        let (cumulative_gas_used, decoder) = decoder.decode_field("cumulative_gas_used")?;
-        let (bloom, decoder) = decoder.decode_field("bloom")?;
-        let (logs, decoder) = decoder.decode_field("logs")?;
-        let receipt = Receipt {
-            tx_type,
-            succeeded,
-            cumulative_gas_used,
-            bloom,
-            logs,
-        };
-        Ok((receipt, decoder.finish()?))
+            };
+            let decoder = Decoder::new(receipt_encoding)?;
+            let (succeeded, decoder) = decoder.decode_field("succeded")?;
+            let (cumulative_gas_used, decoder) = decoder.decode_field("cumulative gas used")?;
+            let (bloom, decoder) = decoder.decode_field("bloom")?;
+            let (logs, decoder) = decoder.decode_field("logs")?;
+            Ok((
+                Receipt {
+                    tx_type,
+                    succeeded,
+                    bloom,
+                    logs,
+                    cumulative_gas_used,
+                },
+                decoder.finish()?,
+            ))
+        } else {
+            let decoder = Decoder::new(rlp)?;
+            let (succeeded, decoder) = decoder.decode_field("succeded")?;
+            let (cumulative_gas_used, decoder) = decoder.decode_field("cumulative gas used")?;
+            let (bloom, decoder) = decoder.decode_field("bloom")?;
+            let (logs, decoder) = decoder.decode_field("logs")?;
+            Ok((
+                Receipt {
+                    tx_type: TxType::Legacy,
+                    succeeded,
+                    bloom,
+                    logs,
+                    cumulative_gas_used,
+                },
+                decoder.finish()?,
+            ))
+        }
     }
 }
 
