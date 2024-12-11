@@ -236,14 +236,14 @@ impl VM {
 
         let mut data = vec![0u8; size];
         if code_offset < current_call_frame.bytecode.len().into() {
+            let code_offset: usize = code_offset
+                .try_into()
+                .map_err(|_| VMError::VeryLargeNumber)?;
+
             for (i, byte) in current_call_frame
                 .bytecode
                 .iter()
-                .skip(
-                    code_offset
-                        .try_into()
-                        .map_err(|_| VMError::VeryLargeNumber)?,
-                )
+                .skip(code_offset)
                 .take(size)
                 .enumerate()
             {
