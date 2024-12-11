@@ -507,6 +507,7 @@ impl VM {
             None => Self::calculate_create_address(sender_address, sender_account_info.nonce)?,
         };
 
+        // Note that nonce is incremented AFTER calculating create address.
         if let Err(_) = self.increment_account_nonce(sender_address) {
             // Push 0 to stack if sender has max nonce
             current_call_frame
