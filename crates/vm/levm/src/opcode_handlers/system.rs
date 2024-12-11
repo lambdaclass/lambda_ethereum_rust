@@ -510,7 +510,7 @@ impl VM {
         };
 
         // Note that nonce is incremented AFTER calculating create address.
-        if let Err(_) = self.increment_account_nonce(sender_address) {
+        if self.increment_account_nonce(sender_address).is_err() {
             // Push 0 to stack if sender has max nonce
             current_call_frame
                 .stack
