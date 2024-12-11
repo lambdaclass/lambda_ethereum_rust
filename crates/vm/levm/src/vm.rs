@@ -11,7 +11,10 @@ use crate::{
         InternalError, OpcodeSuccess, OutOfGasError, ResultReason, TransactionReport, TxResult,
         TxValidationError, VMError,
     },
-    gas_cost::{self, fake_exponential, BLOB_GAS_PER_BLOB, CREATE_BASE_COST},
+    gas_cost::{
+        self, fake_exponential, ACCESS_LIST_ADDRESS_COST, ACCESS_LIST_STORAGE_KEY_COST,
+        BLOB_GAS_PER_BLOB, CREATE_BASE_COST,
+    },
     memory,
     opcodes::Opcode,
     AccountInfo,
@@ -36,6 +39,9 @@ pub struct Substate {
     // pub accessed_addresses: HashSet<Address>,
     // pub accessed_storage_keys: HashSet<(Address, U256)>,
     pub selfdestrutct_set: HashSet<Address>,
+    pub touched_accounts: HashSet<Address>,
+    pub touched_storage_slots: HashMap<Address, HashSet<H256>>,
+    pub created_accounts: HashSet<Address>,
 }
 
 pub struct VM {
@@ -49,9 +55,7 @@ pub struct VM {
     pub db: Arc<dyn Database>,
     pub cache: CacheDB,
     pub tx_kind: TxKind,
-
-    pub touched_accounts: HashSet<Address>,
-    pub touched_storage_slots: HashMap<Address, HashSet<H256>>,
+    pub access_list: AccessList,
 }
 
 pub fn address_to_word(address: Address) -> U256 {
@@ -70,6 +74,15 @@ pub fn word_to_address(word: U256) -> Address {
     word.to_big_endian(&mut bytes);
     Address::from_slice(&bytes[12..])
 }
+
+// Taken from cmd/ef_tests/ethrex/types.rs, didn't want to fight dependencies yet
+#[derive(Debug, PartialEq, Eq, Clone)]
+pub struct AccessListItem {
+    pub address: Address,
+    pub storage_keys: Vec<H256>,
+}
+
+type AccessList = Vec<(Address, Vec<H256>)>;
 
 pub fn get_valid_jump_destinations(code: &Bytes) -> Result<HashSet<usize>, VMError> {
     let mut valid_jump_destinations = HashSet::new();
@@ -115,12 +128,24 @@ impl VM {
         calldata: Bytes,
         db: Arc<dyn Database>,
         mut cache: CacheDB,
+        access_list: AccessList,
     ) -> Result<Self, VMError> {
         // Maybe this decision should be made in an upper layer
 
         // Add sender, coinbase and recipient (in the case of a Call) to cache [https://www.evm.codes/about#access_list]
         let mut default_touched_accounts =
             HashSet::from_iter([env.origin, env.coinbase].iter().cloned());
+
+        let mut default_touched_storage_slots: HashMap<Address, HashSet<H256>> = HashMap::new();
+
+        for (address, keys) in access_list.clone() {
+            default_touched_accounts.insert(address);
+            let mut warm_slots = HashSet::new();
+            for slot in keys {
+                warm_slots.insert(slot);
+            }
+            default_touched_storage_slots.insert(address, warm_slots);
+        }
 
         match to {
             TxKind::Call(address_to) => {
@@ -148,15 +173,21 @@ impl VM {
                     0,
                 );
 
+                let substate = Substate {
+                    selfdestrutct_set: HashSet::new(),
+                    touched_accounts: default_touched_accounts,
+                    touched_storage_slots: HashMap::new(),
+                    created_accounts: HashSet::new(),
+                };
+
                 Ok(Self {
                     call_frames: vec![initial_call_frame],
                     db,
                     env,
-                    accrued_substate: Substate::default(),
+                    accrued_substate: substate,
                     cache,
                     tx_kind: to,
-                    touched_accounts: default_touched_accounts,
-                    touched_storage_slots: HashMap::new(),
+                    access_list,
                 })
             }
             TxKind::Create => {
@@ -186,19 +217,24 @@ impl VM {
                     0,
                 );
 
+                let substate = Substate {
+                    selfdestrutct_set: HashSet::new(),
+                    touched_accounts: default_touched_accounts,
+                    touched_storage_slots: HashMap::new(),
+                    created_accounts: HashSet::new(),
+                };
+
                 Ok(Self {
                     call_frames: vec![initial_call_frame],
                     db,
                     env,
-                    accrued_substate: Substate::default(),
+                    accrued_substate: substate,
                     cache,
                     tx_kind: TxKind::Create,
-                    touched_accounts: default_touched_accounts,
-                    touched_storage_slots: HashMap::new(),
+                    access_list,
                 })
             }
         }
-        // TODO: https://github.com/lambdaclass/ethrex/issues/1088
     }
 
     pub fn execute(
@@ -425,7 +461,21 @@ impl VM {
         }
 
         // Access List Cost
-        // TODO: Implement access list cost.
+        let mut access_lists_cost = U256::zero();
+        for (_, keys) in self.access_list.clone() {
+            access_lists_cost = access_lists_cost
+                .checked_add(ACCESS_LIST_ADDRESS_COST)
+                .ok_or(OutOfGasError::ConsumedGasOverflow)?;
+            for _ in keys {
+                access_lists_cost = access_lists_cost
+                    .checked_add(ACCESS_LIST_STORAGE_KEY_COST)
+                    .ok_or(OutOfGasError::ConsumedGasOverflow)?;
+            }
+        }
+
+        intrinsic_gas = intrinsic_gas
+            .checked_add(access_lists_cost)
+            .ok_or(OutOfGasError::ConsumedGasOverflow)?;
 
         self.increase_consumed_gas(initial_call_frame, intrinsic_gas)
             .map_err(|_| TxValidationError::IntrinsicGasTooLow)?;
@@ -624,6 +674,7 @@ impl VM {
     /// 1. Undo value transfer if the transaction was reverted
     /// 2. Return unused gas + gas refunds to the sender.
     /// 3. Pay coinbase fee
+    /// 4. Destruct addresses in selfdestruct set.
     fn post_execution_changes(
         &mut self,
         initial_call_frame: &CallFrame,
@@ -687,6 +738,12 @@ impl VM {
         if coinbase_fee != 0 {
             self.increase_account_balance(coinbase_address, U256::from(coinbase_fee))?;
         };
+
+        // 4. Destruct addresses in selfdestruct set.
+        // In Cancun the only addresses destroyed are contracts created in this transaction, so we 'destroy' them by just removing them from the cache, as if they never existed.
+        for address in &self.accrued_substate.selfdestrutct_set {
+            remove_account(&mut self.cache, address);
+        }
 
         Ok(())
     }
@@ -1034,6 +1091,8 @@ impl VM {
             .pop()
             .map_err(|_| VMError::StackUnderflow)?;
 
+        self.accrued_substate.created_accounts.insert(new_address);
+
         Ok(OpcodeSuccess::Continue)
     }
 
@@ -1079,7 +1138,7 @@ impl VM {
     /// Accessed accounts take place in some gas cost computation.
     #[must_use]
     pub fn access_account(&mut self, address: Address) -> (AccountInfo, bool) {
-        let address_was_cold = self.touched_accounts.insert(address);
+        let address_was_cold = self.accrued_substate.touched_accounts.insert(address);
         let account = match cache::get_account(&self.cache, &address) {
             Some(account) => account.info.clone(),
             None => self.db.get_account_info(address),
@@ -1097,6 +1156,7 @@ impl VM {
         key: H256,
     ) -> Result<(StorageSlot, bool), VMError> {
         let storage_slot_was_cold = self
+            .accrued_substate
             .touched_storage_slots
             .entry(address)
             .or_default()
