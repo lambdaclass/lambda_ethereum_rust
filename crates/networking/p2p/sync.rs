@@ -395,34 +395,27 @@ async fn bytecode_fetcher(
     store: Store,
 ) -> Result<(), SyncError> {
     const BATCH_SIZE: usize = 200;
-    // Pending list of bytecodes to fetch
     let mut pending_bytecodes: Vec<H256> = vec![];
-    loop {
+    let mut incoming = true;
+    while incoming {
+        // Fetch incoming requests
         match receiver.recv().await {
             Some(code_hashes) if !code_hashes.is_empty() => {
-                // Add hashes to the queue
                 pending_bytecodes.extend(code_hashes);
-                // If we have enought pending bytecodes to fill a batch, spawn a fetch process
-                while pending_bytecodes.len() >= BATCH_SIZE {
-                    let next_batch = pending_bytecodes.drain(..BATCH_SIZE).collect::<Vec<_>>();
-                    let remaining =
-                        fetch_bytecode_batch(next_batch, peers.clone(), store.clone()).await?;
-                    // Add unfeched bytecodes back to the queue
-                    pending_bytecodes.extend(remaining);
-                }
             }
             // Disconnect / Empty message signaling no more bytecodes to sync
-            _ => break,
+            _ => incoming = false,
         }
-    }
-    // We have no more incoming requests, process the remaining batches
-    while !pending_bytecodes.is_empty() {
-        let next_batch = pending_bytecodes
-            .drain(..BATCH_SIZE.min(pending_bytecodes.len()))
-            .collect::<Vec<_>>();
-        let remaining = fetch_bytecode_batch(next_batch, peers.clone(), store.clone()).await?;
-        // Add unfeched bytecodes back to the queue
-        pending_bytecodes.extend(remaining);
+        // If we have enough pending bytecodes to fill a batch
+        // or if we have no more incoming batches, spawn a fetch process
+        while pending_bytecodes.len() >= BATCH_SIZE || !incoming && !pending_bytecodes.is_empty() {
+            let next_batch = pending_bytecodes
+                .drain(..BATCH_SIZE.min(pending_bytecodes.len()))
+                .collect::<Vec<_>>();
+            let remaining = fetch_bytecode_batch(next_batch, peers.clone(), store.clone()).await?;
+            // Add unfeched bytecodes back to the queue
+            pending_bytecodes.extend(remaining);
+        }
     }
     Ok(())
 }
@@ -455,38 +448,31 @@ async fn storage_fetcher(
     state_root: H256,
 ) -> Result<(), StoreError> {
     const BATCH_SIZE: usize = 100;
-    // Pending list of bytecodes to fetch
+    // Pending list of storages to fetch
     let mut pending_storage: Vec<(H256, H256)> = vec![];
     // TODO: Also add a queue for storages that were incompletely fecthed,
     // but for the first iteration we will asume not fully fetched -> fetch again
-    loop {
+    let mut incoming = true;
+    while incoming {
+        // Fetch incoming requests
         match receiver.recv().await {
-            Some(account_and_root) if !account_and_root.is_empty() => {
-                // Add hashes to the queue
-                pending_storage.extend(account_and_root);
-                // If we have enought pending storages to fill a batch, spawn a fetch process
-                while pending_storage.len() >= BATCH_SIZE {
-                    let next_batch = pending_storage.drain(..BATCH_SIZE).collect::<Vec<_>>();
-                    let remaining =
-                        fetch_storage_batch(next_batch, state_root, peers.clone(), store.clone())
-                            .await?;
-                    // Add unfeched bytecodes back to the queue
-                    pending_storage.extend(remaining);
-                }
+            Some(account_hashes_and_roots) if !account_hashes_and_roots.is_empty() => {
+                pending_storage.extend(account_hashes_and_roots);
             }
             // Disconnect / Empty message signaling no more bytecodes to sync
-            _ => break,
+            _ => incoming = false,
         }
-    }
-    // We have no more incoming requests, process the remaining batches
-    while !pending_storage.is_empty() {
-        let next_batch = pending_storage
-            .drain(..BATCH_SIZE.min(pending_storage.len()))
-            .collect::<Vec<_>>();
-        let remaining =
-            fetch_storage_batch(next_batch, state_root, peers.clone(), store.clone()).await?;
-        // Add unfeched bytecodes back to the queue
-        pending_storage.extend(remaining);
+        // If we have enough pending bytecodes to fill a batch
+        // or if we have no more incoming batches, spawn a fetch process
+        while pending_storage.len() >= BATCH_SIZE || !incoming && !pending_storage.is_empty() {
+            let next_batch = pending_storage
+                .drain(..BATCH_SIZE.min(pending_storage.len()))
+                .collect::<Vec<_>>();
+            let remaining =
+                fetch_storage_batch(next_batch, state_root, peers.clone(), store.clone()).await?;
+            // Add unfeched bytecodes back to the queue
+            pending_storage.extend(remaining);
+        }
     }
     Ok(())
 }
@@ -639,7 +625,9 @@ async fn storage_healer(
     const BATCH_SIZE: usize = 200;
     // Pending list of bytecodes to fetch
     let mut pending_storages: Vec<(H256, Nibbles)> = vec![];
-    loop {
+    let mut incoming = true;
+    while incoming {
+        // Fetch incoming requests
         match receiver.recv().await {
             Some(account_paths) if !account_paths.is_empty() => {
                 // Add the root paths of each account trie to the queue
@@ -648,41 +636,25 @@ async fn storage_healer(
                         .into_iter()
                         .map(|acc_path| (acc_path, Nibbles::default())),
                 );
-                // If we have enought pending storages to fill a batch, spawn a fetch process
-                while pending_storages.len() >= BATCH_SIZE {
-                    let mut next_batch: BTreeMap<H256, Vec<Nibbles>> = BTreeMap::new();
-                    // Group pending storages by account path
-                    // We do this here instead of keeping them sorted so we don't prioritize further nodes from the first tries
-                    for (account, path) in pending_storages.drain(..BATCH_SIZE) {
-                        next_batch.entry(account).or_default().push(path);
-                    }
-                    let return_batch =
-                        heal_storage_batch(state_root, next_batch, peers.clone(), store.clone())
-                            .await?;
-                    for (acc_path, paths) in return_batch {
-                        for path in paths {
-                            pending_storages.push((acc_path, path));
-                        }
-                    }
-                }
             }
             // Disconnect / Empty message signaling no more bytecodes to sync
-            _ => break,
+            _ => incoming = false,
         }
-    }
-    // We have no more incoming requests, process the remaining batches
-    while !pending_storages.is_empty() {
-        let mut next_batch: BTreeMap<H256, Vec<Nibbles>> = BTreeMap::new();
-        // Group pending storages by account path
-        // We do this here instead of keeping them sorted so we don't prioritize further nodes from the first tries
-        for (account, path) in pending_storages.drain(..BATCH_SIZE.min(pending_storages.len())) {
-            next_batch.entry(account).or_default().push(path);
-        }
-        let return_batch =
-            heal_storage_batch(state_root, next_batch, peers.clone(), store.clone()).await?;
-        for (acc_path, paths) in return_batch {
-            for path in paths {
-                pending_storages.push((acc_path, path));
+        // If we have enough pending storages to fill a batch
+        // or if we have no more incoming batches, spawn a fetch process
+        while pending_storages.len() >= BATCH_SIZE || !incoming && !pending_storages.is_empty() {
+            let mut next_batch: BTreeMap<H256, Vec<Nibbles>> = BTreeMap::new();
+            // Group pending storages by account path
+            // We do this here instead of keeping them sorted so we don't prioritize further nodes from the first tries
+            for (account, path) in pending_storages.drain(..BATCH_SIZE) {
+                next_batch.entry(account).or_default().push(path);
+            }
+            let return_batch =
+                heal_storage_batch(state_root, next_batch, peers.clone(), store.clone()).await?;
+            for (acc_path, paths) in return_batch {
+                for path in paths {
+                    pending_storages.push((acc_path, path));
+                }
             }
         }
     }
@@ -707,7 +679,7 @@ async fn heal_storage_batch(
             // Process the nodes for each account path
             for (acc_path, paths) in batch.iter_mut() {
                 let mut trie = store.open_storage_trie(*acc_path, *EMPTY_TRIE_HASH);
-                let mut trie_state = trie.state_mut();
+                let trie_state = trie.state_mut();
                 // Get the corresponding nodes
                 for node in nodes.drain(..paths.len().min(nodes.len())) {
                     let path = paths.remove(0);
