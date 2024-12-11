@@ -480,17 +480,6 @@ impl VM {
             return Ok(OpcodeSuccess::Continue);
         }
 
-        let new_nonce = match self.increment_account_nonce(sender_address) {
-            Ok(nonce) => nonce,
-            Err(_) => {
-                // Push 0 to stack if sender has max nonce
-                current_call_frame
-                    .stack
-                    .push(U256::from(CREATE_DEPLOYMENT_FAIL))?;
-                return Ok(OpcodeSuccess::Continue);
-            }
-        };
-
         let new_depth = current_call_frame
             .depth
             .checked_add(1)
@@ -515,8 +504,16 @@ impl VM {
 
         let new_address = match salt {
             Some(salt) => Self::calculate_create2_address(sender_address, &code, salt)?,
-            None => Self::calculate_create_address(sender_address, new_nonce)?,
+            None => Self::calculate_create_address(sender_address, sender_account_info.nonce)?,
         };
+
+        if let Err(_) = self.increment_account_nonce(sender_address) {
+            // Push 0 to stack if sender has max nonce
+            current_call_frame
+                .stack
+                .push(U256::from(CREATE_DEPLOYMENT_FAIL))?;
+            return Ok(OpcodeSuccess::Continue);
+        }
 
         if self.get_account(new_address).has_code_or_nonce() {
             // Push 0 to stack if account has code or nonce.
