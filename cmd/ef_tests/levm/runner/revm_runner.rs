@@ -53,9 +53,9 @@ pub fn re_run_failed_ef_test(
                     }
                 }
             },
-            EFTestRunnerError::ExpectedExceptionDoesNotMatchReceived(_) => {
-                // Here should be the logic of re-execution and compare revm result with the expected error
-            },
+            // Currently, we decided to do not re-execute the test when the Expected exception does not match 
+            // with the received. This can change in the future.
+            EFTestRunnerError::ExpectedExceptionDoesNotMatchReceived(_) => continue,
             EFTestRunnerError::VMInitializationFailed(_)
             | EFTestRunnerError::ExecutionFailedUnexpectedly(_)
             | EFTestRunnerError::FailedToEnsurePreState(_) => continue,
