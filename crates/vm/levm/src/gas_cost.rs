@@ -598,7 +598,7 @@ pub fn call(
     )?;
     let positive_value_cost = if !value_to_transfer.is_zero() {
         CALL_POSITIVE_VALUE
-            .checked_add(CALL_POSITIVE_VALUE_STIPEND)
+            .checked_sub(CALL_POSITIVE_VALUE_STIPEND)
             .ok_or(InternalError::ArithmeticOperationOverflow)?
     } else {
         U256::zero()
