@@ -78,6 +78,10 @@ pub fn try_store_range(
     size: usize,
     data: &[u8],
 ) -> Result<(), VMError> {
+    if size == 0 {
+        return Ok(());
+    }
+
     let new_size = offset
         .checked_add(size.into())
         .ok_or(VMError::OutOfOffset)?
