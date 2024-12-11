@@ -239,6 +239,8 @@ pub fn ensure_post_state(
             match test.post.vector_post_value(vector).expect_exception {
                 // Execution result was successful but an exception was expected.
                 Some(expected_exceptions) => {
+                    // Note: expected_exceptions is a vector because can only have 1 or 2 expected errors.
+                    // Here I use a match bc if there is no second position I just print the first one.
                     let error_reason = match expected_exceptions.get(1) {
                         Some(second_exception) => {
                             format!(
