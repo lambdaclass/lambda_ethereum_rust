@@ -1,17 +1,12 @@
 use ethrex_core::{
     serde_utils,
     types::{
-        BlobsBundle, BlockHash, BlockNumber, EIP1559Transaction, EIP2930Transaction,
-        EIP4844Transaction, LegacyTransaction, PrivilegedL2Transaction, Transaction,
+        BlockHash, BlockNumber, EIP1559Transaction, EIP2930Transaction, LegacyTransaction,
+        PrivilegedL2Transaction, Transaction, WrappedEIP4844Transaction,
     },
     Address, H256,
 };
-use ethrex_rlp::{
-    decode::RLPDecode,
-    encode::RLPEncode,
-    error::RLPDecodeError,
-    structs::{Decoder, Encoder},
-};
+use ethrex_rlp::{decode::RLPDecode, error::RLPDecodeError};
 use serde::{Deserialize, Serialize};
 
 #[allow(unused)]

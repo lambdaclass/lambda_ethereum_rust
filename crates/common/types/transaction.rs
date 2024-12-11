@@ -49,7 +49,7 @@ pub enum P2PTransaction {
 }
 
 impl TryInto<Transaction> for P2PTransaction {
-    type Error = &'static str;
+    type Error = String;
 
     fn try_into(self) -> Result<Transaction, Self::Error> {
         match self {
@@ -59,7 +59,7 @@ impl TryInto<Transaction> for P2PTransaction {
             P2PTransaction::PrivilegedL2Transaction(itx) => {
                 Ok(Transaction::PrivilegedL2Transaction(itx))
             }
-            _ => Err("Can't convert blob p2p transaction into regular transaction. Blob bundle would be lost."),
+            _ => Err("Can't convert blob p2p transaction into regular transaction. Blob bundle would be lost.".to_string()),
         }
     }
 }

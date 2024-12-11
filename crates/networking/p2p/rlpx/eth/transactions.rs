@@ -1,6 +1,3 @@
-use std::fmt::Display;
-use std::fmt::Error;
-
 use bytes::BufMut;
 use bytes::Bytes;
 use ethrex_blockchain::error::MempoolError;
@@ -13,7 +10,6 @@ use ethrex_rlp::{
     structs::{Decoder, Encoder},
 };
 use ethrex_storage::{error::StoreError, Store};
-use thiserror::Error;
 
 use crate::rlpx::{
     message::RLPxMessage,
@@ -261,11 +257,14 @@ impl PooledTransactions {
 
     pub fn handle(&self, store: &Store) -> Result<(), MempoolError> {
         // We need to save all transactions, one by one, and we also need the senders.
-        for tx in self.pooled_transactions {
-            if let P2PTransaction::WrappedEIP4844Transaction(itx) = tx {
+        for tx in &self.pooled_transactions {
+            if let P2PTransaction::WrappedEIP4844Transaction(itx) = tx.clone() {
                 mempool::add_blob_transaction(itx.tx, itx.blobs_bundle, store)?;
             } else {
-                let regular_tx = tx.try_into()?;
+                let regular_tx = tx
+                    .clone()
+                    .try_into()
+                    .map_err(|error| MempoolError::StoreError(StoreError::Custom(error)))?;
                 mempool::add_transaction(regular_tx, store)?;
             }
         }
@@ -298,7 +297,7 @@ impl RLPxMessage for PooledTransactions {
 
 #[cfg(test)]
 mod tests {
-    use ethrex_core::{types::Transaction, H256};
+    use ethrex_core::{types::P2PTransaction, H256};
 
     use crate::rlpx::{
         eth::transactions::{GetPooledTransactions, PooledTransactions},
@@ -337,7 +336,7 @@ mod tests {
 
     #[test]
     fn pooled_transactions_of_one_type() {
-        let transaction1 = Transaction::LegacyTransaction(Default::default());
+        let transaction1 = P2PTransaction::LegacyTransaction(Default::default());
         let pooled_transactions = vec![transaction1.clone()];
         let pooled_transactions = PooledTransactions::new(1, pooled_transactions);
 
