@@ -4178,6 +4178,7 @@ fn caller_op() {
         Default::default(),
         Arc::new(db),
         cache,
+        Vec::new(),
     )
     .unwrap();
 
@@ -4220,6 +4221,7 @@ fn origin_op() {
         Default::default(),
         Arc::new(db),
         cache,
+        Vec::new(),
     )
     .unwrap();
 
@@ -4289,6 +4291,7 @@ fn address_op() {
         Default::default(),
         Arc::new(db),
         cache,
+        Vec::new(),
     )
     .unwrap();
 
@@ -4335,6 +4338,7 @@ fn selfbalance_op() {
         Default::default(),
         Arc::new(db),
         cache,
+        Vec::new(),
     )
     .unwrap();
 
@@ -4378,6 +4382,7 @@ fn callvalue_op() {
         Default::default(),
         Arc::new(db),
         cache,
+        Vec::new(),
     )
     .unwrap();
 
@@ -4420,6 +4425,7 @@ fn codesize_op() {
         Default::default(),
         Arc::new(db),
         cache,
+        Vec::new(),
     )
     .unwrap();
 
@@ -4461,6 +4467,7 @@ fn gasprice_op() {
         Default::default(),
         Arc::new(db),
         cache,
+        Vec::new(),
     )
     .unwrap();
 
@@ -4518,6 +4525,7 @@ fn codecopy_op() {
         Default::default(),
         Arc::new(db),
         cache,
+        Vec::new(),
     )
     .unwrap();
 
