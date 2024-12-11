@@ -1,7 +1,7 @@
 use crate::{
     report::{EFTestReport, TestVector},
     runner::{EFTestRunnerError, InternalError},
-    types::EFTest,
+    types::{EFTest, TransactionExpectedException},
     utils::{self, effective_gas_price},
 };
 use ethrex_core::{
@@ -10,7 +10,7 @@ use ethrex_core::{
 };
 use ethrex_levm::{
     db::CacheDB,
-    errors::{TransactionReport, VMError},
+    errors::{TransactionReport, VMError, TxValidationError},
     vm::VM,
     Environment,
 };
@@ -50,6 +50,9 @@ pub fn run_ef_test(test: &EFTest) -> Result<EFTestReport, EFTestRunnerError> {
                     "VM execution mismatch errors should only happen when running with revm. This failed during levm's execution."
                         .to_owned(),
                 )));
+            }
+            Err(EFTestRunnerError::ExpectedExceptionDoesNotMatchReceived(reason)) => {
+                ef_test_report.register_post_state_validation_error_mismatch(reason, *vector);
             }
             Err(EFTestRunnerError::Internal(reason)) => {
                 return Err(EFTestRunnerError::Internal(reason));

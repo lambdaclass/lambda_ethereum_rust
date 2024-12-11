@@ -53,6 +53,9 @@ pub fn re_run_failed_ef_test(
                     }
                 }
             },
+            EFTestRunnerError::ExpectedExceptionDoesNotMatchReceived(_) => {
+                // Here should be the logic of re-execution and compare revm result with the expected error
+            },
             EFTestRunnerError::VMInitializationFailed(_)
             | EFTestRunnerError::ExecutionFailedUnexpectedly(_)
             | EFTestRunnerError::FailedToEnsurePreState(_) => continue,
@@ -391,6 +394,9 @@ pub fn _run_ef_test_revm(test: &EFTest) -> Result<EFTestReport, EFTestRunnerErro
             }
             Err(EFTestRunnerError::Internal(reason)) => {
                 return Err(EFTestRunnerError::Internal(reason));
+            }
+            Err(EFTestRunnerError::ExpectedExceptionDoesNotMatchReceived(_)) => {
+                // Here should be the logic of execution and expecting an error
             }
         }
     }
