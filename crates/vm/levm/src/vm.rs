@@ -709,13 +709,13 @@ impl VM {
             .and_then(|gas| gas.checked_add(refunded_gas))
             .ok_or(VMError::Internal(InternalError::UndefinedState(0)))?;
 
-        let gwei_return_amount = self
+        let wei_return_amount = self
             .env
             .gas_price
             .checked_mul(U256::from(gas_to_return))
             .ok_or(VMError::Internal(InternalError::UndefinedState(1)))?;
 
-        self.increase_account_balance(sender_address, gwei_return_amount)?;
+        self.increase_account_balance(sender_address, wei_return_amount)?;
 
         // 3. Pay coinbase fee
         let coinbase_address = self.env.coinbase;
