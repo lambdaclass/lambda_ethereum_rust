@@ -14,13 +14,13 @@ use tokio::{
     },
     time::Instant,
 };
-use tracing::{debug, info, warn};
+use tracing::{info, debug, warn};
 
 use crate::kademlia::KademliaTable;
 
-/// Maximum amount of times we will ask a peer for an account range
+/// Maximum amount of times we will ask a peer for an account/storage range
 /// If the max amount of retries is exceeded we will asume that the state we are requesting is old and no longer available
-const MAX_ACCOUNT_RETRIES: usize = 10;
+const MAX_RETRIES: usize = 10;
 
 #[derive(Debug)]
 pub enum SyncMode {
@@ -119,8 +119,6 @@ impl SyncManager {
                 // snap-sync: launch tasks to fetch blocks and state in parallel
                 // - Fetch each block's state via snap p2p requests
                 // - Fetch each blocks and its receipts via eth p2p requests
-                // TODO: We are currently testing against our implementation that doesn't hold an independant snapshot and can provide all historic state
-                //       We should fetch all available state and then resort to state healing to fetch the rest
                 let (bytecode_sender, bytecode_receiver) = mpsc::channel::<Vec<H256>>(500);
                 // First set of tasks will be in charge of fetching all available state (state not older than 128 blocks)
                 let mut sync_set = tokio::task::JoinSet::new();
@@ -163,6 +161,7 @@ impl SyncManager {
                 }
                 // Start state healing
                 info!("Starting state healing");
+                let start_time = Instant::now();
                 healing_set.spawn(state_healing(
                     bytecode_sender,
                     state_roots.clone(),
@@ -172,6 +171,7 @@ impl SyncManager {
                 for result in healing_set.join_all().await {
                     result?;
                 }
+                info!("State healing finished in {} seconds", start_time.elapsed().as_secs());
 
                 // Set latest block number here to avoid reading state that is currently being synced
                 store.update_latest_block_number(latest_block_number)?;
@@ -266,17 +266,23 @@ async fn fetch_snap_state(
     peers: Arc<Mutex<KademliaTable>>,
     store: Store,
 ) -> Result<(), SyncError> {
-    debug!("Syncing state roots: {}", state_roots.len());
+    info!("Syncing state roots: {}", state_roots.len());
     // Fetch newer state first: This will be useful to detect where to switch to healing
     for state_root in state_roots.into_iter().rev() {
         // TODO: maybe spawn taks here instead of awaiting
-        rebuild_state_trie(
+        match rebuild_state_trie(
             bytecode_sender.clone(),
             state_root,
             peers.clone(),
             store.clone(),
         )
-        .await?
+        .await {
+            Ok(_) => {},
+            // If we reached the maximum number of retries then the state we are fetching is most probably old and no longer part of our peer's snapshots
+            // We should give up on fetching this and older block's state and instead begin state healing
+            Err(SyncError::MaxRetries) => {dbg!("break"); break},
+            err => return err
+        }
     }
     Ok(())
 }
@@ -304,13 +310,17 @@ async fn rebuild_state_trie(
     // If we reached the maximum amount of retries then it means the state we are requesting is probably old and no longer available
     // In that case we will delegate the work to state healing
     // TODO: Make it so that exceeding max replies will also stop requests for older blocks
-    for _ in 0..MAX_ACCOUNT_RETRIES {
+    let mut retry_count = 0; 
+    while retry_count < MAX_RETRIES {
+        dbg!(retry_count);
         let peer = peers.clone().lock().await.get_peer_channels().await;
         debug!("Requesting Account Range for state root {state_root}, starting hash: {start_account_hash}");
         if let Some((account_hashes, accounts, should_continue)) = peer
             .request_account_range(state_root, start_account_hash)
             .await
         {
+            // Reset retry counter for the following batch (if needed)
+            retry_count = 0;
             // Update starting hash for next batch
             if should_continue {
                 start_account_hash = *account_hashes.last().unwrap();
@@ -356,17 +366,25 @@ async fn rebuild_state_trie(
                 // All accounts fetched!
                 break;
             }
+        } else {
+            retry_count += 1;
         }
     }
+    dbg!(retry_count);
     if current_state_root == state_root {
-        debug!("Completed state sync for state root {state_root}");
+        info!("Completed state sync for state root {state_root}");
     }
     // Send empty batch to signal that no more batches are incoming
     storage_sender.send(vec![]).await?;
     storage_fetcher_handler
         .await
         .map_err(|_| StoreError::Custom(String::from("Failed to join storage_fetcher task")))??;
-    Ok(())
+    if retry_count == MAX_RETRIES {
+        dbg!("Max Retries error");
+        Err(SyncError::MaxRetries)
+    } else {
+        Ok(())
+    }
 }
 
 /// Waits for incoming code hashes from the receiver channel endpoint, queues them, and fetches and stores their bytecodes in batches
@@ -445,7 +463,7 @@ async fn storage_fetcher(
             Some(account_and_root) if !account_and_root.is_empty() => {
                 // Add hashes to the queue
                 pending_storage.extend(account_and_root);
-                // If we have enought pending bytecodes to fill a batch, spawn a fetch process
+                // If we have enought pending storages to fill a batch, spawn a fetch process
                 while pending_storage.len() >= BATCH_SIZE {
                     let next_batch = pending_storage.drain(..BATCH_SIZE).collect::<Vec<_>>();
                     let remaining =
@@ -478,15 +496,15 @@ async fn fetch_storage_batch(
     state_root: H256,
     peers: Arc<Mutex<KademliaTable>>,
     store: Store,
-) -> Result<Vec<(H256, H256)>, StoreError> {
-    loop {
+) -> Result<Vec<(H256, H256)>, SyncError> {
+    for _ in 0..MAX_RETRIES {
         let peer = peers.lock().await.get_peer_channels().await;
         let (batch_hahses, batch_roots) = batch.clone().into_iter().unzip();
         if let Some((mut keys, mut values, incomplete)) = peer
             .request_storage_ranges(state_root, batch_roots, batch_hahses, H256::zero())
             .await
         {
-            debug!("Received {} storage ranges", keys.len());
+            info!("Received {} storage ranges", keys.len());
             let mut _last_range;
             // Hold on to the last batch (if incomplete)
             if incomplete {
@@ -510,6 +528,9 @@ async fn fetch_storage_batch(
             return Ok(batch);
         }
     }
+    // This is a corner case where we fetched an account range for a block but the chain has moved on and the block
+    // was dropped by the peer's snapshot. We will keep the fetcher alive to avoid errors and stop fetching as from the next block
+    Ok(vec![])
 }
 
 async fn state_healing(
@@ -749,4 +770,8 @@ enum SyncError {
     RLP(#[from] RLPDecodeError),
     #[error("Corrupt path during state healing")]
     CorruptPath,
+    #[error("Max Retries Reached")]
+    // This is more of an internal signal rather than an error, it should never be returned to the user
+    // It marks that we have reached the end of the available state (last 128 blocks) and we should begin state healing
+    MaxRetries
 }
