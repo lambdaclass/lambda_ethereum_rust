@@ -10,7 +10,7 @@ use ethrex_core::{
 };
 use ethrex_levm::{
     db::CacheDB,
-    errors::{TransactionReport, VMError, TxValidationError},
+    errors::{TransactionReport, TxValidationError, VMError},
     vm::VM,
     Environment,
 };
