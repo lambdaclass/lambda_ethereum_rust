@@ -396,7 +396,10 @@ pub fn _run_ef_test_revm(test: &EFTest) -> Result<EFTestReport, EFTestRunnerErro
                 return Err(EFTestRunnerError::Internal(reason));
             }
             Err(EFTestRunnerError::ExpectedExceptionDoesNotMatchReceived(_)) => {
-                // Here should be the logic of execution and expecting an error
+                return Err(EFTestRunnerError::Internal(InternalError::MainRunnerInternal(
+                    "The ExpectedExceptionDoesNotMatchReceived error should only happen when executing Levm, the errors matching is not implemented in Revm"
+                        .to_owned(),
+                )));
             }
         }
     }
