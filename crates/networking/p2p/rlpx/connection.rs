@@ -22,7 +22,7 @@ use crate::{
 
 use super::{
     error::RLPxError,
-    eth::transactions::{GetPooledTransactions, PooledTransactions},
+    eth::transactions::GetPooledTransactions,
     frame,
     handshake::{decode_ack_message, decode_auth_message, encode_auth_message},
     message::{self as rlpx},
