@@ -480,6 +480,8 @@ impl VM {
             return Ok(OpcodeSuccess::Continue);
         }
 
+        self.decrease_account_balance(sender_address, value_in_wei_to_send)?;
+
         let new_depth = current_call_frame
             .depth
             .checked_add(1)
