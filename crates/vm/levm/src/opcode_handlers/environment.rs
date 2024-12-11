@@ -236,7 +236,7 @@ impl VM {
         if code_offset < current_call_frame.bytecode.len().into() {
             let code_offset: usize = code_offset
                 .try_into()
-                .map_err(|_| VMError::VeryLargeNumber)?;
+                .map_err(|_| VMError::Internal(InternalError::ConversionError))?;
 
             for (i, byte) in current_call_frame
                 .bytecode
