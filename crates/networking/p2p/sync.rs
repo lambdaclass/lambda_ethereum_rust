@@ -357,15 +357,14 @@ async fn rebuild_state_trie(
             }
         }
     }
-    if current_state_root != state_root {
-        warn!("State sync failed for state root {state_root}");
+    if current_state_root == state_root {
+        debug!("Completed state sync for state root {state_root}");
     }
     // Send empty batch to signal that no more batches are incoming
     storage_sender.send(vec![]).await?;
     storage_fetcher_handler
         .await
         .map_err(|_| StoreError::Custom(String::from("Failed to join storage_fetcher task")))??;
-    debug!("Completed state sync for state root {state_root}");
     Ok(())
 }
 
@@ -577,17 +576,24 @@ async fn heal_state_trie(
                     let path = &path.concat(node.partial.clone()).to_bytes();
                     if path.len() != 32 {
                         // Something went wrong
-                        return Err(SyncError::CorruptPath)
+                        return Err(SyncError::CorruptPath);
                     }
                     hahsed_addresses.push(H256::from_slice(&path));
-                    code_hashes.push(account.code_hash);
+                    if account.code_hash != *EMPTY_KECCACK_HASH {
+                        code_hashes.push(account.code_hash);
+                    }
                 }
                 let hash = node.compute_hash();
                 trie_state.write_node(node, hash)?;
+                info!("Node stored");
             }
             // Send storage & bytecode requests
-            storage_sender.send(hahsed_addresses).await?;
-            bytecode_sender.send(code_hashes).await?;
+            if !hahsed_addresses.is_empty() {
+                storage_sender.send(hahsed_addresses).await?;
+            }
+            if !code_hashes.is_empty() {
+                bytecode_sender.send(code_hashes).await?;
+            }
         }
     }
     // Send empty batch to signal that no more batches are incoming
