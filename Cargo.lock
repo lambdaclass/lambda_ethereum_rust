@@ -2692,6 +2692,7 @@ name = "ethrex-l2"
 version = "0.1.0"
 dependencies = [
  "bytes",
+ "directories",
  "envy",
  "ethereum-types",
  "ethrex-blockchain",
