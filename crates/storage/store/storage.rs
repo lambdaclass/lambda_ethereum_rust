@@ -945,6 +945,8 @@ impl Store {
         self.engine.open_state_trie(*EMPTY_TRIE_HASH)
     }
 
+    /// Methods exclusive for trie management during snap-syncing
+
     // Obtain a state trie from the given state root
     // Doesn't check if the state root is valid
     pub fn open_state_trie(&self, state_root: H256) -> Trie {
@@ -955,6 +957,30 @@ impl Store {
     // Doesn't check if the account is stored
     pub fn open_storage_trie(&self, account_hash: H256, storage_root: H256) -> Trie {
         self.engine.open_storage_trie(account_hash, storage_root)
+    }
+
+    /// Returns true if the given node is part of the state trie's internal storage
+    pub fn contains_state_node(&self, node_hash: H256) -> Result<bool, StoreError> {
+        // Root is irrelevant, we only care about the internal state
+        Ok(self
+            .open_state_trie(*EMPTY_TRIE_HASH)
+            .state()
+            .get_node(node_hash.into())?
+            .is_some())
+    }
+
+    /// Returns true if the given node is part of the given storage trie's internal storage
+    pub fn contains_storage_node(
+        &self,
+        hashed_address: H256,
+        node_hash: H256,
+    ) -> Result<bool, StoreError> {
+        // Root is irrelevant, we only care about the internal state
+        Ok(self
+            .open_storage_trie(hashed_address, *EMPTY_TRIE_HASH)
+            .state()
+            .get_node(node_hash.into())?
+            .is_some())
     }
 }
 
