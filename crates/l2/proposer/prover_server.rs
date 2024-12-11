@@ -17,6 +17,7 @@ use secp256k1::SecretKey;
 use serde::{Deserialize, Serialize};
 use std::{
     collections::HashMap,
+    fmt::Debug,
     io::{BufReader, BufWriter, Write},
     net::{IpAddr, Shutdown, TcpListener, TcpStream},
     sync::mpsc::{self, Receiver},
@@ -58,7 +59,7 @@ pub enum ProverType {
     SP1,
 }
 
-#[derive(Serialize, Deserialize, Clone)]
+#[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct Risc0Proof {
     pub receipt: Box<risc0_zkvm::Receipt>,
     pub prover_id: Vec<u32>,
@@ -129,6 +130,15 @@ pub struct Sp1Proof {
     pub vk: sp1_sdk::SP1VerifyingKey,
 }
 
+impl Debug for Sp1Proof {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("Sp1Proof")
+            .field("proof", &self.proof)
+            .field("vk", &self.vk.bytes32())
+            .finish()
+    }
+}
+
 pub struct Sp1ContractData {
     pub public_values: Vec<u8>,
     pub vk: Vec<u8>,
@@ -166,7 +176,7 @@ impl Sp1Proof {
     }
 }
 
-#[derive(Serialize, Deserialize, Clone)]
+#[derive(Serialize, Deserialize, Clone, Debug)]
 pub enum ProvingOutput {
     RISC0(Risc0Proof),
     SP1(Sp1Proof),
@@ -395,21 +405,23 @@ impl ProverServer {
 
                 // Check if we have the proof for that ProverType
                 // If we don't have it, insert it.
-                inner_hmap
-                    .entry(proving_type)
-                    .or_insert(proving_output.clone());
+                inner_hmap.entry(proving_type).or_insert(proving_output);
 
                 if block_number != (last_verified_block + 1) {
                     return Err(ProverServerError::Custom(format!("Prover Client submitted an invalid block_number: {block_number}. The last_proved_block is: {}", last_verified_block)));
                 }
 
+                let inner_hmap = self
+                    .proving_output_per_block
+                    .get(&block_number)
+                    .ok_or(ProverServerError::Custom("Custom".to_owned()))?;
                 // Wait for all the ProverTypes
                 if inner_hmap.contains_key(&ProverType::RISC0)
                     && inner_hmap.contains_key(&ProverType::SP1)
                 {
                     self.handle_proof_submission(block_number).await?;
                     // Remove the Proofs for the block_number
-                    self.proving_output_per_block.remove_entry(&block_number);
+                    self.proving_output_per_block.remove(&block_number);
                 }
             }
             Err(e) => {
