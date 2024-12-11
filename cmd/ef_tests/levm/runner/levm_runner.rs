@@ -164,6 +164,62 @@ fn ensure_pre_state_condition(
     Ok(())
 }
 
+// Exceptions not covered: RlpInvalidValue and Type3TxPreFork
+fn exception_is_expected(
+    expected_exceptions: Vec<TransactionExpectedException>,
+    returned_error: VMError,
+) -> bool {
+    expected_exceptions.iter().any(|exception| {
+        println!("Comparo la excepcion esperada {exception:?} con el retornado {returned_error:?}");
+        matches!(
+            (exception, &returned_error),
+            (
+                TransactionExpectedException::IntrinsicGasTooLow,
+                VMError::TxValidation(TxValidationError::IntrinsicGasTooLow)
+            ) | (
+                TransactionExpectedException::InsufficientAccountFunds,
+                VMError::TxValidation(TxValidationError::InsufficientAccountFunds)
+            ) | (
+                TransactionExpectedException::PriorityGreaterThanMaxFeePerGas,
+                VMError::TxValidation(TxValidationError::PriorityGreaterThanMaxFeePerGas)
+            ) | (
+                TransactionExpectedException::GasLimitPriceProductOverflow,
+                VMError::TxValidation(TxValidationError::GasLimitPriceProductOverflow)
+            ) | (
+                TransactionExpectedException::SenderNotEoa,
+                VMError::TxValidation(TxValidationError::SenderNotEOA)
+            ) | (
+                TransactionExpectedException::InsufficientMaxFeePerGas,
+                VMError::TxValidation(TxValidationError::InsufficientMaxFeePerGas)
+            ) | (
+                TransactionExpectedException::NonceIsMax,
+                VMError::TxValidation(TxValidationError::NonceIsMax)
+            ) | (
+                TransactionExpectedException::GasAllowanceExceeded,
+                VMError::TxValidation(TxValidationError::GasAllowanceExceeded)
+            ) | (
+                TransactionExpectedException::Type3TxBlobCountExceeded,
+                VMError::TxValidation(TxValidationError::Type3TxBlobCountExceeded)
+            ) | (
+                TransactionExpectedException::Type3TxZeroBlobs,
+                VMError::TxValidation(TxValidationError::Type3TxZeroBlobs)
+            ) | (
+                TransactionExpectedException::Type3TxContractCreation,
+                VMError::TxValidation(TxValidationError::Type3TxContractCreation)
+            ) | (
+                TransactionExpectedException::Type3TxInvalidBlobVersionedHash,
+                VMError::TxValidation(TxValidationError::Type3TxInvalidBlobVersionedHash)
+            ) | (
+                TransactionExpectedException::InsufficientMaxFeePerBlobGas,
+                VMError::TxValidation(TxValidationError::InsufficientMaxFeePerBlobGas)
+            ) | (
+                TransactionExpectedException::InitcodeSizeExceeded,
+                VMError::TxValidation(TxValidationError::InitcodeSizeExceeded)
+            )
+        )
+    })
+}
+
 pub fn ensure_post_state(
     levm_execution_result: &Result<TransactionReport, VMError>,
     vector: &TestVector,
@@ -173,8 +229,22 @@ pub fn ensure_post_state(
         Ok(execution_report) => {
             match test.post.vector_post_value(vector).expect_exception {
                 // Execution result was successful but an exception was expected.
-                Some(expected_exception) => {
-                    let error_reason = format!("Expected exception: {expected_exception:?}");
+                Some(expected_exceptions) => {
+                    let error_reason = match expected_exceptions.get(1) {
+                        Some(second_exception) => {
+                            format!(
+                                "Expected exception: {:?} or {:?}",
+                                expected_exceptions.first().unwrap(),
+                                second_exception
+                            )
+                        }
+                        None => {
+                            format!(
+                                "Expected exception: {:?}",
+                                expected_exceptions.first().unwrap()
+                            )
+                        }
+                    };
                     return Err(EFTestRunnerError::FailedToEnsurePostState(
                         execution_report.clone(),
                         error_reason,
@@ -202,8 +272,31 @@ pub fn ensure_post_state(
         Err(err) => {
             match test.post.vector_post_value(vector).expect_exception {
                 // Execution result was unsuccessful and an exception was expected.
-                // TODO: Check that the exception matches the expected exception.
-                Some(_expected_exception) => {}
+                Some(expected_exceptions) => {
+                    // Instead of cloning could use references
+                    if !exception_is_expected(expected_exceptions.clone(), err.clone()) {
+                        let error_reason = match expected_exceptions.get(1) {
+                            Some(second_exception) => {
+                                format!(
+                                    "Returned exception is not the expected: Returned {:?} but expected {:?} or {:?}",
+                                    err,
+                                    expected_exceptions.first().unwrap(),
+                                    second_exception
+                                )
+                            }
+                            None => {
+                                format!(
+                                    "Returned exception is not the expected: Returned {:?} but expected {:?}",
+                                    err,
+                                    expected_exceptions.first().unwrap()
+                                )
+                            }
+                        };
+                        return Err(EFTestRunnerError::ExpectedExceptionDoesNotMatchReceived(
+                            format!("Post-state condition failed: {error_reason}").into(),
+                        ));
+                    }
+                }
                 // Execution result was unsuccessful but no exception was expected.
                 None => {
                     return Err(EFTestRunnerError::ExecutionFailedUnexpectedly(err.clone()));
