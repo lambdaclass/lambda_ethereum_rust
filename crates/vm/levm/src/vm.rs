@@ -147,6 +147,10 @@ impl VM {
             default_touched_storage_slots.insert(address, warm_slots);
         }
 
+        for i in 1..10 {
+            default_touched_accounts.insert(Address::from_low_u64_be(i));
+        }
+
         match to {
             TxKind::Call(address_to) => {
                 default_touched_accounts.insert(address_to);
