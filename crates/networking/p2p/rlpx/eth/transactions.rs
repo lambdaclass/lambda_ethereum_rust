@@ -1,13 +1,19 @@
+use std::fmt::Display;
+use std::fmt::Error;
+
 use bytes::BufMut;
 use bytes::Bytes;
+use ethrex_blockchain::error::MempoolError;
 use ethrex_blockchain::mempool;
 use ethrex_core::types::P2PTransaction;
+use ethrex_core::types::WrappedEIP4844Transaction;
 use ethrex_core::{types::Transaction, H256};
 use ethrex_rlp::{
     error::{RLPDecodeError, RLPEncodeError},
     structs::{Decoder, Encoder},
 };
 use ethrex_storage::{error::StoreError, Store};
+use thiserror::Error;
 
 use crate::rlpx::{
     message::RLPxMessage,
@@ -163,7 +169,7 @@ impl GetPooledTransactions {
         let txs = self
             .transaction_hashes
             .iter()
-            .map(|hash| store.get_transaction_by_hash(*hash))
+            .map(|hash| Self::get_p2p_transaction(hash, store))
             // Return an error in case anything failed.
             .collect::<Result<Vec<_>, _>>()?
             .into_iter()
@@ -177,6 +183,39 @@ impl GetPooledTransactions {
             id: self.id,
             pooled_transactions: txs,
         })
+    }
+
+    /// Gets a p2p transaction given a hash.
+    fn get_p2p_transaction(
+        hash: &H256,
+        store: &Store,
+    ) -> Result<Option<P2PTransaction>, StoreError> {
+        let Some(tx) = store.get_transaction_by_hash(*hash)? else {
+            return Ok(None);
+        };
+        let result = match tx {
+            Transaction::LegacyTransaction(itx) => P2PTransaction::LegacyTransaction(itx),
+            Transaction::EIP2930Transaction(itx) => P2PTransaction::EIP2930Transaction(itx),
+            Transaction::EIP1559Transaction(itx) => P2PTransaction::EIP1559Transaction(itx),
+            Transaction::EIP4844Transaction(itx) => {
+                let Some(bundle) = store.get_blobs_bundle_from_pool(*hash)? else {
+                    return Err(StoreError::Custom(format!(
+                        "Blob transaction present without its bundle: hash {}",
+                        hash
+                    )));
+                };
+
+                P2PTransaction::WrappedEIP4844Transaction(WrappedEIP4844Transaction {
+                    tx: itx,
+                    blobs_bundle: bundle,
+                })
+            }
+            Transaction::PrivilegedL2Transaction(itx) => {
+                P2PTransaction::PrivilegedL2Transaction(itx)
+            }
+        };
+
+        Ok(Some(result))
     }
 }
 
@@ -220,14 +259,17 @@ impl PooledTransactions {
         }
     }
 
-    pub fn handle(&self, store: &Store) -> Result<(), StoreError> {
+    pub fn handle(&self, store: &Store) -> Result<(), MempoolError> {
         // We need to save all transactions, one by one, and we also need the senders.
         for tx in self.pooled_transactions {
-            if let P2PTransaction::WrappedEIP4844Transaction() = tx {
-                mempool::add_blob_transaction(transaction, blobs_bundle, store)
+            if let P2PTransaction::WrappedEIP4844Transaction(itx) = tx {
+                mempool::add_blob_transaction(itx.tx, itx.blobs_bundle, store)?;
+            } else {
+                let regular_tx = tx.try_into()?;
+                mempool::add_transaction(regular_tx, store)?;
             }
         }
-        Err(StoreError::Custom("Implement this plz".to_string()))
+        Ok(())
     }
 }
 
