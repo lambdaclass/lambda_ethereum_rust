@@ -255,8 +255,8 @@ impl PooledTransactions {
         }
     }
 
+    /// Saves every incoming pooled transaction to the mempool.
     pub fn handle(&self, store: &Store) -> Result<(), MempoolError> {
-        // We need to save all transactions, one by one, and we also need the senders.
         for tx in &self.pooled_transactions {
             if let P2PTransaction::WrappedEIP4844Transaction(itx) = tx.clone() {
                 mempool::add_blob_transaction(itx.tx, itx.blobs_bundle, store)?;
