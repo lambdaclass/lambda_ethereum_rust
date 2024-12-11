@@ -273,31 +273,30 @@ async fn fetch_snap_state(
     // Fetch newer state first: This will be useful to detect where to switch to healing
     for state_root in state_roots.into_iter().rev() {
         // TODO: maybe spawn taks here instead of awaiting
-        match rebuild_state_trie(
+        if !rebuild_state_trie(
             bytecode_sender.clone(),
             state_root,
             peers.clone(),
             store.clone(),
         )
-        .await
+        .await?
         {
-            Ok(_) => {}
             // If we reached the maximum number of retries then the state we are fetching is most probably old and no longer part of our peer's snapshots
             // We should give up on fetching this and older block's state and instead begin state healing
-            Err(SyncError::MaxRetries) => break,
-            err => return err,
+            break;
         }
     }
     Ok(())
 }
 
 /// Rebuilds a Block's state trie by requesting snap state from peers
+/// Returns true if all state was fetched or false if the block is too old and the state is no longer available
 async fn rebuild_state_trie(
     bytecode_sender: Sender<Vec<H256>>,
     state_root: H256,
     peers: Arc<Mutex<KademliaTable>>,
     store: Store,
-) -> Result<(), SyncError> {
+) -> Result<bool, SyncError> {
     // Spawn a storage fetcher for this blocks's storage
     let (storage_sender, storage_receiver) = mpsc::channel::<Vec<(H256, H256)>>(500);
     let storage_fetcher_handler = tokio::spawn(storage_fetcher(
@@ -380,11 +379,7 @@ async fn rebuild_state_trie(
     storage_fetcher_handler
         .await
         .map_err(|_| StoreError::Custom(String::from("Failed to join storage_fetcher task")))??;
-    if retry_count == MAX_RETRIES {
-        Err(SyncError::MaxRetries)
-    } else {
-        Ok(())
-    }
+    Ok(retry_count == MAX_RETRIES)
 }
 
 /// Waits for incoming code hashes from the receiver channel endpoint, queues them, and fetches and stores their bytecodes in batches
@@ -746,8 +741,4 @@ enum SyncError {
     RLP(#[from] RLPDecodeError),
     #[error("Corrupt path during state healing")]
     CorruptPath,
-    #[error("Max Retries Reached")]
-    // This is more of an internal signal rather than an error, it should never be returned to the user
-    // It marks that we have reached the end of the available state (last 128 blocks) and we should begin state healing
-    MaxRetries,
 }
