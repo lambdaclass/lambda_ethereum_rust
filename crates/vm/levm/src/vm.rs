@@ -909,10 +909,7 @@ impl VM {
             current_call_frame.stack.push(U256::from(REVERT_FOR_CALL))?;
             return Ok(OpcodeSuccess::Continue);
         }
-
-        current_call_frame.sub_return_data_offset = ret_offset
-            .try_into()
-            .map_err(|_err| VMError::VeryLargeNumber)?;
+        current_call_frame.sub_return_data_offset = ret_offset;
         current_call_frame.sub_return_data_size = ret_size;
 
         let tx_report = self.execute(&mut new_call_frame)?;

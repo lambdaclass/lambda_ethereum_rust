@@ -1796,12 +1796,8 @@ fn call_changes_callframe_and_stores() {
     let ret_size = current_call_frame.sub_return_data_size;
 
     // Return data of the sub-context will be in the memory position of the current context reserved for that purpose (ret_offset and ret_size)
-    let return_data = memory::load_range(
-        &mut current_call_frame.memory,
-        U256::from(ret_offset),
-        ret_size,
-    )
-    .unwrap();
+    let return_data =
+        memory::load_range(&mut current_call_frame.memory, ret_offset, ret_size).unwrap();
 
     assert_eq!(U256::from_big_endian(return_data), U256::from(0xAAAAAAA));
 }
