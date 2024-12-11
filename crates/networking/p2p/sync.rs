@@ -303,6 +303,7 @@ async fn rebuild_state_trie(
     // Fetch Account Ranges
     // If we reached the maximum amount of retries then it means the state we are requesting is probably old and no longer available
     // In that case we will delegate the work to state healing
+    // TODO: Make it so that exceeding max replies will also stop requests for older blocks
     for _ in 0..MAX_ACCOUNT_RETRIES {
         let peer = peers.clone().lock().await.get_peer_channels().await;
         debug!("Requesting Account Range for state root {state_root}, starting hash: {start_account_hash}");
@@ -578,14 +579,16 @@ async fn heal_state_trie(
                         // Something went wrong
                         return Err(SyncError::CorruptPath);
                     }
-                    hahsed_addresses.push(H256::from_slice(&path));
+                    if account.storage_root != *EMPTY_TRIE_HASH {
+                        hahsed_addresses.push(H256::from_slice(&path));
+                    }
                     if account.code_hash != *EMPTY_KECCACK_HASH {
                         code_hashes.push(account.code_hash);
                     }
                 }
                 let hash = node.compute_hash();
                 trie_state.write_node(node, hash)?;
-                info!("Node stored");
+                info!("State Node stored");
             }
             // Send storage & bytecode requests
             if !hahsed_addresses.is_empty() {
