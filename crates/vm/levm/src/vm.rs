@@ -727,15 +727,14 @@ impl VM {
         let priority_fee_per_gas = self
             .env
             .gas_price
-            .low_u64()
-            .checked_sub(self.env.base_fee_per_gas.low_u64())
+            .checked_sub(self.env.base_fee_per_gas)
             .ok_or(VMError::GasPriceIsLowerThanBaseFee)?;
-        let coinbase_fee = gas_to_pay_coinbase
+        let coinbase_fee = U256::from(gas_to_pay_coinbase)
             .checked_mul(priority_fee_per_gas)
             .ok_or(VMError::BalanceOverflow)?;
 
-        if coinbase_fee != 0 {
-            self.increase_account_balance(coinbase_address, U256::from(coinbase_fee))?;
+        if coinbase_fee != U256::zero() {
+            self.increase_account_balance(coinbase_address, coinbase_fee)?;
         };
 
         // 4. Destruct addresses in selfdestruct set.
