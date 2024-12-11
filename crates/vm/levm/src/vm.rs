@@ -998,10 +998,12 @@ impl VM {
         salt: Option<U256>,
         current_call_frame: &mut CallFrame,
     ) -> Result<OpcodeSuccess, VMError> {
+        // 1. Cant be called in a static context
         if current_call_frame.is_static {
             return Err(VMError::OpcodeNotAllowedInStaticContext);
         }
 
+        // 2. Cant exceed init code max size
         if code_size_in_memory > INIT_CODE_MAX_SIZE {
             return Err(VMError::OutOfGas(OutOfGasError::ConsumedGasOverflow));
         }
@@ -1009,6 +1011,7 @@ impl VM {
 
         let (sender_account_info, _sender_address_was_cold) = self.access_account(sender_address);
 
+        // Push 0 to stack if sender doesn't have enough value.
         if sender_account_info.balance < value_in_wei_to_send {
             current_call_frame
                 .stack
@@ -1019,12 +1022,26 @@ impl VM {
         let new_nonce = match self.increment_account_nonce(sender_address) {
             Ok(nonce) => nonce,
             Err(_) => {
+                // Push 0 to stack if sender has max nonce
                 current_call_frame
                     .stack
                     .push(U256::from(CREATE_DEPLOYMENT_FAIL))?;
                 return Ok(OpcodeSuccess::Continue);
             }
         };
+
+        let new_depth = current_call_frame
+            .depth
+            .checked_add(1)
+            .ok_or(InternalError::ArithmeticOperationOverflow)?;
+
+        if new_depth > 1024 {
+            // Push 0 to stack if depth limit has been reached.
+            current_call_frame
+                .stack
+                .push(U256::from(CREATE_DEPLOYMENT_FAIL))?;
+            return Ok(OpcodeSuccess::Continue);
+        }
 
         let code = Bytes::from(
             memory::load_range(
@@ -1040,27 +1057,16 @@ impl VM {
             None => Self::calculate_create_address(sender_address, new_nonce)?,
         };
 
-        if !self.get_account(new_address).is_empty() {
+        if self.get_account(new_address).has_code_or_nonce() {
+            // Push 0 to stack if account has code or nonce.
             current_call_frame
                 .stack
                 .push(U256::from(CREATE_DEPLOYMENT_FAIL))?;
             return Ok(OpcodeSuccess::Continue);
         }
 
-        let new_account = Account::new(U256::zero(), code.clone(), 0, Default::default());
+        let new_account = Account::new(value_in_wei_to_send, code.clone(), 0, Default::default());
         cache::insert_account(&mut self.cache, new_address, new_account);
-
-        let new_depth = current_call_frame
-            .depth
-            .checked_add(1)
-            .ok_or(InternalError::ArithmeticOperationOverflow)?;
-
-        if new_depth > 1024 {
-            current_call_frame
-                .stack
-                .push(U256::from(CREATE_DEPLOYMENT_FAIL))?;
-            return Ok(OpcodeSuccess::Continue);
-        }
 
         let max_message_call_gas = max_message_call_gas(current_call_frame)?;
 
@@ -1077,6 +1083,7 @@ impl VM {
             new_depth,
         );
 
+        self.accrued_substate.created_accounts.insert(new_address);
         let tx_report = self.execute(&mut new_call_frame)?;
 
         current_call_frame.gas_used = current_call_frame
@@ -1087,12 +1094,13 @@ impl VM {
 
         match tx_report.result {
             TxResult::Success => {
-                self.accrued_substate.created_accounts.insert(new_address);
+                self.update_account_bytecode(new_address, tx_report.output)?;
                 current_call_frame
                     .stack
                     .push(address_to_word(new_address))?;
             }
             TxResult::Revert(_) => {
+                self.accrued_substate.created_accounts.remove(&new_address);
                 // Push 0 to stack
                 current_call_frame
                     .stack
