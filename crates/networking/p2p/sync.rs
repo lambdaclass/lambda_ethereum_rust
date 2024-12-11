@@ -14,7 +14,7 @@ use tokio::{
     },
     time::Instant,
 };
-use tracing::{info, debug, warn};
+use tracing::{debug, info, warn};
 
 use crate::kademlia::KademliaTable;
 
@@ -171,7 +171,10 @@ impl SyncManager {
                 for result in healing_set.join_all().await {
                     result?;
                 }
-                info!("State healing finished in {} seconds", start_time.elapsed().as_secs());
+                info!(
+                    "State healing finished in {} seconds",
+                    start_time.elapsed().as_secs()
+                );
 
                 // Set latest block number here to avoid reading state that is currently being synced
                 store.update_latest_block_number(latest_block_number)?;
@@ -266,7 +269,7 @@ async fn fetch_snap_state(
     peers: Arc<Mutex<KademliaTable>>,
     store: Store,
 ) -> Result<(), SyncError> {
-    info!("Syncing state roots: {}", state_roots.len());
+    debug!("Syncing state roots: {}", state_roots.len());
     // Fetch newer state first: This will be useful to detect where to switch to healing
     for state_root in state_roots.into_iter().rev() {
         // TODO: maybe spawn taks here instead of awaiting
@@ -276,12 +279,13 @@ async fn fetch_snap_state(
             peers.clone(),
             store.clone(),
         )
-        .await {
-            Ok(_) => {},
+        .await
+        {
+            Ok(_) => {}
             // If we reached the maximum number of retries then the state we are fetching is most probably old and no longer part of our peer's snapshots
             // We should give up on fetching this and older block's state and instead begin state healing
-            Err(SyncError::MaxRetries) => {dbg!("break"); break},
-            err => return err
+            Err(SyncError::MaxRetries) => break,
+            err => return err,
         }
     }
     Ok(())
@@ -310,9 +314,8 @@ async fn rebuild_state_trie(
     // If we reached the maximum amount of retries then it means the state we are requesting is probably old and no longer available
     // In that case we will delegate the work to state healing
     // TODO: Make it so that exceeding max replies will also stop requests for older blocks
-    let mut retry_count = 0; 
+    let mut retry_count = 0;
     while retry_count < MAX_RETRIES {
-        dbg!(retry_count);
         let peer = peers.clone().lock().await.get_peer_channels().await;
         debug!("Requesting Account Range for state root {state_root}, starting hash: {start_account_hash}");
         if let Some((account_hashes, accounts, should_continue)) = peer
@@ -370,7 +373,6 @@ async fn rebuild_state_trie(
             retry_count += 1;
         }
     }
-    dbg!(retry_count);
     if current_state_root == state_root {
         info!("Completed state sync for state root {state_root}");
     }
@@ -380,7 +382,6 @@ async fn rebuild_state_trie(
         .await
         .map_err(|_| StoreError::Custom(String::from("Failed to join storage_fetcher task")))??;
     if retry_count == MAX_RETRIES {
-        dbg!("Max Retries error");
         Err(SyncError::MaxRetries)
     } else {
         Ok(())
@@ -496,7 +497,7 @@ async fn fetch_storage_batch(
     state_root: H256,
     peers: Arc<Mutex<KademliaTable>>,
     store: Store,
-) -> Result<Vec<(H256, H256)>, SyncError> {
+) -> Result<Vec<(H256, H256)>, StoreError> {
     for _ in 0..MAX_RETRIES {
         let peer = peers.lock().await.get_peer_channels().await;
         let (batch_hahses, batch_roots) = batch.clone().into_iter().unzip();
@@ -504,7 +505,7 @@ async fn fetch_storage_batch(
             .request_storage_ranges(state_root, batch_roots, batch_hahses, H256::zero())
             .await
         {
-            info!("Received {} storage ranges", keys.len());
+            debug!("Received {} storage ranges", keys.len());
             let mut _last_range;
             // Hold on to the last batch (if incomplete)
             if incomplete {
@@ -609,7 +610,6 @@ async fn heal_state_trie(
                 }
                 let hash = node.compute_hash();
                 trie_state.write_node(node, hash)?;
-                info!("State Node stored");
             }
             // Send storage & bytecode requests
             if !hahsed_addresses.is_empty() {
@@ -773,5 +773,5 @@ enum SyncError {
     #[error("Max Retries Reached")]
     // This is more of an internal signal rather than an error, it should never be returned to the user
     // It marks that we have reached the end of the available state (last 128 blocks) and we should begin state healing
-    MaxRetries
+    MaxRetries,
 }

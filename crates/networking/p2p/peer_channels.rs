@@ -390,10 +390,14 @@ impl PeerChannels {
             paths: paths
                 .into_iter()
                 .map(|(acc_path, paths)| {
-                    [vec![Bytes::from(acc_path.0.to_vec())], paths
-                        .into_iter()
-                        .map(|path| Bytes::from(path.encode_compact()))
-                        .collect()].concat()
+                    [
+                        vec![Bytes::from(acc_path.0.to_vec())],
+                        paths
+                            .into_iter()
+                            .map(|path| Bytes::from(path.encode_compact()))
+                            .collect(),
+                    ]
+                    .concat()
                 })
                 .collect(),
             bytes: MAX_RESPONSE_BYTES,
