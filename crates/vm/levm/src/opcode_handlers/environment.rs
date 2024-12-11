@@ -220,7 +220,11 @@ impl VM {
             .pop()?
             .try_into()
             .map_err(|_| VMError::VeryLargeNumber)?;
-        let code_offset = current_call_frame.stack.pop()?;
+        let code_offset: usize = current_call_frame
+            .stack
+            .pop()?
+            .try_into()
+            .map_err(|_| VMError::VeryLargeNumber)?;
         let size: usize = current_call_frame
             .stack
             .pop()?
@@ -239,18 +243,15 @@ impl VM {
         }
 
         let mut data = vec![0u8; size];
-
-        if code_offset < current_call_frame.bytecode.len().into() {
-            for (i, byte) in current_call_frame
-                .bytecode
-                .iter()
-                .skip(code_offset)
-                .take(size)
-                .enumerate()
-            {
-                if let Some(data_byte) = data.get_mut(i) {
-                    *data_byte = *byte;
-                }
+        for (i, byte) in current_call_frame
+            .bytecode
+            .iter()
+            .skip(code_offset)
+            .take(size)
+            .enumerate()
+        {
+            if let Some(data_byte) = data.get_mut(i) {
+                *data_byte = *byte;
             }
         }
 
