@@ -1065,7 +1065,7 @@ impl VM {
             return Ok(OpcodeSuccess::Continue);
         }
 
-        let new_account = Account::new(value_in_wei_to_send, code.clone(), 0, Default::default());
+        let new_account = Account::new(value_in_wei_to_send, code.clone(), 1, Default::default());
         cache::insert_account(&mut self.cache, new_address, new_account);
 
         let max_message_call_gas = max_message_call_gas(current_call_frame)?;
