@@ -38,10 +38,6 @@ pub enum VMError {
     SenderAccountDoesNotExist,
     #[error("Address Does Not Match An Account")]
     AddressDoesNotMatchAnAccount,
-    #[error("Sender account should not have bytecode")]
-    SenderNotEOA,
-    #[error("Insufficient account founds")]
-    InsufficientAccountFunds,
     #[error("Gas price is lower than base fee")]
     GasPriceIsLowerThanBaseFee,
     #[error("Address Already Occupied")]
@@ -50,12 +46,6 @@ pub enum VMError {
     ContractOutputTooBig,
     #[error("Invalid Initial Byte")]
     InvalidInitialByte,
-    #[error("Nonce is max (overflow)")]
-    NonceIsMax,
-    #[error("Memory load out of bounds")]
-    MemoryLoadOutOfBounds,
-    #[error("Memory Store Out Of Bounds")]
-    MemoryStoreOutOfBounds,
     #[error("Gas limit price product overflow")]
     GasLimitPriceProductOverflow,
     #[error("Balance Overflow")]
@@ -66,28 +56,8 @@ pub enum VMError {
     GasRefundsUnderflow,
     #[error("Gas refunds overflow")]
     GasRefundsOverflow,
-    #[error("Initcode size exceeded")]
-    InitcodeSizeExceeded,
-    #[error("Priority fee greater than max fee per gas")]
-    PriorityGreaterThanMaxFeePerGas,
-    #[error("Intrinsic gas too low")]
-    IntrinsicGasTooLow,
-    #[error("Gas allowance exceeded")]
-    GasAllowanceExceeded,
-    #[error("Insufficient max fee per gas")]
-    InsufficientMaxFeePerGas,
-    #[error("Insufficient max fee per blob gas")]
-    InsufficientMaxFeePerBlobGas,
     #[error("Memory size overflows")]
     MemorySizeOverflow,
-    #[error("Type3TxZeroBlobs")]
-    Type3TxZeroBlobs,
-    #[error("Type3TxInvalidBlobVersionedHash")]
-    Type3TxInvalidBlobVersionedHash,
-    #[error("Type3TxBlobCountExceeded")]
-    Type3TxBlobCountExceeded,
-    #[error("Type3TxContractCreation")]
-    Type3TxContractCreation,
     #[error("Nonce overflowed")]
     NonceOverflow,
     #[error("Nonce underflowed")]
