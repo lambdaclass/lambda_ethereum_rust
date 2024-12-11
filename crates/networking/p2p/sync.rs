@@ -372,7 +372,7 @@ async fn rebuild_state_trie(
         }
     }
     if current_state_root == state_root {
-        info!("Completed state sync for state root {state_root}");
+        debug!("Completed state sync for state root {state_root}");
     }
     // Send empty batch to signal that no more batches are incoming
     storage_sender.send(vec![]).await?;
@@ -645,7 +645,7 @@ async fn storage_healer(
             let mut next_batch: BTreeMap<H256, Vec<Nibbles>> = BTreeMap::new();
             // Group pending storages by account path
             // We do this here instead of keeping them sorted so we don't prioritize further nodes from the first tries
-            for (account, path) in pending_storages.drain(..BATCH_SIZE) {
+            for (account, path) in pending_storages.drain(..BATCH_SIZE.min(pending_storages.len())) {
                 next_batch.entry(account).or_default().push(path);
             }
             let return_batch =
