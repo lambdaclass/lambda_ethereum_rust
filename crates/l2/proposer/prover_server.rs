@@ -414,8 +414,14 @@ impl ProverServer {
                 // Avoid storing a proof of a future block_number
                 // CHECK: maybe we would like to store all the proofs given the case in which
                 // the provers generate them fast enough. In this way, we will avoid unneeded reexecution.
-                if block_number != (block_to_verify) {
+                if block_number != block_to_verify {
                     return Err(ProverServerError::Custom(format!("Prover Client submitted an invalid block_number: {block_number}. The last_proved_block is: {last_verified_block}")));
+                }
+
+                // If the transaction was submitted for the block_to_verify
+                // avoid storing already used proofs.
+                if tx_submitted {
+                    return Ok(());
                 }
 
                 // The proof is stored,
