@@ -313,7 +313,6 @@ async fn rebuild_state_trie(
     // Fetch Account Ranges
     // If we reached the maximum amount of retries then it means the state we are requesting is probably old and no longer available
     // In that case we will delegate the work to state healing
-    // TODO: Make it so that exceeding max replies will also stop requests for older blocks
     let mut retry_count = 0;
     while retry_count < MAX_RETRIES {
         let peer = peers.clone().lock().await.get_peer_channels().await;
@@ -340,10 +339,10 @@ async fn rebuild_state_trie(
                     code_hashes.push(account.code_hash)
                 }
                 // Build the batch of hashes and roots to send to the storage fetcher
-                // Ignore accounts without storage
-                // TODO: We could also check if the account's storage root is already part of the trie
-                // Aka, if the account was not changed shouldn't fetch the state we already have
-                if account.storage_root != *EMPTY_TRIE_HASH {
+                // Ignore accounts without storage and account's which storage hasn't changed from our current stored state
+                if account.storage_root != *EMPTY_TRIE_HASH
+                    && !store.contains_storage_node(*account_hash, account.storage_root)?
+                {
                     account_hashes_and_storage_roots.push((*account_hash, account.storage_root));
                 }
             }
@@ -576,7 +575,7 @@ async fn heal_state_trie(
                 let path = paths.remove(0);
                 // We cannot keep the trie state open
                 let mut trie = store.open_state_trie(*EMPTY_TRIE_HASH);
-                let mut trie_state = trie.state_mut();
+                let trie_state = trie.state_mut();
                 paths.extend(node_missing_children(&node, &path, &trie_state)?);
                 if let Node::Leaf(node) = &node {
                     // Fetch bytecode & storage
@@ -587,10 +586,15 @@ async fn heal_state_trie(
                         // Something went wrong
                         return Err(SyncError::CorruptPath);
                     }
-                    if account.storage_root != *EMPTY_TRIE_HASH {
-                        hahsed_addresses.push(H256::from_slice(&path));
+                    let account_hash = H256::from_slice(&path);
+                    if account.storage_root != *EMPTY_TRIE_HASH
+                        && !store.contains_storage_node(account_hash, account.storage_root)?
+                    {
+                        hahsed_addresses.push(account_hash);
                     }
-                    if account.code_hash != *EMPTY_KECCACK_HASH {
+                    if account.code_hash != *EMPTY_KECCACK_HASH
+                        && store.get_account_code(account.code_hash)?.is_none()
+                    {
                         code_hashes.push(account.code_hash);
                     }
                 }
