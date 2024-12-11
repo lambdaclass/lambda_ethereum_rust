@@ -1,6 +1,5 @@
 use crate::{
     call_frame::CallFrame,
-    constants::WORD_SIZE_IN_BYTES_USIZE,
     errors::{OpcodeSuccess, ResultReason, VMError},
     gas_cost,
     memory::{self, calculate_memory_size},
@@ -299,14 +298,7 @@ impl VM {
             .try_into()
             .map_err(|_err| VMError::VeryLargeNumber)?;
 
-        let new_size: usize = code_offset_in_memory
-            .checked_add(code_size_in_memory.into())
-            .ok_or(VMError::OutOfOffset)?
-            .try_into()
-            .map_err(|_err| VMError::VeryLargeNumber)?;
-        let new_size = new_size
-            .checked_next_multiple_of(WORD_SIZE_IN_BYTES_USIZE)
-            .ok_or(VMError::OutOfOffset)?;
+        let new_size = calculate_memory_size(code_offset_in_memory, code_size_in_memory)?;
 
         self.increase_consumed_gas(
             current_call_frame,
@@ -341,14 +333,7 @@ impl VM {
             .map_err(|_err| VMError::VeryLargeNumber)?;
         let salt = current_call_frame.stack.pop()?;
 
-        let new_size: usize = code_offset_in_memory
-            .checked_add(code_size_in_memory.into())
-            .ok_or(VMError::OutOfOffset)?
-            .try_into()
-            .map_err(|_err| VMError::VeryLargeNumber)?;
-        let new_size = new_size
-            .checked_next_multiple_of(WORD_SIZE_IN_BYTES_USIZE)
-            .ok_or(VMError::OutOfOffset)?;
+        let new_size = calculate_memory_size(code_offset_in_memory, code_size_in_memory)?;
 
         self.increase_consumed_gas(
             current_call_frame,
