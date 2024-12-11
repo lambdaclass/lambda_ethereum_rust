@@ -712,11 +712,10 @@ impl VM {
         let gas_return_amount = self
             .env
             .gas_price
-            .low_u64()
-            .checked_mul(gas_to_return)
+            .checked_mul(U256::from(gas_to_return))
             .ok_or(VMError::Internal(InternalError::UndefinedState(1)))?;
 
-        self.increase_account_balance(sender_address, U256::from(gas_return_amount))?;
+        self.increase_account_balance(sender_address, gas_return_amount)?;
 
         // 3. Pay coinbase fee
         let coinbase_address = self.env.coinbase;
