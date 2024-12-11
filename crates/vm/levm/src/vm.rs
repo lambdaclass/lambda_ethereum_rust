@@ -148,7 +148,8 @@ impl VM {
             default_touched_storage_slots.insert(address, warm_slots);
         }
 
-        // Add precompiled contracts addresses to cache
+        // Add precompiled contracts addresses to cache.
+        // TODO: Use the addresses from precompiles.rs in a future
         for i in 1..10 {
             default_touched_accounts.insert(Address::from_low_u64_be(i));
         }
