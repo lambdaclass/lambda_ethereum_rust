@@ -22,7 +22,6 @@ struct JsonFile {
 }
 
 struct HiveResult {
-    suite: String,
     category: String,
     display_name: String,
     passed_tests: usize,
@@ -52,7 +51,6 @@ impl HiveResult {
         };
 
         HiveResult {
-            suite,
             category: category.to_string(),
             display_name: display_name.to_string(),
             passed_tests,
@@ -60,18 +58,18 @@ impl HiveResult {
             success_percentage,
         }
     }
+
+    fn should_skip(&self) -> bool {
+        self.category.is_empty()
+    }
 }
 
 impl std::fmt::Display for HiveResult {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(
             f,
-            "{} - {}: {}/{} ({:.02}%)",
-            self.category,
-            self.display_name,
-            self.passed_tests,
-            self.total_tests,
-            self.success_percentage
+            "{}: {}/{} ({:.02}%)",
+            self.display_name, self.passed_tests, self.total_tests, self.success_percentage
         )
     }
 }
@@ -110,27 +108,35 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                 .count();
 
             let result = HiveResult::new(json_data.name, passed_tests, total_tests);
-            if !result.suite.is_empty() {
+            if !result.should_skip() {
                 results.push(result);
             }
         }
     }
 
-    // First by category ascending, then by success percentage descending, then by total tests descending.
+    // First by category ascending, then by passed tests descending, then by success percentage descending.
     results.sort_by(|a, b| {
         a.category
             .cmp(&b.category)
+            .then_with(|| b.passed_tests.cmp(&a.passed_tests))
             .then_with(|| {
                 b.success_percentage
                     .partial_cmp(&a.success_percentage)
                     .unwrap()
             })
-            .then_with(|| b.total_tests.cmp(&a.total_tests))
     });
 
-    for result in &results {
-        println!("{}", result);
+    let results_by_category = results.chunk_by(|a, b| a.category == b.category);
+
+    for results in results_by_category {
+        // print category
+        println!("{}", results[0].category);
+        for result in results {
+            println!("\t{}", result);
+        }
+        println!();
     }
+
     println!();
     let total_passed = results.iter().map(|r| r.passed_tests).sum::<usize>();
     let total_tests = results.iter().map(|r| r.total_tests).sum::<usize>();
