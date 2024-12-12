@@ -325,7 +325,7 @@ impl ProverServer {
                     }
                 };
                 if !has_proof {
-                    write_state(block_number, StateType::Proof(proving_output))?;
+                    write_state(block_number, &StateType::Proof(proving_output))?;
                 }
 
                 // Then if we have all the proofs, we send the transaction in the next `handle_connection` call.

@@ -12,36 +12,6 @@ use std::{
     io::{BufWriter, Write},
 };
 
-#[derive(Serialize, Deserialize, Debug)]
-pub enum StateType {
-    Proof(ProvingOutput),
-    AccountUpdates(Vec<AccountUpdate>),
-}
-
-#[derive(Serialize, Deserialize, Debug, Clone)]
-pub enum StateFileType {
-    Proof(ProverType),
-    AccountUpdates,
-}
-
-pub fn state_file_type_from_state_type(state_type: &StateType) -> StateFileType {
-    match &state_type {
-        StateType::Proof(p) => match p {
-            ProvingOutput::RISC0(_) => StateFileType::Proof(ProverType::RISC0),
-            ProvingOutput::SP1(_) => StateFileType::Proof(ProverType::SP1),
-        },
-        StateType::AccountUpdates(_) => StateFileType::AccountUpdates,
-    }
-}
-
-pub fn state_file_type_from_prover_type(prover_type: &ProverType) -> StateFileType {
-    match &prover_type {
-        ProverType::RISC0 => StateFileType::Proof(ProverType::RISC0),
-        ProverType::SP1 => StateFileType::Proof(ProverType::SP1),
-    }
-}
-
-#[cfg(not(test))]
 const DEFAULT_DATADIR: &str = "ethrex_l2_state";
 
 #[cfg(not(test))]
@@ -54,6 +24,62 @@ fn default_datadir() -> Result<PathBuf, SaveStateError> {
 #[inline(always)]
 fn default_datadir() -> Result<PathBuf, SaveStateError> {
     create_datadir("test_datadir")
+}
+
+#[inline(always)]
+fn create_datadir(dir_name: &str) -> Result<PathBuf, SaveStateError> {
+    let path_buf_data_dir = ProjectDirs::from("", "", dir_name)
+        .ok_or_else(|| SaveStateError::FailedToCrateDataDir)?
+        .data_local_dir()
+        .to_path_buf();
+    Ok(path_buf_data_dir)
+}
+
+/// Proposed structure
+/// 1/
+///     account_updates_1.json
+///     proof_risc0_1.json
+///     proof_sp1_1.json
+/// 2/
+///     account_updates_2.json
+///     proof_risc0_2.json
+///     proof_sp1_2.json
+/// All the files are saved at the path defined by [ProjectDirs::data_local_dir]
+/// and the [DEFAULT_DATADIR] when calling [create_datadir]
+
+/// Enum used to differentiate between the possible types of data we can store per block.
+#[derive(Serialize, Deserialize, Debug)]
+pub enum StateType {
+    Proof(ProvingOutput),
+    AccountUpdates(Vec<AccountUpdate>),
+}
+
+/// Enum used to differentiate between the possible types of files we can have per block.
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub enum StateFileType {
+    Proof(ProverType),
+    AccountUpdates,
+}
+
+impl From<&StateType> for StateFileType {
+    fn from(state_type: &StateType) -> Self {
+        match state_type {
+            StateType::Proof(p) => match p {
+                ProvingOutput::RISC0(_) => StateFileType::Proof(ProverType::RISC0),
+                ProvingOutput::SP1(_) => StateFileType::Proof(ProverType::SP1),
+            },
+            StateType::AccountUpdates(_) => StateFileType::AccountUpdates,
+        }
+    }
+}
+
+impl From<&ProverType> for StateFileType {
+    fn from(prover_type: &ProverType) -> Self {
+        match prover_type {
+            ProverType::RISC0 => StateFileType::Proof(ProverType::RISC0),
+            ProverType::SP1 => StateFileType::Proof(ProverType::SP1),
+        }
+    }
 }
 
 #[inline(always)]
@@ -73,15 +99,6 @@ fn get_block_number_from_path(path_buf: &Path) -> Result<u64, SaveStateError> {
 
     let block_number = block_number.parse::<u64>()?;
     Ok(block_number)
-}
-
-#[inline(always)]
-fn create_datadir(dir_name: &str) -> Result<PathBuf, SaveStateError> {
-    let path_buf_data_dir = ProjectDirs::from("", "", dir_name)
-        .ok_or_else(|| SaveStateError::FailedToCrateDataDir)?
-        .data_local_dir()
-        .to_path_buf();
-    Ok(path_buf_data_dir)
 }
 
 #[inline(always)]
@@ -114,7 +131,7 @@ fn get_state_file_path(
     path_buf.join(file_name)
 }
 
-/// CREATE
+/// CREATE the state_file given the block_number
 fn create_state_file_for_block_number(
     block_number: u64,
     state_file_type: StateFileType,
@@ -123,7 +140,6 @@ fn create_state_file_for_block_number(
     if let Some(parent) = path_buf.parent() {
         if let Err(e) = create_dir_all(parent) {
             if e.kind() != std::io::ErrorKind::AlreadyExists {
-                eprintln!("Failed to create directory: {:?}. Error: {e}", parent);
                 return Err(e.into());
             }
         }
@@ -135,7 +151,6 @@ fn create_state_file_for_block_number(
 
     if let Err(e) = create_dir(&path_buf) {
         if e.kind() != std::io::ErrorKind::AlreadyExists {
-            eprintln!("Failed to create directory: {:?}. Error: {e}", path_buf);
             return Err(e.into());
         }
     }
@@ -143,20 +158,20 @@ fn create_state_file_for_block_number(
     File::create(file_path).map_err(Into::into)
 }
 
-/// WRITE
-pub fn write_state(block_number: u64, state_type: StateType) -> Result<(), SaveStateError> {
-    let state_file_type = state_file_type_from_state_type(&state_type);
-    let inner = create_state_file_for_block_number(block_number, state_file_type)?;
+/// WRITE to the state_file given the block number and the state_type
+/// It also creates the file, if it already exists it will overwrite the file
+pub fn write_state(block_number: u64, state_type: &StateType) -> Result<(), SaveStateError> {
+    let inner = create_state_file_for_block_number(block_number, state_type.into())?;
 
     match state_type {
         StateType::Proof(value) => {
             let mut writer = BufWriter::new(inner);
-            serde_json::to_writer(&mut writer, &value)?;
+            serde_json::to_writer(&mut writer, value)?;
             writer.flush()?;
         }
         StateType::AccountUpdates(value) => {
             let mut writer = BufWriter::new(inner);
-            serde_json::to_writer(&mut writer, &value)?;
+            serde_json::to_writer(&mut writer, value)?;
             writer.flush()?;
         }
     }
@@ -195,12 +210,13 @@ fn get_block_state_path(block_number: u64) -> Result<PathBuf, SaveStateError> {
     Ok(block_state_path)
 }
 
+/// GET the latest block_number given the proposed structure
 pub fn get_latest_block_number() -> Result<u64, SaveStateError> {
     let (block_number, _) = get_latest_block_number_and_path()?;
     Ok(block_number)
 }
 
-/// READ
+/// READ the state given the block_number and the [StateFileType]
 pub fn read_state(
     block_number: u64,
     state_file_type: StateFileType,
@@ -229,24 +245,28 @@ pub fn read_state(
     Ok(state)
 }
 
+/// READ the proof given the block_number and the [StateFileType::Proof]
 pub fn read_proof(
     block_number: u64,
     state_file_type: StateFileType,
 ) -> Result<ProvingOutput, SaveStateError> {
     match read_state(block_number, state_file_type)? {
         StateType::Proof(p) => Ok(p),
-        StateType::AccountUpdates(_) => unimplemented!(),
+        StateType::AccountUpdates(_) => Err(SaveStateError::Custom(
+            "Failed in read_proof(), make sure that the state_file_type is a Proof".to_owned(),
+        )),
     }
 }
 
-/// READ
+/// READ the latest state given the [StateFileType].
+/// latest means the state for the highest block_number available.
 pub fn read_latest_state(state_file_type: StateFileType) -> Result<StateType, SaveStateError> {
     let (latest_block_state_number, _) = get_latest_block_number_and_path()?;
     let state = read_state(latest_block_state_number, state_file_type)?;
     Ok(state)
 }
 
-/// DELETE
+/// DELETE the [StateFileType] for the given block_number
 pub fn delete_state_file(
     block_number: u64,
     state_file_type: StateFileType,
@@ -258,6 +278,8 @@ pub fn delete_state_file(
     Ok(())
 }
 
+/// DELETE the [StateFileType]
+/// latest means the state for the highest block_number available.
 pub fn delete_latest_state_file(state_file_type: StateFileType) -> Result<(), SaveStateError> {
     let (latest_block_state_number, _) = get_latest_block_number_and_path()?;
     let latest_block_state_path = get_block_state_path(latest_block_state_number)?;
@@ -271,12 +293,15 @@ pub fn delete_latest_state_file(state_file_type: StateFileType) -> Result<(), Sa
     Ok(())
 }
 
+/// PRUNE all the files for the given block_number
 pub fn prune_state(block_number: u64) -> Result<(), SaveStateError> {
     let block_state_path = get_block_state_path(block_number)?;
     std::fs::remove_dir_all(block_state_path)?;
     Ok(())
 }
 
+/// PRUNE all the files
+/// latest means the state for the highest block_number available.
 pub fn prune_latest_state() -> Result<(), SaveStateError> {
     let (latest_block_state_number, _) = get_latest_block_number_and_path()?;
     let latest_block_state_path = get_block_state_path(latest_block_state_number)?;
@@ -284,6 +309,8 @@ pub fn prune_latest_state() -> Result<(), SaveStateError> {
     Ok(())
 }
 
+/// CHECK if the given path has the given [StateFileType]
+/// This function will check if the path: ../../../<block_number>/ contains the state_file_type
 pub fn path_has_state_file(
     state_file_type: StateFileType,
     path_buf: &Path,
@@ -304,6 +331,8 @@ pub fn path_has_state_file(
     Ok(false)
 }
 
+/// CHECK if the given block_number has the given [StateFileType]
+/// This function will check if the path: ../../../<block_number>/ contains the state_file_type
 pub fn block_number_has_state_file(
     state_file_type: StateFileType,
     block_number: u64,
@@ -323,14 +352,16 @@ pub fn block_number_has_state_file(
     Ok(false)
 }
 
+/// CHECK if the given block_number has all the proofs needed
+/// This function will check if the path: ../../../<block_number>/ contains the proofs
+/// Make sure to add all new proving_systems in the [ProverType::all] function
 pub fn block_number_has_all_proofs(block_number: u64) -> Result<bool, SaveStateError> {
     let block_state_path = get_block_state_path(block_number)?;
 
     let mut has_all_proofs = true;
     for prover_type in ProverType::all() {
         let file_name_to_seek: OsString =
-            get_state_file_name(block_number, &state_file_type_from_prover_type(prover_type))
-                .into();
+            get_state_file_name(block_number, &StateFileType::from(prover_type)).into();
 
         // Check if the proof exists
         let proof_exists = std::fs::read_dir(&block_state_path)?
@@ -450,14 +481,14 @@ mod tests {
 
             write_state(
                 block.header.number,
-                StateType::AccountUpdates(account_updates),
+                &StateType::AccountUpdates(account_updates),
             )?;
 
             let risc0_data = ProvingOutput::RISC0(risc0_proof.clone());
-            write_state(block.header.number, StateType::Proof(risc0_data))?;
+            write_state(block.header.number, &StateType::Proof(risc0_data))?;
 
             let sp1_data = ProvingOutput::SP1(sp1_proof.clone());
-            write_state(block.header.number, StateType::Proof(sp1_data))?;
+            write_state(block.header.number, &StateType::Proof(sp1_data))?;
         }
 
         // Check if the latest block_number saved matches the latest block in the chain.rlp
