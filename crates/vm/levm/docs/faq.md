@@ -8,7 +8,7 @@ The problem arises in the opcodes that need to acess a specific index on a data 
 These operands receive offsets and indexes in `U256`, but the data structure they have to access (e.g. `Memory` or  `Calldata`) **require a `usize`**. Therefore, those paramenters need to be cast from `U256` to `usize`.
 The problem is, `U256`'s representation ranger is larger than `usize`'s; so not all numbers can be successfuly cast. In these cases, special attention is needed.
 
-The main way to deal with theses cases (at least, at the time of writing) is to **cast the value only when you know it can fit**. Before casting to `usize`, we compare the size of the index in `U256` with the length of the datastructure it wants to access. Here's an example from the `EXTCODECOPY` opcode (NOTE: the code snippet is a simplified/altered version to demonstrate this pattern. The actual implementation is fairly different):
+The main way to deal with these cases (at least, at the time of writing) is to **cast the value only when you know it can fit**. Before casting to `usize`, we compare the size of the index in `U256` with the length of the datastructure it wants to access. Here's an example from the `EXTCODECOPY` opcode (NOTE: the code snippet is a simplified/altered version to demonstrate this pattern. The actual implementation is fairly different):
 
 ```rust
 ///  bytecode: Represents the EVM bytecode array to be executed.
