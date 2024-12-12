@@ -1,42 +1,39 @@
 # FAQ
-## `usize` and U256
-In Rust, accessing an index on a specific data structure requires a `usize` type variable. This can be seen in methods like `get` and `get_mut`.
+## `usize` and `U256`
+In Rust, **accessing an index on a specific data structure requires a `usize` type variable.** This can be seen in methods like `get` and `get_mut`.
 
-<!-- TODO: Link in the documentation where the U256 addresses are described -->
-On the other hand, the EVM specification requires all addresses to be in U256. Therefore, every opcode treats its arguments as U256 values.
-The problem arises in the opcodes that need to access a specific index on a data structure (e.g. `CALLDATA`, `CODECOPY`, `EXTCODECOPY`, etc).
-These operands receive offsets and indexes in U256, but the data structure they have to access (e.g. `Memory` or  `Calldata`) require a `usize`. Therefore, those parameters need to be cast from U256 to `usize`.
-The problem is, U256's representation ranger is larger than `usize`'s; so not all numbers can be successfully cast. In these cases, special attention is needed.
+<!-- TODO: Link in the documentation where the `U256` adresses are described -->
+On the other hand, the EVM specification requires all addresses to be in `U256`. Therefore, every opcode treats its arguments as `U256` values.
+The problem arises in the opcodes that need to acess a specific index on a data structure (e.g. `CALLDATA`, `CODECOPY`, `EXTCODECOPY`, etc).
+These operands receive offsets and indexes in `U256`, but the data structure they have to access (e.g. `Memory` or  `Calldata`) **require a `usize`**. Therefore, those paramenters need to be cast from `U256` to `usize`.
+The problem is, `U256`'s representation ranger is larger than `usize`'s; so not all numbers can be successfuly cast. In these cases, special attention is needed.
 
-The main way to deal with theses cases (at least, at the time of writing) is to **delay the cast**. Before casting to `usize`, we compare the size of the index in U256 with the length of the data structure it wants to access. Here's an example from the `EXTCODECOPY` opcode (NOTE: the code snippet is a simplified/altered version to demonstrate this pattern):
+The main way to deal with theses cases (at least, at the time of writing) is to **cast the value only when you know it can fit**. Before casting to `usize`, we compare the size of the index in `U256` with the length of the datastructure it wants to access. Here's an example from the `EXTCODECOPY` opcode (NOTE: the code snippet is a simplified/altered version to demonstrate this pattern. The actual implementation is fairly different):
 
-Some context: It is not important what this operand does. The only thing that matters for this example is that `EXTCODECOPY` returns a vector of bytes. That vector will copy a specific amount of bytes from `calldata` to `memory`. 
-Notably for this example, it can receive an offset. Which will tell the operand which parts of the `calldata` section it should skip. Skipped sections will be replaced with 0's.
 ```rust
-0:   pub fn op_extcodecopy(
+///  bytecode: Represents the EVM bytecode array to be executed.
+0:   pub fn op_extcodecopy(bytecode_offset: U256, bytecode: Bytes) {
 
         (...)
 
-1:        let offset: U256 = current_call_frame.stack.pop()?; // This represents a `calldata` offset.
-
-        (...)
-
-2:       let mut data = vec![0u8; size];
-3:       if offset < account_info.bytecode.len().into() {
+1:       let mut data = vec![0u8; size];
+2:       let bytecode_length: U256 = bytecode.len().into();
+3:       if bytecode_offset < bytecode_length {
 4:           let offset: usize = offset
 5:               .try_into()
 6:               .map_err(|_| VMError::Internal(InternalError::ConversionError))?;
 7:           // After this the data vector is modified
 
         (...)
+
 8:      }
-9:      memory::try_store_data(&mut current_call_frame.memory, dest_offset, &data)?;
-
-10:     Ok(OpcodeSuccess::Continue)
+9:      memory.store_data(&data);
+10: }
 ```
+Some context: It is not important what this operand does. The only thing that matters for this example is that `EXTCODECOPY` stores a `data` vector in memory. The offset it receives will tell `EXTCODECOPY` which parts of the bytecode to skip, and which parts it will copy to memory. Skipped sections will be filled with 0's.
 
-- In line `1` we get the offset, which is in U256.
-- In line `2` we create the vector which we will return.
+- In line `1` we create the vector which we will return.
+- In line `2` we get the `bytecode` array length. Since `.len()` returns a `usize` we need to cast it to `U256`, in order to compare itwith `bytecode_offset`. Luckily, `usize` always fits into `U256`, so this will never fail.
 - In line `3` we check if the calldata offset is larger than the calldata itself. If this is the case, there's no data to copy. So we do not want to modify the vector.
     -  Do note that, after this check we can safely cast the bytecode to `usize`. This is because there is a limit to the contract's bytecode size. For more information, read [this article](https://ethereum.org/en/developers/docs/smart-contracts/#limitations).
 - Finally in line `9`, we store the resulting data vector in memory.
