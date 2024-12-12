@@ -38,9 +38,8 @@ Notably for this example, it can receive an offset. Which will tell the operand 
 - In line `1` we get the offset, which is in U256.
 - In line `2` we create the vector which we will return.
 - In line `3` we check if the calldata offset is larger than the calldata itself. If this is the case, there's no data to copy. So we do not want to modify the vector.
-    -  If it is not larger, we can safely cast it to usize (which is done in line `4`). This is because the `calldata` size is capped <!-- TODO: Add link to where this is specified. -->
-- Finally in line `9`, we store the data vector in memory.
-    - As stated previously, this can be a vector of all 0's if the calldata offset was larger than calldata itself.
+    -  Do note that, after this check we can safely cast the bytecode to `usize`. This is because there is a limit to the contract's bytecode size. For more information, read [this article](https://ethereum.org/en/developers/docs/smart-contracts/#limitations).
+- Finally in line `9`, we store the resulting data vector in memory.
 
 
 This pattern is fairly common and is useful to keep in mind when dealing with operands that deal with offsets and indexes.
