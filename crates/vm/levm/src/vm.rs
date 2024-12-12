@@ -852,7 +852,7 @@ impl VM {
         ret_offset: U256,
         ret_size: usize,
     ) -> Result<OpcodeSuccess, VMError> {
-        // 1. Validations that can result in OOG
+        // 1. Validations
 
         let (sender_account_info, _address_was_cold) = self.access_account(msg_sender);
 

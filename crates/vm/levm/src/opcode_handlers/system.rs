@@ -16,14 +16,10 @@ impl VM {
         &mut self,
         current_call_frame: &mut CallFrame,
     ) -> Result<OpcodeSuccess, VMError> {
+        // STACK
         let gas = current_call_frame.stack.pop()?;
         let callee: Address = word_to_address(current_call_frame.stack.pop()?);
         let value_to_transfer: U256 = current_call_frame.stack.pop()?;
-
-        if current_call_frame.is_static && !value_to_transfer.is_zero() {
-            return Err(VMError::OpcodeNotAllowedInStaticContext);
-        }
-
         let args_start_offset = current_call_frame.stack.pop()?;
         let args_size = current_call_frame
             .stack
@@ -37,8 +33,13 @@ impl VM {
             .try_into()
             .map_err(|_| VMError::VeryLargeNumber)?;
 
-        let current_memory_size = current_call_frame.memory.len();
+        // OOG VALIDATIONS
+        if current_call_frame.is_static && !value_to_transfer.is_zero() {
+            return Err(VMError::OpcodeNotAllowedInStaticContext);
+        }
 
+        // GAS
+        let current_memory_size = current_call_frame.memory.len();
         let new_memory_size_for_args = calculate_memory_size(args_start_offset, args_size)?;
         let new_memory_size_for_return_data =
             calculate_memory_size(return_data_start_offset, return_data_size)?;
@@ -57,6 +58,7 @@ impl VM {
             )?,
         )?;
 
+        // OPERATION
         let msg_sender = current_call_frame.to; // The new sender will be the current contract.
         let to = callee; // In this case code_address and the sub-context account are the same. Unlike CALLCODE or DELEGATECODE.
         let is_static = current_call_frame.is_static;
@@ -91,6 +93,7 @@ impl VM {
         &mut self,
         current_call_frame: &mut CallFrame,
     ) -> Result<OpcodeSuccess, VMError> {
+        // STACK
         let gas = current_call_frame.stack.pop()?;
         let code_address = word_to_address(current_call_frame.stack.pop()?);
         let value_to_transfer = current_call_frame.stack.pop()?;
@@ -107,6 +110,7 @@ impl VM {
             .try_into()
             .map_err(|_err| VMError::VeryLargeNumber)?;
 
+        // GAS
         let current_memory_size = current_call_frame.memory.len();
         let new_memory_size_for_args = calculate_memory_size(args_start_offset, args_size)?;
 
@@ -191,6 +195,7 @@ impl VM {
         &mut self,
         current_call_frame: &mut CallFrame,
     ) -> Result<OpcodeSuccess, VMError> {
+        // STACK
         let gas = current_call_frame.stack.pop()?;
         let code_address = word_to_address(current_call_frame.stack.pop()?);
         let args_start_offset = current_call_frame.stack.pop()?;
@@ -206,11 +211,7 @@ impl VM {
             .try_into()
             .map_err(|_err| VMError::VeryLargeNumber)?;
 
-        let msg_sender = current_call_frame.msg_sender;
-        let value = current_call_frame.msg_value;
-        let to = current_call_frame.to;
-        let is_static = current_call_frame.is_static;
-
+        // GAS
         let (_account_info, address_was_cold) = self.access_account(code_address);
 
         let current_memory_size = current_call_frame.memory.len();
@@ -223,6 +224,12 @@ impl VM {
             current_call_frame,
             gas_cost::delegatecall(new_memory_size, current_memory_size, address_was_cold)?,
         )?;
+
+        // OPERATION
+        let msg_sender = current_call_frame.msg_sender;
+        let value = current_call_frame.msg_value;
+        let to = current_call_frame.to;
+        let is_static = current_call_frame.is_static;
 
         self.generic_call(
             current_call_frame,
@@ -246,23 +253,23 @@ impl VM {
         &mut self,
         current_call_frame: &mut CallFrame,
     ) -> Result<OpcodeSuccess, VMError> {
+        // STACK
         let gas = current_call_frame.stack.pop()?;
         let code_address = word_to_address(current_call_frame.stack.pop()?);
         let args_start_offset = current_call_frame.stack.pop()?;
-
         let args_size = current_call_frame
             .stack
             .pop()?
             .try_into()
             .map_err(|_err| VMError::VeryLargeNumber)?;
         let return_data_start_offset = current_call_frame.stack.pop()?;
-
         let return_data_size = current_call_frame
             .stack
             .pop()?
             .try_into()
             .map_err(|_err| VMError::VeryLargeNumber)?;
 
+        // GAS
         let (_account_info, address_was_cold) = self.access_account(code_address);
 
         let current_memory_size = current_call_frame.memory.len();
@@ -276,6 +283,7 @@ impl VM {
             gas_cost::staticcall(new_memory_size, current_memory_size, address_was_cold)?,
         )?;
 
+        // OPERATION
         let value = U256::zero();
         let msg_sender = current_call_frame.to; // The new sender will be the current contract.
         let to = code_address; // In this case code_address and the sub-context account are the same. Unlike CALLCODE or DELEGATECODE.
