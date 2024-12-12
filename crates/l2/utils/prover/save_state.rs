@@ -240,9 +240,7 @@ pub fn read_proof(
 }
 
 /// READ
-pub fn read_latest_state(
-    state_file_type: StateFileType,
-) -> Result<StateType, SaveStateError> {
+pub fn read_latest_state(state_file_type: StateFileType) -> Result<StateType, SaveStateError> {
     let (latest_block_state_number, _) = get_latest_block_number_and_path()?;
     let state = read_state(latest_block_state_number, state_file_type)?;
     Ok(state)
@@ -260,9 +258,7 @@ pub fn delete_state_file(
     Ok(())
 }
 
-pub fn delete_latest_state_file(
-    state_file_type: StateFileType,
-) -> Result<(), SaveStateError> {
+pub fn delete_latest_state_file(state_file_type: StateFileType) -> Result<(), SaveStateError> {
     let (latest_block_state_number, _) = get_latest_block_number_and_path()?;
     let latest_block_state_path = get_block_state_path(latest_block_state_number)?;
     let file_path: PathBuf = get_state_file_path(
