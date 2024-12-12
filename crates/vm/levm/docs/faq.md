@@ -39,7 +39,7 @@ Some context: It is not important what this operand does. The only thing that ma
     -  Do note that, after this check we can safely cast the bytecode to `usize`. This is done in line `5`. This is because there is a limit to the contract's bytecode size. For more information, read [this article](https://ethereum.org/en/developers/docs/smart-contracts/#limitations).
     -  We return an InternalError because line 5 should never fail. If it fails, then it means there's a problem with the VM itself.
 - Finally in line `10`, we store the resulting data vector in memory.
-    - If the bytecode_offset was larger than the actual contents of the bytecode array, we return a vector with only 0's. This is the intended behavior.
+    - If the `bytecode_offset` was larger than the actual contents of the bytecode array, we return a vector with only 0's. This is the intended behavior.
 
 
 This pattern is fairly common and is useful to keep in mind, especially when dealing with operands that deal with offsets and indexes.
