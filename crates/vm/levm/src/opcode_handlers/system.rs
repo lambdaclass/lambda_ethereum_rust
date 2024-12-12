@@ -466,9 +466,6 @@ impl VM {
     }
 
     /// Common behavior for CREATE and CREATE2 opcodes
-    ///
-    /// Could be used for CREATE type transactions
-    // TODO: Improve and test REVERT behavior for CREATE. Issue: https://github.com/lambdaclass/ethrex/issues/1061
     pub fn create(
         &mut self,
         value_in_wei_to_send: U256,
