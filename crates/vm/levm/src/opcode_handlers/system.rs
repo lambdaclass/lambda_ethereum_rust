@@ -1,6 +1,6 @@
 use crate::{
     call_frame::CallFrame,
-    errors::{InternalError, OpcodeSuccess, ResultReason, VMError},
+    errors::{OpcodeSuccess, ResultReason, VMError},
     gas_cost::{self, CALLCODE_POSITIVE_VALUE_STIPEND, CALL_POSITIVE_VALUE_STIPEND},
     memory::{self, calculate_memory_size},
     vm::{word_to_address, VM},
