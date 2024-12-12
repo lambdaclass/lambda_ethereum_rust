@@ -488,12 +488,12 @@ impl VM {
         }
 
         // SECOND: Validations that push 0 to the stack
-        let sender_address = current_call_frame.to;
+        let deployer_address = current_call_frame.to;
 
-        let (sender_account_info, _sender_address_was_cold) = self.access_account(sender_address);
+        let (deployer_account_info, _sender_address_was_cold) = self.access_account(deployer_address);
 
         // 1. Sender doesn't have enough balance to send value.
-        if sender_account_info.balance < value_in_wei_to_send {
+        if deployer_account_info.balance < value_in_wei_to_send {
             current_call_frame
                 .stack
                 .push(U256::from(CREATE_DEPLOYMENT_FAIL))?;
@@ -513,7 +513,7 @@ impl VM {
         }
 
         // 3. Sender nonce is max.
-        if sender_account_info.nonce == u64::MAX {
+        if deployer_account_info.nonce == u64::MAX {
             current_call_frame
                 .stack
                 .push(U256::from(CREATE_DEPLOYMENT_FAIL))?;
@@ -530,8 +530,8 @@ impl VM {
         );
 
         let new_address = match salt {
-            Some(salt) => Self::calculate_create2_address(sender_address, &code, salt)?,
-            None => Self::calculate_create_address(sender_address, sender_account_info.nonce)?,
+            Some(salt) => Self::calculate_create2_address(deployer_address, &code, salt)?,
+            None => Self::calculate_create_address(deployer_address, deployer_account_info.nonce)?,
         };
 
         // 3. Account has nonce or code.
@@ -548,14 +548,14 @@ impl VM {
         cache::insert_account(&mut self.cache, new_address, new_account);
 
         // 2. Increment sender's nonce.
-        self.increment_account_nonce(sender_address)?;
+        self.increment_account_nonce(deployer_address)?;
 
         // 3. Decrease sender's balance.
-        self.decrease_account_balance(sender_address, value_in_wei_to_send)?;
+        self.decrease_account_balance(deployer_address, value_in_wei_to_send)?;
 
         let max_message_call_gas = max_message_call_gas(current_call_frame)?;
         let mut new_call_frame = CallFrame::new(
-            sender_address,
+            deployer_address,
             new_address,
             new_address,
             code,
@@ -588,7 +588,7 @@ impl VM {
             }
             TxResult::Revert(_) => {
                 // Return value to sender
-                self.increase_account_balance(sender_address, value_in_wei_to_send)?;
+                self.increase_account_balance(deployer_address, value_in_wei_to_send)?;
 
                 // Deployment failed so account shouldn't exist
                 cache::remove_account(&mut self.cache, &new_address);
