@@ -1,6 +1,6 @@
 use ethrex_blockchain::error::ChainError;
 use ethrex_core::{
-    types::{AccountState, Block, BlockHash, BlockHeader, EMPTY_KECCACK_HASH},
+    types::{AccountState, Block, BlockBody, BlockHash, BlockHeader, EMPTY_KECCACK_HASH},
     H256,
 };
 use ethrex_rlp::{decode::RLPDecode, encode::RLPEncode, error::RLPDecodeError};
@@ -21,6 +21,8 @@ use crate::kademlia::KademliaTable;
 /// Maximum amount of times we will ask a peer for an account/storage range
 /// If the max amount of retries is exceeded we will asume that the state we are requesting is old and no longer available
 const MAX_RETRIES: usize = 10;
+/// The minimum amount of blocks from the head that we want to full sync during a snap sync
+const MIN_FULL_BLOCKS: usize = 64;
 
 #[derive(Debug)]
 pub enum SyncMode {
@@ -34,11 +36,19 @@ pub enum SyncMode {
 pub struct SyncManager {
     sync_mode: SyncMode,
     peers: Arc<Mutex<KademliaTable>>,
+    /// The last block number used as a pivot for snap-sync
+    /// Syncing beyond this pivot should re-enable snap-sync (as we will not have that state stored)
+    /// TODO: Reorgs
+    last_snap_pivot: u64,
 }
 
 impl SyncManager {
     pub fn new(peers: Arc<Mutex<KademliaTable>>, sync_mode: SyncMode) -> Self {
-        Self { sync_mode, peers }
+        Self {
+            sync_mode,
+            peers,
+            last_snap_pivot: 0,
+        }
     }
 
     /// Creates a dummy SyncManager for tests where syncing is not needed
@@ -48,6 +58,7 @@ impl SyncManager {
         Self {
             sync_mode: SyncMode::Full,
             peers: dummy_peer_table,
+            last_snap_pivot: 0,
         }
     }
 
@@ -117,67 +128,67 @@ impl SyncManager {
         match self.sync_mode {
             SyncMode::Snap => {
                 // snap-sync: launch tasks to fetch blocks and state in parallel
-                // - Fetch each block's state via snap p2p requests
-                // - Fetch each blocks and its receipts via eth p2p requests
-                let (bytecode_sender, bytecode_receiver) = mpsc::channel::<Vec<H256>>(500);
-                // First set of tasks will be in charge of fetching all available state (state not older than 128 blocks)
-                let mut sync_set = tokio::task::JoinSet::new();
-                // Second state of tasks will be active during the healing phase where we fetch the state we weren't able to in the first phase
-                let mut healing_set = tokio::task::JoinSet::new();
-                // We need the bytecode fetcher to be active during healing too
-                healing_set.spawn(bytecode_fetcher(
-                    bytecode_receiver,
-                    self.peers.clone(),
-                    store.clone(),
-                ));
-                sync_set.spawn(fetch_blocks_and_receipts(
+                // - Fetch each block's body and its receipt via eth p2p requests
+                // - Fetch the pivot block's state via snap p2p requests
+                // - Execute blocks after the pivote (like in full-sync)
+                let fetch_bodies_handle = tokio::spawn(fetch_block_bodies(
                     all_block_hashes.clone(),
                     self.peers.clone(),
-                    store.clone(),
                 ));
-                let state_roots = all_block_headers
-                    .iter()
-                    .map(|header| header.state_root)
-                    .collect::<Vec<_>>();
-                sync_set.spawn(fetch_snap_state(
-                    bytecode_sender.clone(),
-                    state_roots.clone(),
-                    self.peers.clone(),
-                    store.clone(),
-                ));
-                // Store headers
-                let mut latest_block_number = 0;
-                for (header, hash) in all_block_headers
-                    .into_iter()
-                    .zip(all_block_hashes.into_iter())
-                {
-                    latest_block_number = header.number;
-                    store.set_canonical_block(header.number, hash)?;
-                    store.add_block_header(hash, header)?;
-                }
-                // If all processes failed then they are likely to have a common cause (such as unaccessible storage), so return the first error
-                for result in sync_set.join_all().await {
-                    result?;
-                }
-                // Start state healing
-                info!("Starting state healing");
-                let start_time = Instant::now();
-                healing_set.spawn(state_healing(
-                    bytecode_sender,
-                    state_roots.clone(),
-                    store.clone(),
-                    self.peers.clone(),
-                ));
-                for result in healing_set.join_all().await {
-                    result?;
-                }
-                info!(
-                    "State healing finished in {} seconds",
-                    start_time.elapsed().as_secs()
-                );
+                let mut pivot_idx = if all_block_headers.len() > MIN_FULL_BLOCKS {
+                    all_block_headers.len() - MIN_FULL_BLOCKS
+                } else {
+                    all_block_headers.len() - 1
+                };
+                let mut pivot_root = all_block_headers[pivot_idx].state_root;
+                let mut pivot_number = all_block_headers[pivot_idx].number;
 
-                // Set latest block number here to avoid reading state that is currently being synced
-                store.update_latest_block_number(latest_block_number)?;
+                let mut stale_pivot = !tokio::spawn(rebuild_state_trie(
+                    pivot_root,
+                    self.peers.clone(),
+                    store.clone(),
+                ))
+                .await
+                .unwrap()?;
+                // If the pivot became stale, set a further pivot and try again
+                if stale_pivot && pivot_idx != all_block_headers.len() - 1 {
+                    warn!("Stale pivot, switching to newer head");
+                    pivot_idx = all_block_headers.len() - 1;
+                    pivot_root = all_block_headers[pivot_idx].state_root;
+                    pivot_number = all_block_headers[pivot_idx].number;
+                    stale_pivot = !tokio::spawn(rebuild_state_trie(
+                        pivot_root,
+                        self.peers.clone(),
+                        store.clone(),
+                    ))
+                    .await
+                    .unwrap()?;
+                }
+                if stale_pivot {
+                    warn!("Stale pivot, aborting sync");
+                    return Ok(());
+                }
+                // Wait for all bodies to be downloaded
+                let all_block_bodies = fetch_bodies_handle.await.unwrap()?;
+                // For all blocks before the pivot: Store the bodies and fetch the receipts
+                // For all blocks after the pivot: Process them fully
+                // let store_receipts_handle = tokio::spawn(store_receipts(all_block_hashes[pivot_index..]));
+                for (hash, (header, body)) in all_block_hashes.into_iter().zip(
+                    all_block_headers
+                        .into_iter()
+                        .zip(all_block_bodies.into_iter()),
+                ) {
+                    if header.number <= pivot_number {
+                        store.set_canonical_block(header.number, hash)?;
+                        store.add_block(Block::new(header, body))?;
+                    } else {
+                        store.set_canonical_block(header.number, hash)?;
+                        store.update_latest_block_number(header.number)?;
+                        ethrex_blockchain::add_block(&Block::new(header, body), &store)?;
+                    }
+                }
+                // store_receipts.await.unwrap()?;
+                self.last_snap_pivot = pivot_number;
             }
             SyncMode::Full => {
                 // full-sync: Fetch all block bodies and execute them sequentially to build the state
@@ -232,74 +243,44 @@ async fn download_and_run_blocks(
     Ok(())
 }
 
-async fn fetch_blocks_and_receipts(
+async fn fetch_block_bodies(
     mut block_hashes: Vec<BlockHash>,
     peers: Arc<Mutex<KademliaTable>>,
-    store: Store,
-) -> Result<(), SyncError> {
-    // Snap state fetching will take much longer than this so we don't need to paralelize fetching blocks and receipts
-    // Fetch Block Bodies
+) -> Result<Vec<BlockBody>, SyncError> {
+    let mut all_block_bodies = Vec::new();
     loop {
         let peer = peers.lock().await.get_peer_channels().await;
         debug!("Requesting Block Headers ");
         if let Some(block_bodies) = peer.request_block_bodies(block_hashes.clone()).await {
             debug!(" Received {} Block Bodies", block_bodies.len());
             // Track which bodies we have already fetched
-            let (fetched_hashes, remaining_hashes) = block_hashes.split_at(block_bodies.len());
-            // Store Block Bodies
-            for (hash, body) in fetched_hashes.iter().zip(block_bodies.into_iter()) {
-                store.add_block_body(*hash, body)?
-            }
-
+            let block_hashes = block_hashes.split_off(block_bodies.len());
+            all_block_bodies.extend(block_bodies);
             // Check if we need to ask for another batch
-            if remaining_hashes.is_empty() {
+            if block_hashes.is_empty() {
                 break;
-            } else {
-                block_hashes = remaining_hashes.to_vec();
             }
         }
     }
-    // TODO: Fetch Receipts and store them
-    Ok(())
-}
-
-async fn fetch_snap_state(
-    bytecode_sender: Sender<Vec<H256>>,
-    state_roots: Vec<BlockHash>,
-    peers: Arc<Mutex<KademliaTable>>,
-    store: Store,
-) -> Result<(), SyncError> {
-    debug!("Syncing state roots: {}", state_roots.len());
-    // Fetch newer state first: This will be useful to detect where to switch to healing
-    for state_root in state_roots.into_iter().rev() {
-        // TODO: maybe spawn taks here instead of awaiting
-        if !rebuild_state_trie(
-            bytecode_sender.clone(),
-            state_root,
-            peers.clone(),
-            store.clone(),
-        )
-        .await?
-        {
-            // If we reached the maximum number of retries then the state we are fetching is most probably old and no longer part of our peer's snapshots
-            // We should give up on fetching this and older block's state and instead begin state healing
-            break;
-        }
-    }
-    Ok(())
+    Ok(all_block_bodies)
 }
 
 /// Rebuilds a Block's state trie by requesting snap state from peers
 /// Returns true if all state was fetched or false if the block is too old and the state is no longer available
 async fn rebuild_state_trie(
-    bytecode_sender: Sender<Vec<H256>>,
     state_root: H256,
     peers: Arc<Mutex<KademliaTable>>,
     store: Store,
 ) -> Result<bool, SyncError> {
-    // Spawn a storage fetcher for this blocks's storage
+    // Spawn storage & bytecode fetchers
+    let (bytecode_sender, bytecode_receiver) = mpsc::channel::<Vec<H256>>(500);
     let (storage_sender, storage_receiver) = mpsc::channel::<Vec<(H256, H256)>>(500);
-    let storage_fetcher_handler = tokio::spawn(storage_fetcher(
+    let bytecode_fetcher_handle = tokio::spawn(bytecode_fetcher(
+        bytecode_receiver,
+        peers.clone(),
+        store.clone(),
+    ));
+    let storage_fetcher_handle = tokio::spawn(storage_fetcher(
         storage_receiver,
         peers.clone(),
         store.clone(),
@@ -312,16 +293,13 @@ async fn rebuild_state_trie(
     // Fetch Account Ranges
     // If we reached the maximum amount of retries then it means the state we are requesting is probably old and no longer available
     // In that case we will delegate the work to state healing
-    let mut retry_count = 0;
-    while retry_count < MAX_RETRIES {
+    for _ in 0..MAX_RETRIES {
         let peer = peers.clone().lock().await.get_peer_channels().await;
         debug!("Requesting Account Range for state root {state_root}, starting hash: {start_account_hash}");
         if let Some((account_hashes, accounts, should_continue)) = peer
             .request_account_range(state_root, start_account_hash)
             .await
         {
-            // Reset retry counter for the following batch (if needed)
-            retry_count = 0;
             // Update starting hash for next batch
             if should_continue {
                 start_account_hash = *account_hashes.last().unwrap();
@@ -367,8 +345,6 @@ async fn rebuild_state_trie(
                 // All accounts fetched!
                 break;
             }
-        } else {
-            retry_count += 1;
         }
     }
     if current_state_root == state_root {
@@ -376,10 +352,17 @@ async fn rebuild_state_trie(
     }
     // Send empty batch to signal that no more batches are incoming
     storage_sender.send(vec![]).await?;
-    storage_fetcher_handler
+    storage_fetcher_handle
         .await
         .map_err(|_| StoreError::Custom(String::from("Failed to join storage_fetcher task")))??;
-    Ok(retry_count == MAX_RETRIES)
+    // If we exceeded MAX_RETRIES while fetchig state, leave the rest to state healing
+    heal_state_trie(bytecode_sender.clone(), state_root, store, peers).await?;
+    // Send empty batch to signal that no more batches are incoming
+    bytecode_sender.send(vec![]).await?;
+    bytecode_fetcher_handle
+        .await
+        .map_err(|_| StoreError::Custom(String::from("Failed to join bytecode_fetcher task")))??;
+    Ok(true)
 }
 
 /// Waits for incoming code hashes from the receiver channel endpoint, queues them, and fetches and stores their bytecodes in batches
@@ -514,36 +497,13 @@ async fn fetch_storage_batch(
     Ok(vec![])
 }
 
-async fn state_healing(
-    bytecode_sender: Sender<Vec<H256>>,
-    state_roots: Vec<H256>,
-    store: Store,
-    peers: Arc<Mutex<KademliaTable>>,
-) -> Result<(), SyncError> {
-    for state_root in state_roots {
-        // If we don't have the root node stored then we must fetch it
-        if !store.contains_state_node(state_root)? {
-            heal_state_trie(
-                bytecode_sender.clone(),
-                state_root,
-                store.clone(),
-                peers.clone(),
-            )
-            .await?;
-        }
-    }
-    // We finished both sync & healing, lets make the bytecode fetcher process aware
-    // Send empty batches to signal that no more batches are incoming
-    bytecode_sender.send(vec![]).await?;
-    Ok(())
-}
-
 async fn heal_state_trie(
     bytecode_sender: Sender<Vec<H256>>,
     state_root: H256,
     store: Store,
     peers: Arc<Mutex<KademliaTable>>,
 ) -> Result<(), SyncError> {
+    // TODO: set max retries here
     // Spawn a storage healer for this blocks's storage
     let (storage_sender, storage_receiver) = mpsc::channel::<Vec<H256>>(500);
     let storage_healer_handler = tokio::spawn(storage_healer(
@@ -645,7 +605,8 @@ async fn storage_healer(
             let mut next_batch: BTreeMap<H256, Vec<Nibbles>> = BTreeMap::new();
             // Group pending storages by account path
             // We do this here instead of keeping them sorted so we don't prioritize further nodes from the first tries
-            for (account, path) in pending_storages.drain(..BATCH_SIZE.min(pending_storages.len())) {
+            for (account, path) in pending_storages.drain(..BATCH_SIZE.min(pending_storages.len()))
+            {
                 next_batch.entry(account).or_default().push(path);
             }
             let return_batch =
