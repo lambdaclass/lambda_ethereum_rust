@@ -287,7 +287,7 @@ impl VM {
             msg_sender,
             to,
             code_address,
-            false,
+            true,
             true,
             args_start_offset,
             args_size,
