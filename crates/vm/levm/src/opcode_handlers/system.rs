@@ -124,6 +124,7 @@ impl VM {
         let to = current_call_frame.to;
         let is_static = current_call_frame.is_static;
 
+        // We add the stipend gas for the subcall. This ensures that the callee has enough gas to perform basic operations
         let gas_for_subcall = if !value_to_transfer.is_zero() {
             gas.checked_add(CALLCODE_POSITIVE_VALUE_STIPEND)
                 .ok_or(InternalError::ArithmeticOperationOverflow)?
