@@ -520,7 +520,12 @@ impl fmt::Display for ComparisonReport {
                 .iter()
                 .map(|(key, value)| {
                     let storage_slot = StorageSlot {
-                        original_value: *value,
+                        original_value: initial_account
+                            .storage
+                            .get(key)
+                            .cloned()
+                            .unwrap_or_default()
+                            .original_value,
                         current_value: *value,
                     };
                     (*key, storage_slot)
@@ -595,7 +600,12 @@ impl fmt::Display for ComparisonReport {
                 .iter()
                 .map(|(key, value)| {
                     let storage_slot = StorageSlot {
-                        original_value: *value,
+                        original_value: initial_account
+                            .storage
+                            .get(key)
+                            .cloned()
+                            .unwrap_or_default()
+                            .original_value,
                         current_value: *value,
                     };
                     (*key, storage_slot)
