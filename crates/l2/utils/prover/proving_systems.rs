@@ -12,6 +12,13 @@ pub enum ProverType {
     SP1,
 }
 
+/// Used to iterate through all the possible proving systems
+impl ProverType {
+    pub fn all() -> &'static [ProverType] {
+        &[ProverType::RISC0, ProverType::SP1]
+    }
+}
+
 #[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct Risc0Proof {
     pub receipt: Box<risc0_zkvm::Receipt>,

@@ -6,6 +6,7 @@ use crate::utils::{
     },
     eth_client::{eth_sender::Overrides, EthClient, WrappedTransaction},
     prover::proving_systems::{ProverType, ProvingOutput},
+    prover::save_state::*,
 };
 use ethrex_core::{
     types::{Block, BlockHeader},
@@ -17,7 +18,6 @@ use keccak_hash::keccak;
 use secp256k1::SecretKey;
 use serde::{Deserialize, Serialize};
 use std::{
-    collections::HashMap,
     fmt::Debug,
     io::{BufReader, BufWriter, Write},
     net::{IpAddr, Shutdown, TcpListener, TcpStream},
@@ -47,7 +47,6 @@ struct ProverServer {
     on_chain_proposer_address: Address,
     verifier_address: Address,
     verifier_private_key: SecretKey,
-    proving_output_per_block: HashMap<u64, HashMap<ProverType, ProvingOutput>>,
 }
 
 /// Enum for the ProverServer <--> ProverClient Communication Protocol.
@@ -137,7 +136,6 @@ impl ProverServer {
             on_chain_proposer_address,
             verifier_address: config.verifier_address,
             verifier_private_key: config.verifier_private_key,
-            proving_output_per_block: HashMap::new(),
         })
     }
 
@@ -250,16 +248,24 @@ impl ProverServer {
 
         let mut tx_submitted = false;
 
-        if let Some(inner_hmap) = self.proving_output_per_block.get(&block_to_verify) {
-            // If we have all the proofs send a transaction to verify them on chain
-            if inner_hmap.contains_key(&ProverType::RISC0)
-                && inner_hmap.contains_key(&ProverType::SP1)
-            {
-                self.handle_proof_submission(block_to_verify).await?;
-                // Remove the Proofs for the block_number
-                self.proving_output_per_block.remove(&block_to_verify);
-                tx_submitted = true;
+        // If we have all the proofs send a transaction to verify them on chain
+
+        let send_tx = match block_number_has_all_proofs(block_to_verify) {
+            Ok(has_all_proofs) => has_all_proofs,
+            Err(e) => {
+                let error = format!("{e}");
+                if !error.contains("No such file or directory") {
+                    return Err(ProverServerError::FailedToSaveState(error));
+                }
+                false
             }
+        };
+        if send_tx {
+            self.handle_proof_submission(block_to_verify).await?;
+            // Remove the Proofs for that block_number
+            prune_state(block_to_verify)
+                .map_err(|e| ProverServerError::FailedToSaveState(format!("{e}")))?;
+            tx_submitted = true;
         }
 
         let data: Result<ProofData, _> = serde_json::de::from_reader(buf_reader);
@@ -291,23 +297,34 @@ impl ProverServer {
                     return Ok(());
                 }
 
-                // The proof is stored,
-                // then if we have all the proofs, we send it in the loop's next iteration.
-                // Check if we have an entry for the block_number
-                let inner_hmap = self
-                    .proving_output_per_block
-                    .entry(block_number)
-                    .or_default();
-
+                // Check if we have an entry for the proof in that block_number
                 // Get the ProverType, implicitly set by the ProvingOutput
-                let proving_type = match proving_output {
+                let prover_type = match proving_output {
                     ProvingOutput::RISC0(_) => ProverType::RISC0,
                     ProvingOutput::SP1(_) => ProverType::SP1,
                 };
 
                 // Check if we have the proof for that ProverType
                 // If we don't have it, insert it.
-                inner_hmap.entry(proving_type).or_insert(proving_output);
+                let has_proof = match block_number_has_state_file(
+                    StateFileType::Proof(prover_type),
+                    block_number,
+                ) {
+                    Ok(has_proof) => has_proof,
+                    Err(e) => {
+                        let error = format!("{e}");
+                        if !error.contains("No such file or directory") {
+                            return Err(ProverServerError::FailedToSaveState(error));
+                        }
+                        false
+                    }
+                };
+                if !has_proof {
+                    write_state(block_number, StateType::Proof(proving_output))
+                        .map_err(|e| ProverServerError::FailedToSaveState(format!("{e}")))?;
+                }
+
+                // Then if we have all the proofs, we send the transaction in the next `handle_connection` call.
             }
             Err(e) => {
                 warn!("Failed to parse request: {e}");
@@ -403,15 +420,12 @@ impl ProverServer {
         &self,
         block_number: u64,
     ) -> Result<H256, ProverServerError> {
-        let proving_data =
-            self.proving_output_per_block
-                .get(&block_number)
-                .ok_or(ProverServerError::Custom(format!(
-                    "Entry for {block_number} isn't present"
-                )))?;
-
-        let risc0_contract_data = match proving_data.get(&ProverType::RISC0) {
-            Some(ProvingOutput::RISC0(risc0_proof)) => risc0_proof.contract_data()?,
+        // TODO change error
+        let risc0_proving_output =
+            read_proof(block_number, StateFileType::Proof(ProverType::RISC0))
+                .map_err(|e| ProverServerError::FailedToSaveState(format!("{e}")))?;
+        let risc0_contract_data = match risc0_proving_output {
+            ProvingOutput::RISC0(risc0_proof) => risc0_proof.contract_data()?,
             _ => {
                 return Err(ProverServerError::Custom(
                     "RISC0 Proof isn't present".to_string(),
@@ -419,8 +433,10 @@ impl ProverServer {
             }
         };
 
-        let sp1_contract_data = match proving_data.get(&ProverType::SP1) {
-            Some(ProvingOutput::SP1(sp1_proof)) => sp1_proof.contract_data()?,
+        let sp1_proving_output = read_proof(block_number, StateFileType::Proof(ProverType::SP1))
+            .map_err(|e| ProverServerError::FailedToSaveState(format!("{e}")))?;
+        let sp1_contract_data = match sp1_proving_output {
+            ProvingOutput::SP1(sp1_proof) => sp1_proof.contract_data()?,
             _ => {
                 return Err(ProverServerError::Custom(
                     "SP1 Proof isn't present".to_string(),

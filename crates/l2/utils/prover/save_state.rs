@@ -23,6 +23,23 @@ pub enum StateFileType {
     AccountUpdates,
 }
 
+pub fn state_file_type_from_state_type(state_type: &StateType) -> StateFileType {
+    match &state_type {
+        StateType::Proof(p) => match p {
+            ProvingOutput::RISC0(_) => StateFileType::Proof(ProverType::RISC0),
+            ProvingOutput::SP1(_) => StateFileType::Proof(ProverType::SP1),
+        },
+        StateType::AccountUpdates(_) => StateFileType::AccountUpdates,
+    }
+}
+
+pub fn state_file_type_from_prover_type(prover_type: &ProverType) -> StateFileType {
+    match &prover_type {
+        ProverType::RISC0 => StateFileType::Proof(ProverType::RISC0),
+        ProverType::SP1 => StateFileType::Proof(ProverType::SP1),
+    }
+}
+
 #[cfg(not(test))]
 const DEFAULT_DATADIR: &str = "ethrex_l2_state";
 
@@ -129,8 +146,8 @@ fn create_state_file_for_block_number(
 pub fn write_state(
     block_number: u64,
     state_type: StateType,
-    state_file_type: StateFileType,
 ) -> Result<(), Box<dyn std::error::Error>> {
+    let state_file_type = state_file_type_from_state_type(&state_type);
     let inner = create_state_file_for_block_number(block_number, state_file_type)?;
 
     match state_type {
@@ -210,6 +227,16 @@ pub fn read_state(
     };
 
     Ok(state)
+}
+
+pub fn read_proof(
+    block_number: u64,
+    state_file_type: StateFileType,
+) -> Result<ProvingOutput, Box<dyn std::error::Error>> {
+    match read_state(block_number, state_file_type)? {
+        StateType::Proof(p) => Ok(p),
+        StateType::AccountUpdates(_) => unimplemented!(),
+    }
 }
 
 /// READ
@@ -292,13 +319,36 @@ pub fn block_number_has_state_file(
         let entry = entry?;
         let file_name_stored = entry.file_name();
 
-        println!("FILE_NAME{file_name_stored:?} || TO_SEEK{file_name_to_seek:?}");
         if file_name_stored == file_name_to_seek {
             return Ok(true);
         }
     }
 
     Ok(false)
+}
+
+pub fn block_number_has_all_proofs(block_number: u64) -> Result<bool, Box<dyn std::error::Error>> {
+    let block_state_path = get_block_state_path(block_number)?;
+
+    let mut has_all_proofs = true;
+    for prover_type in ProverType::all() {
+        let file_name_to_seek: OsString =
+            get_state_file_name(block_number, &state_file_type_from_prover_type(prover_type))
+                .into();
+
+        // Check if the proof exists
+        let proof_exists = std::fs::read_dir(&block_state_path)?
+            .filter_map(Result::ok) // Filter out errors
+            .any(|entry| entry.file_name() == file_name_to_seek);
+
+        // If the proof is missing return false
+        if !proof_exists {
+            has_all_proofs = false;
+            break;
+        }
+    }
+
+    Ok(has_all_proofs)
 }
 
 #[cfg(test)]
@@ -405,25 +455,16 @@ mod tests {
             write_state(
                 block.header.number,
                 StateType::AccountUpdates(account_updates),
-                StateFileType::AccountUpdates,
             )?;
 
             let risc0_data = ProvingOutput::RISC0(risc0_proof.clone());
-            write_state(
-                block.header.number,
-                StateType::Proof(risc0_data),
-                StateFileType::Proof(ProverType::RISC0),
-            )?;
+            write_state(block.header.number, StateType::Proof(risc0_data))?;
 
             let sp1_data = ProvingOutput::SP1(sp1_proof.clone());
-            write_state(
-                block.header.number,
-                StateType::Proof(sp1_data),
-                StateFileType::Proof(ProverType::SP1),
-            )?;
+            write_state(block.header.number, StateType::Proof(sp1_data))?;
         }
 
-        // Check if we the latest block_number saved matches the latest block in the chain.rlp
+        // Check if the latest block_number saved matches the latest block in the chain.rlp
         let (latest_block_state_number, _) = get_latest_block_number_and_path()?;
 
         assert_eq!(
@@ -486,11 +527,7 @@ mod tests {
         }
 
         // Read RISC0 Proof back
-        let read_proof_updates_blk2 = match read_state(2, StateFileType::Proof(ProverType::RISC0))?
-        {
-            StateType::Proof(p) => p,
-            StateType::AccountUpdates(_) => unimplemented!(),
-        };
+        let read_proof_updates_blk2 = read_proof(2, StateFileType::Proof(ProverType::RISC0))?;
 
         if let ProvingOutput::RISC0(read_risc0_proof) = read_proof_updates_blk2 {
             assert_eq!(
@@ -501,10 +538,7 @@ mod tests {
         }
 
         // Read SP1 Proof back
-        let read_proof_updates_blk2 = match read_state(2, StateFileType::Proof(ProverType::SP1))? {
-            StateType::Proof(p) => p,
-            StateType::AccountUpdates(_) => unimplemented!(),
-        };
+        let read_proof_updates_blk2 = read_proof(2, StateFileType::Proof(ProverType::SP1))?;
 
         if let ProvingOutput::SP1(read_sp1_proof) = read_proof_updates_blk2 {
             assert_eq!(read_sp1_proof.proof.bytes(), sp1_proof.proof.bytes());
