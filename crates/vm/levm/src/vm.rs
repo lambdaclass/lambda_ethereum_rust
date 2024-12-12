@@ -845,13 +845,12 @@ impl VM {
         msg_sender: Address,
         to: Address,
         code_address: Address,
-        _should_transfer_value: bool,
+        should_transfer_value: bool,
         is_static: bool,
         args_offset: U256,
         args_size: usize,
         ret_offset: U256,
         ret_size: usize,
-        should_transfer_value: bool,
     ) -> Result<OpcodeSuccess, VMError> {
         let (sender_account_info, _address_was_cold) = self.access_account(msg_sender);
 
@@ -1090,7 +1089,6 @@ impl VM {
             code_size_in_memory,
             code_offset_in_memory,
             code_size_in_memory,
-            true,
         )?;
 
         // Erases the success value in the stack result of calling generic call, probably this should be refactored soon...

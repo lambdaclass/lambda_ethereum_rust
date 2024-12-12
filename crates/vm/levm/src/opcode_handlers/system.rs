@@ -76,13 +76,12 @@ impl VM {
             msg_sender,
             to,
             callee,
-            false,
+            true,
             is_static,
             args_start_offset,
             args_size,
             return_data_start_offset,
             return_data_size,
-            true,
         )
     }
 
@@ -147,13 +146,12 @@ impl VM {
             msg_sender,
             to,
             code_address,
-            false,
+            true,
             is_static,
             args_start_offset,
             args_size,
             return_data_start_offset,
             return_data_size,
-            true,
         )
     }
 
@@ -239,7 +237,6 @@ impl VM {
             args_size,
             return_data_start_offset,
             return_data_size,
-            false,
         )
     }
 
@@ -296,7 +293,6 @@ impl VM {
             args_size,
             return_data_start_offset,
             return_data_size,
-            true,
         )
     }
 
