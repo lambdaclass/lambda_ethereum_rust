@@ -12,31 +12,33 @@ The main way to deal with theses cases (at least, at the time of writing) is to 
 
 ```rust
 ///  bytecode: Represents the EVM bytecode array to be executed.
-0:   pub fn op_extcodecopy(bytecode_offset: U256, bytecode: Bytes) {
+0:   pub fn op_extcodecopy(bytecode_offset: U256, bytecode: Bytes, vector_size: usize) {
 
         (...)
 
-1:       let mut data = vec![0u8; size];
-2:       let bytecode_length: U256 = bytecode.len().into();
-3:       if bytecode_offset < bytecode_length {
-4:           let offset: usize = offset
-5:               .try_into()
-6:               .map_err(|_| VMError::Internal(InternalError::ConversionError))?;
-7:           // After this the data vector is modified
+1:       let mut data = vec![0u8; vector_size];
+2:
+3:       let bytecode_length: U256 = bytecode.len().into();
+4:       if bytecode_offset < bytecode_length {
+5:           let offset: usize = offset
+6:               .try_into()
+7:               .map_err(|_| VMError::Internal(InternalError::ConversionError))?;
+8:           // After this the data vector is modified
 
         (...)
 
-8:      }
-9:      memory.store_data(&data);
-10: }
+9:      }
+10:     memory.store_data(&data);
+11: }
 ```
 Some context: It is not important what this operand does. The only thing that matters for this example is that `EXTCODECOPY` stores a `data` vector in memory. The offset it receives will tell `EXTCODECOPY` which parts of the bytecode to skip, and which parts it will copy to memory. Skipped sections will be filled with 0's.
 
 - In line `1` we create the vector which we will return.
-- In line `2` we get the `bytecode` array length. Since `.len()` returns a `usize` we need to cast it to `U256`, in order to compare itwith `bytecode_offset`. Luckily, `usize` always fits into `U256`, so this will never fail.
-- In line `3` we check if the calldata offset is larger than the calldata itself. If this is the case, there's no data to copy. So we do not want to modify the vector.
+- In line `3` we get the `bytecode` array length. Since `.len()` returns a `usize` we need to cast it to `U256`, in order to compare itwith `bytecode_offset`. Luckily, `usize` always fits into `U256`, so this will never fail.
+- In line `4` we check if the calldata offset is larger than the calldata itself. If this is the case, there's no data to copy. So we do not want to modify the vector.
     -  Do note that, after this check we can safely cast the bytecode to `usize`. This is because there is a limit to the contract's bytecode size. For more information, read [this article](https://ethereum.org/en/developers/docs/smart-contracts/#limitations).
-- Finally in line `9`, we store the resulting data vector in memory.
+- Finally in line `10`, we store the resulting data vector in memory.
+    - If the bytecode_offset was larger than the actual contents of the bytecode array, we return an empty vector. This is the intended behavior.
 
 
-This pattern is fairly common and is useful to keep in mind when dealing with operands that deal with offsets and indexes.
+This pattern is fairly common and is useful to keep in mind, especially when dealing with operands that deal with offsets and indexes.
