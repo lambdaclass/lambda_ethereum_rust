@@ -16,7 +16,7 @@ impl VM {
         &mut self,
         current_call_frame: &mut CallFrame,
     ) -> Result<OpcodeSuccess, VMError> {
-        let gas_for_call = current_call_frame.stack.pop()?;
+        let gas = current_call_frame.stack.pop()?;
         let callee: Address = word_to_address(current_call_frame.stack.pop()?);
         let value_to_transfer: U256 = current_call_frame.stack.pop()?;
 
@@ -63,11 +63,10 @@ impl VM {
 
         // We add the stipend gas for the subcall. This ensures that the callee has enough gas to perform basic operations
         let gas_for_subcall = if !value_to_transfer.is_zero() {
-            gas_for_call
-                .checked_add(CALL_POSITIVE_VALUE_STIPEND)
+            gas.checked_add(CALL_POSITIVE_VALUE_STIPEND)
                 .ok_or(InternalError::ArithmeticOperationOverflow)?
         } else {
-            gas_for_call
+            gas
         };
 
         self.generic_call(
