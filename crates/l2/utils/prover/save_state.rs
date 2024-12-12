@@ -12,6 +12,9 @@ use std::{
     io::{BufWriter, Write},
 };
 
+#[cfg(not(test))]
+/// The default directory for data storage when not running tests.
+/// This constant is used to define the default path for data files.
 const DEFAULT_DATADIR: &str = "ethrex_l2_state";
 
 #[cfg(not(test))]
