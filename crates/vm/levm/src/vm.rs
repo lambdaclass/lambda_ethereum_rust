@@ -12,8 +12,8 @@ use crate::{
         TxValidationError, VMError,
     },
     gas_cost::{
-        self, fake_exponential, ACCESS_LIST_ADDRESS_COST, ACCESS_LIST_STORAGE_KEY_COST,
-        BLOB_GAS_PER_BLOB, CREATE_BASE_COST,
+        self, fake_exponential, max_message_call_gas, ACCESS_LIST_ADDRESS_COST,
+        ACCESS_LIST_STORAGE_KEY_COST, BLOB_GAS_PER_BLOB, CREATE_BASE_COST,
     },
     memory,
     opcodes::Opcode,
@@ -852,6 +852,8 @@ impl VM {
         ret_offset: U256,
         ret_size: usize,
     ) -> Result<OpcodeSuccess, VMError> {
+        // 1. Validations that can result in OOG
+
         let (sender_account_info, _address_was_cold) = self.access_account(msg_sender);
 
         if should_transfer_value {
@@ -879,15 +881,7 @@ impl VM {
             memory::load_range(&mut current_call_frame.memory, args_offset, args_size)?.to_vec();
 
         // I don't know if this gas limit should be calculated before or after consuming gas
-        let mut potential_remaining_gas = current_call_frame
-            .gas_limit
-            .checked_sub(current_call_frame.gas_used)
-            .ok_or(VMError::OutOfGas(OutOfGasError::MaxGasLimitExceeded))?;
-        potential_remaining_gas = potential_remaining_gas
-            .checked_sub(potential_remaining_gas.checked_div(64.into()).ok_or(
-                VMError::Internal(InternalError::ArithmeticOperationOverflow),
-            )?)
-            .ok_or(VMError::OutOfGas(OutOfGasError::MaxGasLimitExceeded))?;
+        let potential_remaining_gas = max_message_call_gas(current_call_frame)?;
         let gas_limit = std::cmp::min(gas_limit, potential_remaining_gas);
 
         let new_depth = current_call_frame
