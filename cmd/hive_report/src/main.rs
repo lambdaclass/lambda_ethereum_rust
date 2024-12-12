@@ -116,7 +116,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         }
     }
 
-    // Sort by succes percentage first and then by file name.
+    // First by category ascending, then by success percentage descending, then by total tests descending.
     results.sort_by(|a, b| {
         a.category
             .cmp(&b.category)
@@ -126,11 +126,6 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                     .unwrap()
             })
             .then_with(|| b.total_tests.cmp(&a.total_tests))
-
-        // b.success_percentage
-        //     .partial_cmp(&a.success_percentage)
-        //     .unwrap()
-        //     .then_with(|| a.suite.cmp(&b.suite))
     });
 
     for result in &results {
