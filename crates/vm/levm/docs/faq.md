@@ -2,13 +2,13 @@
 ## `usize` and U256
 In Rust, accessing an index on a specific data structure requires a `usize` type variable. This can be seen in methods like `get` and `get_mut`.
 
-<!-- TODO: Link in the documentation where the U256 adresses are described -->
+<!-- TODO: Link in the documentation where the U256 addresses are described -->
 On the other hand, the EVM specification requires all addresses to be in U256. Therefore, every opcode treats its arguments as U256 values.
-The problem arises in the opcodes that need to acces a specific index on a data structure (e.g. `CALLDATA`, `CODECOPY`, `EXTCODECOPY`, etc).
-These operands receive offsets and indexes in U256, but the data structure they have to access (e.g. `Memory` or  `Calldata`) require a `usize`. Therefore, those paramenters need to be cast from U256 to `usize`.
-The problem is, U256's representation ranger is larger than `usize`'s; so not all numbers can be successfuly cast. In these cases, special attention is needed.
+The problem arises in the opcodes that need to access a specific index on a data structure (e.g. `CALLDATA`, `CODECOPY`, `EXTCODECOPY`, etc).
+These operands receive offsets and indexes in U256, but the data structure they have to access (e.g. `Memory` or  `Calldata`) require a `usize`. Therefore, those parameters need to be cast from U256 to `usize`.
+The problem is, U256's representation ranger is larger than `usize`'s; so not all numbers can be successfully cast. In these cases, special attention is needed.
 
-The main way to deal with theses cases (at least, at the time of writing) is to **delay the cast**. Before casting to `usize`, we compare the size of the index in U256 with the length of the datastructure it wants to access. Here's an example from the `EXTCODECOPY` opcode (NOTE: the code snippet is a simplified/altered version to demonstrate this pattern):
+The main way to deal with theses cases (at least, at the time of writing) is to **delay the cast**. Before casting to `usize`, we compare the size of the index in U256 with the length of the data structure it wants to access. Here's an example from the `EXTCODECOPY` opcode (NOTE: the code snippet is a simplified/altered version to demonstrate this pattern):
 
 Some context: It is not important what this operand does. The only thing that matters for this example is that `EXTCODECOPY` returns a vector of bytes. That vector will copy a specific amount of bytes from `calldata` to `memory`. 
 Notably for this example, it can receive an offset. Which will tell the operand which parts of the `calldata` section it should skip. Skipped sections will be replaced with 0's.
