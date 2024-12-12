@@ -852,48 +852,36 @@ impl VM {
         ret_offset: U256,
         ret_size: usize,
     ) -> Result<OpcodeSuccess, VMError> {
-        // 1. Validations
-
-        let (sender_account_info, _address_was_cold) = self.access_account(msg_sender);
-
-        if should_transfer_value {
-            if sender_account_info.balance < value {
-                current_call_frame.stack.push(U256::from(REVERT_FOR_CALL))?;
-                return Ok(OpcodeSuccess::Continue);
-            }
-
-            self.decrease_account_balance(msg_sender, value)?;
-            self.increase_account_balance(to, value)?;
-        }
-
-        let (code_account_info, _address_was_cold) = self.access_account(code_address);
-
-        if code_account_info.bytecode.is_empty() {
-            current_call_frame
-                .stack
-                .push(U256::from(SUCCESS_FOR_CALL))?;
+        // 1. Validate sender has enough value
+        let sender_account_info = self.access_account(msg_sender).0;
+        if should_transfer_value && sender_account_info.balance < value {
+            current_call_frame.stack.push(REVERT_FOR_CALL)?;
             return Ok(OpcodeSuccess::Continue);
         }
 
-        // self.cache.increment_account_nonce(&code_address); // Internal call doesn't increment account nonce.
-
-        let calldata =
-            memory::load_range(&mut current_call_frame.memory, args_offset, args_size)?.to_vec();
-
-        // I don't know if this gas limit should be calculated before or after consuming gas
-        let potential_remaining_gas = max_message_call_gas(current_call_frame)?;
-        let gas_limit = std::cmp::min(gas_limit, potential_remaining_gas);
-
+        // 2. Validate max depth has not been reached yet.
         let new_depth = current_call_frame
             .depth
             .checked_add(1)
             .ok_or(InternalError::ArithmeticOperationOverflow)?;
 
+        if new_depth > 1024 {
+            current_call_frame.stack.push(REVERT_FOR_CALL)?;
+            return Ok(OpcodeSuccess::Continue);
+        }
+
+        let recipient_bytecode = self.access_account(code_address).0.bytecode;
+        let calldata =
+            memory::load_range(&mut current_call_frame.memory, args_offset, args_size)?.to_vec();
+        // Gas Limit for the child context is capped.
+        let gas_cap = max_message_call_gas(current_call_frame)?;
+        let gas_limit = std::cmp::min(gas_limit, gas_cap);
+
         let mut new_call_frame = CallFrame::new(
             msg_sender,
             to,
             code_address,
-            code_account_info.bytecode,
+            recipient_bytecode,
             value,
             calldata.into(),
             is_static,
@@ -902,12 +890,14 @@ impl VM {
             new_depth,
         );
 
-        if new_call_frame.depth > 1024 {
-            current_call_frame.stack.push(U256::from(REVERT_FOR_CALL))?;
-            return Ok(OpcodeSuccess::Continue);
-        }
         current_call_frame.sub_return_data_offset = ret_offset;
         current_call_frame.sub_return_data_size = ret_size;
+
+        // Transfer value from caller to callee.
+        if should_transfer_value {
+            self.decrease_account_balance(msg_sender, value)?;
+            self.increase_account_balance(to, value)?;
+        }
 
         let tx_report = self.execute(&mut new_call_frame)?;
 
