@@ -918,9 +918,7 @@ impl VM {
         // What to do, depending on TxResult
         match tx_report.result {
             TxResult::Success => {
-                current_call_frame
-                    .stack
-                    .push(U256::from(SUCCESS_FOR_CALL))?;
+                current_call_frame.stack.push(SUCCESS_FOR_CALL)?;
             }
             TxResult::Revert(_) => {
                 // Revert value transfer
@@ -929,7 +927,7 @@ impl VM {
                     self.increase_account_balance(msg_sender, value)?;
                 }
                 // Push 0 to stack
-                current_call_frame.stack.push(U256::from(REVERT_FOR_CALL))?;
+                current_call_frame.stack.push(REVERT_FOR_CALL)?;
             }
         }
 

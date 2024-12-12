@@ -757,7 +757,11 @@ pub fn max_message_call_gas(current_call_frame: &CallFrame) -> Result<U256, VMEr
         .ok_or(InternalError::GasOverflow)?;
 
     remaining_gas = remaining_gas
-        .checked_sub(remaining_gas / 64)
+        .checked_sub(
+            remaining_gas
+                .checked_div(U256::from(64))
+                .ok_or(InternalError::ArithmeticOperationOverflow)?,
+        )
         .ok_or(InternalError::GasOverflow)?;
 
     Ok(remaining_gas)
