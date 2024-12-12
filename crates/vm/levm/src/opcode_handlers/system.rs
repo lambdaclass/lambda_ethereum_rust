@@ -3,7 +3,9 @@ use crate::{
     constants::{CREATE_DEPLOYMENT_FAIL, INIT_CODE_MAX_SIZE},
     db::cache,
     errors::{InternalError, OpcodeSuccess, OutOfGasError, ResultReason, TxResult, VMError},
-    gas_cost::{self, max_message_call_gas},
+    gas_cost::{
+        self, max_message_call_gas, CALLCODE_POSITIVE_VALUE_STIPEND, CALL_POSITIVE_VALUE_STIPEND,
+    },
     memory::{self, calculate_memory_size},
     vm::{address_to_word, word_to_address, VM},
     Account,
@@ -20,7 +22,7 @@ impl VM {
         &mut self,
         current_call_frame: &mut CallFrame,
     ) -> Result<OpcodeSuccess, VMError> {
-        let gas_for_call = current_call_frame.stack.pop()?;
+        let gas = current_call_frame.stack.pop()?;
         let callee: Address = word_to_address(current_call_frame.stack.pop()?);
         let value_to_transfer: U256 = current_call_frame.stack.pop()?;
 
@@ -65,9 +67,17 @@ impl VM {
         let to = callee; // In this case code_address and the sub-context account are the same. Unlike CALLCODE or DELEGATECODE.
         let is_static = current_call_frame.is_static;
 
+        // We add the stipend gas for the subcall. This ensures that the callee has enough gas to perform basic operations
+        let gas_for_subcall = if !value_to_transfer.is_zero() {
+            gas.checked_add(CALL_POSITIVE_VALUE_STIPEND)
+                .ok_or(InternalError::ArithmeticOperationOverflow)?
+        } else {
+            gas
+        };
+
         self.generic_call(
             current_call_frame,
-            gas_for_call,
+            gas_for_subcall,
             value_to_transfer,
             msg_sender,
             to,
@@ -128,9 +138,17 @@ impl VM {
         let to = current_call_frame.to;
         let is_static = current_call_frame.is_static;
 
+        // We add the stipend gas for the subcall. This ensures that the callee has enough gas to perform basic operations
+        let gas_for_subcall = if !value_to_transfer.is_zero() {
+            gas.checked_add(CALLCODE_POSITIVE_VALUE_STIPEND)
+                .ok_or(InternalError::ArithmeticOperationOverflow)?
+        } else {
+            gas
+        };
+
         self.generic_call(
             current_call_frame,
-            gas,
+            gas_for_subcall,
             value_to_transfer,
             msg_sender,
             to,

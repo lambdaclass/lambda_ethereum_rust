@@ -396,7 +396,6 @@ impl VM {
                             .saturating_sub(current_call_frame.gas_used);
                         current_call_frame.gas_used =
                             current_call_frame.gas_used.saturating_add(left_gas);
-                        self.env.consumed_gas = self.env.consumed_gas.saturating_add(left_gas);
                     }
 
                     self.restore_state(backup_db, backup_substate, backup_refunded_gas);
@@ -933,6 +932,11 @@ impl VM {
                     .push(U256::from(SUCCESS_FOR_CALL))?;
             }
             TxResult::Revert(_) => {
+                // Revert value transfer
+                if should_transfer_value {
+                    self.decrease_account_balance(to, value)?;
+                    self.increase_account_balance(msg_sender, value)?;
+                }
                 // Push 0 to stack
                 current_call_frame.stack.push(U256::from(REVERT_FOR_CALL))?;
             }
@@ -1006,11 +1010,6 @@ impl VM {
         }
 
         current_call_frame.gas_used = potential_consumed_gas;
-        self.env.consumed_gas = self
-            .env
-            .consumed_gas
-            .checked_add(gas)
-            .ok_or(OutOfGasError::ConsumedGasOverflow)?;
 
         Ok(())
     }
