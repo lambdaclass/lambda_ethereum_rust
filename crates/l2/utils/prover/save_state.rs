@@ -132,6 +132,7 @@ fn get_state_file_path(
 }
 
 /// CREATE the state_file given the block_number
+/// This function will create the following file_path: ../../../<block_number>/state_file_type
 fn create_state_file_for_block_number(
     block_number: u64,
     state_file_type: StateFileType,
@@ -160,6 +161,7 @@ fn create_state_file_for_block_number(
 
 /// WRITE to the state_file given the block number and the state_type
 /// It also creates the file, if it already exists it will overwrite the file
+/// This function will create and write to the following file_path: ../../../<block_number>/state_file_type
 pub fn write_state(block_number: u64, state_type: &StateType) -> Result<(), SaveStateError> {
     let inner = create_state_file_for_block_number(block_number, state_type.into())?;
 
