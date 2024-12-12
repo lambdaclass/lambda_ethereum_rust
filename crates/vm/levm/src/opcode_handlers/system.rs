@@ -490,7 +490,7 @@ impl VM {
         // SECOND: Validations that push 0 to the stack
         let deployer_address = current_call_frame.to;
 
-        let (deployer_account_info, _sender_address_was_cold) = self.access_account(deployer_address);
+        let deployer_account_info = self.access_account(deployer_address).0;
 
         // 1. Sender doesn't have enough balance to send value.
         if deployer_account_info.balance < value_in_wei_to_send {
