@@ -11,7 +11,10 @@ use crate::{
         InternalError, OpcodeSuccess, OutOfGasError, ResultReason, TransactionReport, TxResult,
         TxValidationError, VMError,
     },
-    gas_cost::{self, fake_exponential, BLOB_GAS_PER_BLOB, CREATE_BASE_COST},
+    gas_cost::{
+        self, fake_exponential, ACCESS_LIST_ADDRESS_COST, ACCESS_LIST_STORAGE_KEY_COST,
+        BLOB_GAS_PER_BLOB, CREATE_BASE_COST,
+    },
     memory,
     opcodes::Opcode,
     AccountInfo,
@@ -36,6 +39,9 @@ pub struct Substate {
     // pub accessed_addresses: HashSet<Address>,
     // pub accessed_storage_keys: HashSet<(Address, U256)>,
     pub selfdestrutct_set: HashSet<Address>,
+    pub touched_accounts: HashSet<Address>,
+    pub touched_storage_slots: HashMap<Address, HashSet<H256>>,
+    pub created_accounts: HashSet<Address>,
 }
 
 pub struct VM {
@@ -49,9 +55,7 @@ pub struct VM {
     pub db: Arc<dyn Database>,
     pub cache: CacheDB,
     pub tx_kind: TxKind,
-
-    pub touched_accounts: HashSet<Address>,
-    pub touched_storage_slots: HashMap<Address, HashSet<H256>>,
+    pub access_list: AccessList,
 }
 
 pub fn address_to_word(address: Address) -> U256 {
@@ -71,6 +75,49 @@ pub fn word_to_address(word: U256) -> Address {
     Address::from_slice(&bytes[12..])
 }
 
+// Taken from cmd/ef_tests/ethrex/types.rs, didn't want to fight dependencies yet
+#[derive(Debug, PartialEq, Eq, Clone)]
+pub struct AccessListItem {
+    pub address: Address,
+    pub storage_keys: Vec<H256>,
+}
+
+type AccessList = Vec<(Address, Vec<H256>)>;
+
+pub fn get_valid_jump_destinations(code: &Bytes) -> Result<HashSet<usize>, VMError> {
+    let mut valid_jump_destinations = HashSet::new();
+    let mut pc = 0;
+
+    while let Some(&opcode_number) = code.get(pc) {
+        let current_opcode = Opcode::from(opcode_number);
+
+        if current_opcode == Opcode::JUMPDEST {
+            // If current opcode is jumpdest, add it to valid destinations set
+            valid_jump_destinations.insert(pc);
+        } else if (Opcode::PUSH1..=Opcode::PUSH32).contains(&current_opcode) {
+            // If current opcode is push, skip as many positions as the size of the push
+            let size_to_push =
+                opcode_number
+                    .checked_sub(u8::from(Opcode::PUSH1))
+                    .ok_or(VMError::Internal(
+                        InternalError::ArithmeticOperationUnderflow,
+                    ))?;
+            let skip_length = usize::from(size_to_push.checked_add(1).ok_or(VMError::Internal(
+                InternalError::ArithmeticOperationOverflow,
+            ))?);
+            pc = pc.checked_add(skip_length).ok_or(VMError::Internal(
+                InternalError::ArithmeticOperationOverflow, // to fail, pc should be at least usize max - 31
+            ))?;
+        }
+
+        pc = pc.checked_add(1).ok_or(VMError::Internal(
+            InternalError::ArithmeticOperationOverflow, // to fail, code len should be more than usize max
+        ))?;
+    }
+
+    Ok(valid_jump_destinations)
+}
+
 impl VM {
     // TODO: Refactor this.
     #[allow(clippy::too_many_arguments)]
@@ -81,12 +128,31 @@ impl VM {
         calldata: Bytes,
         db: Arc<dyn Database>,
         mut cache: CacheDB,
+        access_list: AccessList,
     ) -> Result<Self, VMError> {
         // Maybe this decision should be made in an upper layer
 
         // Add sender, coinbase and recipient (in the case of a Call) to cache [https://www.evm.codes/about#access_list]
         let mut default_touched_accounts =
             HashSet::from_iter([env.origin, env.coinbase].iter().cloned());
+
+        let mut default_touched_storage_slots: HashMap<Address, HashSet<H256>> = HashMap::new();
+
+        // Add access lists contents to cache
+        for (address, keys) in access_list.clone() {
+            default_touched_accounts.insert(address);
+            let mut warm_slots = HashSet::new();
+            for slot in keys {
+                warm_slots.insert(slot);
+            }
+            default_touched_storage_slots.insert(address, warm_slots);
+        }
+
+        // Add precompiled contracts addresses to cache.
+        // TODO: Use the addresses from precompiles.rs in a future
+        for i in 1..10 {
+            default_touched_accounts.insert(Address::from_low_u64_be(i));
+        }
 
         match to {
             TxKind::Call(address_to) => {
@@ -114,15 +180,21 @@ impl VM {
                     0,
                 );
 
+                let substate = Substate {
+                    selfdestrutct_set: HashSet::new(),
+                    touched_accounts: default_touched_accounts,
+                    touched_storage_slots: default_touched_storage_slots,
+                    created_accounts: HashSet::new(),
+                };
+
                 Ok(Self {
                     call_frames: vec![initial_call_frame],
                     db,
                     env,
-                    accrued_substate: Substate::default(),
+                    accrued_substate: substate,
                     cache,
                     tx_kind: to,
-                    touched_accounts: default_touched_accounts,
-                    touched_storage_slots: HashMap::new(),
+                    access_list,
                 })
             }
             TxKind::Create => {
@@ -152,19 +224,24 @@ impl VM {
                     0,
                 );
 
+                let substate = Substate {
+                    selfdestrutct_set: HashSet::new(),
+                    touched_accounts: default_touched_accounts,
+                    touched_storage_slots: default_touched_storage_slots,
+                    created_accounts: HashSet::new(),
+                };
+
                 Ok(Self {
                     call_frames: vec![initial_call_frame],
                     db,
                     env,
-                    accrued_substate: Substate::default(),
+                    accrued_substate: substate,
                     cache,
                     tx_kind: TxKind::Create,
-                    touched_accounts: default_touched_accounts,
-                    touched_storage_slots: HashMap::new(),
+                    access_list,
                 })
             }
         }
-        // TODO: https://github.com/lambdaclass/ethrex/issues/1088
     }
 
     pub fn execute(
@@ -223,11 +300,7 @@ impl VM {
                 Opcode::PUSH0 => self.op_push0(current_call_frame),
                 // PUSHn
                 op if (Opcode::PUSH1..=Opcode::PUSH32).contains(&op) => {
-                    let n_bytes = (usize::from(op))
-                        .checked_sub(usize::from(Opcode::PUSH1))
-                        .ok_or(VMError::InvalidOpcode)?
-                        .checked_add(1)
-                        .ok_or(VMError::InvalidOpcode)?;
+                    let n_bytes = get_n_value(op, Opcode::PUSH1)?;
                     self.op_push(current_call_frame, n_bytes)
                 }
                 Opcode::AND => self.op_and(current_call_frame),
@@ -240,15 +313,18 @@ impl VM {
                 Opcode::SAR => self.op_sar(current_call_frame),
                 // DUPn
                 op if (Opcode::DUP1..=Opcode::DUP16).contains(&op) => {
-                    self.op_dup(current_call_frame, op)
+                    let depth = get_n_value(op, Opcode::DUP1)?;
+                    self.op_dup(current_call_frame, depth)
                 }
                 // SWAPn
                 op if (Opcode::SWAP1..=Opcode::SWAP16).contains(&op) => {
-                    self.op_swap(current_call_frame, op)
+                    let depth = get_n_value(op, Opcode::SWAP1)?;
+                    self.op_swap(current_call_frame, depth)
                 }
                 Opcode::POP => self.op_pop(current_call_frame),
                 op if (Opcode::LOG0..=Opcode::LOG4).contains(&op) => {
-                    self.op_log(current_call_frame, op)
+                    let number_of_topics = get_number_of_topics(op)?;
+                    self.op_log(current_call_frame, number_of_topics)
                 }
                 Opcode::MLOAD => self.op_mload(current_call_frame),
                 Opcode::MSTORE => self.op_mstore(current_call_frame),
@@ -392,7 +468,21 @@ impl VM {
         }
 
         // Access List Cost
-        // TODO: Implement access list cost.
+        let mut access_lists_cost = U256::zero();
+        for (_, keys) in self.access_list.clone() {
+            access_lists_cost = access_lists_cost
+                .checked_add(ACCESS_LIST_ADDRESS_COST)
+                .ok_or(OutOfGasError::ConsumedGasOverflow)?;
+            for _ in keys {
+                access_lists_cost = access_lists_cost
+                    .checked_add(ACCESS_LIST_STORAGE_KEY_COST)
+                    .ok_or(OutOfGasError::ConsumedGasOverflow)?;
+            }
+        }
+
+        intrinsic_gas = intrinsic_gas
+            .checked_add(access_lists_cost)
+            .ok_or(OutOfGasError::ConsumedGasOverflow)?;
 
         self.increase_consumed_gas(initial_call_frame, intrinsic_gas)
             .map_err(|_| TxValidationError::IntrinsicGasTooLow)?;
@@ -580,7 +670,7 @@ impl VM {
 
         if self.is_create() {
             // Assign bytecode to context and empty calldata
-            initial_call_frame.bytecode = initial_call_frame.calldata.clone();
+            initial_call_frame.assign_bytecode(initial_call_frame.calldata.clone());
             initial_call_frame.calldata = Bytes::new();
         }
 
@@ -591,10 +681,11 @@ impl VM {
     /// 1. Undo value transfer if the transaction was reverted
     /// 2. Return unused gas + gas refunds to the sender.
     /// 3. Pay coinbase fee
+    /// 4. Destruct addresses in selfdestruct set.
     fn post_execution_changes(
         &mut self,
         initial_call_frame: &CallFrame,
-        report: &TransactionReport,
+        report: &mut TransactionReport,
     ) -> Result<(), VMError> {
         // POST-EXECUTION Changes
         let sender_address = initial_call_frame.msg_sender;
@@ -618,20 +709,20 @@ impl VM {
                 .ok_or(VMError::Internal(InternalError::UndefinedState(-1)))?,
         );
         // "The max refundable proportion of gas was reduced from one half to one fifth by EIP-3529 by Buterin and Swende [2021] in the London release"
+        report.gas_refunded = refunded_gas;
 
         let gas_to_return = max_gas
             .checked_sub(consumed_gas)
             .and_then(|gas| gas.checked_add(refunded_gas))
             .ok_or(VMError::Internal(InternalError::UndefinedState(0)))?;
 
-        let gas_return_amount = self
+        let wei_return_amount = self
             .env
             .gas_price
-            .low_u64()
-            .checked_mul(gas_to_return)
+            .checked_mul(U256::from(gas_to_return))
             .ok_or(VMError::Internal(InternalError::UndefinedState(1)))?;
 
-        self.increase_account_balance(sender_address, U256::from(gas_return_amount))?;
+        self.increase_account_balance(sender_address, wei_return_amount)?;
 
         // 3. Pay coinbase fee
         let coinbase_address = self.env.coinbase;
@@ -643,16 +734,21 @@ impl VM {
         let priority_fee_per_gas = self
             .env
             .gas_price
-            .low_u64()
-            .checked_sub(self.env.base_fee_per_gas.low_u64())
+            .checked_sub(self.env.base_fee_per_gas)
             .ok_or(VMError::GasPriceIsLowerThanBaseFee)?;
-        let coinbase_fee = gas_to_pay_coinbase
+        let coinbase_fee = U256::from(gas_to_pay_coinbase)
             .checked_mul(priority_fee_per_gas)
             .ok_or(VMError::BalanceOverflow)?;
 
-        if coinbase_fee != 0 {
-            self.increase_account_balance(coinbase_address, U256::from(coinbase_fee))?;
+        if coinbase_fee != U256::zero() {
+            self.increase_account_balance(coinbase_address, coinbase_fee)?;
         };
+
+        // 4. Destruct addresses in selfdestruct set.
+        // In Cancun the only addresses destroyed are contracts created in this transaction, so we 'destroy' them by just removing them from the cache, as if they never existed.
+        for address in &self.accrued_substate.selfdestrutct_set {
+            remove_account(&mut self.cache, address);
+        }
 
         Ok(())
     }
@@ -684,7 +780,7 @@ impl VM {
             };
         }
 
-        self.post_execution_changes(&initial_call_frame, &report)?;
+        self.post_execution_changes(&initial_call_frame, &mut report)?;
         // There shouldn't be any errors here but I don't know what the desired behavior is if something goes wrong.
 
         report.new_state.clone_from(&self.cache);
@@ -752,9 +848,9 @@ impl VM {
         code_address: Address,
         _should_transfer_value: bool,
         is_static: bool,
-        args_offset: usize,
+        args_offset: U256,
         args_size: usize,
-        ret_offset: usize,
+        ret_offset: U256,
         ret_size: usize,
         should_transfer_value: bool,
     ) -> Result<OpcodeSuccess, VMError> {
@@ -776,7 +872,7 @@ impl VM {
             current_call_frame
                 .stack
                 .push(U256::from(SUCCESS_FOR_CALL))?;
-            return Ok(OpcodeSuccess::Result(ResultReason::Stop));
+            return Ok(OpcodeSuccess::Continue);
         }
 
         // self.cache.increment_account_nonce(&code_address); // Internal call doesn't increment account nonce.
@@ -799,7 +895,7 @@ impl VM {
         let new_depth = current_call_frame
             .depth
             .checked_add(1)
-            .ok_or(VMError::StackOverflow)?; // Maybe could be depthOverflow but in concept is quite similar
+            .ok_or(InternalError::ArithmeticOperationOverflow)?;
 
         let mut new_call_frame = CallFrame::new(
             msg_sender,
@@ -814,13 +910,10 @@ impl VM {
             new_depth,
         );
 
-        // TODO: Increase this to 1024
-        if new_call_frame.depth > 10 {
+        if new_call_frame.depth > 1024 {
             current_call_frame.stack.push(U256::from(REVERT_FOR_CALL))?;
-            // return Ok(OpcodeSuccess::Result(ResultReason::Revert));
-            return Err(VMError::StackOverflow); // This is wrong but it is for testing purposes.
+            return Ok(OpcodeSuccess::Continue);
         }
-
         current_call_frame.sub_return_data_offset = ret_offset;
         current_call_frame.sub_return_data_size = ret_size;
 
@@ -913,7 +1006,7 @@ impl VM {
     pub fn create(
         &mut self,
         value_in_wei_to_send: U256,
-        code_offset_in_memory: usize,
+        code_offset_in_memory: U256,
         code_size_in_memory: usize,
         salt: Option<U256>,
         current_call_frame: &mut CallFrame,
@@ -1002,6 +1095,8 @@ impl VM {
             .pop()
             .map_err(|_| VMError::StackUnderflow)?;
 
+        self.accrued_substate.created_accounts.insert(new_address);
+
         Ok(OpcodeSuccess::Continue)
     }
 
@@ -1047,7 +1142,7 @@ impl VM {
     /// Accessed accounts take place in some gas cost computation.
     #[must_use]
     pub fn access_account(&mut self, address: Address) -> (AccountInfo, bool) {
-        let address_was_cold = self.touched_accounts.insert(address);
+        let address_was_cold = self.accrued_substate.touched_accounts.insert(address);
         let account = match cache::get_account(&self.cache, &address) {
             Some(account) => account.info.clone(),
             None => self.db.get_account_info(address),
@@ -1059,8 +1154,13 @@ impl VM {
     ///
     /// Accessed storage slots are stored in the `touched_storage_slots` set.
     /// Accessed storage slots take place in some gas cost computation.
-    pub fn access_storage_slot(&mut self, address: Address, key: H256) -> (StorageSlot, bool) {
+    pub fn access_storage_slot(
+        &mut self,
+        address: Address,
+        key: H256,
+    ) -> Result<(StorageSlot, bool), VMError> {
         let storage_slot_was_cold = self
+            .accrued_substate
             .touched_storage_slots
             .entry(address)
             .or_default()
@@ -1084,7 +1184,13 @@ impl VM {
                 }
             }
         };
-        (storage_slot, storage_slot_was_cold)
+
+        // When updating account storage of an account that's not yet cached we need to store the StorageSlot in the account
+        // Note: We end up caching the account because it is the most straightforward way of doing it.
+        let account = self.get_account_mut(address)?;
+        account.storage.insert(key, storage_slot.clone());
+
+        Ok((storage_slot, storage_slot_was_cold))
     }
 
     pub fn increase_account_balance(
@@ -1192,4 +1298,22 @@ impl VM {
             }
         }
     }
+}
+
+fn get_n_value(op: Opcode, base_opcode: Opcode) -> Result<usize, VMError> {
+    let offset = (usize::from(op))
+        .checked_sub(usize::from(base_opcode))
+        .ok_or(VMError::InvalidOpcode)?
+        .checked_add(1)
+        .ok_or(VMError::InvalidOpcode)?;
+
+    Ok(offset)
+}
+
+fn get_number_of_topics(op: Opcode) -> Result<u8, VMError> {
+    let number_of_topics = (u8::from(op))
+        .checked_sub(u8::from(Opcode::LOG0))
+        .ok_or(VMError::InvalidOpcode)?;
+
+    Ok(number_of_topics)
 }

@@ -110,7 +110,7 @@ impl VM {
     ) -> Result<OpcodeSuccess, VMError> {
         self.increase_consumed_gas(current_call_frame, gas_cost::GASLIMIT)?;
 
-        current_call_frame.stack.push(self.env.gas_limit)?;
+        current_call_frame.stack.push(self.env.block_gas_limit)?;
 
         Ok(OpcodeSuccess::Continue)
     }
@@ -134,11 +134,7 @@ impl VM {
     ) -> Result<OpcodeSuccess, VMError> {
         self.increase_consumed_gas(current_call_frame, gas_cost::SELFBALANCE)?;
 
-        // the current account should have been cached when the contract was called
-        let balance = self
-            .get_account(current_call_frame.code_address)
-            .info
-            .balance;
+        let balance = self.get_account(current_call_frame.to).info.balance;
 
         current_call_frame.stack.push(balance)?;
         Ok(OpcodeSuccess::Continue)
@@ -164,11 +160,10 @@ impl VM {
     ) -> Result<OpcodeSuccess, VMError> {
         self.increase_consumed_gas(current_call_frame, gas_cost::BLOBHASH)?;
 
-        let index: usize = current_call_frame
-            .stack
-            .pop()?
-            .try_into()
-            .map_err(|_err| VMError::VeryLargeNumber)?;
+        let Ok(index) = TryInto::<usize>::try_into(current_call_frame.stack.pop()?) else {
+            current_call_frame.stack.push(U256::zero())?;
+            return Ok(OpcodeSuccess::Continue);
+        };
 
         let blob_hashes = &self.env.tx_blob_hashes;
 
