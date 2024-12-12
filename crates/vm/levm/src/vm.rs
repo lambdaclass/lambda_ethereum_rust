@@ -856,14 +856,9 @@ impl VM {
 
         let (sender_account_info, _address_was_cold) = self.access_account(msg_sender);
 
-        if should_transfer_value {
-            if sender_account_info.balance < value {
-                current_call_frame.stack.push(U256::from(REVERT_FOR_CALL))?;
-                return Ok(OpcodeSuccess::Continue);
-            }
-
-            self.decrease_account_balance(msg_sender, value)?;
-            self.increase_account_balance(to, value)?;
+        if should_transfer_value && sender_account_info.balance < value {
+            current_call_frame.stack.push(U256::from(REVERT_FOR_CALL))?;
+            return Ok(OpcodeSuccess::Continue);
         }
 
         let (code_account_info, _address_was_cold) = self.access_account(code_address);
@@ -908,6 +903,11 @@ impl VM {
         }
         current_call_frame.sub_return_data_offset = ret_offset;
         current_call_frame.sub_return_data_size = ret_size;
+
+        if should_transfer_value {
+            self.decrease_account_balance(msg_sender, value)?;
+            self.increase_account_balance(to, value)?;
+        }
 
         let tx_report = self.execute(&mut new_call_frame)?;
 
