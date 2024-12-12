@@ -494,9 +494,7 @@ impl VM {
 
         // 1. Sender doesn't have enough balance to send value.
         if deployer_account_info.balance < value_in_wei_to_send {
-            current_call_frame
-                .stack
-                .push(U256::from(CREATE_DEPLOYMENT_FAIL))?;
+            current_call_frame.stack.push(CREATE_DEPLOYMENT_FAIL)?;
             return Ok(OpcodeSuccess::Continue);
         }
 
@@ -506,17 +504,13 @@ impl VM {
             .checked_add(1)
             .ok_or(InternalError::ArithmeticOperationOverflow)?;
         if new_depth > 1024 {
-            current_call_frame
-                .stack
-                .push(U256::from(CREATE_DEPLOYMENT_FAIL))?;
+            current_call_frame.stack.push(CREATE_DEPLOYMENT_FAIL)?;
             return Ok(OpcodeSuccess::Continue);
         }
 
         // 3. Sender nonce is max.
         if deployer_account_info.nonce == u64::MAX {
-            current_call_frame
-                .stack
-                .push(U256::from(CREATE_DEPLOYMENT_FAIL))?;
+            current_call_frame.stack.push(CREATE_DEPLOYMENT_FAIL)?;
             return Ok(OpcodeSuccess::Continue);
         }
 
@@ -536,9 +530,7 @@ impl VM {
 
         // 3. Account has nonce or code.
         if self.get_account(new_address).has_code_or_nonce() {
-            current_call_frame
-                .stack
-                .push(U256::from(CREATE_DEPLOYMENT_FAIL))?;
+            current_call_frame.stack.push(CREATE_DEPLOYMENT_FAIL)?;
             return Ok(OpcodeSuccess::Continue);
         }
 
@@ -595,9 +587,7 @@ impl VM {
                 self.accrued_substate.created_accounts.remove(&new_address);
                 self.accrued_substate.touched_accounts.remove(&new_address);
 
-                current_call_frame
-                    .stack
-                    .push(U256::from(CREATE_DEPLOYMENT_FAIL))?;
+                current_call_frame.stack.push(CREATE_DEPLOYMENT_FAIL)?;
             }
         }
 
