@@ -738,6 +738,27 @@ impl fmt::Display for ComparisonReport {
                 (Some(_), None) | (None, None) => {}
             }
 
+            for (levm_key, levm_value) in levm_updated_account.added_storage.iter() {
+                if let Some(revm_value) = revm_updated_account.added_storage.get(levm_key) {
+                    if revm_value != levm_value {
+                        writeln!(f, "      Storage slot added {levm_key} -> value mismatch REVM: {revm_value} LEVM: {levm_value}")?;
+                        diffs += 1;
+                    }
+                } else {
+                    writeln!(f, "      Storage slot added key is in LEVM but not in REVM {levm_key} -> {levm_value}")?;
+                    diffs += 1;
+                }
+            }
+            for (revm_key, revm_value) in revm_updated_account.added_storage.iter() {
+                if !levm_updated_account.added_storage.contains_key(revm_key) {
+                    writeln!(
+                        f,
+                        "      Storage slot added key is in REVM but not in LEVM: {revm_key} -> {revm_value}"
+                    )?;
+                    diffs += 1;
+                }
+            }
+
             if diffs == 0 {
                 writeln!(f, "      Same changes")?;
             }
