@@ -586,7 +586,7 @@ fn calc_excess_blob_gas(parent_header: &BlockHeader) -> u64 {
 
 #[cfg(test)]
 mod test {
-    use std::{str::FromStr, time::Instant};
+    use std::str::FromStr;
 
     use super::*;
     use ethereum_types::H160;
