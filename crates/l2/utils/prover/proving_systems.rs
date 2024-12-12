@@ -5,7 +5,7 @@ use std::fmt::Debug;
 use risc0_zkvm::sha::Digestible;
 use sp1_sdk::HashableKey;
 
-#[derive(Debug, Clone, Copy, Hash, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, Hash, PartialEq, Eq, Serialize, Deserialize)]
 /// Enum used to identify the different proving systems.
 pub enum ProverType {
     RISC0,
