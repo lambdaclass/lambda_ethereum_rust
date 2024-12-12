@@ -1,6 +1,6 @@
 use crate::{
     call_frame::CallFrame,
-    errors::{OpcodeSuccess, ResultReason, VMError},
+    errors::{InternalError, OpcodeSuccess, ResultReason, VMError},
     gas_cost::{self, CALLCODE_POSITIVE_VALUE_STIPEND},
     memory::{self, calculate_memory_size},
     vm::{word_to_address, VM},
@@ -126,7 +126,7 @@ impl VM {
 
         let gas_for_subcall = if !value_to_transfer.is_zero() {
             gas.checked_add(CALLCODE_POSITIVE_VALUE_STIPEND)
-                .ok_or(VMError::VeryLargeNumber)?
+                .ok_or(InternalError::ArithmeticOperationOverflow)?
         } else {
             gas
         };
