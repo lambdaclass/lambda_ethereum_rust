@@ -554,7 +554,7 @@ impl VM {
             value_in_wei_to_send,
             Bytes::new(),
             false,
-            max_message_call_gas,
+            U256::from(max_message_call_gas),
             U256::zero(),
             new_depth,
         );

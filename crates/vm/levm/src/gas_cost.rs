@@ -750,14 +750,15 @@ pub fn fake_exponential(factor: u64, numerator: u64, denominator: u64) -> Result
 
 /// Max message call gas is all but one 64th of the remaining gas in the current context.
 /// https://eips.ethereum.org/EIPS/eip-150
-pub fn max_message_call_gas(current_call_frame: &CallFrame) -> Result<U256, VMError> {
+pub fn max_message_call_gas(current_call_frame: &CallFrame) -> Result<u64, VMError> {
     let mut remaining_gas = current_call_frame
         .gas_limit
-        .checked_sub(current_call_frame.gas_used)
+        .low_u64()
+        .checked_sub(current_call_frame.gas_used.low_u64())
         .ok_or(InternalError::GasOverflow)?;
 
     remaining_gas = remaining_gas
-        .checked_sub(U256::from(remaining_gas.low_u64() / 64))
+        .checked_sub(remaining_gas / 64)
         .ok_or(InternalError::GasOverflow)?;
 
     Ok(remaining_gas)

@@ -881,7 +881,7 @@ impl VM {
 
         // I don't know if this gas limit should be calculated before or after consuming gas
         let potential_remaining_gas = max_message_call_gas(current_call_frame)?;
-        let gas_limit = std::cmp::min(gas_limit, potential_remaining_gas);
+        let gas_limit = std::cmp::min(gas_limit.low_u64(), potential_remaining_gas);
 
         let new_depth = current_call_frame
             .depth
@@ -896,7 +896,7 @@ impl VM {
             value,
             calldata.into(),
             is_static,
-            gas_limit,
+            U256::from(gas_limit),
             U256::zero(),
             new_depth,
         );
