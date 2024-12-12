@@ -5,8 +5,11 @@ use crate::utils::{
         prover_server::ProverServerConfig,
     },
     eth_client::{eth_sender::Overrides, EthClient, WrappedTransaction},
-    prover::proving_systems::{ProverType, ProvingOutput},
-    prover::save_state::*,
+    prover::{
+        errors::SaveStateError,
+        proving_systems::{ProverType, ProvingOutput},
+        save_state::*,
+    },
 };
 use ethrex_core::{
     types::{Block, BlockHeader},
@@ -253,9 +256,12 @@ impl ProverServer {
         let send_tx = match block_number_has_all_proofs(block_to_verify) {
             Ok(has_all_proofs) => has_all_proofs,
             Err(e) => {
-                let error = format!("{e}");
-                if !error.contains("No such file or directory") {
-                    return Err(ProverServerError::FailedToSaveState(error));
+                if let SaveStateError::IOError(ref error) = e {
+                    if error.kind() != std::io::ErrorKind::NotFound {
+                        return Err(e.into());
+                    }
+                } else {
+                    return Err(e.into());
                 }
                 false
             }
@@ -263,8 +269,7 @@ impl ProverServer {
         if send_tx {
             self.handle_proof_submission(block_to_verify).await?;
             // Remove the Proofs for that block_number
-            prune_state(block_to_verify)
-                .map_err(|e| ProverServerError::FailedToSaveState(format!("{e}")))?;
+            prune_state(block_to_verify)?;
             tx_submitted = true;
         }
 
@@ -314,14 +319,13 @@ impl ProverServer {
                     Err(e) => {
                         let error = format!("{e}");
                         if !error.contains("No such file or directory") {
-                            return Err(ProverServerError::FailedToSaveState(error));
+                            return Err(e.into());
                         }
                         false
                     }
                 };
                 if !has_proof {
-                    write_state(block_number, StateType::Proof(proving_output))
-                        .map_err(|e| ProverServerError::FailedToSaveState(format!("{e}")))?;
+                    write_state(block_number, StateType::Proof(proving_output))?;
                 }
 
                 // Then if we have all the proofs, we send the transaction in the next `handle_connection` call.
@@ -422,8 +426,7 @@ impl ProverServer {
     ) -> Result<H256, ProverServerError> {
         // TODO change error
         let risc0_proving_output =
-            read_proof(block_number, StateFileType::Proof(ProverType::RISC0))
-                .map_err(|e| ProverServerError::FailedToSaveState(format!("{e}")))?;
+            read_proof(block_number, StateFileType::Proof(ProverType::RISC0))?;
         let risc0_contract_data = match risc0_proving_output {
             ProvingOutput::RISC0(risc0_proof) => risc0_proof.contract_data()?,
             _ => {
@@ -433,8 +436,7 @@ impl ProverServer {
             }
         };
 
-        let sp1_proving_output = read_proof(block_number, StateFileType::Proof(ProverType::SP1))
-            .map_err(|e| ProverServerError::FailedToSaveState(format!("{e}")))?;
+        let sp1_proving_output = read_proof(block_number, StateFileType::Proof(ProverType::SP1))?;
         let sp1_contract_data = match sp1_proving_output {
             ProvingOutput::SP1(sp1_proof) => sp1_proof.contract_data()?,
             _ => {

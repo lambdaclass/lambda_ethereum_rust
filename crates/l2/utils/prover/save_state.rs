@@ -1,3 +1,4 @@
+use crate::utils::prover::errors::SaveStateError;
 use crate::utils::prover::proving_systems::{ProverType, ProvingOutput};
 use directories::ProjectDirs;
 use ethrex_storage::AccountUpdate;
@@ -45,13 +46,13 @@ const DEFAULT_DATADIR: &str = "ethrex_l2_state";
 
 #[cfg(not(test))]
 #[inline(always)]
-fn default_datadir() -> Result<PathBuf, Box<dyn std::error::Error>> {
+fn default_datadir() -> Result<PathBuf, SaveStateError> {
     create_datadir(DEFAULT_DATADIR)
 }
 
 #[cfg(test)]
 #[inline(always)]
-fn default_datadir() -> Result<PathBuf, Box<dyn std::error::Error>> {
+fn default_datadir() -> Result<PathBuf, SaveStateError> {
     create_datadir("test_datadir")
 }
 
@@ -64,10 +65,10 @@ fn get_proof_file_name_from_prover_type(prover_type: &ProverType, block_number: 
 }
 
 #[inline(always)]
-fn get_block_number_from_path(path_buf: &Path) -> Result<u64, Box<dyn std::error::Error>> {
+fn get_block_number_from_path(path_buf: &Path) -> Result<u64, SaveStateError> {
     let block_number = path_buf
         .file_name()
-        .ok_or_else(|| Box::<dyn std::error::Error>::from("Error: No file_name()"))?
+        .ok_or_else(|| SaveStateError::Custom("Error: No file_name()".to_string()))?
         .to_string_lossy();
 
     let block_number = block_number.parse::<u64>()?;
@@ -75,16 +76,16 @@ fn get_block_number_from_path(path_buf: &Path) -> Result<u64, Box<dyn std::error
 }
 
 #[inline(always)]
-fn create_datadir(dir_name: &str) -> Result<PathBuf, Box<dyn std::error::Error>> {
+fn create_datadir(dir_name: &str) -> Result<PathBuf, SaveStateError> {
     let path_buf_data_dir = ProjectDirs::from("", "", dir_name)
-        .ok_or_else(|| Box::<dyn std::error::Error>::from("Couldn't get project_dir."))?
+        .ok_or_else(|| SaveStateError::FailedToCrateDataDir)?
         .data_local_dir()
         .to_path_buf();
     Ok(path_buf_data_dir)
 }
 
 #[inline(always)]
-fn get_state_dir_for_block(block_number: u64) -> Result<PathBuf, Box<dyn std::error::Error>> {
+fn get_state_dir_for_block(block_number: u64) -> Result<PathBuf, SaveStateError> {
     let mut path_buf = default_datadir()?;
     path_buf.push(block_number.to_string());
 
@@ -117,7 +118,7 @@ fn get_state_file_path(
 fn create_state_file_for_block_number(
     block_number: u64,
     state_file_type: StateFileType,
-) -> Result<File, Box<dyn std::error::Error>> {
+) -> Result<File, SaveStateError> {
     let path_buf = get_state_dir_for_block(block_number)?;
     if let Some(parent) = path_buf.parent() {
         if let Err(e) = create_dir_all(parent) {
@@ -143,10 +144,7 @@ fn create_state_file_for_block_number(
 }
 
 /// WRITE
-pub fn write_state(
-    block_number: u64,
-    state_type: StateType,
-) -> Result<(), Box<dyn std::error::Error>> {
+pub fn write_state(block_number: u64, state_type: StateType) -> Result<(), SaveStateError> {
     let state_file_type = state_file_type_from_state_type(&state_type);
     let inner = create_state_file_for_block_number(block_number, state_file_type)?;
 
@@ -166,7 +164,7 @@ pub fn write_state(
     Ok(())
 }
 
-fn get_latest_block_number_and_path() -> Result<(u64, PathBuf), Box<dyn std::error::Error>> {
+fn get_latest_block_number_and_path() -> Result<(u64, PathBuf), SaveStateError> {
     let data_dir = default_datadir()?;
     let latest_block_number = read_dir(&data_dir)?
         .filter_map(|entry| {
@@ -185,17 +183,19 @@ fn get_latest_block_number_and_path() -> Result<(u64, PathBuf), Box<dyn std::err
             let latest_path = data_dir.join(block_number.to_string());
             Ok((block_number, latest_path))
         }
-        None => Err(Box::from("No valid block directories found")),
+        None => Err(SaveStateError::Custom(
+            "No valid block directories found".to_owned(),
+        )),
     }
 }
 
-fn get_block_state_path(block_number: u64) -> Result<PathBuf, Box<dyn std::error::Error>> {
+fn get_block_state_path(block_number: u64) -> Result<PathBuf, SaveStateError> {
     let data_dir = default_datadir()?;
     let block_state_path = data_dir.join(block_number.to_string());
     Ok(block_state_path)
 }
 
-pub fn get_latest_block_number() -> Result<u64, Box<dyn std::error::Error>> {
+pub fn get_latest_block_number() -> Result<u64, SaveStateError> {
     let (block_number, _) = get_latest_block_number_and_path()?;
     Ok(block_number)
 }
@@ -204,7 +204,7 @@ pub fn get_latest_block_number() -> Result<u64, Box<dyn std::error::Error>> {
 pub fn read_state(
     block_number: u64,
     state_file_type: StateFileType,
-) -> Result<StateType, Box<dyn std::error::Error>> {
+) -> Result<StateType, SaveStateError> {
     // TODO handle path not found
     let block_state_path = get_block_state_path(block_number)?;
     let file_path: PathBuf = get_state_file_path(&block_state_path, block_number, &state_file_type);
@@ -232,7 +232,7 @@ pub fn read_state(
 pub fn read_proof(
     block_number: u64,
     state_file_type: StateFileType,
-) -> Result<ProvingOutput, Box<dyn std::error::Error>> {
+) -> Result<ProvingOutput, SaveStateError> {
     match read_state(block_number, state_file_type)? {
         StateType::Proof(p) => Ok(p),
         StateType::AccountUpdates(_) => unimplemented!(),
@@ -242,7 +242,7 @@ pub fn read_proof(
 /// READ
 pub fn read_latest_state(
     state_file_type: StateFileType,
-) -> Result<StateType, Box<dyn std::error::Error>> {
+) -> Result<StateType, SaveStateError> {
     let (latest_block_state_number, _) = get_latest_block_number_and_path()?;
     let state = read_state(latest_block_state_number, state_file_type)?;
     Ok(state)
@@ -252,7 +252,7 @@ pub fn read_latest_state(
 pub fn delete_state_file(
     block_number: u64,
     state_file_type: StateFileType,
-) -> Result<(), Box<dyn std::error::Error>> {
+) -> Result<(), SaveStateError> {
     let block_state_path = get_block_state_path(block_number)?;
     let file_path: PathBuf = get_state_file_path(&block_state_path, block_number, &state_file_type);
     std::fs::remove_file(file_path)?;
@@ -262,7 +262,7 @@ pub fn delete_state_file(
 
 pub fn delete_latest_state_file(
     state_file_type: StateFileType,
-) -> Result<(), Box<dyn std::error::Error>> {
+) -> Result<(), SaveStateError> {
     let (latest_block_state_number, _) = get_latest_block_number_and_path()?;
     let latest_block_state_path = get_block_state_path(latest_block_state_number)?;
     let file_path: PathBuf = get_state_file_path(
@@ -275,13 +275,13 @@ pub fn delete_latest_state_file(
     Ok(())
 }
 
-pub fn prune_state(block_number: u64) -> Result<(), Box<dyn std::error::Error>> {
+pub fn prune_state(block_number: u64) -> Result<(), SaveStateError> {
     let block_state_path = get_block_state_path(block_number)?;
     std::fs::remove_dir_all(block_state_path)?;
     Ok(())
 }
 
-pub fn prune_latest_state() -> Result<(), Box<dyn std::error::Error>> {
+pub fn prune_latest_state() -> Result<(), SaveStateError> {
     let (latest_block_state_number, _) = get_latest_block_number_and_path()?;
     let latest_block_state_path = get_block_state_path(latest_block_state_number)?;
     std::fs::remove_dir_all(latest_block_state_path)?;
@@ -291,7 +291,7 @@ pub fn prune_latest_state() -> Result<(), Box<dyn std::error::Error>> {
 pub fn path_has_state_file(
     state_file_type: StateFileType,
     path_buf: &Path,
-) -> Result<bool, Box<dyn std::error::Error>> {
+) -> Result<bool, SaveStateError> {
     // Get the block_number from the path
     let block_number = get_block_number_from_path(path_buf)?;
     let file_name_to_seek: OsString = get_state_file_name(block_number, &state_file_type).into();
@@ -311,7 +311,7 @@ pub fn path_has_state_file(
 pub fn block_number_has_state_file(
     state_file_type: StateFileType,
     block_number: u64,
-) -> Result<bool, Box<dyn std::error::Error>> {
+) -> Result<bool, SaveStateError> {
     let block_state_path = get_block_state_path(block_number)?;
     let file_name_to_seek: OsString = get_state_file_name(block_number, &state_file_type).into();
 
@@ -327,7 +327,7 @@ pub fn block_number_has_state_file(
     Ok(false)
 }
 
-pub fn block_number_has_all_proofs(block_number: u64) -> Result<bool, Box<dyn std::error::Error>> {
+pub fn block_number_has_all_proofs(block_number: u64) -> Result<bool, SaveStateError> {
     let block_state_path = get_block_state_path(block_number)?;
 
     let mut has_all_proofs = true;

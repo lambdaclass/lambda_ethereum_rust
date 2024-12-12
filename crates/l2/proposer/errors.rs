@@ -1,6 +1,7 @@
 use std::sync::mpsc::SendError;
 
 use crate::utils::merkle_tree::MerkleError;
+use crate::utils::prover::errors::SaveStateError;
 use crate::utils::{config::errors::ConfigError, eth_client::errors::EthClientError};
 use ethereum_types::FromStrRadixErr;
 use ethrex_core::types::{BlobsBundleError, FakeExponentialError};
@@ -47,8 +48,8 @@ pub enum ProverServerError {
     WriteError(String),
     #[error("ProverServer failed to get data from Store: {0}")]
     ItemNotFoundInStore(String),
-    #[error("ProverServer failed to save state: {0}")]
-    FailedToSaveState(String),
+    #[error("ProverServer encountered a SaveStateError: {0}")]
+    SaveStateError(#[from] SaveStateError),
 }
 
 #[derive(Debug, thiserror::Error)]
