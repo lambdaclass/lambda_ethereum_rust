@@ -1,7 +1,7 @@
 use crate::{
     call_frame::CallFrame,
     errors::{InternalError, OpcodeSuccess, ResultReason, VMError},
-    gas_cost::{self, CALLCODE_POSITIVE_VALUE_STIPEND},
+    gas_cost::{self, CALLCODE_POSITIVE_VALUE_STIPEND, CALL_POSITIVE_VALUE_STIPEND},
     memory::{self, calculate_memory_size},
     vm::{word_to_address, VM},
 };
@@ -61,9 +61,18 @@ impl VM {
         let to = callee; // In this case code_address and the sub-context account are the same. Unlike CALLCODE or DELEGATECODE.
         let is_static = current_call_frame.is_static;
 
+        // We add the stipend gas for the subcall. This ensures that the callee has enough gas to perform basic operations
+        let gas_for_subcall = if !value_to_transfer.is_zero() {
+            gas_for_call
+                .checked_add(CALL_POSITIVE_VALUE_STIPEND)
+                .ok_or(InternalError::ArithmeticOperationOverflow)?
+        } else {
+            gas_for_call
+        };
+
         self.generic_call(
             current_call_frame,
-            gas_for_call,
+            gas_for_subcall,
             value_to_transfer,
             msg_sender,
             to,
