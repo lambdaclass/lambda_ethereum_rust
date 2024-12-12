@@ -601,9 +601,6 @@ impl fmt::Display for ComparisonReport {
                     (*key, storage_slot)
                 })
                 .collect();
-            // dbg!(&updated_account_update);
-            // dbg!(&updated_account_storage);
-            // dbg!(&initial_account.info);
             let Some(updated_account_info) = updated_account_update.info.clone() else {
                 continue;
             };
