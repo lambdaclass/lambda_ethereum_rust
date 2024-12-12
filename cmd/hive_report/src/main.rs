@@ -130,7 +130,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     for results in results_by_category {
         // print category
-        println!("{}", results[0].category);
+        println!("**{}**", results[0].category);
         for result in results {
             println!("\t{}", result);
         }
@@ -141,7 +141,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let total_passed = results.iter().map(|r| r.passed_tests).sum::<usize>();
     let total_tests = results.iter().map(|r| r.total_tests).sum::<usize>();
     let total_percentage = (total_passed as f64 / total_tests as f64) * 100.0;
-    println!("Total: {total_passed}/{total_tests} ({total_percentage:.02}%)");
+    println!("**Total: {total_passed}/{total_tests} ({total_percentage:.02}%)**");
 
     Ok(())
 }

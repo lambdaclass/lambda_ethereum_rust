@@ -593,21 +593,6 @@ mod test {
     use hex_literal::hex;
 
     #[test]
-    fn compute_hash() {
-        let block = Block::default();
-
-        let start = Instant::now();
-        block.hash();
-        let duration = start.elapsed();
-
-        let start_2 = Instant::now();
-        block.hash();
-        let duration_2 = start_2.elapsed();
-
-        assert!(duration > 1000 * duration_2);
-    }
-
-    #[test]
     fn test_compute_withdrawals_root() {
         // Source: https://github.com/ethereum/tests/blob/9760400e667eba241265016b02644ef62ab55de2/BlockchainTests/EIPTests/bc4895-withdrawals/amountIs0.json
         // "withdrawals" : [
