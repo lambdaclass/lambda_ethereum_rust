@@ -133,3 +133,26 @@ ci_test: ## 🚧 Runs the L2's integration test, used by the github's CI
 
 test: ## 🚧 Runs the L2's integration test, run `make init` and in a new terminal make test
 	BRIDGE_ADDRESS=$$(grep 'L1_WATCHER_BRIDGE_ADDRESS' .env | cut -d= -f2) ON_CHAIN_PROPOSER_ADDRESS=$$(grep 'COMMITTER_ON_CHAIN_PROPOSER_ADDRESS' .env | cut -d= -f2) cargo test --release testito -- --nocapture
+
+
+# Purge L2's state
+
+UNAME_S:=$(shell uname -s)
+PROJECT_NAME:=ethrex_l2_state
+
+ifeq ($(UNAME_S),Linux)
+    PROJECT_PATH := $(HOME)/.local/share/${PROJECT_NAME}
+else ifeq ($(UNAME_S),Darwin)
+    PROJECT_PATH := $(HOME)/Library/Application\ Support/${PROJECT_NAME}
+else
+    $(error Unsupported platform: $(UNAME_S))
+endif
+
+purge_prover_state: ## 🧹 Removes the L2 state, only use to start fresh.
+	@echo "Are you sure you want to delete the directory: $(PROJECT_PATH) ? [y/n]"
+	@read answer; \
+	if [ "$$answer" != "y" ]; then \
+		echo "Operation canceled."; \
+	fi; \
+	rm -rf $(PROJECT_PATH); \
+	echo "Directory deleted."
