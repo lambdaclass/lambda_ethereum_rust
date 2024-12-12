@@ -12,7 +12,7 @@ The main way to deal with theses cases (at least, at the time of writing) is to 
 
 ```rust
 ///  bytecode: Represents the EVM bytecode array to be executed.
-0:   pub fn op_extcodecopy(bytecode_offset: U256, bytecode: Bytes, vector_size: usize) {
+0:   pub fn op_extcodecopy(bytecode_offset: U256, bytecode: Bytes, vector_size: usize) -> Result<(), Err> {
 
         (...)
 
@@ -22,7 +22,7 @@ The main way to deal with theses cases (at least, at the time of writing) is to 
 4:       if bytecode_offset < bytecode_length {
 5:           let offset: usize = offset
 6:               .try_into()
-7:               .map_err(|_| VMError::Internal(InternalError::ConversionError))?;
+7:               .map_err(|_| InternalError::ConversionError)?;
 8:           // After this the data vector is modified
 
         (...)
@@ -36,9 +36,10 @@ Some context: It is not important what this operand does. The only thing that ma
 - In line `1` we create the vector which we will return.
 - In line `3` we get the `bytecode` array length. Since `.len()` returns a `usize` we need to cast it to `U256`, in order to compare itwith `bytecode_offset`. Luckily, `usize` always fits into `U256`, so this will never fail.
 - In line `4` we check if the calldata offset is larger than the calldata itself. If this is the case, there's no data to copy. So we do not want to modify the vector.
-    -  Do note that, after this check we can safely cast the bytecode to `usize`. This is because there is a limit to the contract's bytecode size. For more information, read [this article](https://ethereum.org/en/developers/docs/smart-contracts/#limitations).
+    -  Do note that, after this check we can safely cast the bytecode to `usize`. This is done in line `5`. This is because there is a limit to the contract's bytecode size. For more information, read [this article](https://ethereum.org/en/developers/docs/smart-contracts/#limitations).
+    -  We return an InternalError because line 5 should never fail. If it fails, then it means there's a problem with the VM itself.
 - Finally in line `10`, we store the resulting data vector in memory.
-    - If the bytecode_offset was larger than the actual contents of the bytecode array, we return an empty vector. This is the intended behavior.
+    - If the bytecode_offset was larger than the actual contents of the bytecode array, we return a vector with only 0's. This is the intended behavior.
 
 
 This pattern is fairly common and is useful to keep in mind, especially when dealing with operands that deal with offsets and indexes.
