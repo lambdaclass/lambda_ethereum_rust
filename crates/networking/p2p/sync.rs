@@ -233,6 +233,7 @@ async fn download_and_run_blocks(
     Ok(())
 }
 
+/// Fetches all block bodies for the given block hashes via p2p and returns them
 async fn fetch_block_bodies(
     mut block_hashes: Vec<BlockHash>,
     peers: Arc<Mutex<KademliaTable>>,
@@ -484,6 +485,7 @@ async fn fetch_storage_batch(
     Ok(vec![])
 }
 
+/// Heals the trie given its state_root by fetching any missing nodes in it via p2p
 async fn heal_state_trie(
     bytecode_sender: Sender<Vec<H256>>,
     state_root: H256,
