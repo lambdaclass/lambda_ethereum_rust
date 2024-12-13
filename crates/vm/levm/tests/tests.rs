@@ -1755,14 +1755,17 @@ fn call_changes_callframe_and_stores() {
         .with_balance(50000.into())
         .with_bytecode(callee_bytecode);
 
+    let ret_size = 32;
+    let ret_offset = U256::zero();
+
     let caller_ops = vec![
-        Operation::Push((32, U256::from(32))),      // ret_size
-        Operation::Push((32, U256::from(0))),       // ret_offset
-        Operation::Push((32, U256::from(0))),       // args_size
-        Operation::Push((32, U256::from(0))),       // args_offset
-        Operation::Push((32, U256::zero())),        // value
-        Operation::Push((32, callee_address_u256)), // address
-        Operation::Push((32, U256::from(100_000))), // gas
+        Operation::Push((32, U256::from(ret_size))), // ret_size
+        Operation::Push((32, ret_offset)),           // ret_offset
+        Operation::Push((32, U256::from(0))),        // args_size
+        Operation::Push((32, U256::from(0))),        // args_offset
+        Operation::Push((32, U256::zero())),         // value
+        Operation::Push((32, callee_address_u256)),  // address
+        Operation::Push((32, U256::from(100_000))),  // gas
         Operation::Call,
         Operation::Stop,
     ];
@@ -1789,10 +1792,6 @@ fn call_changes_callframe_and_stores() {
 
     let success = current_call_frame.stack.pop().unwrap() == U256::one();
     assert!(success);
-
-    // These are ret_offset and ret_size used in CALL operation before.
-    let ret_offset = current_call_frame.sub_return_data_offset;
-    let ret_size = current_call_frame.sub_return_data_size;
 
     // Return data of the sub-context will be in the memory position of the current context reserved for that purpose (ret_offset and ret_size)
     let return_data =
