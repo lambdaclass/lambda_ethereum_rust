@@ -562,9 +562,13 @@ impl VM {
 
         let balance_for_valid_tx = gas_fee_for_valid_tx
             .checked_add(value)
-            .ok_or(InternalError::UndefinedState(1))?
+            .ok_or(VMError::TxValidation(
+                TxValidationError::InsufficientAccountFunds,
+            ))?
             .checked_add(blob_gas_cost)
-            .ok_or(InternalError::UndefinedState(1))?;
+            .ok_or(VMError::TxValidation(
+                TxValidationError::InsufficientAccountFunds,
+            ))?;
         if sender_account.info.balance < balance_for_valid_tx {
             return Err(VMError::TxValidation(
                 TxValidationError::InsufficientAccountFunds,
@@ -574,9 +578,13 @@ impl VM {
         // The real cost to deduct is calculated as effective_gas_price * gas_limit + value + blob_gas_cost
         let up_front_cost = gaslimit_price_product
             .checked_add(value)
-            .ok_or(InternalError::UndefinedState(1))?
+            .ok_or(VMError::TxValidation(
+                TxValidationError::InsufficientAccountFunds,
+            ))?
             .checked_add(blob_gas_cost)
-            .ok_or(InternalError::UndefinedState(1))?;
+            .ok_or(VMError::TxValidation(
+                TxValidationError::InsufficientAccountFunds,
+            ))?;
         // There is no error specified for overflow in up_front_cost in ef_tests. Maybe we can go with GasLimitPriceProductOverflow or InsufficientAccountFunds.
 
         // (2) INSUFFICIENT_ACCOUNT_FUNDS
