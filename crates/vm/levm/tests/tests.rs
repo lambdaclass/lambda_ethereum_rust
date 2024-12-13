@@ -14,7 +14,6 @@ use ethrex_levm::{
     vm::{word_to_address, Storage, VM},
     Environment,
 };
-use sha3::digest::consts::U2;
 use std::{collections::HashMap, sync::Arc};
 
 fn create_opcodes(size: usize, offset: usize, value_to_transfer: usize) -> Vec<Operation> {
