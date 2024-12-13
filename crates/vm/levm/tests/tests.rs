@@ -1533,10 +1533,10 @@ fn mstore8() {
 fn mcopy() {
     let operations = [
         Operation::Push((32, U256::from(32))),      // size
-        Operation::Push((32, U256::zero())),       // source offset
+        Operation::Push((32, U256::zero())),        // source offset
         Operation::Push((32, U256::from(64))),      // destination offset
         Operation::Push((32, U256::from(0x33333))), // value
-        Operation::Push((32, U256::zero())),       // offset
+        Operation::Push((32, U256::zero())),        // offset
         Operation::Mstore,
         Operation::Mcopy,
         Operation::Msize,
@@ -1713,9 +1713,9 @@ fn call_returns_if_bytecode_empty() {
 
     let caller_ops = vec![
         Operation::Push((32, U256::from(32))),      // ret_size
-        Operation::Push((32, U256::zero())),       // ret_offset
-        Operation::Push((32, U256::zero())),       // args_size
-        Operation::Push((32, U256::zero())),       // args_offset
+        Operation::Push((32, U256::zero())),        // ret_offset
+        Operation::Push((32, U256::zero())),        // args_size
+        Operation::Push((32, U256::zero())),        // args_offset
         Operation::Push((32, U256::zero())),        // value
         Operation::Push((32, callee_address_u256)), // address
         Operation::Push((32, U256::from(100_000))), // gas
@@ -1761,8 +1761,8 @@ fn call_changes_callframe_and_stores() {
     let caller_ops = vec![
         Operation::Push((32, U256::from(ret_size))), // ret_size
         Operation::Push((32, ret_offset)),           // ret_offset
-        Operation::Push((32, U256::zero())),        // args_size
-        Operation::Push((32, U256::zero())),        // args_offset
+        Operation::Push((32, U256::zero())),         // args_size
+        Operation::Push((32, U256::zero())),         // args_offset
         Operation::Push((32, U256::zero())),         // value
         Operation::Push((32, callee_address_u256)),  // address
         Operation::Push((32, U256::from(100_000))),  // gas
@@ -1812,9 +1812,9 @@ fn nested_calls() {
 
     let mut callee2_ops = vec![
         Operation::Push((32, U256::from(32))),       // ret_size
-        Operation::Push((32, U256::zero())),        // ret_offset
-        Operation::Push((32, U256::zero())),        // args_size
-        Operation::Push((32, U256::zero())),        // args_offset
+        Operation::Push((32, U256::zero())),         // ret_offset
+        Operation::Push((32, U256::zero())),         // args_size
+        Operation::Push((32, U256::zero())),         // args_offset
         Operation::Push((32, U256::zero())),         // value
         Operation::Push((32, callee3_address_u256)), // address
         Operation::Push((32, U256::from(100_000))),  // gas
@@ -1849,9 +1849,9 @@ fn nested_calls() {
 
     let caller_ops = vec![
         Operation::Push((32, U256::from(64))),       // ret_size
-        Operation::Push((32, U256::zero())),        // ret_offset
-        Operation::Push((32, U256::zero())),        // args_size
-        Operation::Push((32, U256::zero())),        // args_offset
+        Operation::Push((32, U256::zero())),         // ret_offset
+        Operation::Push((32, U256::zero())),         // args_size
+        Operation::Push((32, U256::zero())),         // args_offset
         Operation::Push((32, U256::zero())),         // value
         Operation::Push((32, callee2_address_u256)), // address
         Operation::Push((32, U256::from(100_000))),  // gas
@@ -1929,9 +1929,9 @@ fn staticcall_changes_callframe_is_static() {
 
     let caller_ops = vec![
         Operation::Push((32, U256::from(32))),      // ret_size
-        Operation::Push((32, U256::zero())),       // ret_offset
-        Operation::Push((32, U256::zero())),       // args_size
-        Operation::Push((32, U256::zero())),       // args_offset
+        Operation::Push((32, U256::zero())),        // ret_offset
+        Operation::Push((32, U256::zero())),        // args_size
+        Operation::Push((32, U256::zero())),        // args_offset
         Operation::Push((32, U256::zero())),        // value
         Operation::Push((32, callee_address_u256)), // address
         Operation::Push((32, U256::from(100_000))), // gas
@@ -2449,12 +2449,12 @@ fn calldataload_being_set_by_parent() {
 
     let caller_ops = vec![
         Operation::Push((32, U256::from_big_endian(&calldata[..32]))), // value
-        Operation::Push((32, U256::zero())),                          // offset
+        Operation::Push((32, U256::zero())),                           // offset
         Operation::Mstore,
         Operation::Push((32, U256::from(32))),      // ret_size
-        Operation::Push((32, U256::zero())),       // ret_offset
+        Operation::Push((32, U256::zero())),        // ret_offset
         Operation::Push((32, U256::from(32))),      // args_size
-        Operation::Push((32, U256::zero())),       // args_offset
+        Operation::Push((32, U256::zero())),        // args_offset
         Operation::Push((32, U256::zero())),        // value
         Operation::Push((32, callee_address_u256)), // address
         Operation::Push((32, U256::from(100_000))), // gas
@@ -2523,7 +2523,7 @@ fn calldatacopy() {
     let ops = vec![
         Operation::Push((32, U256::from(2))), // size
         Operation::Push((32, U256::from(1))), // calldata_offset
-        Operation::Push((32, U256::zero())), // dest_offset
+        Operation::Push((32, U256::zero())),  // dest_offset
         Operation::CallDataCopy,
         Operation::Stop,
     ];
@@ -2563,7 +2563,7 @@ fn returndatacopy() {
     let ops = vec![
         Operation::Push((32, U256::from(2))), // size
         Operation::Push((32, U256::from(1))), // returndata_offset
-        Operation::Push((32, U256::zero())), // dest_offset
+        Operation::Push((32, U256::zero())),  // dest_offset
         Operation::ReturnDataCopy,
         Operation::Stop,
     ];
@@ -2590,17 +2590,17 @@ fn returndatacopy_being_set_by_parent() {
         .with_bytecode(callee_bytecode);
 
     let caller_ops = vec![
-        Operation::Push((32, U256::zero())),       // ret_offset
+        Operation::Push((32, U256::zero())),        // ret_offset
         Operation::Push((32, U256::from(32))),      // ret_size
-        Operation::Push((32, U256::zero())),       // args_size
-        Operation::Push((32, U256::zero())),       // args_offset
+        Operation::Push((32, U256::zero())),        // args_size
+        Operation::Push((32, U256::zero())),        // args_offset
         Operation::Push((32, U256::zero())),        // value
         Operation::Push((32, U256::from(2))),       // callee address
         Operation::Push((32, U256::from(100_000))), // gas
         Operation::Call,
         Operation::Push((32, U256::from(32))), // size
-        Operation::Push((32, U256::zero())),  // returndata offset
-        Operation::Push((32, U256::zero())),  // dest offset
+        Operation::Push((32, U256::zero())),   // returndata offset
+        Operation::Push((32, U256::zero())),   // dest offset
         Operation::ReturnDataCopy,
         Operation::Stop,
     ];
@@ -3435,9 +3435,9 @@ fn logs_from_multiple_callers() {
 
     let mut caller_ops = vec![
         Operation::Push((32, U256::from(32))),      // ret_size
-        Operation::Push((32, U256::zero())),       // ret_offset
-        Operation::Push((32, U256::zero())),       // args_size
-        Operation::Push((32, U256::zero())),       // args_offset
+        Operation::Push((32, U256::zero())),        // ret_offset
+        Operation::Push((32, U256::zero())),        // args_size
+        Operation::Push((32, U256::zero())),        // args_offset
         Operation::Push((32, U256::zero())),        // value
         Operation::Push((32, callee_address_u256)), // address
         Operation::Push((32, U256::from(100_000))), // gas
