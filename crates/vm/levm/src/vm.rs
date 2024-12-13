@@ -257,25 +257,23 @@ impl VM {
         );
 
         if is_precompile(&current_call_frame.code_address) {
-            // Maybe we can pass the callframe, as we do in the opcodes implementation
             let precompile_result = execute_precompile(current_call_frame);
 
-            // Error handling can be the same as the opcode error handling. Maybe we can place a break
-            // in the loop below and keep the same logic
             match precompile_result {
-                Ok((SUCCESS_FOR_RETURN, _)) => {
+                Ok((SUCCESS_FOR_RETURN, output)) => {
                     self.call_frames.push(current_call_frame.clone());
+
                     return Ok(TransactionReport {
                         result: TxResult::Success,
                         new_state: self.cache.clone(),
                         gas_used: current_call_frame.gas_used.low_u64(),
-                        gas_refunded: self.env.refunded_gas.low_u64(),
-                        output: current_call_frame.returndata.clone(),
+                        gas_refunded: self.env.refunded_gas.low_u64(), // There's no refunds in precompiles
+                        output,
                         logs: current_call_frame.logs.clone(),
                         created_address: None,
                     });
                 }
-                Ok((REVERT_FOR_RETURN, _)) => {
+                Ok((REVERT_FOR_RETURN, output)) => {
                     // For those non-internal errors
                     self.call_frames.push(current_call_frame.clone());
 
@@ -288,7 +286,7 @@ impl VM {
                         new_state: self.cache.clone(),
                         gas_used: current_call_frame.gas_used.low_u64(),
                         gas_refunded: self.env.refunded_gas.low_u64(),
-                        output: current_call_frame.returndata.clone(),
+                        output,
                         logs: current_call_frame.logs.clone(),
                         created_address: None,
                     });
