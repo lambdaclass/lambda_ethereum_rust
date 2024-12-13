@@ -275,8 +275,6 @@ impl VM {
                 }
                 Err(error) => {
                     if error.is_internal() {
-                        self.call_frames.push(current_call_frame.clone());
-
                         return Err(error);
                     }
 
