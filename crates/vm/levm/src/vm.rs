@@ -875,7 +875,7 @@ impl VM {
             memory::load_range(&mut current_call_frame.memory, args_offset, args_size)?.to_vec();
         // Gas Limit for the child context is capped.
         let gas_cap = max_message_call_gas(current_call_frame)?;
-        let gas_limit = std::cmp::min(gas_limit, gas_cap);
+        let gas_limit = std::cmp::min(gas_limit, gas_cap.into());
 
         let mut new_call_frame = CallFrame::new(
             msg_sender,
