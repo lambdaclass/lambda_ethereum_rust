@@ -282,19 +282,12 @@ impl VM {
 
                     self.call_frames.push(current_call_frame.clone());
 
-                    // Consume all gas
-                    let left_gas = current_call_frame
-                        .gas_limit
-                        .saturating_sub(current_call_frame.gas_used);
-                    current_call_frame.gas_used =
-                        current_call_frame.gas_used.saturating_add(left_gas);
-
                     self.restore_state(backup_db, backup_substate, backup_refunded_gas);
 
                     return Ok(TransactionReport {
                         result: TxResult::Revert(error),
                         new_state: self.cache.clone(),
-                        gas_used: current_call_frame.gas_used.low_u64(),
+                        gas_used: current_call_frame.gas_limit.low_u64(),
                         gas_refunded: 0,
                         output: Bytes::new(),
                         logs: current_call_frame.logs.clone(),
