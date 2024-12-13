@@ -1,7 +1,7 @@
 use crate::{
     call_frame::CallFrame,
     errors::{InternalError, OpcodeSuccess, VMError},
-    gas_cost::{self, RETURNDATASIZE},
+    gas_cost::{self},
     memory::{self, calculate_memory_size},
     vm::{word_to_address, VM},
 };
