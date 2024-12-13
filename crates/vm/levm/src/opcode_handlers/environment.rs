@@ -418,6 +418,7 @@ impl VM {
 
         self.increase_consumed_gas(current_call_frame, gas_cost::extcodehash(address_was_cold)?)?;
 
+        // An account is considered empty when it has no code and zero nonce and zero balance. [EIP-161]
         if account_info.bytecode.is_empty()
             && account_info.nonce == 0
             && account_info.balance == U256::zero()
