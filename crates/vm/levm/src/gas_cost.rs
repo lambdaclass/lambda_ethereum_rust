@@ -176,7 +176,6 @@ pub const RIPEMD_160_DYNAMIC_BASE: u64 = 120;
 pub const IDENTITY_STATIC_COST: u64 = 15;
 pub const IDENTITY_DYNAMIC_BASE: u64 = 3;
 
-
 pub fn exp(exponent: U256) -> Result<U256, OutOfGasError> {
     let exponent_byte_size = (exponent
         .bits()

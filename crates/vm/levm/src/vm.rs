@@ -8,8 +8,8 @@ use crate::{
     },
     environment::Environment,
     errors::{
-        InternalError, OpcodeSuccess, OutOfGasError, ResultReason, TransactionReport, TxResult,
-        TxValidationError, VMError,
+        InternalError, OpcodeSuccess, OutOfGasError, PrecompileError, ResultReason,
+        TransactionReport, TxResult, TxValidationError, VMError,
     },
     gas_cost::{
         self, fake_exponential, ACCESS_LIST_ADDRESS_COST, ACCESS_LIST_STORAGE_KEY_COST,
@@ -17,6 +17,7 @@ use crate::{
     },
     memory,
     opcodes::Opcode,
+    precompiles::{execute_precompile, is_precompile},
     AccountInfo,
 };
 use bytes::Bytes;
@@ -254,6 +255,65 @@ impl VM {
             self.accrued_substate.clone(),
             self.env.refunded_gas,
         );
+
+        if is_precompile(&current_call_frame.code_address) {
+            // Maybe we can pass the callframe, as we do in the opcodes implementation
+            let precompile_result = execute_precompile(current_call_frame);
+
+            //Error handling can be the same as the opcode error handling
+            match precompile_result {
+                Ok((SUCCESS_FOR_RETURN, _)) => {
+                    // Handle the return data, maybe push into the stack the result depending on the output
+                    self.call_frames.push(current_call_frame.clone());
+                    return Ok(TransactionReport {
+                        result: TxResult::Success,
+                        new_state: self.cache.clone(),
+                        gas_used: current_call_frame.gas_used.low_u64(),
+                        gas_refunded: self.env.refunded_gas.low_u64(),
+                        output: current_call_frame.returndata.clone(),
+                        logs: current_call_frame.logs.clone(),
+                        created_address: None,
+                    });
+                }
+                Ok((REVERT_FOR_RETURN, _)) => {
+                    self.call_frames.push(current_call_frame.clone());
+
+                    self.restore_state(backup_db, backup_substate, backup_refunded_gas);
+
+                    return Ok(TransactionReport {
+                        result: TxResult::Revert(VMError::PrecompileError(
+                            PrecompileError::DefaultError,
+                        )),
+                        new_state: self.cache.clone(),
+                        gas_used: current_call_frame.gas_used.low_u64(),
+                        gas_refunded: self.env.refunded_gas.low_u64(),
+                        output: current_call_frame.returndata.clone(),
+                        logs: current_call_frame.logs.clone(),
+                        created_address: None,
+                    });
+                }
+                Ok(_) => {
+                    // This should not happen, maybe we can make the success/revert an enum, or use the TxResult one
+                    self.call_frames.push(current_call_frame.clone());
+                    return Ok(TransactionReport {
+                        result: TxResult::Revert(VMError::Internal(InternalError::UndefinedState(
+                            -1,
+                        ))),
+                        new_state: self.cache.clone(),
+                        gas_used: current_call_frame.gas_used.low_u64(),
+                        gas_refunded: self.env.refunded_gas.low_u64(),
+                        output: current_call_frame.returndata.clone(),
+                        logs: current_call_frame.logs.clone(),
+                        created_address: None,
+                    });
+                }
+                Err(error) => {
+                    self.call_frames.push(current_call_frame.clone());
+
+                    return Err(VMError::Internal(error));
+                }
+            }
+        }
 
         loop {
             let opcode = current_call_frame.next_opcode();
