@@ -36,7 +36,7 @@ impl VM {
             .try_into()
             .map_err(|_| VMError::VeryLargeNumber)?;
 
-        // OOG VALIDATIONS
+        // VALIDATIONS
         if current_call_frame.is_static && !value_to_transfer.is_zero() {
             return Err(VMError::OpcodeNotAllowedInStaticContext);
         }
