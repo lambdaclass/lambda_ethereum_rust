@@ -160,12 +160,14 @@ impl VM {
     ) -> Result<OpcodeSuccess, VMError> {
         self.increase_consumed_gas(current_call_frame, gas_cost::BLOBHASH)?;
 
-        let Ok(index) = TryInto::<usize>::try_into(current_call_frame.stack.pop()?) else {
-            current_call_frame.stack.push(U256::zero())?;
-            return Ok(OpcodeSuccess::Continue);
-        };
+        let index = current_call_frame.stack.pop()?;
 
         let blob_hashes = &self.env.tx_blob_hashes;
+        if index > blob_hashes.len().into() {
+            current_call_frame.stack.push(U256::zero())?;
+            return Ok(OpcodeSuccess::Continue);
+        }
+        let index: usize = index.try_into().map_err(|_| VMError::VeryLargeNumber)?;
 
         blob_hashes
             .get(index)
