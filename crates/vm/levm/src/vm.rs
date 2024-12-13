@@ -549,29 +549,35 @@ impl VM {
         // https://eips.ethereum.org/EIPS/eip-4844
         let blob_gas_cost = self.get_max_blob_gas_cost()?;
 
-        let up_front_cost = gaslimit_price_product
-            .checked_add(value)
-            .ok_or(InternalError::UndefinedState(1))?
-            .checked_add(blob_gas_cost)
-            .ok_or(InternalError::UndefinedState(1))?;
-        // There is no error specified for overflow in up_front_cost in ef_tests. Maybe we can go with GasLimitPriceProductOverflow or InsufficientAccountFunds.
-        let min_amount_of_balance = self
+        // For the transaction to be valid the sender account has to have a balance >= gas_price * gas_limit + value if tx is type 0 and 1
+        // balance >= max_fee_per_gas * gas_limit + value + blob_gas_cost if tx is type 2
+        let gas_fee_for_valid_tx = self
             .env
             .tx_max_fee_per_gas
             .unwrap_or(self.env.gas_price)
             .checked_mul(self.env.gas_limit)
             .ok_or(VMError::TxValidation(
                 TxValidationError::GasLimitPriceProductOverflow,
-            ))?
+            ))?;
+
+        let balance_for_valid_tx = gas_fee_for_valid_tx
             .checked_add(value)
             .ok_or(InternalError::UndefinedState(1))?
             .checked_add(blob_gas_cost)
             .ok_or(InternalError::UndefinedState(1))?;
-        if sender_account.info.balance < min_amount_of_balance {
+        if sender_account.info.balance < balance_for_valid_tx {
             return Err(VMError::TxValidation(
                 TxValidationError::InsufficientAccountFunds,
             ));
         }
+
+        // The real cost to deduct is calculated as effective_gas_price * gas_limit + value + blob_gas_cost
+        let up_front_cost = gaslimit_price_product
+            .checked_add(value)
+            .ok_or(InternalError::UndefinedState(1))?
+            .checked_add(blob_gas_cost)
+            .ok_or(InternalError::UndefinedState(1))?;
+        // There is no error specified for overflow in up_front_cost in ef_tests. Maybe we can go with GasLimitPriceProductOverflow or InsufficientAccountFunds.
 
         // (2) INSUFFICIENT_ACCOUNT_FUNDS
         self.decrease_account_balance(sender_address, up_front_cost)
