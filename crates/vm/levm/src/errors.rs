@@ -180,7 +180,7 @@ pub enum InternalError {
 
 #[derive(Debug, Clone, PartialEq, Eq, thiserror::Error, Serialize, Deserialize)]
 pub enum PrecompileError {
-    #[error("This es a default error")]
+    #[error("This is a default error")]
     DefaultError,
 }
 
