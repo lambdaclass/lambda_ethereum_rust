@@ -550,7 +550,7 @@ impl VM {
         let blob_gas_cost = self.get_max_blob_gas_cost()?;
 
         // For the transaction to be valid the sender account has to have a balance >= gas_price * gas_limit + value if tx is type 0 and 1
-        // balance >= max_fee_per_gas * gas_limit + value + blob_gas_cost if tx is type 2
+        // balance >= max_fee_per_gas * gas_limit + value + blob_gas_cost if tx is type 2 or 3
         let gas_fee_for_valid_tx = self
             .env
             .tx_max_fee_per_gas
