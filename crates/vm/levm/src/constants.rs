@@ -7,8 +7,6 @@ pub const WORD_SIZE_IN_BYTES_U64: u64 = 32;
 pub const SUCCESS_FOR_CALL: i32 = 1;
 pub const REVERT_FOR_CALL: i32 = 0;
 pub const HALT_FOR_CALL: i32 = 2;
-pub const SUCCESS_FOR_RETURN: u8 = 1;
-pub const REVERT_FOR_RETURN: u8 = 0;
 pub const CREATE_DEPLOYMENT_FAIL: U256 = U256::zero();
 pub const WORD_SIZE: usize = 32;
 
