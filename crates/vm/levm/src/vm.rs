@@ -8,8 +8,8 @@ use crate::{
     },
     environment::Environment,
     errors::{
-        InternalError, OpcodeSuccess, OutOfGasError, ResultReason,
-        TransactionReport, TxResult, TxValidationError, VMError,
+        InternalError, OpcodeSuccess, OutOfGasError, ResultReason, TransactionReport, TxResult,
+        TxValidationError, VMError,
     },
     gas_cost::{
         self, fake_exponential, max_message_call_gas, ACCESS_LIST_ADDRESS_COST,
@@ -277,7 +277,7 @@ impl VM {
                     if error.is_internal() {
                         self.call_frames.push(current_call_frame.clone());
 
-                        return Err(error);                        
+                        return Err(error);
                     }
 
                     self.call_frames.push(current_call_frame.clone());

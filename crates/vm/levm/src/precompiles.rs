@@ -71,7 +71,9 @@ pub fn execute_precompile(current_call_frame: &mut CallFrame) -> Result<Bytes, V
     let consumed_gas = &mut current_call_frame.gas_used;
 
     let result = match callee_address {
-        address if address == ECRECOVER_ADDRESS => ecrecover(&calldata, gas_for_call, consumed_gas)?,
+        address if address == ECRECOVER_ADDRESS => {
+            ecrecover(&calldata, gas_for_call, consumed_gas)?
+        }
         address if address == IDENTITY_ADDRESS => identity(&calldata, gas_for_call, consumed_gas)?,
         address if address == SHA2_256_ADDRESS => sha2_256(&calldata, gas_for_call, consumed_gas)?,
         address if address == RIPEMD_160_ADDRESS => {
@@ -80,7 +82,9 @@ pub fn execute_precompile(current_call_frame: &mut CallFrame) -> Result<Bytes, V
         address if address == MODEXP_ADDRESS => modexp(&calldata, gas_for_call, consumed_gas)?,
         address if address == ECADD_ADDRESS => ecadd(&calldata, gas_for_call, consumed_gas)?,
         address if address == ECMUL_ADDRESS => ecmul(&calldata, gas_for_call, consumed_gas)?,
-        address if address == ECPAIRING_ADDRESS => ecpairing(&calldata, gas_for_call, consumed_gas)?,
+        address if address == ECPAIRING_ADDRESS => {
+            ecpairing(&calldata, gas_for_call, consumed_gas)?
+        }
         address if address == BLAKE2F_ADDRESS => blake2f(&calldata, gas_for_call, consumed_gas)?,
         address if address == POINT_EVALUATION_ADDRESS => {
             point_evaluation(&calldata, gas_for_call, consumed_gas)?
