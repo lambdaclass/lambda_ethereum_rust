@@ -72,6 +72,8 @@ pub enum VMError {
     TxValidation(#[from] TxValidationError),
     #[error("Offset out of bounds")]
     OutOfOffset,
+    #[error("Precompile execution error: {0}")]
+    PrecompileError(#[from] PrecompileError),
 }
 
 impl VMError {
@@ -175,7 +177,10 @@ pub enum InternalError {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, thiserror::Error, Serialize, Deserialize)]
-pub enum PrecompileError {}
+pub enum PrecompileError {
+    #[error("This es a default error")]
+    DefaultError,
+}
 
 #[derive(Debug, Clone)]
 pub enum OpcodeSuccess {
