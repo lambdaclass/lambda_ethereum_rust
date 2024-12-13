@@ -143,33 +143,23 @@ impl SyncManager {
                 let mut pivot_root = all_block_headers[pivot_idx].state_root;
                 let mut pivot_number = all_block_headers[pivot_idx].number;
 
-                let mut stale_pivot = !tokio::spawn(rebuild_state_trie(
-                    pivot_root,
-                    self.peers.clone(),
-                    store.clone(),
-                ))
-                .await
-                .unwrap()?;
+                let mut stale_pivot =
+                    !rebuild_state_trie(pivot_root, self.peers.clone(), store.clone()).await?;
                 // If the pivot became stale, set a further pivot and try again
                 if stale_pivot && pivot_idx != all_block_headers.len() - 1 {
                     warn!("Stale pivot, switching to newer head");
                     pivot_idx = all_block_headers.len() - 1;
                     pivot_root = all_block_headers[pivot_idx].state_root;
                     pivot_number = all_block_headers[pivot_idx].number;
-                    stale_pivot = !tokio::spawn(rebuild_state_trie(
-                        pivot_root,
-                        self.peers.clone(),
-                        store.clone(),
-                    ))
-                    .await
-                    .unwrap()?;
+                    stale_pivot =
+                        !rebuild_state_trie(pivot_root, self.peers.clone(), store.clone()).await?;
                 }
                 if stale_pivot {
                     warn!("Stale pivot, aborting sync");
                     return Ok(());
                 }
                 // Wait for all bodies to be downloaded
-                let all_block_bodies = fetch_bodies_handle.await.unwrap()?;
+                let all_block_bodies = fetch_bodies_handle.await??;
                 // For all blocks before the pivot: Store the bodies and fetch the receipts
                 // For all blocks after the pivot: Process them fully
                 // let store_receipts_handle = tokio::spawn(store_receipts(all_block_hashes[pivot_index..]));
@@ -187,7 +177,7 @@ impl SyncManager {
                         ethrex_blockchain::add_block(&Block::new(header, body), &store)?;
                     }
                 }
-                // store_receipts.await.unwrap()?;
+                // store_receipts.await??;
                 self.last_snap_pivot = pivot_number;
             }
             SyncMode::Full => {
@@ -265,7 +255,7 @@ async fn fetch_block_bodies(
     Ok(all_block_bodies)
 }
 
-/// Rebuilds a Block's state trie by requesting snap state from peers
+/// Rebuilds a Block's state trie by requesting snap state from peers, also performs state healing
 /// Returns true if all state was fetched or false if the block is too old and the state is no longer available
 async fn rebuild_state_trie(
     state_root: H256,
@@ -336,10 +326,9 @@ async fn rebuild_state_trie(
             // Update trie
             let mut trie = store.open_state_trie(current_state_root);
             for (account_hash, account) in account_hashes.iter().zip(accounts.iter()) {
-                trie.insert(account_hash.0.to_vec(), account.encode_to_vec())
-                    .map_err(StoreError::Trie)?;
+                trie.insert(account_hash.0.to_vec(), account.encode_to_vec())?;
             }
-            current_state_root = trie.hash().map_err(StoreError::Trie)?;
+            current_state_root = trie.hash()?;
 
             if !should_continue {
                 // All accounts fetched!
@@ -349,9 +338,7 @@ async fn rebuild_state_trie(
     }
     // Send empty batch to signal that no more batches are incoming
     storage_sender.send(vec![]).await?;
-    storage_fetcher_handle
-        .await
-        .map_err(|_| StoreError::Custom(String::from("Failed to join storage_fetcher task")))??;
+    storage_fetcher_handle.await??;
     let sync_complete = if current_state_root == state_root {
         debug!("Completed state sync for state root {state_root}");
         true
@@ -361,9 +348,7 @@ async fn rebuild_state_trie(
     };
     // Send empty batch to signal that no more batches are incoming
     bytecode_sender.send(vec![]).await?;
-    bytecode_fetcher_handle
-        .await
-        .map_err(|_| StoreError::Custom(String::from("Failed to join bytecode_fetcher task")))??;
+    bytecode_fetcher_handle.await??;
     Ok(sync_complete)
 }
 
@@ -574,9 +559,7 @@ async fn heal_state_trie(
     }
     // Send empty batch to signal that no more batches are incoming
     storage_sender.send(vec![]).await?;
-    storage_healer_handler
-        .await
-        .map_err(|_| StoreError::Custom(String::from("Failed to join storage_handler task")))??;
+    storage_healer_handler.await??;
     Ok(retry_count < MAX_RETRIES)
 }
 
@@ -712,4 +695,6 @@ enum SyncError {
     RLP(#[from] RLPDecodeError),
     #[error("Corrupt path during state healing")]
     CorruptPath,
+    #[error(transparent)]
+    JoinHandle(#[from] tokio::task::JoinError),
 }
