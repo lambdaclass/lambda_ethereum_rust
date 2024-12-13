@@ -12,8 +12,8 @@ use crate::{
         TxValidationError, VMError,
     },
     gas_cost::{
-        self, fake_exponential, max_message_call_gas, ACCESS_LIST_ADDRESS_COST,
-        ACCESS_LIST_STORAGE_KEY_COST, BLOB_GAS_PER_BLOB, CREATE_BASE_COST,
+        self, fake_exponential, ACCESS_LIST_ADDRESS_COST, ACCESS_LIST_STORAGE_KEY_COST,
+        BLOB_GAS_PER_BLOB, CREATE_BASE_COST,
     },
     memory,
     opcodes::Opcode,
@@ -833,105 +833,6 @@ impl VM {
         self.update_account_bytecode(contract_address, contract_code)?;
 
         Ok(())
-    }
-
-    // TODO: Improve and test REVERT behavior for XCALL opcodes. Issue: https://github.com/lambdaclass/ethrex/issues/1061
-    #[allow(clippy::too_many_arguments)]
-    pub fn generic_call(
-        &mut self,
-        current_call_frame: &mut CallFrame,
-        gas_limit: U256,
-        value: U256,
-        msg_sender: Address,
-        to: Address,
-        code_address: Address,
-        should_transfer_value: bool,
-        is_static: bool,
-        args_offset: U256,
-        args_size: usize,
-        ret_offset: U256,
-        ret_size: usize,
-    ) -> Result<OpcodeSuccess, VMError> {
-        // 1. Validate sender has enough value
-        let sender_account_info = self.access_account(msg_sender).0;
-        if should_transfer_value && sender_account_info.balance < value {
-            current_call_frame.stack.push(REVERT_FOR_CALL)?;
-            return Ok(OpcodeSuccess::Continue);
-        }
-
-        // 2. Validate max depth has not been reached yet.
-        let new_depth = current_call_frame
-            .depth
-            .checked_add(1)
-            .ok_or(InternalError::ArithmeticOperationOverflow)?;
-
-        if new_depth > 1024 {
-            current_call_frame.stack.push(REVERT_FOR_CALL)?;
-            return Ok(OpcodeSuccess::Continue);
-        }
-
-        let recipient_bytecode = self.access_account(code_address).0.bytecode;
-        let calldata =
-            memory::load_range(&mut current_call_frame.memory, args_offset, args_size)?.to_vec();
-        // Gas Limit for the child context is capped.
-        let gas_cap = max_message_call_gas(current_call_frame)?;
-        let gas_limit = std::cmp::min(gas_limit, gas_cap.into());
-
-        let mut new_call_frame = CallFrame::new(
-            msg_sender,
-            to,
-            code_address,
-            recipient_bytecode,
-            value,
-            calldata.into(),
-            is_static,
-            gas_limit,
-            U256::zero(),
-            new_depth,
-        );
-
-        current_call_frame.sub_return_data_offset = ret_offset;
-        current_call_frame.sub_return_data_size = ret_size;
-
-        // Transfer value from caller to callee.
-        if should_transfer_value {
-            self.decrease_account_balance(msg_sender, value)?;
-            self.increase_account_balance(to, value)?;
-        }
-
-        let tx_report = self.execute(&mut new_call_frame)?;
-
-        // Add gas used by the sub-context to the current one after it's execution.
-        current_call_frame.gas_used = current_call_frame
-            .gas_used
-            .checked_add(tx_report.gas_used.into())
-            .ok_or(VMError::OutOfGas(OutOfGasError::ConsumedGasOverflow))?;
-        current_call_frame.logs.extend(tx_report.logs);
-        memory::try_store_range(
-            &mut current_call_frame.memory,
-            ret_offset,
-            ret_size,
-            &tx_report.output,
-        )?;
-        current_call_frame.sub_return_data = tx_report.output;
-
-        // What to do, depending on TxResult
-        match tx_report.result {
-            TxResult::Success => {
-                current_call_frame.stack.push(SUCCESS_FOR_CALL)?;
-            }
-            TxResult::Revert(_) => {
-                // Revert value transfer
-                if should_transfer_value {
-                    self.decrease_account_balance(to, value)?;
-                    self.increase_account_balance(msg_sender, value)?;
-                }
-                // Push 0 to stack
-                current_call_frame.stack.push(REVERT_FOR_CALL)?;
-            }
-        }
-
-        Ok(OpcodeSuccess::Continue)
     }
 
     /// Calculates the address of a new conctract using the CREATE opcode as follow
