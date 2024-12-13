@@ -4654,16 +4654,18 @@ fn extcodecopy_non_existing_account() {
 }
 
 #[test]
-fn extcodehash_account_with_empty_code() {
-    let address_with_code = Address::from_low_u64_be(0x42);
+fn extcodehash_account_with_zero_bytecode_but_not_empty() {
+    let address = Address::from_low_u64_be(0x42);
     let operations = [
-        Operation::Push((20, address_with_code.as_bytes().into())),
+        Operation::Push((20, address.as_bytes().into())),
         Operation::ExtcodeHash,
         Operation::Stop,
     ];
 
     let mut db = Db::default();
-    db.add_accounts(vec![(address_with_code, Account::default())]);
+    let account = Account::default();
+    let account = account.with_balance(U256::one()); // Add balance to avoid empty account
+    db.add_accounts(vec![(address, account)]);
 
     let mut vm = new_vm_with_ops_db(&operations, db).unwrap();
 
@@ -4691,7 +4693,7 @@ fn extcodehash_non_existing_account() {
     vm.execute(&mut current_call_frame).unwrap();
     assert_eq!(
         vm.current_call_frame_mut().unwrap().stack.pop().unwrap(),
-        "c5d2460186f7233c927e7db2dcc703c0e500b653ca82273b7bfad8045d85a470".into()
+        U256::zero()
     );
     assert_eq!(current_call_frame.gas_used, 2603.into());
 }
