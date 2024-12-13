@@ -180,6 +180,10 @@ pub enum InternalError {
 
 #[derive(Debug, Clone, PartialEq, Eq, thiserror::Error, Serialize, Deserialize)]
 pub enum PrecompileError {
+    #[error("Error while parsing the calldata")]
+    ParsingInputError,
+    #[error("The ")]
+    GasConsumedOverflow,
     #[error("This es a default error")]
     DefaultError,
 }

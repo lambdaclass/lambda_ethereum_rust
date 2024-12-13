@@ -1,10 +1,12 @@
 use bytes::Bytes;
 use ethrex_core::{Address, H160, U256};
+use keccak_hash::keccak256;
 
 use crate::{
     call_frame::CallFrame,
     constants::{REVERT_FOR_RETURN, SUCCESS_FOR_RETURN},
     errors::{InternalError, PrecompileError, VMError},
+    gas_cost::ECRECOVER_COST,
 };
 
 pub const ECRECOVER_ADDRESS: H160 = H160([
@@ -46,6 +48,14 @@ pub const BLAKE2F_ADDRESS: H160 = H160([
 pub const POINT_EVALUATION_ADDRESS: H160 = H160([
     0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
     0x00, 0x00, 0x00, 0x0a,
+]);
+
+// Check if it is right
+pub const SECP256K1N: U256 = U256([
+    0xBAAEDCE6AF48A03B,
+    0xBFD25E8CD0364141,
+    0xFFFFFFFFFFFFFFFF,
+    0xFFFFFFFFFFFFFFFF,
 ]);
 
 pub const PRECOMPILES: [H160; 10] = [
@@ -102,11 +112,62 @@ pub fn execute_precompile(current_call_frame: &mut CallFrame) -> Result<(u8, Byt
 }
 
 fn ecrecover(
-    _calldata: &Bytes,
+    calldata: &Bytes,
     _gas_for_call: U256,
-    _consumed_gas: &mut U256,
+    consumed_gas: &mut U256,
 ) -> Result<Bytes, PrecompileError> {
-    Ok(Bytes::new())
+    // If calldata does not reach the required length, we should fill the rest with zeros
+
+    let hash: U256 = calldata
+        .get(0..32)
+        .ok_or(PrecompileError::ParsingInputError)?
+        .try_into()
+        .map_err(|_| PrecompileError::ParsingInputError)?;
+    let v: U256 = calldata
+        .get(32..64)
+        .ok_or(PrecompileError::ParsingInputError)?
+        .try_into()
+        .map_err(|_| PrecompileError::ParsingInputError)?;
+    let r: U256 = calldata
+        .get(64..96)
+        .ok_or(PrecompileError::ParsingInputError)?
+        .try_into()
+        .map_err(|_| PrecompileError::ParsingInputError)?;
+    let s: U256 = calldata
+        .get(96..128)
+        .ok_or(PrecompileError::ParsingInputError)?
+        .try_into()
+        .map_err(|_| PrecompileError::ParsingInputError)?;
+
+    if v != 27.into() || v != 28.into() {
+        return Err(PrecompileError::ParsingInputError);
+    }
+    let _v = v
+        .checked_sub(27.into())
+        .ok_or(PrecompileError::ParsingInputError)?;
+
+    if r <= U256::zero() || r >= SECP256K1N {
+        return Err(PrecompileError::ParsingInputError);
+    }
+    if s <= U256::zero() || s >= SECP256K1N {
+        return Err(PrecompileError::ParsingInputError);
+    }
+
+    // Consume gas
+    *consumed_gas = consumed_gas
+        .checked_add(ECRECOVER_COST.into())
+        .ok_or(PrecompileError::GasConsumedOverflow)?;
+
+    // Here i should do the recover
+    let mut public_key: [u8; 32] = hash.into();
+
+    keccak256(&mut public_key);
+    let address: &[u8] = &public_key[12..32];
+
+    let mut result = [0u8; 32];
+    result[12..32].copy_from_slice(&address);
+
+    Ok(Bytes::from(result.to_vec()))
 }
 
 fn identity(
