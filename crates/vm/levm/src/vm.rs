@@ -276,6 +276,7 @@ impl VM {
                     });
                 }
                 Ok((REVERT_FOR_RETURN, _)) => {
+                    // For those non-internal errors
                     self.call_frames.push(current_call_frame.clone());
 
                     self.restore_state(backup_db, backup_substate, backup_refunded_gas);
