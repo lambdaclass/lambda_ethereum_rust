@@ -267,7 +267,7 @@ impl VM {
                         result: TxResult::Success,
                         new_state: self.cache.clone(),
                         gas_used: current_call_frame.gas_used.low_u64(),
-                        gas_refunded: self.env.refunded_gas.low_u64(), // There's no refunds in precompiles
+                        gas_refunded: 0,
                         output,
                         logs: current_call_frame.logs.clone(),
                         created_address: None,
@@ -295,7 +295,7 @@ impl VM {
                         result: TxResult::Revert(error),
                         new_state: self.cache.clone(),
                         gas_used: current_call_frame.gas_used.low_u64(),
-                        gas_refunded: self.env.refunded_gas.low_u64(),
+                        gas_refunded: 0,
                         output: Bytes::new(),
                         logs: current_call_frame.logs.clone(),
                         created_address: None,
