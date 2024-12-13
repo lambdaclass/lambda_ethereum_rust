@@ -591,7 +591,7 @@ impl VM {
         }
 
         // (3) INSUFFICIENT_MAX_FEE_PER_GAS
-        if self.env.gas_price < self.env.base_fee_per_gas {
+        if self.env.tx_max_fee_per_gas.unwrap_or(self.env.gas_price) < self.env.base_fee_per_gas {
             return Err(VMError::TxValidation(
                 TxValidationError::InsufficientMaxFeePerGas,
             ));
