@@ -38,11 +38,7 @@ pub enum VMError {
     SenderAccountDoesNotExist,
     #[error("Address Does Not Match An Account")]
     AddressDoesNotMatchAnAccount,
-    #[error("Sender Account Should Not Have Bytecode")]
-    SenderAccountShouldNotHaveBytecode,
-    #[error("Sender Balance Should Contain Transfer Value")]
-    SenderBalanceShouldContainTransferValue,
-    #[error("Gas Price Is Lower Than Base Fee")]
+    #[error("Gas price is lower than base fee")]
     GasPriceIsLowerThanBaseFee,
     #[error("Address Already Occupied")]
     AddressAlreadyOccupied,
@@ -50,10 +46,6 @@ pub enum VMError {
     ContractOutputTooBig,
     #[error("Invalid Initial Byte")]
     InvalidInitialByte,
-    #[error("Memory Load Out Of Bounds")]
-    MemoryLoadOutOfBounds,
-    #[error("Memory Store Out Of Bounds")]
-    MemoryStoreOutOfBounds,
     #[error("Gas limit price product overflow")]
     GasLimitPriceProductOverflow,
     #[error("Balance Overflow")]
@@ -79,7 +71,7 @@ pub enum VMError {
     #[error("Transaction validation error: {0}")]
     TxValidation(#[from] TxValidationError),
     #[error("Offset out of bounds")]
-    OutOfOffset,
+    OutOfBounds,
 }
 
 impl VMError {
@@ -176,7 +168,9 @@ pub enum InternalError {
     UtilsError,
     #[error("PC out of bounds")]
     PCOutOfBounds,
-    #[error("Undefined state")]
+    #[error("Unexpected overflow in gas operation")]
+    GasOverflow,
+    #[error("Undefined state: {0}")]
     UndefinedState(i32), // This error is temporarily for things that cause an undefined state.
 }
 
