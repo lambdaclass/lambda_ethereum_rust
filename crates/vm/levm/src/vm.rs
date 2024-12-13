@@ -880,9 +880,11 @@ impl VM {
         should_transfer_value: bool,
     ) -> Result<OpcodeSuccess, VMError> {
         let (sender_account_info, _address_was_cold) = self.access_account(msg_sender);
+        dbg!("Generic call");
 
         if should_transfer_value {
             if sender_account_info.balance < value {
+                dbg!("Not enough money");
                 current_call_frame.stack.push(U256::from(REVERT_FOR_CALL))?;
                 return Ok(OpcodeSuccess::Continue);
             }
@@ -891,12 +893,14 @@ impl VM {
             self.increase_account_balance(to, value)?;
         }
 
+        dbg!("This address is invalid: {}", code_address);
         let (code_account_info, _address_was_cold) = self.access_account(code_address);
 
         if code_account_info.bytecode.is_empty() {
             current_call_frame
                 .stack
                 .push(U256::from(SUCCESS_FOR_CALL))?;
+            dbg!("No code in address");
             return Ok(OpcodeSuccess::Continue);
         }
 
@@ -949,6 +953,7 @@ impl VM {
             &tx_report.output,
         )?;
         current_call_frame.sub_return_data = tx_report.output;
+        dbg!(&current_call_frame.sub_return_data);
 
         // What to do, depending on TxResult
         match tx_report.result {
