@@ -8,7 +8,7 @@ use crate::{
     },
     environment::Environment,
     errors::{
-        InternalError, OpcodeSuccess, OutOfGasError, PrecompileError, ResultReason,
+        InternalError, OpcodeSuccess, OutOfGasError, ResultReason,
         TransactionReport, TxResult, TxValidationError, VMError,
     },
     gas_cost::{
@@ -260,7 +260,7 @@ impl VM {
             let precompile_result = execute_precompile(current_call_frame);
 
             match precompile_result {
-                Ok((SUCCESS_FOR_RETURN, output)) => {
+                Ok(output) => {
                     self.call_frames.push(current_call_frame.clone());
 
                     return Ok(TransactionReport {
@@ -273,43 +273,33 @@ impl VM {
                         created_address: None,
                     });
                 }
-                Ok((REVERT_FOR_RETURN, output)) => {
-                    // For those non-internal errors
+                Err(error) => {
+                    if error.is_internal() {
+                        self.call_frames.push(current_call_frame.clone());
+
+                        return Err(error);                        
+                    }
+
                     self.call_frames.push(current_call_frame.clone());
+
+                    // Consume all gas
+                    let left_gas = current_call_frame
+                        .gas_limit
+                        .saturating_sub(current_call_frame.gas_used);
+                    current_call_frame.gas_used =
+                        current_call_frame.gas_used.saturating_add(left_gas);
 
                     self.restore_state(backup_db, backup_substate, backup_refunded_gas);
 
                     return Ok(TransactionReport {
-                        result: TxResult::Revert(VMError::PrecompileError(
-                            PrecompileError::DefaultError,
-                        )),
+                        result: TxResult::Revert(error),
                         new_state: self.cache.clone(),
                         gas_used: current_call_frame.gas_used.low_u64(),
                         gas_refunded: self.env.refunded_gas.low_u64(),
-                        output,
+                        output: Bytes::new(),
                         logs: current_call_frame.logs.clone(),
                         created_address: None,
                     });
-                }
-                Ok(_) => {
-                    // This should not happen, maybe we can make the success/revert an enum, or use the TxResult one
-                    self.call_frames.push(current_call_frame.clone());
-                    return Ok(TransactionReport {
-                        result: TxResult::Revert(VMError::Internal(InternalError::UndefinedState(
-                            -1,
-                        ))),
-                        new_state: self.cache.clone(),
-                        gas_used: current_call_frame.gas_used.low_u64(),
-                        gas_refunded: self.env.refunded_gas.low_u64(),
-                        output: current_call_frame.returndata.clone(),
-                        logs: current_call_frame.logs.clone(),
-                        created_address: None,
-                    });
-                }
-                Err(error) => {
-                    self.call_frames.push(current_call_frame.clone());
-
-                    return Err(error);
                 }
             }
         }
