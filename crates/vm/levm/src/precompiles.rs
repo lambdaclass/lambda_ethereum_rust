@@ -66,7 +66,7 @@ pub fn is_precompile(callee_address: &Address) -> bool {
 }
 
 pub fn execute_precompile(current_call_frame: &mut CallFrame) -> Result<(u8, Bytes), VMError> {
-    let callee_address = current_call_frame.code_address.clone();
+    let callee_address = current_call_frame.code_address;
     let calldata = current_call_frame.calldata.clone();
     let gas_for_call = current_call_frame.gas_limit;
     let consumed_gas = &mut current_call_frame.gas_used;
