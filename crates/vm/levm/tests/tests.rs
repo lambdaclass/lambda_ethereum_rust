@@ -4298,7 +4298,7 @@ fn extcodesize_existing_account() {
 fn extcodesize_non_existing_account() {
     // EVM Playground: https://www.evm.codes/playground?fork=cancun&unit=Wei&codeType=Mnemonic&code='PUSH20%200x42%5CnEXTCODESIZE%5CnSTOP'_
     let operations = [
-        Operation::Push((20, U256::from(0xA))),
+        Operation::Push((20, U256::from(0xABCD))),
         Operation::ExtcodeSize,
         Operation::Stop,
     ];
