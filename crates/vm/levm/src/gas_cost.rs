@@ -176,6 +176,11 @@ pub const RIPEMD_160_DYNAMIC_BASE: u64 = 120;
 pub const IDENTITY_STATIC_COST: u64 = 15;
 pub const IDENTITY_DYNAMIC_BASE: u64 = 3;
 
+pub const MODEXP_STATIC_COST: u64 = 0;
+pub const MODEXP_DYNAMIC_BASE: u64 = 200;
+pub const MODEXP_DYNAMIC_QUOTIENT: u64 = 3;
+
+
 pub fn exp(exponent: U256) -> Result<U256, OutOfGasError> {
     let exponent_byte_size = (exponent
         .bits()
@@ -771,10 +776,6 @@ pub fn ripemd_160(data_size: u64) -> Result<U256, OutOfGasError> {
 pub fn identity(data_size: u64) -> Result<U256, OutOfGasError> {
     precompile(data_size, IDENTITY_STATIC_COST, IDENTITY_DYNAMIC_BASE)
 }
-
-pub const MODEXP_STATIC_COST: u64 = 0;
-pub const MODEXP_DYNAMIC_BASE: u64 = 200;
-pub const MODEXP_DYNAMIC_QUOTIENT: u64 = 3;
 
 pub fn modexp(
     exponent: U256,
