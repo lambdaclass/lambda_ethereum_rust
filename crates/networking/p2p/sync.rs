@@ -254,7 +254,7 @@ async fn fetch_block_bodies(
         if let Some(block_bodies) = peer.request_block_bodies(block_hashes.clone()).await {
             debug!(" Received {} Block Bodies", block_bodies.len());
             // Track which bodies we have already fetched
-            let block_hashes = block_hashes.split_off(block_bodies.len());
+            block_hashes.drain(0..block_bodies.len());
             all_block_bodies.extend(block_bodies);
             // Check if we need to ask for another batch
             if block_hashes.is_empty() {
@@ -347,16 +347,17 @@ async fn rebuild_state_trie(
             }
         }
     }
-    if current_state_root == state_root {
-        debug!("Completed state sync for state root {state_root}");
-    }
     // Send empty batch to signal that no more batches are incoming
     storage_sender.send(vec![]).await?;
     storage_fetcher_handle
         .await
         .map_err(|_| StoreError::Custom(String::from("Failed to join storage_fetcher task")))??;
-    // If we exceeded MAX_RETRIES while fetchig state, leave the rest to state healing
-    heal_state_trie(bytecode_sender.clone(), state_root, store, peers).await?;
+    if current_state_root == state_root {
+        debug!("Completed state sync for state root {state_root}");
+    } else {
+        // If we exceeded MAX_RETRIES while fetchig state, leave the rest to state healing
+        heal_state_trie(bytecode_sender.clone(), state_root, store, peers).await?;
+    }
     // Send empty batch to signal that no more batches are incoming
     bytecode_sender.send(vec![]).await?;
     bytecode_fetcher_handle
