@@ -14,6 +14,7 @@ use ethrex_levm::{
     vm::{word_to_address, Storage, VM},
     Environment,
 };
+use sha3::digest::consts::U2;
 use std::{collections::HashMap, sync::Arc};
 
 fn create_opcodes(size: usize, offset: usize, value_to_transfer: usize) -> Vec<Operation> {
@@ -3874,7 +3875,7 @@ fn create_happy_path() {
 #[test]
 fn caller_op() {
     let caller = Address::from_low_u64_be(0x100);
-    let address_that_has_the_code = Address::from_low_u64_be(0x42);
+    let address_that_has_the_code = Address::from_low_u64_be(213);
 
     let operations = [Operation::Caller, Operation::Stop];
 
@@ -3916,7 +3917,7 @@ fn caller_op() {
 
 #[test]
 fn origin_op() {
-    let address_that_has_the_code = Address::from_low_u64_be(0x42);
+    let address_that_has_the_code = Address::from_low_u64_be(213);
     let msg_sender = Address::from_low_u64_be(0x999);
 
     let operations = [Operation::Origin, Operation::Stop];
@@ -3987,7 +3988,7 @@ fn balance_op() {
 
 #[test]
 fn address_op() {
-    let address_that_has_the_code = Address::from_low_u64_be(0x42);
+    let address_that_has_the_code = Address::from_low_u64_be(123);
 
     let operations = [Operation::Address, Operation::Stop];
 
@@ -4029,7 +4030,7 @@ fn address_op() {
 
 #[test]
 fn selfbalance_op() {
-    let address_that_has_the_code = Address::from_low_u64_be(0x42);
+    let address_that_has_the_code = Address::from_low_u64_be(123);
     let balance = U256::from(999);
 
     let operations = [Operation::SelfBalance, Operation::Stop];
@@ -4076,7 +4077,7 @@ fn selfbalance_op() {
 
 #[test]
 fn callvalue_op() {
-    let address_that_has_the_code = Address::from_low_u64_be(0x42);
+    let address_that_has_the_code = Address::from_low_u64_be(123);
     let value = U256::from(0x1234);
 
     let operations = [Operation::Callvalue, Operation::Stop];
@@ -4120,7 +4121,7 @@ fn callvalue_op() {
 
 #[test]
 fn codesize_op() {
-    let address_that_has_the_code = Address::from_low_u64_be(0x42);
+    let address_that_has_the_code = Address::from_low_u64_be(123);
 
     let operations = [Operation::Codesize, Operation::Stop];
 
@@ -4162,7 +4163,7 @@ fn codesize_op() {
 
 #[test]
 fn gasprice_op() {
-    let address_that_has_the_code = Address::from_low_u64_be(0x42);
+    let address_that_has_the_code = Address::from_low_u64_be(123);
     let operations = [Operation::Gasprice, Operation::Stop];
 
     let mut db = Db::default();
@@ -4205,7 +4206,7 @@ fn gasprice_op() {
 #[test]
 fn codecopy_op() {
     // Copies two bytes of the code, with offset 2, and loads them beginning at offset 3 in memory.
-    let address_that_has_the_code = Address::from_low_u64_be(0x42);
+    let address_that_has_the_code = Address::from_low_u64_be(123);
     // https://www.evm.codes/playground?fork=cancun&unit=Wei&codeType=Mnemonic&code=%27~2z~2z~3zCODECOPY%27~PUSH1%200x0z%5Cn%01z~_
     let operations = [
         Operation::Push((1, 0x02.into())), // size
@@ -4270,7 +4271,7 @@ fn codecopy_op() {
 
 #[test]
 fn extcodesize_existing_account() {
-    let address_with_code = Address::from_low_u64_be(0x42);
+    let address_with_code = Address::from_low_u64_be(123);
     let operations = [
         Operation::Push((20, address_with_code.as_bytes().into())),
         Operation::ExtcodeSize,
@@ -4298,7 +4299,7 @@ fn extcodesize_existing_account() {
 fn extcodesize_non_existing_account() {
     // EVM Playground: https://www.evm.codes/playground?fork=cancun&unit=Wei&codeType=Mnemonic&code='PUSH20%200x42%5CnEXTCODESIZE%5CnSTOP'_
     let operations = [
-        Operation::Push((20, "0x42".into())),
+        Operation::Push((20, U256::from(0xA))),
         Operation::ExtcodeSize,
         Operation::Stop,
     ];
@@ -4316,7 +4317,7 @@ fn extcodesize_non_existing_account() {
 
 #[test]
 fn extcodecopy_existing_account() {
-    let address_with_code = Address::from_low_u64_be(0x42);
+    let address_with_code = Address::from_low_u64_be(213);
     let size: usize = 1;
 
     let operations = [
@@ -4359,7 +4360,7 @@ fn extcodecopy_non_existing_account() {
         Operation::Push((1, size.into())),
         Operation::Push0, // offset
         Operation::Push0, // destOffset
-        Operation::Push((20, "0x42".into())),
+        Operation::Push((20, U256::from(213))),
         Operation::ExtcodeCopy,
         Operation::Stop,
     ];
@@ -4382,7 +4383,7 @@ fn extcodecopy_non_existing_account() {
 
 #[test]
 fn extcodehash_account_with_zero_bytecode_but_not_empty() {
-    let address = Address::from_low_u64_be(0x42);
+    let address = Address::from_low_u64_be(213);
     let operations = [
         Operation::Push((20, address.as_bytes().into())),
         Operation::ExtcodeHash,
@@ -4390,8 +4391,7 @@ fn extcodehash_account_with_zero_bytecode_but_not_empty() {
     ];
 
     let mut db = Db::default();
-    let account = Account::default();
-    let account = account.with_balance(U256::one()); // Add balance to avoid empty account
+    let account = Account::default().with_balance(U256::one()); // Add balance to avoid empty account
     db.add_accounts(vec![(address, account)]);
 
     let mut vm = new_vm_with_ops_db(&operations, db).unwrap();
