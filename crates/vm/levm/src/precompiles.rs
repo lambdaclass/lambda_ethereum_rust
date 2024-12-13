@@ -4,7 +4,7 @@ use ethrex_core::{Address, H160, U256};
 use crate::{
     call_frame::CallFrame,
     constants::{REVERT_FOR_RETURN, SUCCESS_FOR_RETURN},
-    errors::{InternalError, PrecompileError},
+    errors::{InternalError, PrecompileError, VMError},
 };
 
 pub const ECRECOVER_ADDRESS: H160 = H160([
@@ -65,9 +65,7 @@ pub fn is_precompile(callee_address: &Address) -> bool {
     PRECOMPILES.contains(callee_address)
 }
 
-pub fn execute_precompile(
-    current_call_frame: &mut CallFrame,
-) -> Result<(u8, Bytes), InternalError> {
+pub fn execute_precompile(current_call_frame: &mut CallFrame) -> Result<(u8, Bytes), VMError> {
     let callee_address = current_call_frame.code_address.clone();
     let calldata = current_call_frame.calldata.clone();
     let gas_for_call = current_call_frame.gas_limit;
@@ -88,7 +86,7 @@ pub fn execute_precompile(
         address if address == POINT_EVALUATION_ADDRESS => {
             point_evaluation(&calldata, gas_for_call, consumed_gas)
         }
-        _ => return Err(InternalError::InvalidPrecompileAddress),
+        _ => return Err(VMError::Internal(InternalError::InvalidPrecompileAddress)),
     };
     match result {
         Ok(res) => Ok((SUCCESS_FOR_RETURN, res)),

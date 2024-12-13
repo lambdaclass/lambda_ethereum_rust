@@ -260,10 +260,10 @@ impl VM {
             // Maybe we can pass the callframe, as we do in the opcodes implementation
             let precompile_result = execute_precompile(current_call_frame);
 
-            //Error handling can be the same as the opcode error handling
+            // Error handling can be the same as the opcode error handling. Maybe we can place a break
+            // in the loop below and keep the same logic
             match precompile_result {
                 Ok((SUCCESS_FOR_RETURN, _)) => {
-                    // Handle the return data, maybe push into the stack the result depending on the output
                     self.call_frames.push(current_call_frame.clone());
                     return Ok(TransactionReport {
                         result: TxResult::Success,
@@ -310,7 +310,7 @@ impl VM {
                 Err(error) => {
                     self.call_frames.push(current_call_frame.clone());
 
-                    return Err(VMError::Internal(error));
+                    return Err(error);
                 }
             }
         }
