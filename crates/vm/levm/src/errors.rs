@@ -71,7 +71,7 @@ pub enum VMError {
     #[error("Transaction validation error: {0}")]
     TxValidation(#[from] TxValidationError),
     #[error("Offset out of bounds")]
-    OutOfOffset,
+    OutOfBounds,
 }
 
 impl VMError {
@@ -168,6 +168,8 @@ pub enum InternalError {
     UtilsError,
     #[error("PC out of bounds")]
     PCOutOfBounds,
+    #[error("Unexpected overflow in gas operation")]
+    GasOverflow,
     #[error("Undefined state: {0}")]
     UndefinedState(i32), // This error is temporarily for things that cause an undefined state.
 }

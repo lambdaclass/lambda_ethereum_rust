@@ -12,8 +12,8 @@ use crate::{
         TxValidationError, VMError,
     },
     gas_cost::{
-        self, fake_exponential, ACCESS_LIST_ADDRESS_COST, ACCESS_LIST_STORAGE_KEY_COST,
-        BLOB_GAS_PER_BLOB, CREATE_BASE_COST,
+        self, fake_exponential, max_message_call_gas, ACCESS_LIST_ADDRESS_COST,
+        ACCESS_LIST_STORAGE_KEY_COST, BLOB_GAS_PER_BLOB, CREATE_BASE_COST,
     },
     memory,
     opcodes::Opcode,
@@ -489,12 +489,6 @@ impl VM {
         Ok(())
     }
 
-    /// To get the maximum fee per gas that the user is willing to pay, independently of the actual gas price
-    /// For legacy transactions the max fee per gas is the gas price
-    fn max_fee_per_gas_or_gasprice(&self) -> U256 {
-        self.env.tx_max_fee_per_gas.unwrap_or(self.env.gas_price)
-    }
-
     /// Gets the max blob gas cost for a transaction that a user is willing to pay.
     fn get_max_blob_gas_cost(&self) -> Result<U256, VMError> {
         let blob_gas_used = U256::from(self.env.tx_blob_hashes.len())
@@ -540,12 +534,13 @@ impl VM {
         let sender_account = self.get_account(sender_address);
 
         // (1) GASLIMIT_PRICE_PRODUCT_OVERFLOW
-        let gaslimit_price_product = self
-            .max_fee_per_gas_or_gasprice()
-            .checked_mul(self.env.gas_limit)
-            .ok_or(VMError::TxValidation(
-                TxValidationError::GasLimitPriceProductOverflow,
-            ))?;
+        let gaslimit_price_product =
+            self.env
+                .gas_price
+                .checked_mul(self.env.gas_limit)
+                .ok_or(VMError::TxValidation(
+                    TxValidationError::GasLimitPriceProductOverflow,
+                ))?;
 
         // Up front cost is the maximum amount of wei that a user is willing to pay for. Gaslimit * gasprice + value + blob_gas_cost
         let value = initial_call_frame.msg_value;
@@ -554,11 +549,42 @@ impl VM {
         // https://eips.ethereum.org/EIPS/eip-4844
         let blob_gas_cost = self.get_max_blob_gas_cost()?;
 
+        // For the transaction to be valid the sender account has to have a balance >= gas_price * gas_limit + value if tx is type 0 and 1
+        // balance >= max_fee_per_gas * gas_limit + value + blob_gas_cost if tx is type 2 or 3
+        let gas_fee_for_valid_tx = self
+            .env
+            .tx_max_fee_per_gas
+            .unwrap_or(self.env.gas_price)
+            .checked_mul(self.env.gas_limit)
+            .ok_or(VMError::TxValidation(
+                TxValidationError::GasLimitPriceProductOverflow,
+            ))?;
+
+        let balance_for_valid_tx = gas_fee_for_valid_tx
+            .checked_add(value)
+            .ok_or(VMError::TxValidation(
+                TxValidationError::InsufficientAccountFunds,
+            ))?
+            .checked_add(blob_gas_cost)
+            .ok_or(VMError::TxValidation(
+                TxValidationError::InsufficientAccountFunds,
+            ))?;
+        if sender_account.info.balance < balance_for_valid_tx {
+            return Err(VMError::TxValidation(
+                TxValidationError::InsufficientAccountFunds,
+            ));
+        }
+
+        // The real cost to deduct is calculated as effective_gas_price * gas_limit + value + blob_gas_cost
         let up_front_cost = gaslimit_price_product
             .checked_add(value)
-            .ok_or(InternalError::UndefinedState(1))?
+            .ok_or(VMError::TxValidation(
+                TxValidationError::InsufficientAccountFunds,
+            ))?
             .checked_add(blob_gas_cost)
-            .ok_or(InternalError::UndefinedState(1))?;
+            .ok_or(VMError::TxValidation(
+                TxValidationError::InsufficientAccountFunds,
+            ))?;
         // There is no error specified for overflow in up_front_cost in ef_tests. Maybe we can go with GasLimitPriceProductOverflow or InsufficientAccountFunds.
 
         // (2) INSUFFICIENT_ACCOUNT_FUNDS
@@ -573,7 +599,7 @@ impl VM {
         }
 
         // (3) INSUFFICIENT_MAX_FEE_PER_GAS
-        if self.max_fee_per_gas_or_gasprice() < self.env.base_fee_per_gas {
+        if self.env.tx_max_fee_per_gas.unwrap_or(self.env.gas_price) < self.env.base_fee_per_gas {
             return Err(VMError::TxValidation(
                 TxValidationError::InsufficientMaxFeePerGas,
             ));
@@ -880,16 +906,8 @@ impl VM {
             memory::load_range(&mut current_call_frame.memory, args_offset, args_size)?.to_vec();
 
         // I don't know if this gas limit should be calculated before or after consuming gas
-        let mut potential_remaining_gas = current_call_frame
-            .gas_limit
-            .checked_sub(current_call_frame.gas_used)
-            .ok_or(VMError::OutOfGas(OutOfGasError::MaxGasLimitExceeded))?;
-        potential_remaining_gas = potential_remaining_gas
-            .checked_sub(potential_remaining_gas.checked_div(64.into()).ok_or(
-                VMError::Internal(InternalError::ArithmeticOperationOverflow),
-            )?)
-            .ok_or(VMError::OutOfGas(OutOfGasError::MaxGasLimitExceeded))?;
-        let gas_limit = std::cmp::min(gas_limit, potential_remaining_gas);
+        let potential_remaining_gas = max_message_call_gas(current_call_frame)?;
+        let gas_limit = std::cmp::min(gas_limit.low_u64(), potential_remaining_gas);
 
         let new_depth = current_call_frame
             .depth
@@ -904,7 +922,7 @@ impl VM {
             value,
             calldata.into(),
             is_static,
-            gas_limit,
+            U256::from(gas_limit),
             U256::zero(),
             new_depth,
         );
@@ -999,107 +1017,6 @@ impl VM {
             ))?,
         );
         Ok(generated_address)
-    }
-
-    /// Common behavior for CREATE and CREATE2 opcodes
-    ///
-    /// Could be used for CREATE type transactions
-    // TODO: Improve and test REVERT behavior for CREATE. Issue: https://github.com/lambdaclass/ethrex/issues/1061
-    pub fn create(
-        &mut self,
-        value_in_wei_to_send: U256,
-        code_offset_in_memory: U256,
-        code_size_in_memory: usize,
-        salt: Option<U256>,
-        current_call_frame: &mut CallFrame,
-    ) -> Result<OpcodeSuccess, VMError> {
-        if code_size_in_memory > MAX_CODE_SIZE * 2 {
-            current_call_frame
-                .stack
-                .push(U256::from(REVERT_FOR_CREATE))?;
-            return Ok(OpcodeSuccess::Result(ResultReason::Revert));
-        }
-        if current_call_frame.is_static {
-            current_call_frame
-                .stack
-                .push(U256::from(REVERT_FOR_CREATE))?;
-            return Ok(OpcodeSuccess::Result(ResultReason::Revert));
-        }
-
-        let (sender_account_info, _sender_address_was_cold) =
-            self.access_account(current_call_frame.msg_sender);
-
-        if sender_account_info.balance < value_in_wei_to_send {
-            current_call_frame
-                .stack
-                .push(U256::from(REVERT_FOR_CREATE))?;
-            return Ok(OpcodeSuccess::Result(ResultReason::Revert));
-        }
-
-        let new_nonce = match self.increment_account_nonce(current_call_frame.msg_sender) {
-            Ok(nonce) => nonce,
-            Err(_) => {
-                current_call_frame
-                    .stack
-                    .push(U256::from(REVERT_FOR_CREATE))?;
-                return Ok(OpcodeSuccess::Result(ResultReason::Revert));
-            }
-        };
-
-        let code = Bytes::from(
-            memory::load_range(
-                &mut current_call_frame.memory,
-                code_offset_in_memory,
-                code_size_in_memory,
-            )?
-            .to_vec(),
-        );
-
-        let new_address = match salt {
-            Some(salt) => Self::calculate_create2_address(current_call_frame.to, &code, salt)?,
-            None => Self::calculate_create_address(current_call_frame.msg_sender, new_nonce)?,
-        };
-
-        // FIXME: Shouldn't we check against the db?
-        if cache::is_account_cached(&self.cache, &new_address) {
-            current_call_frame
-                .stack
-                .push(U256::from(REVERT_FOR_CREATE))?;
-            return Ok(OpcodeSuccess::Result(ResultReason::Revert));
-        }
-
-        let new_account = Account::new(U256::zero(), code.clone(), 0, Default::default());
-        cache::insert_account(&mut self.cache, new_address, new_account);
-
-        current_call_frame
-            .stack
-            .push(address_to_word(new_address))?;
-
-        self.generic_call(
-            current_call_frame,
-            U256::MAX, // FIXME: Why we send U256::MAX here?
-            value_in_wei_to_send,
-            current_call_frame.msg_sender,
-            new_address,
-            new_address,
-            true,
-            false,
-            code_offset_in_memory,
-            code_size_in_memory,
-            code_offset_in_memory,
-            code_size_in_memory,
-            true,
-        )?;
-
-        // Erases the success value in the stack result of calling generic call, probably this should be refactored soon...
-        current_call_frame
-            .stack
-            .pop()
-            .map_err(|_| VMError::StackUnderflow)?;
-
-        self.accrued_substate.created_accounts.insert(new_address);
-
-        Ok(OpcodeSuccess::Continue)
     }
 
     /// Increases gas consumption of CallFrame and Environment, returning an error if the callframe gas limit is reached.
