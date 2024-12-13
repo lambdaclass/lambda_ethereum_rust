@@ -352,18 +352,19 @@ async fn rebuild_state_trie(
     storage_fetcher_handle
         .await
         .map_err(|_| StoreError::Custom(String::from("Failed to join storage_fetcher task")))??;
-    if current_state_root == state_root {
+    let sync_complete = if current_state_root == state_root {
         debug!("Completed state sync for state root {state_root}");
+        true
     } else {
-        // If we exceeded MAX_RETRIES while fetchig state, leave the rest to state healing
-        heal_state_trie(bytecode_sender.clone(), state_root, store, peers).await?;
-    }
+        // If failed to fetch the full state leave the rest to state healing
+        heal_state_trie(bytecode_sender.clone(), state_root, store, peers).await?
+    };
     // Send empty batch to signal that no more batches are incoming
     bytecode_sender.send(vec![]).await?;
     bytecode_fetcher_handle
         .await
         .map_err(|_| StoreError::Custom(String::from("Failed to join bytecode_fetcher task")))??;
-    Ok(true)
+    Ok(sync_complete)
 }
 
 /// Waits for incoming code hashes from the receiver channel endpoint, queues them, and fetches and stores their bytecodes in batches
@@ -494,7 +495,7 @@ async fn fetch_storage_batch(
         }
     }
     // This is a corner case where we fetched an account range for a block but the chain has moved on and the block
-    // was dropped by the peer's snapshot. We will keep the fetcher alive to avoid errors and stop fetching as from the next block
+    // was dropped by the peer's snapshot. We will keep the fetcher alive to avoid errors and stop fetching as from the next account
     Ok(vec![])
 }
 
@@ -503,8 +504,7 @@ async fn heal_state_trie(
     state_root: H256,
     store: Store,
     peers: Arc<Mutex<KademliaTable>>,
-) -> Result<(), SyncError> {
-    // TODO: set max retries here
+) -> Result<bool, SyncError> {
     // Spawn a storage healer for this blocks's storage
     let (storage_sender, storage_receiver) = mpsc::channel::<Vec<H256>>(500);
     let storage_healer_handler = tokio::spawn(storage_healer(
@@ -515,12 +515,16 @@ async fn heal_state_trie(
     ));
     // Begin by requesting the root node
     let mut paths = vec![Nibbles::default()];
-    while !paths.is_empty() {
+    // Count the number of request retries so we don't get stuck requesting old state
+    let mut retry_count = 0;
+    while !paths.is_empty() && retry_count < MAX_RETRIES {
         let peer = peers.lock().await.get_peer_channels().await;
         if let Some(nodes) = peer
             .request_state_trienodes(state_root, paths.clone())
             .await
         {
+            // Reset retry counter for next request
+            retry_count = 0;
             let mut hahsed_addresses = vec![];
             let mut code_hashes = vec![];
             // For each fetched node:
@@ -564,6 +568,8 @@ async fn heal_state_trie(
             if !code_hashes.is_empty() {
                 bytecode_sender.send(code_hashes).await?;
             }
+        } else {
+            retry_count += 1;
         }
     }
     // Send empty batch to signal that no more batches are incoming
@@ -571,7 +577,7 @@ async fn heal_state_trie(
     storage_healer_handler
         .await
         .map_err(|_| StoreError::Custom(String::from("Failed to join storage_handler task")))??;
-    Ok(())
+    Ok(retry_count < MAX_RETRIES)
 }
 
 /// Waits for incoming hashed addresses from the receiver channel endpoint and queues the associated root nodes for state retrieval
@@ -629,8 +635,8 @@ async fn heal_storage_batch(
     mut batch: BTreeMap<H256, Vec<Nibbles>>,
     peers: Arc<Mutex<KademliaTable>>,
     store: Store,
-) -> Result<BTreeMap<H256, Vec<Nibbles>>, StoreError> {
-    loop {
+) -> Result<BTreeMap<H256, Vec<Nibbles>>, SyncError> {
+    for _ in 0..MAX_RETRIES {
         let peer = peers.lock().await.get_peer_channels().await;
         if let Some(mut nodes) = peer
             .request_storage_trienodes(state_root, batch.clone())
@@ -660,6 +666,7 @@ async fn heal_storage_batch(
             return Ok(batch);
         }
     }
+    Err(SyncError::MaxRetries)
 }
 
 /// Returns the partial paths to the node's children if they are not already part of the trie state
