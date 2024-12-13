@@ -179,7 +179,7 @@ impl VM {
             memory::expansion_cost(new_memory_size, current_call_frame.memory.len())?.into(),
         )?;
 
-        current_call_frame.returndata =
+        current_call_frame.output =
             memory::load_range(&mut current_call_frame.memory, offset, size)?
                 .to_vec()
                 .into();
@@ -393,7 +393,7 @@ impl VM {
             memory::expansion_cost(new_memory_size, current_call_frame.memory.len())?.into(),
         )?;
 
-        current_call_frame.returndata =
+        current_call_frame.output =
             memory::load_range(&mut current_call_frame.memory, offset, size)?
                 .to_vec()
                 .into();

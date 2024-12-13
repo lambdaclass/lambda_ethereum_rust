@@ -71,7 +71,7 @@ pub struct CallFrame {
     pub memory: Memory,
     pub calldata: Bytes,
     /// Return data of the CURRENT CONTEXT (see docs for more details)
-    pub returndata: Bytes,
+    pub output: Bytes,
     /// Return data of the SUB-CONTEXT (see docs for more details)
     pub sub_return_data: Bytes,
     pub is_static: bool,
