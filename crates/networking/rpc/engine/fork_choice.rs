@@ -37,7 +37,7 @@ impl RpcHandler for ForkChoiceUpdatedV1 {
         let (head_block_opt, mut response) =
             handle_forkchoice(&self.fork_choice_state, context.clone(), 1)?;
         if let (Some(head_block), Some(attributes)) = (head_block_opt, &self.payload_attributes) {
-            validate_v2(attributes, head_block, &context)?;
+            validate_v1(attributes, head_block)?;
             let payload_id = build_payload(attributes, context, &self.fork_choice_state, 1)?;
             response.set_id(payload_id);
         }
@@ -130,10 +130,12 @@ fn parse(
     let forkchoice_state: ForkChoiceState = serde_json::from_value(params[0].clone())?;
     // if there is an error when parsing, set to None
     let payload_attributes: Option<PayloadAttributesV3> =
-        if let Ok(attributes) = serde_json::from_value::<PayloadAttributesV3>(params[1].clone()) {
-            Some(attributes)
-        } else {
-            None
+        match serde_json::from_value::<PayloadAttributesV3>(params[1].clone()) {
+            Ok(attributes) => Some(attributes),
+            Err(error) => {
+                info!("Could not parse params {}", error);
+                None
+            }
         };
 
     Ok((forkchoice_state, payload_attributes))
@@ -247,6 +249,15 @@ fn validate_v2(
             "forkChoiceV2 used to build Cancun payload".to_string(),
         ));
     }
+    if attributes.timestamp <= head_block.timestamp {
+        return Err(RpcErr::InvalidPayloadAttributes(
+            "invalid timestamp".to_string(),
+        ));
+    }
+    Ok(())
+}
+
+fn validate_v1(attributes: &PayloadAttributesV3, head_block: BlockHeader) -> Result<(), RpcErr> {
     if attributes.timestamp <= head_block.timestamp {
         return Err(RpcErr::InvalidPayloadAttributes(
             "invalid timestamp".to_string(),

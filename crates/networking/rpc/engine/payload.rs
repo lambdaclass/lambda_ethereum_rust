@@ -10,6 +10,38 @@ use crate::types::payload::{ExecutionPayload, ExecutionPayloadResponse, PayloadS
 use crate::utils::RpcRequest;
 use crate::{RpcApiContext, RpcErr, RpcHandler};
 
+pub struct NewPayloadV1Request {
+    pub payload: ExecutionPayload,
+}
+
+impl RpcHandler for NewPayloadV1Request {
+    fn parse(params: &Option<Vec<Value>>) -> Result<Self, RpcErr> {
+        let params = params
+            .as_ref()
+            .ok_or(RpcErr::BadParams("No params provided".to_owned()))?;
+        if params.len() != 1 {
+            return Err(RpcErr::BadParams("Expected 1 params".to_owned()));
+        }
+        Ok(NewPayloadV1Request {
+            payload: serde_json::from_value(params[0].clone())
+                .map_err(|_| RpcErr::WrongParam("payload".to_string()))?,
+        })
+    }
+
+    fn handle(&self, context: RpcApiContext) -> Result<Value, RpcErr> {
+        let block = get_block_from_payload(&self.payload, None)?;
+        validate_fork(&block, Fork::Paris, &context)?;
+        let payload_status = {
+            if let Err(RpcErr::Internal(error_msg)) = validate_block_hash(&self.payload, &block) {
+                PayloadStatus::invalid_with_err(&error_msg)
+            } else {
+                execute_payload(&block, &context)?
+            }
+        };
+        serde_json::to_value(payload_status).map_err(|error| RpcErr::Internal(error.to_string()))
+    }
+}
+
 pub struct NewPayloadV2Request {
     pub payload: ExecutionPayload,
 }
@@ -103,6 +135,24 @@ impl RpcHandler for NewPayloadV3Request {
             }
         };
         serde_json::to_value(payload_status).map_err(|error| RpcErr::Internal(error.to_string()))
+    }
+}
+
+pub struct GetPayloadV1Request {
+    pub payload_id: u64,
+}
+
+impl RpcHandler for GetPayloadV1Request {
+    fn parse(params: &Option<Vec<Value>>) -> Result<Self, RpcErr> {
+        let payload_id = parse_get_payload_request(params)?;
+        Ok(Self { payload_id })
+    }
+
+    fn handle(&self, context: RpcApiContext) -> Result<Value, RpcErr> {
+        let execution_payload_response =
+            build_execution_payload_response(self.payload_id, Fork::Paris, None, context)?;
+        serde_json::to_value(execution_payload_response.execution_payload)
+            .map_err(|error| RpcErr::Internal(error.to_string()))
     }
 }
 
@@ -291,6 +341,7 @@ fn build_execution_payload_response(
 ) -> Result<ExecutionPayloadResponse, RpcErr> {
     let (mut payload_block, block_value, blobs_bundle, completed) =
         get_payload(payload_id, &context)?;
+
     validate_fork(&payload_block, fork, &context)?;
 
     if completed {
