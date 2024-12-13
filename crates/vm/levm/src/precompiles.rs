@@ -1,7 +1,8 @@
 use bytes::Bytes;
-use ethrex_core::{Address, H160};
+use ethrex_core::{Address, H160, U256};
 
 use crate::{
+    call_frame::CallFrame,
     constants::{REVERT_FOR_RETURN, SUCCESS_FOR_RETURN},
     errors::{InternalError, PrecompileError},
 };
@@ -60,16 +61,18 @@ pub const PRECOMPILES: [H160; 10] = [
     POINT_EVALUATION_ADDRESS,
 ];
 
-pub fn is_precompile(callee_address: Address) -> bool {
-    PRECOMPILES.contains(&callee_address)
+pub fn is_precompile(callee_address: &Address) -> bool {
+    PRECOMPILES.contains(callee_address)
 }
 
 pub fn execute_precompile(
-    callee_address: Address,
-    calldata: Bytes,
-    gas_for_call: u64,
-    consumed_gas: &mut u64,
+    current_call_frame: &mut CallFrame,
 ) -> Result<(u8, Bytes), InternalError> {
+    let callee_address = current_call_frame.code_address.clone();
+    let calldata = current_call_frame.calldata.clone();
+    let gas_for_call = current_call_frame.gas_limit;
+    let consumed_gas = &mut current_call_frame.gas_used;
+
     let result = match callee_address {
         address if address == ECRECOVER_ADDRESS => ecrecover(&calldata, gas_for_call, consumed_gas),
         address if address == IDENTITY_ADDRESS => identity(&calldata, gas_for_call, consumed_gas),
@@ -90,6 +93,8 @@ pub fn execute_precompile(
     match result {
         Ok(res) => Ok((SUCCESS_FOR_RETURN, res)),
         Err(_) => {
+            // Maybe we should return an Err in this case. Like differencing between OOG,
+            // errors produced by wrong inputs an internal errors
             *consumed_gas = consumed_gas
                 .checked_add(gas_for_call)
                 .ok_or(InternalError::ArithmeticOperationOverflow)?;
@@ -100,80 +105,80 @@ pub fn execute_precompile(
 
 fn ecrecover(
     _calldata: &Bytes,
-    _gas_for_call: u64,
-    _consumed_gas: &mut u64,
+    _gas_for_call: U256,
+    _consumed_gas: &mut U256,
 ) -> Result<Bytes, PrecompileError> {
     Ok(Bytes::new())
 }
 
 fn identity(
     _calldata: &Bytes,
-    _gas_for_call: u64,
-    _consumed_gas: &mut u64,
+    _gas_for_call: U256,
+    _consumed_gas: &mut U256,
 ) -> Result<Bytes, PrecompileError> {
     Ok(Bytes::new())
 }
 
 fn sha2_256(
     _calldata: &Bytes,
-    _gas_for_call: u64,
-    _consumed_gas: &mut u64,
+    _gas_for_call: U256,
+    _consumed_gas: &mut U256,
 ) -> Result<Bytes, PrecompileError> {
     Ok(Bytes::new())
 }
 
 fn ripemd_160(
     _calldata: &Bytes,
-    _gas_for_call: u64,
-    _consumed_gas: &mut u64,
+    _gas_for_call: U256,
+    _consumed_gas: &mut U256,
 ) -> Result<Bytes, PrecompileError> {
     Ok(Bytes::new())
 }
 
 fn modexp(
     _calldata: &Bytes,
-    _gas_for_call: u64,
-    _consumed_gas: &mut u64,
+    _gas_for_call: U256,
+    _consumed_gas: &mut U256,
 ) -> Result<Bytes, PrecompileError> {
     Ok(Bytes::new())
 }
 
 fn ecadd(
     _calldata: &Bytes,
-    _gas_for_call: u64,
-    _consumed_gas: &mut u64,
+    _gas_for_call: U256,
+    _consumed_gas: &mut U256,
 ) -> Result<Bytes, PrecompileError> {
     Ok(Bytes::new())
 }
 
 fn ecmul(
     _calldata: &Bytes,
-    _gas_for_call: u64,
-    _consumed_gas: &mut u64,
+    _gas_for_call: U256,
+    _consumed_gas: &mut U256,
 ) -> Result<Bytes, PrecompileError> {
     Ok(Bytes::new())
 }
 
 fn ecpairing(
     _calldata: &Bytes,
-    _gas_for_call: u64,
-    _consumed_gas: &mut u64,
+    _gas_for_call: U256,
+    _consumed_gas: &mut U256,
 ) -> Result<Bytes, PrecompileError> {
     Ok(Bytes::new())
 }
 
 fn blake2f(
     _calldata: &Bytes,
-    _gas_for_call: u64,
-    _consumed_gas: &mut u64,
+    _gas_for_call: U256,
+    _consumed_gas: &mut U256,
 ) -> Result<Bytes, PrecompileError> {
     Ok(Bytes::new())
 }
 
 fn point_evaluation(
     _calldata: &Bytes,
-    _gas_for_call: u64,
-    _consumed_gas: &mut u64,
+    _gas_for_call: U256,
+    _consumed_gas: &mut U256,
 ) -> Result<Bytes, PrecompileError> {
     Ok(Bytes::new())
 }
