@@ -138,6 +138,7 @@ impl VM {
 
         let mut default_touched_storage_slots: HashMap<Address, HashSet<H256>> = HashMap::new();
 
+        // Add access lists contents to cache
         for (address, keys) in access_list.clone() {
             default_touched_accounts.insert(address);
             let mut warm_slots = HashSet::new();
@@ -145,6 +146,12 @@ impl VM {
                 warm_slots.insert(slot);
             }
             default_touched_storage_slots.insert(address, warm_slots);
+        }
+
+        // Add precompiled contracts addresses to cache.
+        // TODO: Use the addresses from precompiles.rs in a future
+        for i in 1..10 {
+            default_touched_accounts.insert(Address::from_low_u64_be(i));
         }
 
         match to {
@@ -389,7 +396,6 @@ impl VM {
                             .saturating_sub(current_call_frame.gas_used);
                         current_call_frame.gas_used =
                             current_call_frame.gas_used.saturating_add(left_gas);
-                        self.env.consumed_gas = self.env.consumed_gas.saturating_add(left_gas);
                     }
 
                     self.restore_state(backup_db, backup_substate, backup_refunded_gas);
@@ -663,7 +669,7 @@ impl VM {
 
         if self.is_create() {
             // Assign bytecode to context and empty calldata
-            initial_call_frame.bytecode = initial_call_frame.calldata.clone();
+            initial_call_frame.assign_bytecode(initial_call_frame.calldata.clone());
             initial_call_frame.calldata = Bytes::new();
         }
 
@@ -934,6 +940,11 @@ impl VM {
                     .push(U256::from(SUCCESS_FOR_CALL))?;
             }
             TxResult::Revert(_) => {
+                // Revert value transfer
+                if should_transfer_value {
+                    self.decrease_account_balance(to, value)?;
+                    self.increase_account_balance(msg_sender, value)?;
+                }
                 // Push 0 to stack
                 current_call_frame.stack.push(U256::from(REVERT_FOR_CALL))?;
             }
@@ -1108,11 +1119,6 @@ impl VM {
         }
 
         current_call_frame.gas_used = potential_consumed_gas;
-        self.env.consumed_gas = self
-            .env
-            .consumed_gas
-            .checked_add(gas)
-            .ok_or(OutOfGasError::ConsumedGasOverflow)?;
 
         Ok(())
     }
