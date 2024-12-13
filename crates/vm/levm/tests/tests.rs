@@ -4408,8 +4408,9 @@ fn extcodehash_account_with_zero_bytecode_but_not_empty() {
 #[test]
 fn extcodehash_non_existing_account() {
     // EVM Playground: https://www.evm.codes/playground?fork=cancun&unit=Wei&codeType=Mnemonic&code='PUSH20%200x42%5CnEXTCODEHASH%5CnSTOP'_
+    let random_address = Address::from_low_u64_be(12345);
     let operations = [
-        Operation::Push((20, "0x42".into())),
+        Operation::Push((20, random_address.as_bytes().into())),
         Operation::ExtcodeHash,
         Operation::Stop,
     ];
