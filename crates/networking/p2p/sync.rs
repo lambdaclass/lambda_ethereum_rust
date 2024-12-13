@@ -666,7 +666,9 @@ async fn heal_storage_batch(
             return Ok(batch);
         }
     }
-    Err(SyncError::MaxRetries)
+    // This is a corner case where we fetched an account range for a block but the chain has moved on and the block
+    // was dropped by the peer's snapshot. We will keep the fetcher alive to avoid errors and stop fetching as from the next account
+    Ok(BTreeMap::new())
 }
 
 /// Returns the partial paths to the node's children if they are not already part of the trie state
