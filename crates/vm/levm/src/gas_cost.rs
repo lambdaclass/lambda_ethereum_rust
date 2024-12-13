@@ -160,6 +160,10 @@ pub const CALLDATA_COST_NON_ZERO_BYTE: U256 = U256([16, 0, 0, 0]);
 // Blob gas costs
 pub const BLOB_GAS_PER_BLOB: U256 = U256([131072, 0, 0, 0]);
 
+// Access lists costs
+pub const ACCESS_LIST_STORAGE_KEY_COST: U256 = U256([1900, 0, 0, 0]);
+pub const ACCESS_LIST_ADDRESS_COST: U256 = U256([2400, 0, 0, 0]);
+
 pub fn exp(exponent: U256) -> Result<U256, OutOfGasError> {
     let exponent_byte_size = (exponent
         .bits()
@@ -448,7 +452,11 @@ fn compute_gas_create(
         .ok_or(OutOfGasError::CreationCostIsTooHigh)?)
 }
 
-pub fn selfdestruct(address_was_cold: bool, account_is_empty: bool) -> Result<U256, OutOfGasError> {
+pub fn selfdestruct(
+    address_was_cold: bool,
+    account_is_empty: bool,
+    balance_to_transfer: U256,
+) -> Result<U256, OutOfGasError> {
     let mut gas_cost = SELFDESTRUCT_STATIC;
 
     if address_was_cold {
@@ -457,7 +465,8 @@ pub fn selfdestruct(address_was_cold: bool, account_is_empty: bool) -> Result<U2
             .ok_or(OutOfGasError::GasCostOverflow)?;
     }
 
-    if account_is_empty {
+    // If a positive balance is sent to an empty account, the dynamic gas is 25000
+    if account_is_empty && balance_to_transfer > U256::zero() {
         gas_cost = gas_cost
             .checked_add(SELFDESTRUCT_DYNAMIC)
             .ok_or(OutOfGasError::GasCostOverflow)?;
@@ -538,23 +547,28 @@ pub fn extcodesize(address_was_cold: bool) -> Result<U256, VMError> {
 }
 
 pub fn extcodecopy(
+    size: usize,
     new_memory_size: usize,
     current_memory_size: usize,
     address_was_cold: bool,
 ) -> Result<U256, VMError> {
-    Ok(memory::access_cost(
+    let base_access_cost = copy_behavior(
         new_memory_size,
         current_memory_size,
-        EXTCODECOPY_STATIC,
+        size,
         EXTCODECOPY_DYNAMIC_BASE,
-    )?
-    .checked_add(address_access_cost(
+        EXTCODECOPY_STATIC,
+    )?;
+    let expansion_access_cost = address_access_cost(
         address_was_cold,
         EXTCODECOPY_STATIC,
         EXTCODECOPY_COLD_DYNAMIC,
         EXTCODECOPY_WARM_DYNAMIC,
-    )?)
-    .ok_or(OutOfGasError::GasCostOverflow)?)
+    )?;
+
+    Ok(base_access_cost
+        .checked_add(expansion_access_cost)
+        .ok_or(OutOfGasError::GasCostOverflow)?)
 }
 
 pub fn extcodehash(address_was_cold: bool) -> Result<U256, VMError> {
@@ -584,8 +598,8 @@ pub fn call(
     )?;
     let positive_value_cost = if !value_to_transfer.is_zero() {
         CALL_POSITIVE_VALUE
-            .checked_add(CALL_POSITIVE_VALUE_STIPEND)
-            .ok_or(InternalError::ArithmeticOperationOverflow)?
+            .checked_sub(CALL_POSITIVE_VALUE_STIPEND)
+            .ok_or(InternalError::ArithmeticOperationUnderflow)?
     } else {
         U256::zero()
     };
@@ -626,8 +640,8 @@ pub fn callcode(
     )?;
     let positive_value_cost = if !value_to_transfer.is_zero() {
         CALLCODE_POSITIVE_VALUE
-            .checked_add(CALLCODE_POSITIVE_VALUE_STIPEND)
-            .ok_or(InternalError::ArithmeticOperationOverflow)?
+            .checked_sub(CALLCODE_POSITIVE_VALUE_STIPEND)
+            .ok_or(InternalError::ArithmeticOperationUnderflow)?
     } else {
         U256::zero()
     };
@@ -732,4 +746,20 @@ pub fn fake_exponential(factor: u64, numerator: u64, denominator: u64) -> Result
             .checked_div(denominator)
             .ok_or(InternalError::ArithmeticOperationOverflow)?,
     ))
+}
+
+/// Max message call gas is all but one 64th of the remaining gas in the current context.
+/// https://eips.ethereum.org/EIPS/eip-150
+pub fn max_message_call_gas(current_call_frame: &CallFrame) -> Result<u64, VMError> {
+    let mut remaining_gas = current_call_frame
+        .gas_limit
+        .low_u64()
+        .checked_sub(current_call_frame.gas_used.low_u64())
+        .ok_or(InternalError::GasOverflow)?;
+
+    remaining_gas = remaining_gas
+        .checked_sub(remaining_gas / 64)
+        .ok_or(InternalError::GasOverflow)?;
+
+    Ok(remaining_gas)
 }

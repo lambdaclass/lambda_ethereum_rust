@@ -75,7 +75,7 @@ pub struct CallFrame {
     /// Return data of the SUB-CONTEXT (see docs for more details)
     pub sub_return_data: Bytes,
     /// where to store return data of sub-context in memory
-    pub sub_return_data_offset: usize,
+    pub sub_return_data_offset: U256,
     pub sub_return_data_size: usize,
     pub is_static: bool,
     pub transient_storage: TransientStorage,
@@ -93,6 +93,12 @@ impl CallFrame {
             valid_jump_destinations,
             ..Default::default()
         }
+    }
+
+    pub fn assign_bytecode(&mut self, bytecode: Bytes) {
+        self.bytecode = bytecode;
+        self.valid_jump_destinations =
+            get_valid_jump_destinations(&self.bytecode).unwrap_or_default();
     }
 
     #[allow(clippy::too_many_arguments)]
