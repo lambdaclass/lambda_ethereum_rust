@@ -385,11 +385,11 @@ impl VM {
 
         let sub_return_data_len = current_call_frame.sub_return_data.len();
 
-        let limit_to_copy = returndata_offset
+        let copy_limit = returndata_offset
             .checked_add(size)
             .ok_or(VMError::VeryLargeNumber)?;
 
-        if limit_to_copy > sub_return_data_len {
+        if copy_limit > sub_return_data_len {
             return Err(VMError::OutOfBounds);
         }
 
