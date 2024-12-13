@@ -11,16 +11,16 @@ use ethrex_levm::{
     gas_cost, memory,
     operations::Operation,
     utils::{new_vm_with_ops, new_vm_with_ops_addr_bal_db, new_vm_with_ops_db, ops_to_bytecode},
-    vm::{Storage, VM},
+    vm::{word_to_address, Storage, VM},
     Environment,
 };
 use std::{collections::HashMap, sync::Arc};
 
-fn _create_opcodes(size: usize, offset: usize, value_to_transfer: usize) -> Vec<Operation> {
+fn create_opcodes(size: usize, offset: usize, value_to_transfer: usize) -> Vec<Operation> {
     vec![
-        Operation::Push((16, U256::from(size))),
-        Operation::Push((1, U256::from(offset))),
-        Operation::Push((1, U256::from(value_to_transfer))),
+        Operation::Push((32, U256::from(size))),
+        Operation::Push((32, U256::from(offset))),
+        Operation::Push((32, U256::from(value_to_transfer))),
         Operation::Create,
         Operation::Stop,
     ]
@@ -3796,60 +3796,80 @@ fn transient_load() {
     )
 }
 
-// #[test]
-// fn create_happy_path() {
-//     let value_to_transfer = 10;
-//     let offset = 19;
-//     let size = 13;
-//     let sender_nonce = 0;
-//     let sender_balance = U256::from(25);
-//     let sender_addr = Address::from_low_u64_be(40);
+#[test]
+fn create_happy_path() {
+    let value_to_transfer = 10;
+    let offset = 19;
+    let size = 13;
+    let sender_balance = U256::from(25);
+    let sender_addr = Address::from_low_u64_be(40);
 
-//     // Code that returns the value 0xffffffff putting it in memory
-//     let initialization_code = hex::decode("63FFFFFFFF6000526004601CF3").unwrap();
+    // Code that returns the value 0xffffffff putting it in memory
+    let initialization_code = hex::decode("63FFFFFFFF6000526004601CF3").unwrap();
 
-//     let operations = [
-//         vec![
-//             Operation::Push((13, U256::from_big_endian(&initialization_code))),
-//             Operation::Push0,
-//             Operation::Mstore,
-//         ],
-//         create_opcodes(size, offset, value_to_transfer),
-//     ]
-//     .concat();
+    let operations = [
+        vec![
+            Operation::Push((13, U256::from_big_endian(&initialization_code))),
+            Operation::Push0,
+            Operation::Mstore,
+        ],
+        create_opcodes(size, offset, value_to_transfer),
+    ]
+    .concat();
 
-//     let mut vm = new_vm_with_ops_addr_bal_db(
-//         ops_to_bytecode(&operations).unwrap(),
-//         sender_addr,
-//         sender_balance,
-//         Db::new(),
-//         CacheDB::default(),
-//     )
-//     .unwrap();
-//     vm.current_call_frame_mut().unwrap().msg_sender = sender_addr;
+    let mut vm = new_vm_with_ops_addr_bal_db(
+        ops_to_bytecode(&operations).unwrap(),
+        sender_addr,
+        sender_balance,
+        Db::new(),
+        CacheDB::default(),
+    )
+    .unwrap();
 
-//     let mut current_call_frame = vm.call_frames.pop().unwrap();
-//     vm.execute(&mut current_call_frame).unwrap();
+    // Calculated create address is with contract's address. In this case we are using 42 when using new_vm_with_ops_addr_bal_db function :)
+    let executing_contract_address = Address::from_low_u64_be(42);
+    let executing_contract_before = cache::get_account(&vm.cache, &executing_contract_address)
+        .unwrap()
+        .clone();
 
-//     let call_frame = vm.current_call_frame_mut().unwrap();
-//     let returned_address = call_frame.stack.pop().unwrap();
+    let mut current_call_frame = vm.call_frames.pop().unwrap();
+    vm.execute(&mut current_call_frame).unwrap();
 
-//     let expected_address = VM::calculate_create_address(sender_addr, sender_nonce + 1).unwrap();
-//     assert_eq!(word_to_address(returned_address), expected_address);
+    let executing_contract_after = cache::get_account(&vm.cache, &executing_contract_address)
+        .unwrap()
+        .clone();
 
-//     // check the created account is correct
-//     let new_account = cache::get_account(&vm.cache, &word_to_address(returned_address)).unwrap();
-//     assert_eq!(new_account.info.balance, U256::from(value_to_transfer));
-//     assert_eq!(new_account.info.nonce, 0); // This was previously set to 1 but I understand that a new account should have nonce 0
+    let call_frame = vm.current_call_frame_mut().unwrap();
+    let returned_address = call_frame.stack.pop().unwrap();
 
-//     // Check that the sender account is updated
-//     let sender_account = cache::get_account(&vm.cache, &sender_addr).unwrap();
-//     assert_eq!(sender_account.info.nonce, sender_nonce + 1);
-//     assert_eq!(
-//         sender_account.info.balance,
-//         sender_balance - value_to_transfer
-//     );
-// }
+    let expected_address = VM::calculate_create_address(
+        executing_contract_address,
+        executing_contract_before.info.nonce,
+    )
+    .unwrap();
+    assert_eq!(word_to_address(returned_address), expected_address);
+
+    // Here we are supposing calculate_create_address calculates it correctly.
+
+    // Check the account was created with correct balance, nonce and bytecode.
+    let new_account = cache::get_account(&vm.cache, &word_to_address(returned_address)).unwrap();
+    assert_eq!(new_account.info.balance, U256::from(value_to_transfer));
+    assert_eq!(new_account.info.nonce, 1);
+    assert_eq!(
+        new_account.info.bytecode,
+        Bytes::from(vec![0xff, 0xff, 0xff, 0xff])
+    );
+
+    // Check that the executing contract transferred value and it's nonce increased
+    assert_eq!(
+        executing_contract_after.info.balance,
+        executing_contract_before.info.balance - value_to_transfer
+    );
+    assert_eq!(
+        executing_contract_before.info.nonce + 1,
+        executing_contract_after.info.nonce,
+    );
+}
 
 // #[test]
 // fn cant_create_with_size_longer_than_max_code_size() {
