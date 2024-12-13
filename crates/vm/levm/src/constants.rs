@@ -6,7 +6,7 @@ pub const WORD_SIZE_IN_BYTES_USIZE: usize = 32;
 pub const SUCCESS_FOR_CALL: U256 = U256::one();
 pub const REVERT_FOR_CALL: U256 = U256::zero();
 pub const SUCCESS_FOR_RETURN: U256 = U256::one();
-pub const REVERT_FOR_CREATE: i32 = 0;
+pub const CREATE_DEPLOYMENT_FAIL: U256 = U256::zero();
 pub const WORD_SIZE: usize = 32;
 
 pub const STACK_LIMIT: usize = 1024;
