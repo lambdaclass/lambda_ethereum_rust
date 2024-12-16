@@ -2,6 +2,7 @@ use bytes::Bytes;
 use ethrex_core::{Address, H160, U256};
 use keccak_hash::keccak256;
 use libsecp256k1::{self, Message, RecoveryId, Signature};
+use sha3::Digest;
 
 use crate::{
     call_frame::CallFrame,
@@ -180,7 +181,6 @@ fn sha2_256(
     let data_size = calldata.len();
 
     let cost = sha2_256_cost(data_size as u64)?;
-
     if gas_for_call < cost {
         return Err(VMError::PrecompileError(PrecompileError::NotEnoughGas));
     }
@@ -189,9 +189,9 @@ fn sha2_256(
         .checked_add(cost)
         .ok_or(PrecompileError::GasConsumedOverflow)?;
 
-    //println!("data size is {} and cost is {}", data_size, cost);
+    let result = sha2::Sha256::digest(calldata).to_vec();
 
-    Ok(Bytes::new())
+    Ok(Bytes::from(result))
 }
 
 fn ripemd_160(
