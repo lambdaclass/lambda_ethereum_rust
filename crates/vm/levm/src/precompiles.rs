@@ -100,9 +100,13 @@ pub fn execute_precompile(current_call_frame: &mut CallFrame) -> Result<Bytes, V
 
 fn ecrecover(
     calldata: &Bytes,
-    _gas_for_call: U256,
+    gas_for_call: U256,
     consumed_gas: &mut U256,
 ) -> Result<Bytes, VMError> {
+    if gas_for_call < *consumed_gas {
+        return Err(VMError::PrecompileError(PrecompileError::NotEnoughGas));
+    }
+    
     // If calldata does not reach the required length, we should fill the rest with zeros
 
     let hash = calldata
