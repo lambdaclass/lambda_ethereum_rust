@@ -573,11 +573,18 @@ impl VM {
         match tx_report.result {
             TxResult::Success => {
                 let deployed_code = tx_report.output;
-                let code_deposit_cost = U256::from(deployed_code.len())
-                    .checked_mul(CODE_DEPOSIT_COST)
-                    .ok_or(InternalError::ArithmeticOperationOverflow)?;
 
-                self.increase_consumed_gas(current_call_frame, code_deposit_cost)?;
+                if !deployed_code.is_empty() {
+                    let get_contract_prefix = deployed_code.first().ok_or(VMError::OutOfBounds)?;
+                    if *get_contract_prefix == 0xEF {
+                        return Err(VMError::InvalidContractPrefix);
+                    }
+
+                    let code_deposit_cost = U256::from(deployed_code.len())
+                        .checked_mul(CODE_DEPOSIT_COST)
+                        .ok_or(InternalError::ArithmeticOperationOverflow)?;
+                    self.increase_consumed_gas(current_call_frame, code_deposit_cost)?;
+                }
 
                 // New account's bytecode is going to be the output of initcode exec.
                 self.update_account_bytecode(new_address, deployed_code)?;
