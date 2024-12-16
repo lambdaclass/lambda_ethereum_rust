@@ -1,6 +1,7 @@
 use bytes::Bytes;
 use ethrex_core::{Address, H160, U256};
 use keccak_hash::keccak256;
+use libsecp256k1::{self, Message, RecoveryId, Signature};
 
 use crate::{
     call_frame::CallFrame,
@@ -118,54 +119,34 @@ fn ecrecover(
 ) -> Result<Bytes, PrecompileError> {
     // If calldata does not reach the required length, we should fill the rest with zeros
 
-    let hash: U256 = calldata
+    let hash = calldata
         .get(0..32)
-        .ok_or(PrecompileError::ParsingInputError)?
-        .try_into()
-        .map_err(|_| PrecompileError::ParsingInputError)?;
-    let v: U256 = calldata
-        .get(32..64)
-        .ok_or(PrecompileError::ParsingInputError)?
-        .try_into()
-        .map_err(|_| PrecompileError::ParsingInputError)?;
-    let r: U256 = calldata
-        .get(64..96)
-        .ok_or(PrecompileError::ParsingInputError)?
-        .try_into()
-        .map_err(|_| PrecompileError::ParsingInputError)?;
-    let s: U256 = calldata
-        .get(96..128)
-        .ok_or(PrecompileError::ParsingInputError)?
-        .try_into()
-        .map_err(|_| PrecompileError::ParsingInputError)?;
-
-    if v != 27.into() || v != 28.into() {
-        return Err(PrecompileError::ParsingInputError);
-    }
-    let _v = v
-        .checked_sub(27.into())
         .ok_or(PrecompileError::ParsingInputError)?;
+    let message = Message::parse_slice(hash).map_err(|_| PrecompileError::ParsingInputError)?;
 
-    if r <= U256::zero() || r >= SECP256K1N {
-        return Err(PrecompileError::ParsingInputError);
-    }
-    if s <= U256::zero() || s >= SECP256K1N {
-        return Err(PrecompileError::ParsingInputError);
-    }
+    let r: &u8 = calldata.get(63).ok_or(PrecompileError::ParsingInputError)?;
+    let recovery_id = RecoveryId::parse_rpc(*r).map_err(|_| PrecompileError::ParsingInputError)?;
+
+    let sig = calldata
+        .get(64..128)
+        .ok_or(PrecompileError::ParsingInputError)?;
+    let signature =
+        Signature::parse_standard_slice(sig).map_err(|_| PrecompileError::ParsingInputError)?;
 
     // Consume gas
     *consumed_gas = consumed_gas
         .checked_add(ECRECOVER_COST.into())
         .ok_or(PrecompileError::GasConsumedOverflow)?;
 
-    // Here i should do the recover
-    let mut public_key: [u8; 32] = hash.into();
+    let mut public_key = libsecp256k1::recover(&message, &signature, &recovery_id)
+        .map_err(|_| PrecompileError::KeyRecoverError)?
+        .serialize();
 
-    keccak256(&mut public_key);
-    let address: &[u8] = &public_key[12..32];
+    keccak256(&mut public_key[1..65]);
 
     let mut result = [0u8; 32];
-    result[12..32].copy_from_slice(&address);
+    // To-do: use a non panicking way to copy the bytes
+    result[12..32].copy_from_slice(&public_key);
 
     Ok(Bytes::from(result.to_vec()))
 }
