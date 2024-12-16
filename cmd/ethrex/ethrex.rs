@@ -239,8 +239,7 @@ async fn main() {
             let url = format!("http://{authrpc_socket_addr}");
             let block_producer_engine = ethrex_dev::block_producer::start_block_producer(url, authrpc_jwtsecret.into(), head_block_hash, max_tries, 1000, ethrex_core::Address::default());
             tracker.spawn(block_producer_engine);
-        }
-        else {
+        } else {
             let networking = ethrex_net::start_network(
                 udp_socket_addr,
                 tcp_socket_addr,

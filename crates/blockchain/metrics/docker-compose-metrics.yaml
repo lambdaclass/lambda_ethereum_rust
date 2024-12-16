@@ -1,17 +1,15 @@
+# example: docker compose -f docker-compose-metrics.yaml -f docker-compose-metrics-l2.override.yaml up
 services:
   prometheus:
     image: prom/prometheus
     command: --config.file=/etc/prometheus/prometheus.yaml
-    volumes:
-      - ./provisioning/prometheus.yaml:/etc/prometheus/prometheus.yaml
-    ports:
-      - "9090:9090"
+    #volumes: defined in the .overrides file
+    #ports: defined in the .overrides file
   grafana:
     image: grafana/grafana
     volumes:
       - ./provisioning/grafana_provisioning/dashboards:/etc/grafana/provisioning/dashboards
       - ./provisioning/grafana_provisioning/datasources:/etc/grafana/provisioning/datasources
-    ports:
-      - "3700:3000"
+    #ports: defined in the .overrides file
     depends_on:
       - prometheus

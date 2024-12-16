@@ -26,6 +26,9 @@ ethrex_BIN_PATH=$(ethrex_PATH)/target/release/ethrex
 ethrex_DEV_DOCKER_COMPOSE_PATH=$(ethrex_PATH)/crates/blockchain/dev/docker-compose-dev.yaml
 ethrex_L2_DOCKER_COMPOSE_PATH=./docker-compose-l2.yaml
 ethrex_METRICS_DOCKER_COMPOSE_PATH=$(ethrex_PATH)/crates/blockchain/metrics/docker-compose-metrics.yaml
+ethrex_METRICS_OVERRIDES_L1_DOCKER_COMPOSE_PATH=$(ethrex_PATH)/crates/blockchain/metrics/docker-compose-metrics-l1-dev.overrides.yaml
+ethrex_METRICS_OVERRIDES_L2_DOCKER_COMPOSE_PATH=$(ethrex_PATH)/crates/blockchain/metrics/docker-compose-metrics-l2.overrides.yaml
+
 
 ethrex_L2_CONTRACTS_PATH=./contracts
 L1_RPC_URL=http://localhost:8545
@@ -39,12 +42,13 @@ L1_AUTH_PORT=8551
 # Used in the .env file. Ensure the same port is used for `ENGINE_API_RPC_URL`.
 L2_AUTH_PORT=8552
 
-PROMETHEUS_METRICS_PORT = 3701
+# Matches the ports used by the blockchain/metrics dir
+L2_PROMETHEUS_METRICS_PORT = 3702
 
 # Local L1
 
 init-local-l1: ## 🚀 Initializes an L1 Lambda ethrex Client with Docker (Used with make init)
-	docker compose -f ${ethrex_DEV_DOCKER_COMPOSE_PATH} up -d
+	docker compose -f ${ethrex_DEV_DOCKER_COMPOSE_PATH} -f ${ethrex_METRICS_OVERRIDES_L1_DOCKER_COMPOSE_PATH} up -d
 
 init-l1: ## 🚀 Initializes an L1 Lambda ethrex Client
 	cargo run --release --manifest-path ../../Cargo.toml --bin ethrex --features "dev" -- \
@@ -55,7 +59,7 @@ init-l1: ## 🚀 Initializes an L1 Lambda ethrex Client
 	--datadir ${ethrex_L1_DEV_LIBMDBX}
 
 down-local-l1: ## 🛑 Shuts down the L1 Lambda ethrex Client
-	docker compose -f ${ethrex_DEV_DOCKER_COMPOSE_PATH} down
+	docker compose -f ${ethrex_DEV_DOCKER_COMPOSE_PATH} -f ${ethrex_METRICS_OVERRIDES_L1_DOCKER_COMPOSE_PATH} down
 	docker compose -f docker-compose-l2.yaml down
 
 restart-local-l1: down-local-l1 init-local-l1 ## 🔄 Restarts the L1 Lambda ethrex Client
@@ -82,14 +86,14 @@ init-l2: init-metrics ## 🚀 Initializes an L2 Lambda ethrex Client
 	--http.port ${L2_PORT} \
 	--http.addr 0.0.0.0 \
 	--authrpc.port ${L2_AUTH_PORT} \
-	--metrics.port ${PROMETHEUS_METRICS_PORT} \
+	--metrics.port ${L2_PROMETHEUS_METRICS_PORT} \
 	--datadir ${ethrex_L2_DEV_LIBMDBX}
 	
 init-metrics: ## 🚀 Initializes Grafana and Prometheus with containers
-	docker compose -f ${ethrex_METRICS_DOCKER_COMPOSE_PATH} up -d
+	docker compose -f ${ethrex_METRICS_DOCKER_COMPOSE_PATH} -f ${ethrex_METRICS_OVERRIDES_L2_DOCKER_COMPOSE_PATH} up -d
 	
 down-metrics: ## 🛑 Shuts down the metrics' containers
-	docker compose -f ${ethrex_METRICS_DOCKER_COMPOSE_PATH} down
+	docker compose -f ${ethrex_METRICS_DOCKER_COMPOSE_PATH} -f ${ethrex_METRICS_OVERRIDES_L2_DOCKER_COMPOSE_PATH} down
 
 down-l2: ## 🛑 Shuts down the L2 Lambda ethrex Client
 	pkill -f ethrex || exit 0
