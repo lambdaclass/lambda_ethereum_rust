@@ -19,6 +19,8 @@ ethrex-vm = { path = "../vm", default-features = false }
 
 k256 = { version = "0.13.3", features = ["ecdh"] }
 
+ethrex-metrics = { path = "./metrics", optional = true }
+
 [dev-dependencies]
 serde_json.workspace = true
 hex = "0.4.3"
@@ -27,11 +29,8 @@ hex = "0.4.3"
 path = "./blockchain.rs"
 
 [features]
-default = ["c-kzg"]
-libmdbx = [
-    "ethrex-core/libmdbx",
-    "ethrex-storage/default",
-    "ethrex-vm/libmdbx",
-]
+default = ["c-kzg", "metrics"]
+libmdbx = ["ethrex-core/libmdbx", "ethrex-storage/default", "ethrex-vm/libmdbx"]
 levm = ["ethrex-vm/levm"]
-c-kzg =["ethrex-core/c-kzg"]
+c-kzg = ["ethrex-core/c-kzg"]
+metrics = ["dep:ethrex-metrics"]

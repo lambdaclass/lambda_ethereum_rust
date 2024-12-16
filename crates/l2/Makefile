@@ -38,17 +38,22 @@ L1_AUTH_PORT=8551
 # Used in the .env file. Ensure the same port is used for `ENGINE_API_RPC_URL`.
 L2_AUTH_PORT=8552
 
+L1_PROMETHEUS_METRICS_PORT = 3701
+L2_PROMETHEUS_METRICS_PORT = 3702
+
+
 # Local L1
 
 init-local-l1: ## 🚀 Initializes an L1 Lambda ethrex Client with Docker (Used with make init)
 	docker compose -f ${ethrex_DEV_DOCKER_COMPOSE_PATH} up -d
 
 init-l1: ## 🚀 Initializes an L1 Lambda ethrex Client
-	cargo run --release --manifest-path ../../Cargo.toml --bin ethrex --features dev -- \
+	cargo run --release --manifest-path ../../Cargo.toml --bin ethrex --features "dev,metrics" -- \
 	--network ${L1_GENESIS_FILE_PATH} \
 	--http.port ${L1_PORT} \
 	--http.addr 0.0.0.0 \
 	--authrpc.port ${L1_AUTH_PORT} \
+	--metrics.port ${L1_PROMETHEUS_METRICS_PORT} \
 	--datadir ${ethrex_L1_DEV_LIBMDBX}
 
 down-local-l1: ## 🛑 Shuts down the L1 Lambda ethrex Client
@@ -74,11 +79,12 @@ deploy-l1: ## 📜 Deploys the L1 contracts
 # L2
 
 init-l2: ## 🚀 Initializes an L2 Lambda ethrex Client
-	cargo run --release --manifest-path ../../Cargo.toml --bin ethrex --features l2 -- \
+	cargo run --release --manifest-path ../../Cargo.toml --bin ethrex --features "l2,metrics" -- \
 	--network ${L2_GENESIS_FILE_PATH} \
 	--http.port ${L2_PORT} \
 	--http.addr 0.0.0.0 \
 	--authrpc.port ${L2_AUTH_PORT} \
+	--metrics.port ${L2_PROMETHEUS_METRICS_PORT} \
 	--datadir ${ethrex_L2_DEV_LIBMDBX}
 
 down-l2: ## 🛑 Shuts down the L2 Lambda ethrex Client

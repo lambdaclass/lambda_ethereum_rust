@@ -20,6 +20,8 @@ use ethrex_vm::{
 };
 use sha3::{Digest, Keccak256};
 
+use ethrex_metrics::TRANSACTION_COUNTER;
+
 use crate::{
     constants::{
         GAS_LIMIT_BOUND_DIVISOR, GAS_PER_BLOB, MAX_BLOB_GAS_PER_BLOCK, MIN_GAS_LIMIT,
@@ -319,6 +321,11 @@ pub fn fill_transactions(context: &mut PayloadBuildContext) -> Result<(), ChainE
             )?;
             continue;
         }
+        // Increment the transaction counter
+        // TODO: differentiate between total, failed and succedded
+        let tx_counter = TRANSACTION_COUNTER.lock().unwrap();
+        tx_counter.inc();
+
         // Execute tx
         let receipt = match apply_transaction(&head_tx, context) {
             Ok(receipt) => {

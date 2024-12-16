@@ -208,6 +208,20 @@ async fn main() {
 
     tracker.spawn(rpc_api);
 
+    // Start the prometheus /metrics api
+    cfg_if::cfg_if! {
+        if #[cfg(feature = "metrics")] {
+            use ethrex_metrics;
+
+            let metrics_port = matches
+                .get_one::<String>("metrics.port")
+                .map_or("3000".to_string(), |v| v.clone());
+
+            let metrics_api = ethrex_metrics::start_prometheus_metrics_api(metrics_port);
+            tracker.spawn(metrics_api);
+        }
+    }
+
     // We do not want to start the networking module if the l2 feature is enabled.
     cfg_if::cfg_if! {
         if #[cfg(feature = "l2")] {
@@ -225,7 +239,8 @@ async fn main() {
             let url = format!("http://{authrpc_socket_addr}");
             let block_producer_engine = ethrex_dev::block_producer::start_block_producer(url, authrpc_jwtsecret.into(), head_block_hash, max_tries, 1000, ethrex_core::Address::default());
             tracker.spawn(block_producer_engine);
-        } else {
+        }
+        else {
             let networking = ethrex_net::start_network(
                 udp_socket_addr,
                 tcp_socket_addr,
