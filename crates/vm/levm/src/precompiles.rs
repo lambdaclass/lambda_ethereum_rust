@@ -134,8 +134,13 @@ pub fn ecrecover(
         .ok_or(PrecompileError::ParsingInputError)?;
     let message = Message::parse_slice(hash).map_err(|_| PrecompileError::ParsingInputError)?;
 
-    let r: &u8 = calldata.get(63).ok_or(PrecompileError::ParsingInputError)?;
-    let recovery_id = RecoveryId::parse_rpc(*r).map_err(|_| PrecompileError::ParsingInputError)?;
+    let r = calldata.get(63).ok_or(PrecompileError::ParsingInputError)?;
+    let recovery_id = match RecoveryId::parse_rpc(*r) {
+        Ok(id) => id,
+        Err(_) => {
+            return Ok(Bytes::new());
+        }
+    };
 
     let sig = calldata
         .get(64..128)
