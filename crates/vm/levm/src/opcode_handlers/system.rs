@@ -536,7 +536,7 @@ impl VM {
 
         // THIRD: Changes to the state
         // 1. Creating contract.
-        let new_account = Account::new(value_in_wei_to_send, code.clone(), 1, Default::default());
+        let new_account = Account::new(value_in_wei_to_send, Bytes::new(), 1, Default::default());
         cache::insert_account(&mut self.cache, new_address, new_account);
 
         // 2. Increment sender's nonce.
