@@ -20,6 +20,8 @@ pub enum VMError {
     OpcodeNotFound,
     #[error("Invalid Bytecode")]
     InvalidBytecode,
+    #[error("Invalid Contract Prefix")]
+    InvalidContractPrefix,
     #[error("Very Large Number")]
     VeryLargeNumber,
     #[error("Fatal Error")]
