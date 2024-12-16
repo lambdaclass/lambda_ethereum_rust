@@ -121,6 +121,11 @@ pub fn ecrecover(
         return Err(VMError::PrecompileError(PrecompileError::NotEnoughGas));
     }
 
+    // Consume gas
+    *consumed_gas = consumed_gas
+        .checked_add(ECRECOVER_COST.into())
+        .ok_or(PrecompileError::GasConsumedOverflow)?;
+
     // If calldata does not reach the required length, we should fill the rest with zeros
     let calldata = fill_with_zeros(calldata);
 
@@ -138,14 +143,13 @@ pub fn ecrecover(
     let signature =
         Signature::parse_standard_slice(sig).map_err(|_| PrecompileError::ParsingInputError)?;
 
-    // Consume gas
-    *consumed_gas = consumed_gas
-        .checked_add(ECRECOVER_COST.into())
-        .ok_or(PrecompileError::GasConsumedOverflow)?;
-
-    let mut public_key = libsecp256k1::recover(&message, &signature, &recovery_id)
-        .map_err(|_| PrecompileError::KeyRecoverError)?
-        .serialize();
+    let mut public_key = match libsecp256k1::recover(&message, &signature, &recovery_id) {
+        Ok(id) => id,
+        Err(_) => {
+            return Ok(Bytes::new());
+        }
+    }
+    .serialize();
 
     keccak256(&mut public_key[1..65]);
 
