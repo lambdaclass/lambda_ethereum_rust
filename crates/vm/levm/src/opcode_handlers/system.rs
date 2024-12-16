@@ -572,8 +572,8 @@ impl VM {
 
         match tx_report.result {
             TxResult::Success => {
-                let final_code = tx_report.output;
-                let code_deposit_cost = U256::from(final_code.len())
+                let deployed_code = tx_report.output;
+                let code_deposit_cost = U256::from(deployed_code.len())
                     .checked_mul(CODE_DEPOSIT_COST)
                     .ok_or(InternalError::ArithmeticOperationOverflow)?;
 
