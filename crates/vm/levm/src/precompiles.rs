@@ -98,7 +98,19 @@ pub fn execute_precompile(current_call_frame: &mut CallFrame) -> Result<Bytes, V
     Ok(result)
 }
 
-fn ecrecover(
+fn fill_with_zeros(slice: &[u8]) -> [u8; 128] {
+    let mut result = [0; 128];
+
+    // Tomamos los primeros 128 elementos de slice (o menos si slice es más pequeño)
+    let n = slice.len().min(128);
+
+    // Copiamos los primeros 'n' elementos de slice a result
+    result[..n].copy_from_slice(&slice[..n]);
+
+    result
+}
+
+pub fn ecrecover(
     calldata: &Bytes,
     gas_for_call: U256,
     consumed_gas: &mut U256,
@@ -108,6 +120,7 @@ fn ecrecover(
     }
     
     // If calldata does not reach the required length, we should fill the rest with zeros
+    let calldata = fill_with_zeros(&calldata);
 
     let hash = calldata
         .get(0..32)
