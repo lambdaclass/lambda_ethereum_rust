@@ -178,9 +178,12 @@ fn sha2_256(
     gas_for_call: U256,
     consumed_gas: &mut U256,
 ) -> Result<Bytes, VMError> {
-    let data_size = calldata.len();
+    let data_size: u64 = calldata
+        .len()
+        .try_into()
+        .map_err(|_| PrecompileError::ParsingInputError)?;
 
-    let cost = sha2_256_cost(data_size as u64)?;
+    let cost = sha2_256_cost(data_size)?;
     if gas_for_call < cost {
         return Err(VMError::PrecompileError(PrecompileError::NotEnoughGas));
     }
