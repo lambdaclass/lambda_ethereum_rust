@@ -1,6 +1,6 @@
 use crate::runner::{EFTestRunnerError, InternalError};
 use colored::Colorize;
-use ethrex_core::{Address, H256, U256};
+use ethrex_core::{Address, H256};
 use ethrex_levm::{
     errors::{TransactionReport, TxResult, VMError},
     Account, StorageSlot,
@@ -757,7 +757,7 @@ impl fmt::Display for ComparisonReport {
                         writeln!(f, "      Storage slot added {levm_key} -> value mismatch REVM: {revm_value} LEVM: {levm_value}")?;
                         diffs += 1;
                     }
-                } else if *levm_key != H256::zero() && *levm_value != U256::zero() {
+                } else {
                     writeln!(f, "      Storage slot added key is in LEVM but not in REVM {levm_key} -> {levm_value}")?;
                     diffs += 1;
                 }
