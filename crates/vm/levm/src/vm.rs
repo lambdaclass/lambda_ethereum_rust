@@ -208,7 +208,8 @@ impl VM {
 
                 default_touched_accounts.insert(new_contract_address);
 
-                let created_contract = Account::new(value, calldata.clone(), 1, HashMap::new());
+                let created_contract = Account::new(value, Bytes::new(), 1, HashMap::new());
+
                 cache::insert_account(&mut cache, new_contract_address, created_contract);
 
                 let initial_call_frame = CallFrame::new(
