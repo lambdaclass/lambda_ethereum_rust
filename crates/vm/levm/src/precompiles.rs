@@ -130,11 +130,10 @@ fn ecrecover(
 
     keccak256(&mut public_key[1..65]);
 
-    let mut result = [0u8; 32];
-    // To-do: use a non panicking way to copy the bytes
-    result[12..32].copy_from_slice(&public_key);
+    let mut output = vec![0u8; 12];
+    output.extend_from_slice(&public_key[12..32]);
 
-    Ok(Bytes::from(result.to_vec()))
+    Ok(Bytes::from(output.to_vec()))
 }
 
 fn identity(
