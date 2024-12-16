@@ -117,14 +117,14 @@ pub fn ecrecover(
     gas_for_call: U256,
     consumed_gas: &mut U256,
 ) -> Result<Bytes, VMError> {
-    if gas_for_call < *consumed_gas {
-        return Err(VMError::PrecompileError(PrecompileError::NotEnoughGas));
-    }
-
     // Consume gas
     *consumed_gas = consumed_gas
         .checked_add(ECRECOVER_COST.into())
         .ok_or(PrecompileError::GasConsumedOverflow)?;
+
+    if gas_for_call < *consumed_gas {
+        return Err(VMError::PrecompileError(PrecompileError::NotEnoughGas));
+    }
 
     // If calldata does not reach the required length, we should fill the rest with zeros
     let calldata = fill_with_zeros(calldata);

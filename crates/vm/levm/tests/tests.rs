@@ -4498,7 +4498,7 @@ fn recover_test() {
     let calldata = Bytes::from(calldata);
 
     let mut consumed_gas = U256::zero();
-    let result = ecrecover(&calldata, 1000.into(), &mut consumed_gas).unwrap();
+    let result = ecrecover(&calldata, 10000.into(), &mut consumed_gas).unwrap();
 
     let expected_result = Bytes::from(
         hex::decode("0000000000000000000000007156526fbd7a3c72969b54f64e42c10fbb768c8a").unwrap(),
