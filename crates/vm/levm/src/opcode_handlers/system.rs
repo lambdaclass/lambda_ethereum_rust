@@ -7,6 +7,7 @@ use crate::{
         self, max_message_call_gas, CALLCODE_POSITIVE_VALUE_STIPEND, CALL_POSITIVE_VALUE_STIPEND,
     },
     memory::{self, calculate_memory_size},
+    precompiles::is_precompile,
     vm::{address_to_word, word_to_address, VM},
     Account,
 };
