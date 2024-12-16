@@ -6,7 +6,7 @@ use libsecp256k1::{self, Message, RecoveryId, Signature};
 use crate::{
     call_frame::CallFrame,
     errors::{InternalError, PrecompileError, VMError},
-    gas_cost::ECRECOVER_COST,
+    gas_cost::{sha2_256 as sha2_256_cost, ECRECOVER_COST},
 };
 
 pub const ECRECOVER_ADDRESS: H160 = H160([
@@ -173,10 +173,24 @@ fn identity(
 }
 
 fn sha2_256(
-    _calldata: &Bytes,
-    _gas_for_call: U256,
-    _consumed_gas: &mut U256,
+    calldata: &Bytes,
+    gas_for_call: U256,
+    consumed_gas: &mut U256,
 ) -> Result<Bytes, VMError> {
+    let data_size = calldata.len();
+
+    let cost = sha2_256_cost(data_size as u64)?;
+
+    if gas_for_call < cost {
+        return Err(VMError::PrecompileError(PrecompileError::NotEnoughGas));
+    }
+
+    *consumed_gas = consumed_gas
+        .checked_add(cost)
+        .ok_or(PrecompileError::GasConsumedOverflow)?;
+
+    //println!("data size is {} and cost is {}", data_size, cost);
+
     Ok(Bytes::new())
 }
 
