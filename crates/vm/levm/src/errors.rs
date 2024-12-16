@@ -182,8 +182,10 @@ pub enum InternalError {
 pub enum PrecompileError {
     #[error("Error while parsing the calldata")]
     ParsingInputError,
-    #[error("The ")]
+    #[error("Error while increasing consumed gas")]
     GasConsumedOverflow,
+    #[error("Error while recovering the key")]
+    KeyRecoverError,
     #[error("This es a default error")]
     DefaultError,
 }
