@@ -4,7 +4,16 @@
 use bytes::Bytes;
 use ethrex_core::{types::TxKind, Address, H256, U256};
 use ethrex_levm::{
-    account::Account, constants::*, db::{cache, CacheDB, Db}, errors::{OutOfGasError, TxResult, VMError}, gas_cost, memory, operations::Operation, precompiles::ecrecover, utils::{new_vm_with_ops, new_vm_with_ops_addr_bal_db, new_vm_with_ops_db, ops_to_bytecode}, vm::{word_to_address, Storage, VM}, Environment
+    account::Account,
+    constants::*,
+    db::{cache, CacheDB, Db},
+    errors::{OutOfGasError, TxResult, VMError},
+    gas_cost, memory,
+    operations::Operation,
+    precompiles::ecrecover,
+    utils::{new_vm_with_ops, new_vm_with_ops_addr_bal_db, new_vm_with_ops_db, ops_to_bytecode},
+    vm::{word_to_address, Storage, VM},
+    Environment,
 };
 use std::{collections::HashMap, sync::Arc};
 
@@ -4490,8 +4499,10 @@ fn recover_test() {
 
     let mut consumed_gas = U256::zero();
     let result = ecrecover(&calldata, 1000.into(), &mut consumed_gas).unwrap();
-    
-    let expected_result = Bytes::from(hex::decode("0000000000000000000000007156526fbd7a3c72969b54f64e42c10fbb768c8a").unwrap());
+
+    let expected_result = Bytes::from(
+        hex::decode("0000000000000000000000007156526fbd7a3c72969b54f64e42c10fbb768c8a").unwrap(),
+    );
 
     assert_eq!(result, expected_result)
 }
