@@ -334,7 +334,7 @@ impl VM {
             )?,
         )?;
 
-        self.create(
+        self.generic_create(
             value_in_wei_to_send,
             code_offset_in_memory,
             code_size_in_memory,
@@ -369,7 +369,7 @@ impl VM {
             )?,
         )?;
 
-        self.create(
+        self.generic_create(
             value_in_wei_to_send,
             code_offset_in_memory,
             code_size_in_memory,
@@ -469,7 +469,7 @@ impl VM {
     }
 
     /// Common behavior for CREATE and CREATE2 opcodes
-    pub fn create(
+    pub fn generic_create(
         &mut self,
         value_in_wei_to_send: U256,
         code_offset_in_memory: U256,
