@@ -7,7 +7,7 @@ use sha3::Digest;
 use crate::{
     call_frame::CallFrame,
     errors::{InternalError, PrecompileError, VMError},
-    gas_cost::{sha2_256 as sha2_256_cost, ECRECOVER_COST},
+    gas_cost::{ripemd_160 as ripemd_160_cost, sha2_256 as sha2_256_cost, ECRECOVER_COST},
 };
 
 pub const ECRECOVER_ADDRESS: H160 = H160([
@@ -198,11 +198,32 @@ fn sha2_256(
 }
 
 fn ripemd_160(
-    _calldata: &Bytes,
-    _gas_for_call: U256,
-    _consumed_gas: &mut U256,
+    calldata: &Bytes,
+    gas_for_call: U256,
+    consumed_gas: &mut U256,
 ) -> Result<Bytes, VMError> {
-    Ok(Bytes::new())
+    let data_size: u64 = calldata
+        .len()
+        .try_into()
+        .map_err(|_| PrecompileError::ParsingInputError)?;
+
+    let cost = ripemd_160_cost(data_size)?;
+    if gas_for_call < cost {
+        return Err(VMError::PrecompileError(PrecompileError::NotEnoughGas));
+    }
+
+    *consumed_gas = consumed_gas
+        .checked_add(cost)
+        .ok_or(PrecompileError::GasConsumedOverflow)?;
+
+    let mut hasher = ripemd::Ripemd160::new();
+    hasher.update(calldata);
+    let result = hasher.finalize();
+
+    let mut output = vec![0; 12];
+    output.extend_from_slice(&result);
+
+    Ok(Bytes::from(output.to_vec()))
 }
 
 fn modexp(
