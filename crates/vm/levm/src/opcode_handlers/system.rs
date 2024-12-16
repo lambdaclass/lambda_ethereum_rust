@@ -5,6 +5,7 @@ use crate::{
     errors::{InternalError, OpcodeSuccess, OutOfGasError, ResultReason, TxResult, VMError},
     gas_cost::{
         self, max_message_call_gas, CALLCODE_POSITIVE_VALUE_STIPEND, CALL_POSITIVE_VALUE_STIPEND,
+        CODE_DEPOSIT_COST,
     },
     memory::{self, calculate_memory_size},
     vm::{address_to_word, word_to_address, VM},
@@ -567,8 +568,15 @@ impl VM {
 
         match tx_report.result {
             TxResult::Success => {
+                let final_code = tx_report.output;
+                let code_deposit_cost = U256::from(final_code.len())
+                    .checked_mul(CODE_DEPOSIT_COST)
+                    .ok_or(InternalError::ArithmeticOperationOverflow)?;
+
+                self.increase_consumed_gas(current_call_frame, code_deposit_cost)?;
+
                 // New account's bytecode is going to be the output of initcode exec.
-                self.update_account_bytecode(new_address, tx_report.output)?;
+                self.update_account_bytecode(new_address, final_code)?;
                 current_call_frame
                     .stack
                     .push(address_to_word(new_address))?;
