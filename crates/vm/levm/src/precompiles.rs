@@ -125,13 +125,12 @@ fn ecrecover(
         .ok_or(PrecompileError::GasConsumedOverflow)?;
 
     let mut public_key = libsecp256k1::recover(&message, &signature, &recovery_id)
-        .map_err(|_| PrecompileError::KeyRecoverError)?
-        .serialize();
+        .map_err(|_| PrecompileError::KeyRecoverError)?.serialize();
 
     keccak256(&mut public_key[1..65]);
 
     let mut output = vec![0u8; 12];
-    output.extend_from_slice(&public_key[12..32]);
+    output.extend_from_slice(&public_key[13..33]);
 
     Ok(Bytes::from(output.to_vec()))
 }
