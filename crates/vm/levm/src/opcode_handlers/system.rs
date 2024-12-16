@@ -1,6 +1,9 @@
 use crate::{
     call_frame::CallFrame,
-    constants::{CREATE_DEPLOYMENT_FAIL, INIT_CODE_MAX_SIZE, REVERT_FOR_CALL, SUCCESS_FOR_CALL},
+    constants::{
+        CREATE_DEPLOYMENT_FAIL, INIT_CODE_MAX_SIZE, INVALID_CONTRACT_PREFIX, REVERT_FOR_CALL,
+        SUCCESS_FOR_CALL,
+    },
     db::cache,
     errors::{InternalError, OpcodeSuccess, OutOfGasError, ResultReason, TxResult, VMError},
     gas_cost::{
@@ -575,8 +578,7 @@ impl VM {
                 let deployed_code = tx_report.output;
 
                 if !deployed_code.is_empty() {
-                    let get_contract_prefix = deployed_code.first().ok_or(VMError::OutOfBounds)?;
-                    if *get_contract_prefix == 0xEF {
+                    if let Some(&INVALID_CONTRACT_PREFIX) = deployed_code.first() {
                         return Err(VMError::InvalidContractPrefix);
                     }
 
