@@ -580,7 +580,7 @@ impl VM {
                 self.increase_consumed_gas(current_call_frame, code_deposit_cost)?;
 
                 // New account's bytecode is going to be the output of initcode exec.
-                self.update_account_bytecode(new_address, final_code)?;
+                self.update_account_bytecode(new_address, deployed_code)?;
                 current_call_frame
                     .stack
                     .push(address_to_word(new_address))?;
