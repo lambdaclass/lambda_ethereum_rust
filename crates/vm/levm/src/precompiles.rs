@@ -129,23 +129,28 @@ pub fn ecrecover(
     // If calldata does not reach the required length, we should fill the rest with zeros
     let calldata = fill_with_zeros(calldata);
 
-    let hash = calldata
-        .get(0..32)
-        .ok_or(InternalError::SlicingError)?;
+    let hash = calldata.get(0..32).ok_or(InternalError::SlicingError)?;
     let message = Message::parse_slice(hash).map_err(|_| PrecompileError::ParsingInputError)?;
 
-    // Reading the least significant byte since it's the only that has information
-    let v = calldata.get(63).ok_or(InternalError::SlicingError)?;
-    let recovery_id = match RecoveryId::parse_rpc(*v) {
+    let v: U256 = calldata
+        .get(32..64)
+        .ok_or(InternalError::SlicingError)?
+        .try_into()
+        .map_err(|_| PrecompileError::ParsingInputError)?;
+
+    if !(v == U256::from(27) || v == U256::from(28)) {
+        return Ok(Bytes::new());
+    }
+
+    let v = u8::try_from(v).map_err(|_| PrecompileError::ParsingInputError)?;
+    let recovery_id = match RecoveryId::parse_rpc(v) {
         Ok(id) => id,
         Err(_) => {
             return Ok(Bytes::new());
         }
     };
 
-    let sig = calldata
-        .get(64..128)
-        .ok_or(InternalError::SlicingError)?;
+    let sig = calldata.get(64..128).ok_or(InternalError::SlicingError)?;
     let signature =
         Signature::parse_standard_slice(sig).map_err(|_| PrecompileError::ParsingInputError)?;
 
