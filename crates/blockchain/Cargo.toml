@@ -27,7 +27,7 @@ hex = "0.4.3"
 path = "./blockchain.rs"
 
 [features]
-default = ["c-kzg"]
+default = ["c-kzg", "levm"]
 libmdbx = [
     "ethrex-core/libmdbx",
     "ethrex-storage/default",

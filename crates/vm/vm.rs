@@ -6,13 +6,15 @@ mod execution_result;
 mod mods;
 
 use db::StoreWrapper;
+use ethrex_levm::account;
 use execution_db::ExecutionDB;
 use std::cmp::min;
 
 use ethrex_core::{
     types::{
-        AccountInfo, Block, BlockHash, BlockHeader, ChainConfig, Fork, GenericTransaction,
-        PrivilegedTxType, Receipt, Transaction, TxKind, Withdrawal, GWEI_TO_WEI, INITIAL_BASE_FEE,
+        transaction, AccountInfo, Block, BlockHash, BlockHeader, ChainConfig, Fork,
+        GenericTransaction, PrivilegedTxType, Receipt, Transaction, TxKind, Withdrawal,
+        GWEI_TO_WEI, INITIAL_BASE_FEE,
     },
     Address, BigEndianHash, H256, U256,
 };
@@ -88,6 +90,83 @@ cfg_if::cfg_if! {
         use std::{collections::HashMap, sync::Arc};
         use ethrex_core::types::code_hash;
 
+        pub fn get_state_transitions_levm(
+            initial_state: &EvmState,
+            block_hash: H256,
+            execution_report: &TransactionReport,
+        ) -> Vec<AccountUpdate> {
+            let current_db = match initial_state {
+                EvmState::Store(state) => state.database.store.clone(),
+                EvmState::Execution(_cache_db) => unreachable!("Execution state should not be passed here"),
+            };
+            let mut account_updates: Vec<AccountUpdate> = vec![];
+            for (new_state_account_address, new_state_account) in &execution_report.new_state {
+                let initial_account_state = current_db
+                    .get_account_info_by_hash(block_hash, *new_state_account_address)
+                    .expect("Error getting account info by address")
+                    .unwrap_or_default();
+                let mut updates = 0;
+                if initial_account_state.balance != new_state_account.info.balance {
+                    updates += 1;
+                }
+                if initial_account_state.nonce != new_state_account.info.nonce {
+                    updates += 1;
+                }
+                let code = if new_state_account.info.bytecode.is_empty() {
+                    // The new state account has no code
+                    None
+                } else {
+                    // Get the code hash of the new state account bytecode
+                    let potential_new_bytecode_hash = code_hash(&new_state_account.info.bytecode);
+                    // Look into the current database to see if the bytecode hash is already present
+                    let current_bytecode = current_db
+                        .get_account_code(potential_new_bytecode_hash)
+                        .expect("Error getting account code by hash");
+                    let code = new_state_account.info.bytecode.clone();
+                    // The code is present in the current database
+                    if let Some(current_bytecode) = current_bytecode {
+                        if current_bytecode != code {
+                            // The code has changed
+                            Some(code)
+                        } else {
+                            // The code has not changed
+                            None
+                        }
+                    } else {
+                        // The new state account code is not present in the current
+                        // database, then it must be new
+                        Some(code)
+                    }
+                };
+                if code.is_some() {
+                    updates += 1;
+                }
+                let mut added_storage = HashMap::new();
+                for (key, value) in &new_state_account.storage {
+                    added_storage.insert(*key, value.current_value);
+                    updates += 1;
+                }
+                if updates == 0 {
+                    continue;
+                }
+
+                let account_update = AccountUpdate {
+                    address: *new_state_account_address,
+                    removed: false,
+                    info: Some(AccountInfo {
+                        code_hash: code_hash(&new_state_account.info.bytecode),
+                        balance: new_state_account.info.balance,
+                        nonce: new_state_account.info.nonce,
+                    }),
+                    code,
+                    added_storage,
+                };
+
+                account_updates.push(account_update);
+            }
+            account_updates
+        }
+
         /// Executes all transactions in a block and returns their receipts.
         pub fn execute_block(
             block: &Block,
@@ -111,47 +190,75 @@ cfg_if::cfg_if! {
                 block_hash: block.header.parent_hash,
             });
 
-            let mut account_updates: Vec<AccountUpdate> = vec![];
+            // initial_state: &EvmState, -> state
+            // block_hash: H256, -> block.header.parent_hash
+            // execution_report: &TransactionReport, ->
 
+            // let account_updates = get_state_transitions(&initial_state, block_hash, execution_report);
+
+            // let mut account_updates: Vec<AccountUpdate> = vec![];
+
+            //TODO: Make this work properly for multiple transactions, we used to contemplate that we had only 1 transaction, now it has changed i guess.
+            // I'm actually not very sure about what to do here
+            let mut account_updates = vec![];
             for transaction in block.body.transactions.iter() {
-                let result = execute_tx_levm(transaction, block_header, store_wrapper.clone()).unwrap();
-                cumulative_gas_used += result.gas_used;
+                let report = execute_tx_levm(transaction, block_header, store_wrapper.clone()).unwrap();
+
                 let receipt = Receipt::new(
                     transaction.tx_type(),
-                    matches!(result.result, TxResult::Success),
+                    matches!(report.result.clone(), TxResult::Success),
                     cumulative_gas_used,
-                    result.logs,
+                    report.logs.clone(),
                 );
+                cumulative_gas_used += report.gas_used;
+
                 receipts.push(receipt);
 
-                for (address, account) in result.new_state {
-                    let mut added_storage = HashMap::new();
-
-                    for (key, value) in account.storage {
-                        added_storage.insert(key, value.current_value);
-                    }
-
-                    let code = if account.info.bytecode.is_empty() {
-                        None
-                    } else {
-                        Some(account.info.bytecode.clone())
-                    };
-
-                    let account_update = AccountUpdate {
-                        address,
-                        removed: false,
-                        info: Some(AccountInfo {
-                            code_hash: code_hash(&account.info.bytecode),
-                            balance: account.info.balance,
-                            nonce: account.info.nonce,
-                        }),
-                        code,
-                        added_storage,
-                    };
-
-                    account_updates.push(account_update);
+                let updates = get_state_transitions_levm(state, block.header.parent_hash, &report);
+                for update in updates {
+                    account_updates.push(update);
                 }
             }
+
+            // for transaction in block.body.transactions.iter() {
+            //     let result = execute_tx_levm(transaction, block_header, store_wrapper.clone()).unwrap();
+            //     cumulative_gas_used += result.gas_used;
+            //     let receipt = Receipt::new(
+            //         transaction.tx_type(),
+            //         matches!(result.result, TxResult::Success),
+            //         cumulative_gas_used,
+            //         result.logs,
+            //     );
+            //     receipts.push(receipt);
+
+            //     for (address, account) in result.new_state {
+            //         let mut added_storage = HashMap::new();
+
+            //         for (key, value) in account.storage {
+            //             added_storage.insert(key, value.current_value);
+            //         }
+
+            //         let code = if account.info.bytecode.is_empty() {
+            //             None
+            //         } else {
+            //             Some(account.info.bytecode.clone())
+            //         };
+
+            //         let account_update = AccountUpdate {
+            //             address,
+            //             removed: false,
+            //             info: Some(AccountInfo {
+            //                 code_hash: code_hash(&account.info.bytecode),
+            //                 balance: account.info.balance,
+            //                 nonce: account.info.nonce,
+            //             }),
+            //             code,
+            //             added_storage,
+            //         };
+
+            //         account_updates.push(account_update);
+            //     }
+            // }
 
             if let Some(withdrawals) = &block.body.withdrawals {
                 process_withdrawals(state, withdrawals)?;

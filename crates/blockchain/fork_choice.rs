@@ -65,7 +65,6 @@ pub fn apply_fork_choice(
 
     total_difficulty_check(&head_hash, &head, store)?;
 
-    // TODO(#791): should we panic here? We should never not have a latest block number.
     let Some(latest) = store.get_latest_block_number()? else {
         return Err(StoreError::Custom("Latest block number not found".to_string()).into());
     };
@@ -117,8 +116,6 @@ pub fn apply_fork_choice(
     }
 
     // Finished all validations.
-
-    // Make all ancestors to head canonical.
     for (number, hash) in new_canonical_blocks {
         store.set_canonical_block(number, hash)?;
     }

@@ -28,6 +28,7 @@ use ethrex_vm::{evm_state, execute_block, spec_id, EvmState, SpecId};
 /// Performs pre and post execution validation, and updates the database with the post state.
 #[cfg(not(feature = "levm"))]
 pub fn add_block(block: &Block, storage: &Store) -> Result<(), ChainError> {
+    println!("This is REVM add_block");
     use ethrex_vm::get_state_transitions;
 
     let block_hash = block.header.compute_block_hash();
@@ -75,6 +76,7 @@ pub fn add_block(block: &Block, storage: &Store) -> Result<(), ChainError> {
 /// Performs pre and post execution validation, and updates the database with the post state.
 #[cfg(feature = "levm")]
 pub fn add_block(block: &Block, storage: &Store) -> Result<(), ChainError> {
+    println!("This is LEVM add_block");
     let block_hash = block.header.compute_block_hash();
 
     // Validate if it can be the new head and find the parent
@@ -91,7 +93,7 @@ pub fn add_block(block: &Block, storage: &Store) -> Result<(), ChainError> {
     let (receipts, account_updates) = execute_block(block, &mut state)?;
 
     // Note: these is commented because it is still being used in development.
-    // dbg!(&account_updates);
+    dbg!(&account_updates);
 
     validate_gas_used(&receipts, &block.header)?;
 
@@ -104,9 +106,11 @@ pub fn add_block(block: &Block, storage: &Store) -> Result<(), ChainError> {
 
     // Check state root matches the one in block header after execution
     validate_state_root(&block.header, new_state_root)?;
+    println!("Congrats! New state root is equal to the expected state root.");
 
     // Check receipts root matches the one in block header after execution
     validate_receipts_root(&block.header, &receipts)?;
+    println!("Congrats! New receipts root is equal to the expected receipts root.");
 
     store_block(storage, block.clone())?;
     store_receipts(storage, receipts, block_hash)?;
@@ -231,8 +235,8 @@ pub fn validate_gas_used(
 ) -> Result<(), ChainError> {
     if let Some(last) = receipts.last() {
         // Note: This is commented because it is still being used in development.
-        // dbg!(last.cumulative_gas_used);
-        // dbg!(block_header.gas_used);
+        dbg!(last.cumulative_gas_used);
+        dbg!(block_header.gas_used);
         if last.cumulative_gas_used != block_header.gas_used {
             return Err(ChainError::InvalidBlock(InvalidBlockError::GasUsedMismatch));
         }
