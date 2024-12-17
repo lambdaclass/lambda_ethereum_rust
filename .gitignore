@@ -38,7 +38,7 @@ jwt.hex
 
 # Used by the make test target
 /tmp
-
+./idea
 tests_v3.0.0.tar.gz
 
 .env
