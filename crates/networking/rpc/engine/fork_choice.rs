@@ -204,28 +204,8 @@ fn handle_forkchoice(
     }
 }
 
-fn validate_v3(
-    attributes: &PayloadAttributesV3,
-    head_block: BlockHeader,
-    context: &RpcApiContext,
-) -> Result<(), RpcErr> {
-    let chain_config = context.storage.get_chain_config()?;
-    if attributes.parent_beacon_block_root.is_none() {
-        return Err(RpcErr::InvalidPayloadAttributes(
-            "Null Parent Beacon Root".to_string(),
-        ));
-    }
-    if !chain_config.is_cancun_activated(attributes.timestamp) {
-        return Err(RpcErr::UnsuportedFork(
-            "forkChoiceV3 used to build pre-Cancun payload".to_string(),
-        ));
-    }
-    if attributes.timestamp <= head_block.timestamp {
-        return Err(RpcErr::InvalidPayloadAttributes(
-            "invalid timestamp".to_string(),
-        ));
-    }
-    Ok(())
+fn validate_v1(attributes: &PayloadAttributesV3, head_block: BlockHeader) -> Result<(), RpcErr> {
+    validate_timestamp(attributes, head_block)
 }
 
 fn validate_v2(
@@ -249,15 +229,32 @@ fn validate_v2(
             "forkChoiceV2 used to build Cancun payload".to_string(),
         ));
     }
-    if attributes.timestamp <= head_block.timestamp {
-        return Err(RpcErr::InvalidPayloadAttributes(
-            "invalid timestamp".to_string(),
-        ));
-    }
-    Ok(())
+    validate_timestamp(attributes, head_block)
 }
 
-fn validate_v1(attributes: &PayloadAttributesV3, head_block: BlockHeader) -> Result<(), RpcErr> {
+fn validate_v3(
+    attributes: &PayloadAttributesV3,
+    head_block: BlockHeader,
+    context: &RpcApiContext,
+) -> Result<(), RpcErr> {
+    let chain_config = context.storage.get_chain_config()?;
+    if attributes.parent_beacon_block_root.is_none() {
+        return Err(RpcErr::InvalidPayloadAttributes(
+            "Null Parent Beacon Root".to_string(),
+        ));
+    }
+    if !chain_config.is_cancun_activated(attributes.timestamp) {
+        return Err(RpcErr::UnsuportedFork(
+            "forkChoiceV3 used to build pre-Cancun payload".to_string(),
+        ));
+    }
+    validate_timestamp(attributes, head_block)
+}
+
+fn validate_timestamp(
+    attributes: &PayloadAttributesV3,
+    head_block: BlockHeader,
+) -> Result<(), RpcErr> {
     if attributes.timestamp <= head_block.timestamp {
         return Err(RpcErr::InvalidPayloadAttributes(
             "invalid timestamp".to_string(),
