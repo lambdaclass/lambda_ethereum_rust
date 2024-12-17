@@ -567,14 +567,6 @@ impl VM {
     /// - It calculates and adds intrinsic gas to the 'gas used' of callframe and environment.
     ///   See 'docs' for more information about validations.
     fn prepare_execution(&mut self, initial_call_frame: &mut CallFrame) -> Result<(), VMError> {
-        //TODO: This should revert the transaction, not throw an error. And I don't know if it should be done here...
-        // if self.is_create() {
-        //     // If address is already in db, there's an error
-        //     let new_address_acc = self.db.get_account_info(call_frame.to);
-        //     if !new_address_acc.is_empty() {
-        //         return Err(VMError::AddressAlreadyOccupied);
-        //     }
-        // }
         let sender_address = self.env.origin;
         let sender_account = self.get_account(sender_address);
 
