@@ -6,6 +6,35 @@ use super::{
 use bytes::BufMut;
 use bytes::Bytes;
 
+#[derive(Debug, Clone, PartialEq)]
+pub enum Capability {
+    P2p,
+    Eth,
+    Snap,
+}
+
+impl RLPEncode for Capability {
+    fn encode(&self, buf: &mut dyn BufMut) {
+        match self {
+            Self::P2p => "p2p".encode(buf),
+            Self::Eth => "eth".encode(buf),
+            Self::Snap => "snap".encode(buf),
+        }
+    }
+}
+
+impl RLPDecode for Capability {
+    fn decode_unfinished(rlp: &[u8]) -> Result<(Self, &[u8]), RLPDecodeError> {
+        let (cap_string, rest) = String::decode_unfinished(rlp)?;
+        match cap_string.as_str() {
+            "p2p" => Ok((Capability::P2p, rest)),
+            "eth" => Ok((Capability::Eth, rest)),
+            "snap" => Ok((Capability::Snap, rest)),
+            _ => Err(RLPDecodeError::UnexpectedString),
+        }
+    }
+}
+
 /// # Struct decoding helper
 ///
 /// Used to decode a struct from RLP format.

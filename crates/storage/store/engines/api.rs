@@ -1,11 +1,11 @@
 use bytes::Bytes;
-use ethereum_types::{H256, U256};
+use ethereum_types::{H256, U256, H512};
 use ethrex_core::types::{
     BlobsBundle, Block, BlockBody, BlockHash, BlockHeader, BlockNumber, ChainConfig, Index,
     Receipt, Transaction,
 };
 use std::{fmt::Debug, panic::RefUnwindSafe};
-
+use ethrex_rlp::structs::Capability;
 use crate::error::StoreError;
 use ethrex_trie::Trie;
 
@@ -240,4 +240,15 @@ pub trait StoreEngine: Debug + Send + Sync + RefUnwindSafe {
         blobs_bundle: BlobsBundle,
         completed: bool,
     ) -> Result<(), StoreError>;
+
+    // store target node capabilities
+    fn store_node_capabilities(
+        &self,
+        target_id: H512,
+        capabilities: Vec<(Capability, u8)>,
+    ) -> Result<(), StoreError>;
+    fn get_node_capabilities(
+        &self,
+        target_id: H512,
+    ) -> Result<Option<Vec<(Capability, u8)>>, StoreError>;
 }

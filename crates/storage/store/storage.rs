@@ -6,12 +6,13 @@ use bytes::Bytes;
 use engines::api::StoreEngine;
 #[cfg(feature = "redb")]
 use engines::redb::RedBStore;
-use ethereum_types::{Address, H256, U256};
+use ethereum_types::{Address, H256, U256, H512};
 use ethrex_core::types::{
     code_hash, AccountInfo, AccountState, BlobsBundle, Block, BlockBody, BlockHash, BlockHeader,
     BlockNumber, ChainConfig, Genesis, GenesisAccount, Index, MempoolTransaction, Receipt,
     Transaction, TxType, EMPTY_TRIE_HASH,
 };
+use ethrex_rlp::structs::Capability;
 use ethrex_rlp::decode::RLPDecode;
 use ethrex_rlp::encode::RLPEncode;
 use ethrex_trie::Trie;
@@ -955,6 +956,21 @@ impl Store {
     // Doesn't check if the account is stored
     pub fn open_storage_trie(&self, account_hash: H256, storage_root: H256) -> Trie {
         self.engine.open_storage_trie(account_hash, storage_root)
+    }
+
+    pub fn store_node_capabilities(
+        &self,
+        target_id: H512,
+        capabilities: Vec<(Capability, u8)>,
+    ) -> Result<(), StoreError> {
+        self.engine.store_node_capabilities(target_id, capabilities)
+    }
+
+    pub fn get_node_capabilities(
+        &self,
+        target_id: H512,
+    ) -> Result<Option<Vec<(Capability, u8)>>, StoreError> {
+        self.engine.get_node_capabilities(target_id)
     }
 }
 

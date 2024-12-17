@@ -26,13 +26,12 @@ use super::{
     frame,
     handshake::{decode_ack_message, decode_auth_message, encode_auth_message},
     message::{self as rlpx},
-    p2p::Capability,
     utils::{ecdh_xchng, pubkey2id},
 };
 use aes::cipher::KeyIvInit;
 use ethrex_blockchain::mempool::{self};
 use ethrex_core::{H256, H512};
-use ethrex_rlp::decode::RLPDecode;
+use ethrex_rlp::{decode::RLPDecode,structs::Capability};
 use ethrex_storage::Store;
 use k256::{
     ecdsa::{RecoveryId, Signature, SigningKey, VerifyingKey},
@@ -233,11 +232,17 @@ impl<S: AsyncWrite + AsyncRead + std::marker::Unpin> RLPxConnection<S> {
 
         // Receive Hello message
         if let Message::Hello(hello_message) = self.receive().await? {
-            self.capabilities = hello_message.capabilities;
+            self.capabilities = hello_message.capabilities.clone();
 
             // Check if we have any capability in common
             for cap in self.capabilities.clone() {
                 if SUPPORTED_CAPABILITIES.contains(&cap) {
+                    // store target node's capabilities in local storage
+                    self.storage.store_node_capabilities(
+                        pubkey2id(&hello_message.node_id),
+                        hello_message.capabilities,
+                    )?;
+
                     return Ok(());
                 }
             }

@@ -5,9 +5,10 @@ use crate::rlp::{
     AccountCodeHashRLP, AccountCodeRLP, BlockBodyRLP, BlockHashRLP, BlockHeaderRLP, BlockRLP,
     BlockTotalDifficultyRLP, ReceiptRLP, Rlp, TransactionHashRLP, TupleRLP,
 };
+use ethrex_rlp::structs::Capability;
 use anyhow::Result;
 use bytes::Bytes;
-use ethereum_types::{H256, U256};
+use ethereum_types::{H256, U256, H512};
 use ethrex_core::types::{
     BlobsBundle, Block, BlockBody, BlockHash, BlockHeader, BlockNumber, ChainConfig, Index,
     Receipt, Transaction,
@@ -493,6 +494,21 @@ impl StoreEngine for Store {
             .collect();
 
         self.write_batch::<Receipts>(key_values)
+    }
+
+    fn store_node_capabilities(
+        &self,
+        _target_id: H512,
+        _capabilities: Vec<(Capability, u8)>,
+    ) -> std::result::Result<(), StoreError> {
+        todo!()
+    }
+
+    fn get_node_capabilities(
+        &self,
+        _target_id: H512,
+    ) -> std::result::Result<Option<Vec<(Capability, u8)>>, StoreError> {
+        todo!()
     }
 }
 

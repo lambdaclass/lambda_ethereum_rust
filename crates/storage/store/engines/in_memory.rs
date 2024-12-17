@@ -1,6 +1,6 @@
 use crate::error::StoreError;
 use bytes::Bytes;
-use ethereum_types::{H256, U256};
+use ethereum_types::{H256, U256,H512};
 use ethrex_core::types::{
     BlobsBundle, Block, BlockBody, BlockHash, BlockHeader, BlockNumber, ChainConfig, Index, Receipt,
 };
@@ -10,7 +10,7 @@ use std::{
     fmt::Debug,
     sync::{Arc, Mutex, MutexGuard},
 };
-
+use ethrex_rlp::structs::Capability;
 use super::api::StoreEngine;
 
 pub type NodeMap = Arc<Mutex<HashMap<Vec<u8>, Vec<u8>>>>;
@@ -38,6 +38,8 @@ struct StoreInner {
     // Stores local blocks by payload id
     payloads: HashMap<u64, (Block, U256, BlobsBundle, bool)>,
     pending_blocks: HashMap<BlockHash, Block>,
+    // stores visited node's capabilities for checkup
+    target_nodes_capabilities: HashMap<H512, Vec<(Capability, u8)>>,
 }
 
 #[derive(Default, Debug)]
@@ -395,6 +397,26 @@ impl StoreEngine for Store {
             .insert(payload_id, (block, block_value, blobs_bundle, completed));
         Ok(())
     }
+
+    fn store_node_capabilities(
+        &self,
+        target_id: H512,
+        capabilities: Vec<(Capability, u8)>,
+    ) -> Result<(), StoreError> {
+        self.inner()
+            .target_nodes_capabilities
+            .insert(target_id, capabilities);
+        Ok(())
+    }
+
+    fn get_node_capabilities(
+        &self,
+        target_id: H512,
+    ) -> Result<Option<Vec<(Capability, u8)>>, StoreError> {
+        let store = self.inner();
+        Ok(store.target_nodes_capabilities.get(&target_id).cloned())
+    }
+
 }
 
 impl Debug for Store {

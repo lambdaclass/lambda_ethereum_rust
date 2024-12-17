@@ -1,13 +1,12 @@
 use bytes::BufMut;
 use ethrex_core::H512;
 use ethrex_rlp::{
-    decode::RLPDecode,
     encode::RLPEncode,
     error::{RLPDecodeError, RLPEncodeError},
     structs::{Decoder, Encoder},
 };
 use k256::PublicKey;
-
+use ethrex_rlp::structs::Capability;
 use crate::rlpx::utils::{id2pubkey, snappy_decompress};
 
 use super::{
@@ -15,34 +14,6 @@ use super::{
     utils::{pubkey2id, snappy_compress},
 };
 
-#[derive(Debug, Clone, PartialEq)]
-pub(crate) enum Capability {
-    P2p,
-    Eth,
-    Snap,
-}
-
-impl RLPEncode for Capability {
-    fn encode(&self, buf: &mut dyn BufMut) {
-        match self {
-            Self::P2p => "p2p".encode(buf),
-            Self::Eth => "eth".encode(buf),
-            Self::Snap => "snap".encode(buf),
-        }
-    }
-}
-
-impl RLPDecode for Capability {
-    fn decode_unfinished(rlp: &[u8]) -> Result<(Self, &[u8]), RLPDecodeError> {
-        let (cap_string, rest) = String::decode_unfinished(rlp)?;
-        match cap_string.as_str() {
-            "p2p" => Ok((Capability::P2p, rest)),
-            "eth" => Ok((Capability::Eth, rest)),
-            "snap" => Ok((Capability::Snap, rest)),
-            _ => Err(RLPDecodeError::UnexpectedString),
-        }
-    }
-}
 
 #[derive(Debug)]
 pub(crate) struct HelloMessage {
