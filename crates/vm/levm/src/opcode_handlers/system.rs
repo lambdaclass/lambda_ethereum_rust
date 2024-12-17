@@ -539,7 +539,7 @@ impl VM {
 
         // 3. Account has nonce or code.
         if self.get_account(new_address).has_code_or_nonce() {
-            // self.increment_account_nonce(deployer_address)?;
+            self.increment_account_nonce(deployer_address)?;
             current_call_frame.stack.push(CREATE_DEPLOYMENT_FAIL)?;
             return Ok(OpcodeSuccess::Continue);
         }
