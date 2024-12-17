@@ -7,7 +7,10 @@ use sha3::Digest;
 use crate::{
     call_frame::CallFrame,
     errors::{InternalError, PrecompileError, VMError},
-    gas_cost::{identity as identity_cost, ripemd_160 as ripemd_160_cost, sha2_256 as sha2_256_cost, ECRECOVER_COST},
+    gas_cost::{
+        identity as identity_cost, ripemd_160 as ripemd_160_cost, sha2_256 as sha2_256_cost,
+        ECRECOVER_COST,
+    },
 };
 
 pub const ECRECOVER_ADDRESS: H160 = H160([
