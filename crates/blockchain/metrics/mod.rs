@@ -47,3 +47,9 @@ macro_rules! metrics {
         }
     };
 }
+
+#[derive(Debug, thiserror::Error)]
+pub enum MetricsApiError {
+    #[error("{0}")]
+    TcpError(#[from] std::io::Error),
+}
