@@ -99,6 +99,22 @@ pub fn execute_precompile(current_call_frame: &mut CallFrame) -> Result<Bytes, V
     Ok(result)
 }
 
+fn increase_precompile_consumed_gas(
+    gas_for_call: U256,
+    gas_cost: U256,
+    consumed_gas: &mut U256,
+) -> Result<(), VMError> {
+    if gas_for_call < gas_cost {
+        return Err(VMError::PrecompileError(PrecompileError::NotEnoughGas));
+    }
+
+    *consumed_gas = consumed_gas
+        .checked_add(gas_cost)
+        .ok_or(PrecompileError::GasConsumedOverflow)?;
+
+    Ok(())
+}
+
 fn fill_with_zeros(slice: &[u8]) -> [u8; 128] {
     let mut result = [0; 128];
 
@@ -118,14 +134,9 @@ pub fn ecrecover(
     gas_for_call: U256,
     consumed_gas: &mut U256,
 ) -> Result<Bytes, VMError> {
-    // Consume gas
-    *consumed_gas = consumed_gas
-        .checked_add(ECRECOVER_COST.into())
-        .ok_or(PrecompileError::GasConsumedOverflow)?;
+    let gas_cost = ECRECOVER_COST.into();
 
-    if gas_for_call < *consumed_gas {
-        return Err(VMError::PrecompileError(PrecompileError::NotEnoughGas));
-    }
+    increase_precompile_consumed_gas(gas_for_call, gas_cost, consumed_gas)?;
 
     // If calldata does not reach the required length, we should fill the rest with zeros
     let calldata = fill_with_zeros(calldata);
@@ -178,16 +189,9 @@ fn sha2_256(
     gas_for_call: U256,
     consumed_gas: &mut U256,
 ) -> Result<Bytes, VMError> {
-    let data_size = calldata.len();
+    let gas_cost = sha2_256_cost(calldata.len())?;
 
-    let cost = sha2_256_cost(data_size)?;
-    if gas_for_call < cost {
-        return Err(VMError::PrecompileError(PrecompileError::NotEnoughGas));
-    }
-
-    *consumed_gas = consumed_gas
-        .checked_add(cost)
-        .ok_or(PrecompileError::GasConsumedOverflow)?;
+    increase_precompile_consumed_gas(gas_for_call, gas_cost, consumed_gas)?;
 
     let result = sha2::Sha256::digest(calldata).to_vec();
 
