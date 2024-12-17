@@ -188,7 +188,7 @@ pub enum PrecompileError {
     KeyRecoverError,
     #[error("There is not enough gas to execute precompiled contract")]
     NotEnoughGas,
-    #[error("This es a default error")]
+    #[error("This is a default error")]
     DefaultError,
 }
 
