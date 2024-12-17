@@ -209,19 +209,9 @@ fn ripemd_160(
     gas_for_call: U256,
     consumed_gas: &mut U256,
 ) -> Result<Bytes, VMError> {
-    let data_size: u64 = calldata
-        .len()
-        .try_into()
-        .map_err(|_| PrecompileError::ParsingInputError)?;
+    let gas_cost = ripemd_160_cost(calldata.len())?;
 
-    let cost = ripemd_160_cost(data_size)?;
-    if gas_for_call < cost {
-        return Err(VMError::PrecompileError(PrecompileError::NotEnoughGas));
-    }
-
-    *consumed_gas = consumed_gas
-        .checked_add(cost)
-        .ok_or(PrecompileError::GasConsumedOverflow)?;
+    increase_precompile_consumed_gas(gas_for_call, gas_cost, consumed_gas)?;
 
     let mut hasher = ripemd::Ripemd160::new();
     hasher.update(calldata);
