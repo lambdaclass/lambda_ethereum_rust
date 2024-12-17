@@ -102,18 +102,35 @@ pub fn execute_precompile(current_call_frame: &mut CallFrame) -> Result<Bytes, V
     Ok(result)
 }
 
-fn fill_with_zeros(slice: &[u8]) -> [u8; 128] {
+fn increase_precompile_consumed_gas(
+    gas_for_call: U256,
+    gas_cost: U256,
+    consumed_gas: &mut U256,
+) -> Result<(), VMError> {
+    if gas_for_call < gas_cost {
+        return Err(VMError::PrecompileError(PrecompileError::NotEnoughGas));
+    }
+
+    *consumed_gas = consumed_gas
+        .checked_add(gas_cost)
+        .ok_or(PrecompileError::GasConsumedOverflow)?;
+
+    Ok(())
+}
+
+fn fill_with_zeros(slice: &[u8]) -> Result<[u8; 128], VMError> {
     let mut result = [0; 128];
 
     let n = slice.len().min(128);
 
-    let trimmed_slice = slice.get(..n).unwrap_or_default();
-    result
-        .get_mut(..n)
-        .unwrap_or_default()
-        .copy_from_slice(trimmed_slice);
+    let trimmed_slice: &[u8] = slice.get(..n).unwrap_or_default();
 
-    result
+    for i in 0..n {
+        let byte: &mut u8 = result.get_mut(i).ok_or(InternalError::SlicingError)?;
+        *byte = *trimmed_slice.get(i).ok_or(InternalError::SlicingError)?;
+    }
+
+    Ok(result)
 }
 
 pub fn ecrecover(
@@ -121,34 +138,34 @@ pub fn ecrecover(
     gas_for_call: U256,
     consumed_gas: &mut U256,
 ) -> Result<Bytes, VMError> {
-    // Consume gas
-    *consumed_gas = consumed_gas
-        .checked_add(ECRECOVER_COST.into())
-        .ok_or(PrecompileError::GasConsumedOverflow)?;
+    let gas_cost = ECRECOVER_COST.into();
 
-    if gas_for_call < *consumed_gas {
-        return Err(VMError::PrecompileError(PrecompileError::NotEnoughGas));
-    }
+    increase_precompile_consumed_gas(gas_for_call, gas_cost, consumed_gas)?;
 
     // If calldata does not reach the required length, we should fill the rest with zeros
-    let calldata = fill_with_zeros(calldata);
+    let calldata = fill_with_zeros(calldata)?;
 
-    let hash = calldata
-        .get(0..32)
-        .ok_or(PrecompileError::ParsingInputError)?;
+    let hash = calldata.get(0..32).ok_or(InternalError::SlicingError)?;
     let message = Message::parse_slice(hash).map_err(|_| PrecompileError::ParsingInputError)?;
 
-    let r = calldata.get(63).ok_or(PrecompileError::ParsingInputError)?;
-    let recovery_id = match RecoveryId::parse_rpc(*r) {
+    let v: U256 = calldata
+        .get(32..64)
+        .ok_or(InternalError::SlicingError)?
+        .into();
+
+    if !(v == U256::from(27) || v == U256::from(28)) {
+        return Ok(Bytes::new());
+    }
+
+    let v = u8::try_from(v).map_err(|_| PrecompileError::ParsingInputError)?;
+    let recovery_id = match RecoveryId::parse_rpc(v) {
         Ok(id) => id,
         Err(_) => {
             return Ok(Bytes::new());
         }
     };
 
-    let sig = calldata
-        .get(64..128)
-        .ok_or(PrecompileError::ParsingInputError)?;
+    let sig = calldata.get(64..128).ok_or(InternalError::SlicingError)?;
     let signature =
         Signature::parse_standard_slice(sig).map_err(|_| PrecompileError::ParsingInputError)?;
 
@@ -195,19 +212,9 @@ fn sha2_256(
     gas_for_call: U256,
     consumed_gas: &mut U256,
 ) -> Result<Bytes, VMError> {
-    let data_size: u64 = calldata
-        .len()
-        .try_into()
-        .map_err(|_| PrecompileError::ParsingInputError)?;
+    let gas_cost = sha2_256_cost(calldata.len())?;
 
-    let cost = sha2_256_cost(data_size)?;
-    if gas_for_call < cost {
-        return Err(VMError::PrecompileError(PrecompileError::NotEnoughGas));
-    }
-
-    *consumed_gas = consumed_gas
-        .checked_add(cost)
-        .ok_or(PrecompileError::GasConsumedOverflow)?;
+    increase_precompile_consumed_gas(gas_for_call, gas_cost, consumed_gas)?;
 
     let result = sha2::Sha256::digest(calldata).to_vec();
 
@@ -219,19 +226,9 @@ fn ripemd_160(
     gas_for_call: U256,
     consumed_gas: &mut U256,
 ) -> Result<Bytes, VMError> {
-    let data_size: u64 = calldata
-        .len()
-        .try_into()
-        .map_err(|_| PrecompileError::ParsingInputError)?;
+    let gas_cost = ripemd_160_cost(calldata.len())?;
 
-    let cost = ripemd_160_cost(data_size)?;
-    if gas_for_call < cost {
-        return Err(VMError::PrecompileError(PrecompileError::NotEnoughGas));
-    }
-
-    *consumed_gas = consumed_gas
-        .checked_add(cost)
-        .ok_or(PrecompileError::GasConsumedOverflow)?;
+    increase_precompile_consumed_gas(gas_for_call, gas_cost, consumed_gas)?;
 
     let mut hasher = ripemd::Ripemd160::new();
     hasher.update(calldata);
@@ -240,7 +237,7 @@ fn ripemd_160(
     let mut output = vec![0; 12];
     output.extend_from_slice(&result);
 
-    Ok(Bytes::from(output.to_vec()))
+    Ok(Bytes::from(output))
 }
 
 pub fn modexp(
