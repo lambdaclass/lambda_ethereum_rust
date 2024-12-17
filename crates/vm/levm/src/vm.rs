@@ -833,20 +833,7 @@ impl VM {
         if self.is_create() {
             let new_address_acc = self.db.get_account_info(initial_call_frame.to);
             if !new_address_acc.is_empty() {
-                let mut report = TransactionReport {
-                    result: TxResult::Revert(VMError::AddressAlreadyOccupied),
-                    gas_used: self.env.gas_limit.low_u64(),
-                    gas_refunded: 0,
-                    logs: vec![],
-                    new_state: self.cache.clone(),
-                    output: Bytes::new(),
-                    created_address: None,
-                };
-
-                self.post_execution_changes(&initial_call_frame, &mut report)?;
-                report.new_state.clone_from(&self.cache);
-
-                return Ok(report);
+                self.handle_create_non_empty_account(&initial_call_frame)?;
             }
         }
 
@@ -1167,6 +1154,25 @@ impl VM {
                 account
             }
         }
+    }
+
+    fn handle_create_non_empty_account(
+        &mut self,
+        initial_call_frame: &CallFrame,
+    ) -> Result<TransactionReport, VMError> {
+        let mut report = TransactionReport {
+            result: TxResult::Revert(VMError::AddressAlreadyOccupied),
+            gas_used: self.env.gas_limit.low_u64(),
+            gas_refunded: 0,
+            logs: vec![],
+            new_state: self.cache.clone(),
+            output: Bytes::new(),
+            created_address: None,
+        };
+
+        self.post_execution_changes(initial_call_frame, &mut report)?;
+        report.new_state.clone_from(&self.cache);
+        Ok(report)
     }
 }
 
