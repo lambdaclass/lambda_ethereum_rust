@@ -7,7 +7,7 @@ use sha3::Digest;
 use crate::{
     call_frame::CallFrame,
     errors::{InternalError, PrecompileError, VMError},
-    gas_cost::{ripemd_160 as ripemd_160_cost, sha2_256 as sha2_256_cost, ECRECOVER_COST},
+    gas_cost::{identity as identity_cost, ripemd_160 as ripemd_160_cost, sha2_256 as sha2_256_cost, ECRECOVER_COST},
 };
 
 pub const ECRECOVER_ADDRESS: H160 = H160([
@@ -166,11 +166,25 @@ pub fn ecrecover(
 }
 
 fn identity(
-    _calldata: &Bytes,
-    _gas_for_call: U256,
-    _consumed_gas: &mut U256,
+    calldata: &Bytes,
+    gas_for_call: U256,
+    consumed_gas: &mut U256,
 ) -> Result<Bytes, VMError> {
-    Ok(Bytes::new())
+    let data_size: u64 = calldata
+        .len()
+        .try_into()
+        .map_err(|_| PrecompileError::ParsingInputError)?;
+
+    let cost = identity_cost(data_size)?;
+    if gas_for_call < cost {
+        return Err(VMError::PrecompileError(PrecompileError::NotEnoughGas));
+    }
+
+    *consumed_gas = consumed_gas
+        .checked_add(cost)
+        .ok_or(PrecompileError::GasConsumedOverflow)?;
+
+    Ok(calldata.clone())
 }
 
 fn sha2_256(
