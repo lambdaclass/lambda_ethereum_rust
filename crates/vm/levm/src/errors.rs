@@ -20,6 +20,8 @@ pub enum VMError {
     OpcodeNotFound,
     #[error("Invalid Bytecode")]
     InvalidBytecode,
+    #[error("Invalid Contract Prefix")]
+    InvalidContractPrefix,
     #[error("Very Large Number")]
     VeryLargeNumber,
     #[error("Fatal Error")]
@@ -38,22 +40,12 @@ pub enum VMError {
     SenderAccountDoesNotExist,
     #[error("Address Does Not Match An Account")]
     AddressDoesNotMatchAnAccount,
-    #[error("Sender Account Should Not Have Bytecode")]
-    SenderAccountShouldNotHaveBytecode,
-    #[error("Sender Balance Should Contain Transfer Value")]
-    SenderBalanceShouldContainTransferValue,
-    #[error("Gas Price Is Lower Than Base Fee")]
+    #[error("Gas price is lower than base fee")]
     GasPriceIsLowerThanBaseFee,
     #[error("Address Already Occupied")]
     AddressAlreadyOccupied,
     #[error("Contract Output Too Big")]
     ContractOutputTooBig,
-    #[error("Invalid Initial Byte")]
-    InvalidInitialByte,
-    #[error("Memory Load Out Of Bounds")]
-    MemoryLoadOutOfBounds,
-    #[error("Memory Store Out Of Bounds")]
-    MemoryStoreOutOfBounds,
     #[error("Gas limit price product overflow")]
     GasLimitPriceProductOverflow,
     #[error("Balance Overflow")]
@@ -79,7 +71,9 @@ pub enum VMError {
     #[error("Transaction validation error: {0}")]
     TxValidation(#[from] TxValidationError),
     #[error("Offset out of bounds")]
-    OutOfOffset,
+    OutOfBounds,
+    #[error("Precompile execution error: {0}")]
+    PrecompileError(#[from] PrecompileError),
 }
 
 impl VMError {
@@ -176,8 +170,18 @@ pub enum InternalError {
     UtilsError,
     #[error("PC out of bounds")]
     PCOutOfBounds,
-    #[error("Undefined state")]
+    #[error("Unexpected overflow in gas operation")]
+    GasOverflow,
+    #[error("Undefined state: {0}")]
     UndefinedState(i32), // This error is temporarily for things that cause an undefined state.
+    #[error("Invalid precompile address. Tried to execute a precompile that does not exist.")]
+    InvalidPrecompileAddress,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, thiserror::Error, Serialize, Deserialize)]
+pub enum PrecompileError {
+    #[error("This is a default error")]
+    DefaultError,
 }
 
 #[derive(Debug, Clone)]
