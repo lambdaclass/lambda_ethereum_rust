@@ -1,7 +1,7 @@
 use crate::{
     call_frame::CallFrame,
     constants::{WORD_SIZE, WORD_SIZE_IN_BYTES_U64},
-    errors::{InternalError, OutOfGasError, VMError},
+    errors::{InternalError, OutOfGasError, PrecompileError, VMError},
     memory, StorageSlot,
 };
 use bytes::Bytes;
@@ -778,10 +778,20 @@ pub fn identity(data_size: u64) -> Result<U256, OutOfGasError> {
 
 pub fn modexp(
     exponent: U256,
-    base_size: u64,
-    exponent_size: u64,
-    modulus_size: u64,
-) -> Result<u64, VMError> {
+    base_size: usize,
+    exponent_size: usize,
+    modulus_size: usize,
+) -> Result<U256, VMError> {
+    let base_size: u64 = base_size
+        .try_into()
+        .map_err(|_| PrecompileError::ParsingInputError)?;
+    let exponent_size: u64 = exponent_size
+        .try_into()
+        .map_err(|_| PrecompileError::ParsingInputError)?;
+    let modulus_size: u64 = modulus_size
+        .try_into()
+        .map_err(|_| PrecompileError::ParsingInputError)?;
+
     let max_length = base_size.max(modulus_size);
     let words = (max_length
         .checked_add(7)
@@ -835,9 +845,11 @@ pub fn modexp(
             / MODEXP_DYNAMIC_QUOTIENT,
     );
 
-    Ok(static_gas
+    let cost = static_gas
         .checked_add(dynamic_gas)
-        .ok_or(OutOfGasError::GasCostOverflow)?)
+        .ok_or(OutOfGasError::GasCostOverflow)?;
+
+    Ok(U256::from(cost))
 }
 
 fn precompile(data_size: u64, static_cost: u64, dynamic_base: u64) -> Result<U256, OutOfGasError> {
