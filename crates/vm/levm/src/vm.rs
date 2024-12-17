@@ -208,7 +208,9 @@ impl VM {
 
                 default_touched_accounts.insert(new_contract_address);
 
-                if db.get_account_info(new_contract_address).is_empty() {
+                // Since we are in a CREATE transaction, we need to check if the address is already occupied.
+                // If it is, we should not continue with the transaction. We will handle the revert in the next step.
+                if !db.get_account_info(new_contract_address).is_empty() {
                     let created_contract = Account::new(value, calldata.clone(), 1, HashMap::new());
                     cache::insert_account(&mut cache, new_contract_address, created_contract);
                 }
