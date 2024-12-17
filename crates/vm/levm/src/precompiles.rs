@@ -220,7 +220,7 @@ fn ripemd_160(
     let mut output = vec![0; 12];
     output.extend_from_slice(&result);
 
-    Ok(Bytes::from(output.to_vec()))
+    Ok(Bytes::from(output))
 }
 
 fn modexp(
