@@ -131,11 +131,11 @@ pub fn ecrecover(
 
     let hash = calldata
         .get(0..32)
-        .ok_or(PrecompileError::ParsingInputError)?;
+        .ok_or(InternalError::SlicingError)?;
     let message = Message::parse_slice(hash).map_err(|_| PrecompileError::ParsingInputError)?;
 
     // Reading the least significant byte since it's the only that has information
-    let r = calldata.get(63).ok_or(PrecompileError::ParsingInputError)?;
+    let r = calldata.get(63).ok_or(InternalError::SlicingError)?;
     let recovery_id = match RecoveryId::parse_rpc(*r) {
         Ok(id) => id,
         Err(_) => {
@@ -145,7 +145,7 @@ pub fn ecrecover(
 
     let sig = calldata
         .get(64..128)
-        .ok_or(PrecompileError::ParsingInputError)?;
+        .ok_or(InternalError::SlicingError)?;
     let signature =
         Signature::parse_standard_slice(sig).map_err(|_| PrecompileError::ParsingInputError)?;
 
