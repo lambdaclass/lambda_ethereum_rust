@@ -2180,6 +2180,7 @@ name = "ethrex-metrics"
 version = "0.1.0"
 dependencies = [
  "axum",
+ "ethrex-core",
  "prometheus",
  "serde",
  "serde_json",

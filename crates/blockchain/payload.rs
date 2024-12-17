@@ -23,7 +23,7 @@ use sha3::{Digest, Keccak256};
 use ethrex_metrics::metrics;
 
 #[cfg(feature = "metrics")]
-use ethrex_metrics::metrics_api::TRANSACTION_COUNTER;
+use ethrex_metrics::metrics_api::{MetricsTxStatus, MetricsTxType, METRICS};
 
 use crate::{
     constants::{
@@ -324,11 +324,12 @@ pub fn fill_transactions(context: &mut PayloadBuildContext) -> Result<(), ChainE
             )?;
             continue;
         }
-        // Increment the transaction counter
-        // TODO: differentiate between total, failed and succedded
+
+        // Increment the total transaction counter
+        // CHECK: do we want it here to count every processed transaction
+        // or we want it before the return?
         metrics!(
-            let tx_counter = TRANSACTION_COUNTER.lock().unwrap();
-            tx_counter.inc();
+            METRICS.inc_tx();
         );
 
         // Execute tx
@@ -342,11 +343,24 @@ pub fn fill_transactions(context: &mut PayloadBuildContext) -> Result<(), ChainE
                         .store()
                         .ok_or(ChainError::StoreError(StoreError::MissingStore))?,
                 )?;
+
+                metrics!(
+                    METRICS.inc_tx_with_status_and_type(
+                        MetricsTxStatus::Succeeded,
+                        MetricsTxType(head_tx.tx_type())
+                    );
+                );
                 receipt
             }
             // Ignore following txs from sender
             Err(e) => {
                 debug!("Failed to execute transaction: {}, {e}", tx_hash);
+                metrics!(
+                    METRICS.inc_tx_with_status_and_type(
+                        MetricsTxStatus::Failed,
+                        MetricsTxType(head_tx.tx_type())
+                    );
+                );
                 txs.pop();
                 continue;
             }

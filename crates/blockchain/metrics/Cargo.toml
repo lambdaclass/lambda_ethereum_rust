@@ -12,6 +12,8 @@ thiserror.workspace = true
 serde_json.workspace = true
 serde.workspace = true
 
+ethrex-core = { path = "../../common", default-features = false }
+
 prometheus = "0.13.4"
 
 # TODO: remove?
