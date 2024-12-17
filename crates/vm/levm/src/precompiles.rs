@@ -98,18 +98,19 @@ pub fn execute_precompile(current_call_frame: &mut CallFrame) -> Result<Bytes, V
     Ok(result)
 }
 
-fn fill_with_zeros(slice: &[u8]) -> [u8; 128] {
+fn fill_with_zeros(slice: &[u8]) -> Result<[u8; 128], VMError> {
     let mut result = [0; 128];
 
     let n = slice.len().min(128);
 
-    let trimmed_slice = slice.get(..n).unwrap_or_default();
-    result
-        .get_mut(..n)
-        .unwrap_or_default()
-        .copy_from_slice(trimmed_slice);
+    let trimmed_slice: &[u8] = slice.get(..n).unwrap_or_default();
 
-    result
+    for i in 0..n {
+        let byte: &mut u8 = result.get_mut(i).ok_or(InternalError::SlicingError)?;
+        *byte = *trimmed_slice.get(i).ok_or(InternalError::SlicingError)?;
+    }
+
+    Ok(result)
 }
 
 pub fn ecrecover(
@@ -127,7 +128,7 @@ pub fn ecrecover(
     }
 
     // If calldata does not reach the required length, we should fill the rest with zeros
-    let calldata = fill_with_zeros(calldata);
+    let calldata = fill_with_zeros(calldata)?;
 
     let hash = calldata.get(0..32).ok_or(InternalError::SlicingError)?;
     let message = Message::parse_slice(hash).map_err(|_| PrecompileError::ParsingInputError)?;
