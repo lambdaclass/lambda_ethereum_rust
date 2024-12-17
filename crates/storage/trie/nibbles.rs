@@ -8,7 +8,7 @@ use ethrex_rlp::{
 };
 
 /// Struct representing a list of nibbles (half-bytes)
-#[derive(Debug, Clone, Default, PartialEq)]
+#[derive(Debug, Clone, Default, PartialEq, Eq, PartialOrd, Ord)]
 pub struct Nibbles {
     data: Vec<u8>,
 }
@@ -176,6 +176,18 @@ impl Nibbles {
                 _ => chunk[0] << 4 | chunk[1],
             })
             .collect::<Vec<_>>()
+    }
+
+    pub fn concat(&self, other: Nibbles) -> Nibbles {
+        Nibbles {
+            data: [self.data.clone(), other.data].concat(),
+        }
+    }
+
+    pub fn append_new(&self, nibble: u8) -> Nibbles {
+        Nibbles {
+            data: [self.data.clone(), vec![nibble]].concat(),
+        }
     }
 }
 
