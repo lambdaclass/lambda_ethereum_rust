@@ -285,13 +285,7 @@ pub fn modexp(
 
     let gas_cost = modexp_cost(exponent, b_size, e_size, m_size)?;
 
-    if gas_for_call < gas_cost {
-        return Err(VMError::PrecompileError(PrecompileError::NotEnoughGas));
-    }
-
-    *consumed_gas = consumed_gas
-        .checked_add(gas_cost)
-        .ok_or(PrecompileError::GasConsumedOverflow)?;
+    increase_precompile_consumed_gas(gas_for_call, gas_cost, consumed_gas)?;
 
     let result = mod_exp(base, exponent, modulus)?;
 
