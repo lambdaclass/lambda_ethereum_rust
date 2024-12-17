@@ -12,11 +12,11 @@ use crate::{
         TxValidationError, VMError,
     },
     gas_cost::{
-        self, fake_exponential, max_message_call_gas, ACCESS_LIST_ADDRESS_COST,
-        ACCESS_LIST_STORAGE_KEY_COST, BLOB_GAS_PER_BLOB, CREATE_BASE_COST,
+        self, fake_exponential, ACCESS_LIST_ADDRESS_COST, ACCESS_LIST_STORAGE_KEY_COST,
+        BLOB_GAS_PER_BLOB, CREATE_BASE_COST,
     },
-    memory,
     opcodes::Opcode,
+    precompiles::{execute_precompile, is_precompile},
     AccountInfo,
 };
 use bytes::Bytes;
@@ -178,6 +178,7 @@ impl VM {
                     env.gas_limit,
                     U256::zero(),
                     0,
+                    false,
                 );
 
                 let substate = Substate {
@@ -208,7 +209,8 @@ impl VM {
 
                 default_touched_accounts.insert(new_contract_address);
 
-                let created_contract = Account::new(value, calldata.clone(), 1, HashMap::new());
+                let created_contract = Account::new(value, Bytes::new(), 1, HashMap::new());
+
                 cache::insert_account(&mut cache, new_contract_address, created_contract);
 
                 let initial_call_frame = CallFrame::new(
@@ -222,6 +224,7 @@ impl VM {
                     env.gas_limit,
                     U256::zero(),
                     0,
+                    false,
                 );
 
                 let substate = Substate {
@@ -254,6 +257,45 @@ impl VM {
             self.accrued_substate.clone(),
             self.env.refunded_gas,
         );
+
+        if is_precompile(&current_call_frame.code_address) {
+            let precompile_result = execute_precompile(current_call_frame);
+
+            match precompile_result {
+                Ok(output) => {
+                    self.call_frames.push(current_call_frame.clone());
+
+                    return Ok(TransactionReport {
+                        result: TxResult::Success,
+                        new_state: self.cache.clone(),
+                        gas_used: current_call_frame.gas_used.low_u64(),
+                        gas_refunded: 0,
+                        output,
+                        logs: current_call_frame.logs.clone(),
+                        created_address: None,
+                    });
+                }
+                Err(error) => {
+                    if error.is_internal() {
+                        return Err(error);
+                    }
+
+                    self.call_frames.push(current_call_frame.clone());
+
+                    self.restore_state(backup_db, backup_substate, backup_refunded_gas);
+
+                    return Ok(TransactionReport {
+                        result: TxResult::Revert(error),
+                        new_state: self.cache.clone(),
+                        gas_used: current_call_frame.gas_limit.low_u64(),
+                        gas_refunded: 0,
+                        output: Bytes::new(),
+                        logs: current_call_frame.logs.clone(),
+                        created_address: None,
+                    });
+                }
+            }
+        }
 
         loop {
             let opcode = current_call_frame.next_opcode();
@@ -377,7 +419,7 @@ impl VM {
                         new_state: self.cache.clone(),
                         gas_used: current_call_frame.gas_used.low_u64(),
                         gas_refunded: self.env.refunded_gas.low_u64(),
-                        output: current_call_frame.returndata.clone(),
+                        output: current_call_frame.output.clone(),
                         logs: current_call_frame.logs.clone(),
                         created_address: None,
                     });
@@ -405,7 +447,7 @@ impl VM {
                         new_state: self.cache.clone(),
                         gas_used: current_call_frame.gas_used.low_u64(),
                         gas_refunded: self.env.refunded_gas.low_u64(),
-                        output: current_call_frame.returndata.clone(), // Bytes::new() if error is not RevertOpcode
+                        output: current_call_frame.output.clone(), // Bytes::new() if error is not RevertOpcode
                         logs: current_call_frame.logs.clone(),
                         created_address: None,
                     });
@@ -489,12 +531,6 @@ impl VM {
         Ok(())
     }
 
-    /// To get the maximum fee per gas that the user is willing to pay, independently of the actual gas price
-    /// For legacy transactions the max fee per gas is the gas price
-    fn max_fee_per_gas_or_gasprice(&self) -> U256 {
-        self.env.tx_max_fee_per_gas.unwrap_or(self.env.gas_price)
-    }
-
     /// Gets the max blob gas cost for a transaction that a user is willing to pay.
     fn get_max_blob_gas_cost(&self) -> Result<U256, VMError> {
         let blob_gas_used = U256::from(self.env.tx_blob_hashes.len())
@@ -540,12 +576,13 @@ impl VM {
         let sender_account = self.get_account(sender_address);
 
         // (1) GASLIMIT_PRICE_PRODUCT_OVERFLOW
-        let gaslimit_price_product = self
-            .max_fee_per_gas_or_gasprice()
-            .checked_mul(self.env.gas_limit)
-            .ok_or(VMError::TxValidation(
-                TxValidationError::GasLimitPriceProductOverflow,
-            ))?;
+        let gaslimit_price_product =
+            self.env
+                .gas_price
+                .checked_mul(self.env.gas_limit)
+                .ok_or(VMError::TxValidation(
+                    TxValidationError::GasLimitPriceProductOverflow,
+                ))?;
 
         // Up front cost is the maximum amount of wei that a user is willing to pay for. Gaslimit * gasprice + value + blob_gas_cost
         let value = initial_call_frame.msg_value;
@@ -554,11 +591,42 @@ impl VM {
         // https://eips.ethereum.org/EIPS/eip-4844
         let blob_gas_cost = self.get_max_blob_gas_cost()?;
 
+        // For the transaction to be valid the sender account has to have a balance >= gas_price * gas_limit + value if tx is type 0 and 1
+        // balance >= max_fee_per_gas * gas_limit + value + blob_gas_cost if tx is type 2 or 3
+        let gas_fee_for_valid_tx = self
+            .env
+            .tx_max_fee_per_gas
+            .unwrap_or(self.env.gas_price)
+            .checked_mul(self.env.gas_limit)
+            .ok_or(VMError::TxValidation(
+                TxValidationError::GasLimitPriceProductOverflow,
+            ))?;
+
+        let balance_for_valid_tx = gas_fee_for_valid_tx
+            .checked_add(value)
+            .ok_or(VMError::TxValidation(
+                TxValidationError::InsufficientAccountFunds,
+            ))?
+            .checked_add(blob_gas_cost)
+            .ok_or(VMError::TxValidation(
+                TxValidationError::InsufficientAccountFunds,
+            ))?;
+        if sender_account.info.balance < balance_for_valid_tx {
+            return Err(VMError::TxValidation(
+                TxValidationError::InsufficientAccountFunds,
+            ));
+        }
+
+        // The real cost to deduct is calculated as effective_gas_price * gas_limit + value + blob_gas_cost
         let up_front_cost = gaslimit_price_product
             .checked_add(value)
-            .ok_or(InternalError::UndefinedState(1))?
+            .ok_or(VMError::TxValidation(
+                TxValidationError::InsufficientAccountFunds,
+            ))?
             .checked_add(blob_gas_cost)
-            .ok_or(InternalError::UndefinedState(1))?;
+            .ok_or(VMError::TxValidation(
+                TxValidationError::InsufficientAccountFunds,
+            ))?;
         // There is no error specified for overflow in up_front_cost in ef_tests. Maybe we can go with GasLimitPriceProductOverflow or InsufficientAccountFunds.
 
         // (2) INSUFFICIENT_ACCOUNT_FUNDS
@@ -573,7 +641,7 @@ impl VM {
         }
 
         // (3) INSUFFICIENT_MAX_FEE_PER_GAS
-        if self.max_fee_per_gas_or_gasprice() < self.env.base_fee_per_gas {
+        if self.env.tx_max_fee_per_gas.unwrap_or(self.env.gas_price) < self.env.base_fee_per_gas {
             return Err(VMError::TxValidation(
                 TxValidationError::InsufficientMaxFeePerGas,
             ));
@@ -809,8 +877,8 @@ impl VM {
         }
 
         // If contract code is not empty then the first byte should not be 0xef
-        if *contract_code.first().unwrap_or(&0) == INVALID_CONTRACT_PREFIX {
-            return Err(VMError::InvalidInitialByte);
+        if let Some(&INVALID_CONTRACT_PREFIX) = contract_code.first() {
+            return Err(VMError::InvalidContractPrefix);
         }
 
         let max_gas = self.env.gas_limit.low_u64();
@@ -833,116 +901,6 @@ impl VM {
         self.update_account_bytecode(contract_address, contract_code)?;
 
         Ok(())
-    }
-
-    // TODO: Improve and test REVERT behavior for XCALL opcodes. Issue: https://github.com/lambdaclass/ethrex/issues/1061
-    #[allow(clippy::too_many_arguments)]
-    pub fn generic_call(
-        &mut self,
-        current_call_frame: &mut CallFrame,
-        gas_limit: U256,
-        value: U256,
-        msg_sender: Address,
-        to: Address,
-        code_address: Address,
-        _should_transfer_value: bool,
-        is_static: bool,
-        args_offset: U256,
-        args_size: usize,
-        ret_offset: U256,
-        ret_size: usize,
-        should_transfer_value: bool,
-    ) -> Result<OpcodeSuccess, VMError> {
-        let (sender_account_info, _address_was_cold) = self.access_account(msg_sender);
-
-        if should_transfer_value {
-            if sender_account_info.balance < value {
-                current_call_frame.stack.push(U256::from(REVERT_FOR_CALL))?;
-                return Ok(OpcodeSuccess::Continue);
-            }
-
-            self.decrease_account_balance(msg_sender, value)?;
-            self.increase_account_balance(to, value)?;
-        }
-
-        let (code_account_info, _address_was_cold) = self.access_account(code_address);
-
-        if code_account_info.bytecode.is_empty() {
-            current_call_frame
-                .stack
-                .push(U256::from(SUCCESS_FOR_CALL))?;
-            return Ok(OpcodeSuccess::Continue);
-        }
-
-        // self.cache.increment_account_nonce(&code_address); // Internal call doesn't increment account nonce.
-
-        let calldata =
-            memory::load_range(&mut current_call_frame.memory, args_offset, args_size)?.to_vec();
-
-        // I don't know if this gas limit should be calculated before or after consuming gas
-        let potential_remaining_gas = max_message_call_gas(current_call_frame)?;
-        let gas_limit = std::cmp::min(gas_limit.low_u64(), potential_remaining_gas);
-
-        let new_depth = current_call_frame
-            .depth
-            .checked_add(1)
-            .ok_or(InternalError::ArithmeticOperationOverflow)?;
-
-        let mut new_call_frame = CallFrame::new(
-            msg_sender,
-            to,
-            code_address,
-            code_account_info.bytecode,
-            value,
-            calldata.into(),
-            is_static,
-            U256::from(gas_limit),
-            U256::zero(),
-            new_depth,
-        );
-
-        if new_call_frame.depth > 1024 {
-            current_call_frame.stack.push(U256::from(REVERT_FOR_CALL))?;
-            return Ok(OpcodeSuccess::Continue);
-        }
-        current_call_frame.sub_return_data_offset = ret_offset;
-        current_call_frame.sub_return_data_size = ret_size;
-
-        let tx_report = self.execute(&mut new_call_frame)?;
-
-        // Add gas used by the sub-context to the current one after it's execution.
-        current_call_frame.gas_used = current_call_frame
-            .gas_used
-            .checked_add(tx_report.gas_used.into())
-            .ok_or(VMError::OutOfGas(OutOfGasError::ConsumedGasOverflow))?;
-        current_call_frame.logs.extend(tx_report.logs);
-        memory::try_store_range(
-            &mut current_call_frame.memory,
-            ret_offset,
-            ret_size,
-            &tx_report.output,
-        )?;
-        current_call_frame.sub_return_data = tx_report.output;
-
-        // What to do, depending on TxResult
-        match tx_report.result {
-            TxResult::Success => {
-                current_call_frame
-                    .stack
-                    .push(U256::from(SUCCESS_FOR_CALL))?;
-            }
-            TxResult::Revert(_) => {
-                // Revert value transfer
-                if should_transfer_value {
-                    self.decrease_account_balance(to, value)?;
-                    self.increase_account_balance(msg_sender, value)?;
-                }
-                // Push 0 to stack
-                current_call_frame.stack.push(U256::from(REVERT_FOR_CALL))?;
-            }
-        }
-
-        Ok(OpcodeSuccess::Continue)
     }
 
     /// Calculates the address of a new conctract using the CREATE opcode as follow

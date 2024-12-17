@@ -55,8 +55,11 @@ impl Stack {
 /// A call frame, or execution environment, is the context in which
 /// the EVM is currently executing.
 pub struct CallFrame {
+    /// Max gas a callframe can use
     pub gas_limit: U256,
+    /// Keeps track of the gas that's been used in current context
     pub gas_used: U256,
+    /// Program Counter
     pub pc: usize,
     /// Address of the account that sent the message
     pub msg_sender: Address,
@@ -66,22 +69,26 @@ pub struct CallFrame {
     pub code_address: Address,
     /// Bytecode to execute
     pub bytecode: Bytes,
+    /// Value sent along the transaction
     pub msg_value: U256,
-    pub stack: Stack, // max 1024 in the future
+    pub stack: Stack,
     pub memory: Memory,
+    /// Data sent along the transaction. Empty in CREATE transactions.
     pub calldata: Bytes,
     /// Return data of the CURRENT CONTEXT (see docs for more details)
-    pub returndata: Bytes,
+    pub output: Bytes,
     /// Return data of the SUB-CONTEXT (see docs for more details)
     pub sub_return_data: Bytes,
-    /// where to store return data of sub-context in memory
-    pub sub_return_data_offset: U256,
-    pub sub_return_data_size: usize,
+    /// Indicates if current context is static (if it is, it can't change state)
     pub is_static: bool,
     pub transient_storage: TransientStorage,
     pub logs: Vec<Log>,
+    /// Call stack current depth
     pub depth: usize,
+    /// Set of valid jump destinations (where a JUMP or JUMPI can jump to)
     pub valid_jump_destinations: HashSet<usize>,
+    /// This is set to true if the function that created this callframe is CREATE or CREATE2
+    pub create_op_called: bool,
 }
 
 impl CallFrame {
@@ -113,6 +120,7 @@ impl CallFrame {
         gas_limit: U256,
         gas_used: U256,
         depth: usize,
+        create_op_called: bool,
     ) -> Self {
         let valid_jump_destinations = get_valid_jump_destinations(&bytecode).unwrap_or_default();
         Self {
@@ -127,6 +135,7 @@ impl CallFrame {
             depth,
             gas_used,
             valid_jump_destinations,
+            create_op_called,
             ..Default::default()
         }
     }
