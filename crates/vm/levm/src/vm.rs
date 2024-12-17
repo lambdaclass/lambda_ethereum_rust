@@ -831,11 +831,12 @@ impl VM {
 
         self.prepare_execution(&mut initial_call_frame)?;
 
-        // If the transaction is a CREATE transaction and the address is already in the database, the transaction should be reverted.
+        // If the transaction is a CREATE transaction and the address is already in the database and is not empty
+        // transaction should be reverted.
         if self.is_create() {
             let new_address_acc = self.db.get_account_info(initial_call_frame.to);
             if !new_address_acc.is_empty() {
-                self.handle_create_non_empty_account(&initial_call_frame)?;
+                return self.handle_create_non_empty_account(&initial_call_frame);
             }
         }
 
@@ -1174,6 +1175,7 @@ impl VM {
 
         self.post_execution_changes(initial_call_frame, &mut report)?;
         report.new_state.clone_from(&self.cache);
+
         Ok(report)
     }
 }
