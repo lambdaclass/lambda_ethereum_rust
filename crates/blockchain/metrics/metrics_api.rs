@@ -1,7 +1,6 @@
-use std::sync::{Arc, LazyLock, Mutex};
-
 use axum::{routing::get, Router};
 use prometheus::{Encoder, IntCounter, Registry, TextEncoder};
+use std::sync::{Arc, LazyLock, Mutex};
 
 pub static TRANSACTION_COUNTER: LazyLock<Arc<Mutex<IntCounter>>> = LazyLock::new(|| {
     Arc::new(Mutex::new(

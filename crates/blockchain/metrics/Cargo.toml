@@ -19,4 +19,8 @@ axum = "0.7.9"
 
 
 [lib]
-path = "./metrics.rs"
+path = "./mod.rs"
+
+[features]
+default = ["api"]
+api = []

@@ -217,7 +217,7 @@ async fn main() {
                 .get_one::<String>("metrics.port")
                 .map_or("3000".to_string(), |v| v.clone());
 
-            let metrics_api = ethrex_metrics::start_prometheus_metrics_api(metrics_port);
+            let metrics_api = ethrex_metrics::metrics_api::start_prometheus_metrics_api(metrics_port);
             tracker.spawn(metrics_api);
         }
     }

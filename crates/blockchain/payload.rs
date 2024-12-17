@@ -20,7 +20,10 @@ use ethrex_vm::{
 };
 use sha3::{Digest, Keccak256};
 
-use ethrex_metrics::TRANSACTION_COUNTER;
+use ethrex_metrics::metrics;
+
+#[cfg(feature = "metrics")]
+use ethrex_metrics::metrics_api::TRANSACTION_COUNTER;
 
 use crate::{
     constants::{
@@ -323,8 +326,10 @@ pub fn fill_transactions(context: &mut PayloadBuildContext) -> Result<(), ChainE
         }
         // Increment the transaction counter
         // TODO: differentiate between total, failed and succedded
-        let tx_counter = TRANSACTION_COUNTER.lock().unwrap();
-        tx_counter.inc();
+        metrics!(
+            let tx_counter = TRANSACTION_COUNTER.lock().unwrap();
+            tx_counter.inc();
+        );
 
         // Execute tx
         let receipt = match apply_transaction(&head_tx, context) {
