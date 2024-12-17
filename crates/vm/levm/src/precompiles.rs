@@ -135,8 +135,7 @@ pub fn ecrecover(
     let v: U256 = calldata
         .get(32..64)
         .ok_or(InternalError::SlicingError)?
-        .try_into()
-        .map_err(|_| PrecompileError::ParsingInputError)?;
+        .into();
 
     if !(v == U256::from(27) || v == U256::from(28)) {
         return Ok(Bytes::new());
