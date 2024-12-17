@@ -523,7 +523,7 @@ async fn heal_state_trie(
                 // We cannot keep the trie state open
                 let mut trie = store.open_state_trie(*EMPTY_TRIE_HASH);
                 let trie_state = trie.state_mut();
-                paths.extend(node_missing_children(&node, &path, &trie_state)?);
+                paths.extend(node_missing_children(&node, &path, trie_state)?);
                 if let Node::Leaf(node) = &node {
                     // Fetch bytecode & storage
                     let account = AccountState::decode(&node.value)?;
@@ -533,7 +533,7 @@ async fn heal_state_trie(
                         // Something went wrong
                         return Err(SyncError::CorruptPath);
                     }
-                    let account_hash = H256::from_slice(&path);
+                    let account_hash = H256::from_slice(path);
                     if account.storage_root != *EMPTY_TRIE_HASH
                         && !store.contains_storage_node(account_hash, account.storage_root)?
                     {
@@ -694,7 +694,7 @@ enum SyncError {
     #[error(transparent)]
     Trie(#[from] TrieError),
     #[error(transparent)]
-    RLP(#[from] RLPDecodeError),
+    Rlp(#[from] RLPDecodeError),
     #[error("Corrupt path during state healing")]
     CorruptPath,
     #[error(transparent)]
