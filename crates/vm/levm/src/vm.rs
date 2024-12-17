@@ -833,16 +833,14 @@ impl VM {
         if self.is_create() {
             let new_address_acc = self.db.get_account_info(initial_call_frame.to);
             if !new_address_acc.is_empty() {
-                // dbg!(&new_address_acc);
-                // dbg!(self.get_account(initial_call_frame.msg_sender));
                 let mut report = TransactionReport {
-                    created_address: None,
-                    gas_refunded: 0,
+                    result: TxResult::Revert(VMError::AddressAlreadyOccupied),
                     gas_used: self.env.gas_limit.low_u64(),
+                    gas_refunded: 0,
                     logs: vec![],
                     new_state: self.cache.clone(),
                     output: Bytes::new(),
-                    result: TxResult::Revert(VMError::AddressAlreadyOccupied),
+                    created_address: None,
                 };
 
                 self.post_execution_changes(&initial_call_frame, &mut report)?;
