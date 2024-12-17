@@ -31,7 +31,7 @@ use super::{
 use aes::cipher::KeyIvInit;
 use ethrex_blockchain::mempool::{self};
 use ethrex_core::{H256, H512};
-use ethrex_rlp::{decode::RLPDecode,structs::Capability};
+use ethrex_rlp::{decode::RLPDecode, structs::Capability};
 use ethrex_storage::Store;
 use k256::{
     ecdsa::{RecoveryId, Signature, SigningKey, VerifyingKey},

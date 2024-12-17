@@ -1,19 +1,18 @@
+use crate::rlpx::utils::{id2pubkey, snappy_decompress};
 use bytes::BufMut;
 use ethrex_core::H512;
+use ethrex_rlp::structs::Capability;
 use ethrex_rlp::{
     encode::RLPEncode,
     error::{RLPDecodeError, RLPEncodeError},
     structs::{Decoder, Encoder},
 };
 use k256::PublicKey;
-use ethrex_rlp::structs::Capability;
-use crate::rlpx::utils::{id2pubkey, snappy_decompress};
 
 use super::{
     message::RLPxMessage,
     utils::{pubkey2id, snappy_compress},
 };
-
 
 #[derive(Debug)]
 pub(crate) struct HelloMessage {

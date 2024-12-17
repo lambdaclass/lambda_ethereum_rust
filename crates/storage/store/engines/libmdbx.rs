@@ -5,16 +5,16 @@ use crate::rlp::{
     AccountCodeHashRLP, AccountCodeRLP, BlockBodyRLP, BlockHashRLP, BlockHeaderRLP, BlockRLP,
     BlockTotalDifficultyRLP, ReceiptRLP, Rlp, TransactionHashRLP, TupleRLP,
 };
-use ethrex_rlp::structs::Capability;
 use anyhow::Result;
 use bytes::Bytes;
-use ethereum_types::{H256, U256, H512};
+use ethereum_types::{H256, H512, U256};
 use ethrex_core::types::{
     BlobsBundle, Block, BlockBody, BlockHash, BlockHeader, BlockNumber, ChainConfig, Index,
     Receipt, Transaction,
 };
 use ethrex_rlp::decode::RLPDecode;
 use ethrex_rlp::encode::RLPEncode;
+use ethrex_rlp::structs::Capability;
 use ethrex_trie::{LibmdbxDupsortTrieDB, LibmdbxTrieDB, Trie};
 use libmdbx::orm::{Decodable, Encodable, Table};
 use libmdbx::{

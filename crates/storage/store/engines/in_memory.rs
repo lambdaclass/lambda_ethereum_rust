@@ -1,17 +1,17 @@
+use super::api::StoreEngine;
 use crate::error::StoreError;
 use bytes::Bytes;
-use ethereum_types::{H256, U256,H512};
+use ethereum_types::{H256, H512, U256};
 use ethrex_core::types::{
     BlobsBundle, Block, BlockBody, BlockHash, BlockHeader, BlockNumber, ChainConfig, Index, Receipt,
 };
+use ethrex_rlp::structs::Capability;
 use ethrex_trie::{InMemoryTrieDB, Trie};
 use std::{
     collections::HashMap,
     fmt::Debug,
     sync::{Arc, Mutex, MutexGuard},
 };
-use ethrex_rlp::structs::Capability;
-use super::api::StoreEngine;
 
 pub type NodeMap = Arc<Mutex<HashMap<Vec<u8>, Vec<u8>>>>;
 
@@ -416,7 +416,6 @@ impl StoreEngine for Store {
         let store = self.inner();
         Ok(store.target_nodes_capabilities.get(&target_id).cloned())
     }
-
 }
 
 impl Debug for Store {
