@@ -10,7 +10,7 @@ use ethrex_levm::{
     errors::{OutOfGasError, TxResult, VMError},
     gas_cost, memory,
     operations::Operation,
-    precompiles::ecrecover,
+    precompiles::{ecrecover, modexp},
     utils::{new_vm_with_ops, new_vm_with_ops_addr_bal_db, new_vm_with_ops_db, ops_to_bytecode},
     vm::{word_to_address, Storage, VM},
     Environment,
@@ -4503,6 +4503,19 @@ fn recover_test() {
     let expected_result = Bytes::from(
         hex::decode("0000000000000000000000007156526fbd7a3c72969b54f64e42c10fbb768c8a").unwrap(),
     );
+
+    assert_eq!(result, expected_result)
+}
+
+#[test]
+fn modexp_test() {
+    let calldata = hex::decode("00000000000000000000000000000000000000000000000000000000000000010000000000000000000000000000000000000000000000000000000000000001000000000000000000000000000000000000000000000000000000000000000108090a").unwrap();
+    let calldata = Bytes::from(calldata);
+
+    let mut consumed_gas = U256::zero();
+    let result = modexp(&calldata, 10000.into(), &mut consumed_gas).unwrap();
+
+    let expected_result = Bytes::from(hex::decode("08").unwrap());
 
     assert_eq!(result, expected_result)
 }
