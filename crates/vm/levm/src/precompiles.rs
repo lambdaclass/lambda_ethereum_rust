@@ -135,8 +135,8 @@ pub fn ecrecover(
     let message = Message::parse_slice(hash).map_err(|_| PrecompileError::ParsingInputError)?;
 
     // Reading the least significant byte since it's the only that has information
-    let r = calldata.get(63).ok_or(InternalError::SlicingError)?;
-    let recovery_id = match RecoveryId::parse_rpc(*r) {
+    let v = calldata.get(63).ok_or(InternalError::SlicingError)?;
+    let recovery_id = match RecoveryId::parse_rpc(*v) {
         Ok(id) => id,
         Err(_) => {
             return Ok(Bytes::new());
