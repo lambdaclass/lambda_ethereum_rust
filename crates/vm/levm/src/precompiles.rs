@@ -190,19 +190,9 @@ fn identity(
     gas_for_call: U256,
     consumed_gas: &mut U256,
 ) -> Result<Bytes, VMError> {
-    let data_size: u64 = calldata
-        .len()
-        .try_into()
-        .map_err(|_| PrecompileError::ParsingInputError)?;
+    let gas_cost = identity_cost(calldata.len())?;
 
-    let cost = identity_cost(data_size)?;
-    if gas_for_call < cost {
-        return Err(VMError::PrecompileError(PrecompileError::NotEnoughGas));
-    }
-
-    *consumed_gas = consumed_gas
-        .checked_add(cost)
-        .ok_or(PrecompileError::GasConsumedOverflow)?;
+    increase_precompile_consumed_gas(gas_for_call, gas_cost, consumed_gas)?;
 
     Ok(calldata.clone())
 }
@@ -246,7 +236,7 @@ pub fn modexp(
     consumed_gas: &mut U256,
 ) -> Result<Bytes, VMError> {
     // Note that fill_with_zeros defines a fixed size slice, not optimal
-    let calldata = fill_with_zeros(calldata);
+    let calldata = fill_with_zeros(calldata)?;
 
     let b_size: U256 = calldata
         .get(0..32)
