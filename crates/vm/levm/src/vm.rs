@@ -829,6 +829,7 @@ impl VM {
 
         self.prepare_execution(&mut initial_call_frame)?;
 
+        // If the transaction is a CREATE transaction and the address is already in the database, the transaction should be reverted.
         if self.is_create() {
             let new_address_acc = self.db.get_account_info(initial_call_frame.to);
             if !new_address_acc.is_empty() {
