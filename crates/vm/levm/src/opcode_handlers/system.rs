@@ -539,7 +539,7 @@ impl VM {
         // 1. Creating contract.
 
         // If the address has balance but there is no account associated with it, we need to add the value to it
-        let new_balance = value_in_wei_to_send
+        let balance = value_in_wei_to_send
             .checked_add(new_account.info.balance)
             .ok_or(VMError::BalanceOverflow)?;
 
