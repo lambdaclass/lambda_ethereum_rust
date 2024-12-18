@@ -129,7 +129,7 @@ contract OnChainProposer is IOnChainProposer, ReentrancyGuard {
         require(
             blockNumber == lastCommittedBlock + 1 ||
                 (blockNumber == 0 && lastCommittedBlock == 0xFFFFFFFFFFFFFFFF),
-            "OnChainProposer: blockNumber is not the immediate succesor of lastCommittedBlock"
+            "OnChainProposer: blockNumber is not the immediate successor of lastCommittedBlock"
         );
         require(
             blockCommitments[blockNumber].commitmentHash == bytes32(0),
