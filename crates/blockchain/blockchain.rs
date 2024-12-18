@@ -28,7 +28,7 @@ use ethrex_vm::{evm_state, execute_block, spec_id, EvmState, SpecId};
 /// Performs pre and post execution validation, and updates the database with the post state.
 #[cfg(not(feature = "levm"))]
 pub fn add_block(block: &Block, storage: &Store) -> Result<(), ChainError> {
-    println!("This is REVM add_block");
+    println!("This is REVM add_block.");
     use ethrex_vm::get_state_transitions;
 
     let block_hash = block.header.compute_block_hash();
@@ -49,6 +49,9 @@ pub fn add_block(block: &Block, storage: &Store) -> Result<(), ChainError> {
     validate_gas_used(&receipts, &block.header)?;
 
     let account_updates = get_state_transitions(&mut state);
+
+    dbg!(&receipts);
+    dbg!(&account_updates);
 
     // Apply the account updates over the last block's state and compute the new state root
     let new_state_root = state
@@ -76,7 +79,7 @@ pub fn add_block(block: &Block, storage: &Store) -> Result<(), ChainError> {
 /// Performs pre and post execution validation, and updates the database with the post state.
 #[cfg(feature = "levm")]
 pub fn add_block(block: &Block, storage: &Store) -> Result<(), ChainError> {
-    println!("This is LEVM add_block");
+    println!("This is LEVM add_block.");
     let block_hash = block.header.compute_block_hash();
 
     // Validate if it can be the new head and find the parent
@@ -93,6 +96,7 @@ pub fn add_block(block: &Block, storage: &Store) -> Result<(), ChainError> {
     let (receipts, account_updates) = execute_block(block, &mut state)?;
 
     // Note: these is commented because it is still being used in development.
+    dbg!(&receipts);
     dbg!(&account_updates);
 
     validate_gas_used(&receipts, &block.header)?;
@@ -142,6 +146,7 @@ pub fn validate_state_root(
     if new_state_root == block_header.state_root {
         Ok(())
     } else {
+        println!("validate state root failed, they don't match");
         Err(ChainError::InvalidBlock(
             InvalidBlockError::StateRootMismatch,
         ))
@@ -157,6 +162,7 @@ pub fn validate_receipts_root(
     if receipts_root == block_header.receipts_root {
         Ok(())
     } else {
+        println!("validate receipts root failed, they don't match");
         Err(ChainError::InvalidBlock(
             InvalidBlockError::ReceiptsRootMismatch,
         ))

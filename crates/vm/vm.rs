@@ -6,15 +6,13 @@ mod execution_result;
 mod mods;
 
 use db::StoreWrapper;
-use ethrex_levm::account;
 use execution_db::ExecutionDB;
 use std::cmp::min;
 
 use ethrex_core::{
     types::{
-        transaction, AccountInfo, Block, BlockHash, BlockHeader, ChainConfig, Fork,
-        GenericTransaction, PrivilegedTxType, Receipt, Transaction, TxKind, Withdrawal,
-        GWEI_TO_WEI, INITIAL_BASE_FEE,
+        AccountInfo, Block, BlockHash, BlockHeader, ChainConfig, Fork, GenericTransaction,
+        PrivilegedTxType, Receipt, Transaction, TxKind, Withdrawal, GWEI_TO_WEI, INITIAL_BASE_FEE,
     },
     Address, BigEndianHash, H256, U256,
 };
@@ -200,17 +198,21 @@ cfg_if::cfg_if! {
 
             //TODO: Make this work properly for multiple transactions, we used to contemplate that we had only 1 transaction, now it has changed i guess.
             // I'm actually not very sure about what to do here
-            let mut account_updates = vec![];
-            for transaction in block.body.transactions.iter() {
-                let report = execute_tx_levm(transaction, block_header, store_wrapper.clone()).unwrap();
+            // let mut account_updates = vec![];
+            let mut account_updates = get_state_transitions(state);
 
+            for tx in block.body.transactions.iter() {
+                let report = execute_tx_levm(tx, block_header, store_wrapper.clone()).unwrap();
+
+                // dbg!(&report);
+
+                cumulative_gas_used += report.gas_used - report.gas_refunded;
                 let receipt = Receipt::new(
-                    transaction.tx_type(),
+                    tx.tx_type(),
                     matches!(report.result.clone(), TxResult::Success),
                     cumulative_gas_used,
                     report.logs.clone(),
                 );
-                cumulative_gas_used += report.gas_used;
 
                 receipts.push(receipt);
 
