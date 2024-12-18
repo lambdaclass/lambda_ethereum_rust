@@ -158,7 +158,7 @@ impl VM {
             TxKind::Call(address_to) => {
                 default_touched_accounts.insert(address_to);
 
-                let bytecode = db.get_account_info(address_to).bytecode;
+                let bytecode = get_account(&mut cache, &db, address_to).info.bytecode;
 
                 // CALL tx
                 let initial_call_frame = CallFrame::new(
