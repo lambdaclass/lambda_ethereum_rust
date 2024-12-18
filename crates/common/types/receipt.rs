@@ -35,16 +35,16 @@ impl Receipt {
     // - https://eips.ethereum.org/EIPS/eip-2718
     // - https://github.com/ethereum/go-ethereum/blob/330190e476e2a2de4aac712551629a4134f802d5/core/types/receipt.go#L143
     // We've noticed the are some subtleties around encoding receipts and transactions.
-    // First, `inner_encode_receipt` will encode a receipt according
+    // First, `encode_inner` will encode a receipt according
     // to the RLP of its fields, if typed, the RLP of the fields
     // is padded with the byte representing this type.
     // For P2P messages, receipts are re-encoded as bytes
     // (see the `encode` implementation for receipt).
     // For debug and computing receipt roots, the expected
-    // RLP encodings are the ones returned by `inner_encode_receipt`.
+    // RLP encodings are the ones returned by `encode_inner`.
     // On some documentations, this is also called the `consensus-encoding`
     // for a receipt.
-    pub fn inner_encode_receipt(&self) -> Vec<u8> {
+    pub fn encode_inner(&self) -> Vec<u8> {
         let mut encode_buff = match self.tx_type {
             TxType::Legacy => {
                 vec![]
@@ -81,11 +81,11 @@ impl RLPEncode for Receipt {
     fn encode(&self, buf: &mut dyn bytes::BufMut) {
         match self.tx_type {
             TxType::Legacy => {
-                let legacy_encoded = self.inner_encode_receipt();
+                let legacy_encoded = self.encode_inner();
                 buf.put_slice(&legacy_encoded);
             }
             _ => {
-                let typed_recepipt_encoded = self.inner_encode_receipt();
+                let typed_recepipt_encoded = self.encode_inner();
                 let bytes = Bytes::from(typed_recepipt_encoded);
                 bytes.encode(buf);
             }
