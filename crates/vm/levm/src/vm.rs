@@ -13,7 +13,7 @@ use crate::{
     },
     gas_cost::{
         self, fake_exponential, ACCESS_LIST_ADDRESS_COST, ACCESS_LIST_STORAGE_KEY_COST,
-        BLOB_GAS_PER_BLOB, CREATE_BASE_COST,
+        BLOB_GAS_PER_BLOB, CODE_DEPOSIT_COST, CREATE_BASE_COST,
     },
     opcodes::Opcode,
     precompiles::{execute_precompile, is_precompile},
@@ -150,7 +150,7 @@ impl VM {
 
         // Add precompiled contracts addresses to cache.
         // TODO: Use the addresses from precompiles.rs in a future
-        for i in 1..10 {
+        for i in 1..=10 {
             default_touched_accounts.insert(Address::from_low_u64_be(i));
         }
 
@@ -209,9 +209,17 @@ impl VM {
 
                 default_touched_accounts.insert(new_contract_address);
 
-                let created_contract = Account::new(value, Bytes::new(), 1, HashMap::new());
+                // Since we are in a CREATE transaction, we need to check if the address is already occupied.
+                // If it is, we should not continue with the transaction. We will handle the revert in the next step.
+                let new_account = db.get_account_info(new_contract_address);
+                let balance = value
+                    .checked_add(new_account.balance)
+                    .ok_or(VMError::BalanceOverflow)?;
 
-                cache::insert_account(&mut cache, new_contract_address, created_contract);
+                if !new_account.has_code() && !new_account.has_nonce() {
+                    let created_contract = Account::new(balance, Bytes::new(), 1, HashMap::new());
+                    cache::insert_account(&mut cache, new_contract_address, created_contract);
+                }
 
                 let initial_call_frame = CallFrame::new(
                     env.origin,
@@ -231,7 +239,7 @@ impl VM {
                     selfdestrutct_set: HashSet::new(),
                     touched_accounts: default_touched_accounts,
                     touched_storage_slots: default_touched_storage_slots,
-                    created_accounts: HashSet::new(),
+                    created_accounts: HashSet::from([new_contract_address]),
                 };
 
                 Ok(Self {
@@ -414,6 +422,58 @@ impl VM {
                 Ok(OpcodeSuccess::Continue) => {}
                 Ok(OpcodeSuccess::Result(_)) => {
                     self.call_frames.push(current_call_frame.clone());
+                    // On successful create check output validity
+                    if (self.is_create() && current_call_frame.depth == 0)
+                        || current_call_frame.create_op_called
+                    {
+                        let contract_code = current_call_frame.output.clone();
+                        let code_length = contract_code.len();
+                        let code_deposit_cost = U256::from(code_length)
+                            .checked_mul(CODE_DEPOSIT_COST)
+                            .ok_or(VMError::Internal(
+                                InternalError::ArithmeticOperationOverflow,
+                            ))?;
+
+                        // Revert
+                        // If the first byte of code is 0xef
+                        // If the code_length > MAX_CODE_SIZE
+                        // If current_consumed_gas + code_deposit_cost > gas_limit
+                        let validate_create = if code_length > MAX_CODE_SIZE {
+                            Err(VMError::ContractOutputTooBig)
+                        } else if contract_code.first().unwrap_or(&0) == &INVALID_CONTRACT_PREFIX {
+                            Err(VMError::InvalidContractPrefix)
+                        } else if self
+                            .increase_consumed_gas(current_call_frame, code_deposit_cost)
+                            .is_err()
+                        {
+                            Err(VMError::OutOfGas(OutOfGasError::MaxGasLimitExceeded))
+                        } else {
+                            Ok(current_call_frame.to)
+                        };
+
+                        match validate_create {
+                            Ok(new_address) => {
+                                // Set bytecode to new account if success
+                                self.update_account_bytecode(new_address, contract_code)?;
+                            }
+                            Err(error) => {
+                                // Revert if error
+                                current_call_frame.gas_used = current_call_frame.gas_limit;
+                                self.restore_state(backup_db, backup_substate, backup_refunded_gas);
+
+                                return Ok(TransactionReport {
+                                    result: TxResult::Revert(error),
+                                    new_state: self.cache.clone(),
+                                    gas_used: current_call_frame.gas_used.low_u64(),
+                                    gas_refunded: self.env.refunded_gas.low_u64(),
+                                    output: current_call_frame.output.clone(),
+                                    logs: current_call_frame.logs.clone(),
+                                    created_address: None,
+                                });
+                            }
+                        }
+                    }
+
                     return Ok(TransactionReport {
                         result: TxResult::Success,
                         new_state: self.cache.clone(),
@@ -564,14 +624,6 @@ impl VM {
     /// - It calculates and adds intrinsic gas to the 'gas used' of callframe and environment.
     ///   See 'docs' for more information about validations.
     fn prepare_execution(&mut self, initial_call_frame: &mut CallFrame) -> Result<(), VMError> {
-        //TODO: This should revert the transaction, not throw an error. And I don't know if it should be done here...
-        // if self.is_create() {
-        //     // If address is already in db, there's an error
-        //     let new_address_acc = self.db.get_account_info(call_frame.to);
-        //     if !new_address_acc.is_empty() {
-        //         return Err(VMError::AddressAlreadyOccupied);
-        //     }
-        // }
         let sender_address = self.env.origin;
         let sender_account = self.get_account(sender_address);
 
@@ -828,23 +880,20 @@ impl VM {
 
         self.prepare_execution(&mut initial_call_frame)?;
 
-        let mut report = self.execute(&mut initial_call_frame)?;
-
+        // The transaction should be reverted if:
+        // - The transaction is a CREATE transaction and
+        // - The address is already in the database and
+        // - The address is not empty
         if self.is_create() {
-            match self.create_post_execution(&mut initial_call_frame, &mut report) {
-                Ok(_) => {}
-                Err(error) => {
-                    if error.is_internal() {
-                        return Err(error);
-                    } else {
-                        report.result = TxResult::Revert(error);
-                        if report.result != TxResult::Revert(VMError::RevertOpcode) {
-                            report.gas_used = self.env.gas_limit.low_u64(); // Consume all gas unless the error cause is revert opcode
-                        }
-                        remove_account(&mut self.cache, &initial_call_frame.to);
-                    }
-                }
-            };
+            let new_address_acc = self.db.get_account_info(initial_call_frame.to);
+            if new_address_acc.has_code() || new_address_acc.has_nonce() {
+                return self.handle_create_non_empty_account(&initial_call_frame);
+            }
+        }
+
+        let mut report = self.execute(&mut initial_call_frame)?;
+        if self.is_create() && !report.is_success() {
+            remove_account(&mut self.cache, &initial_call_frame.to);
         }
 
         self.post_execution_changes(&initial_call_frame, &mut report)?;
@@ -859,48 +908,6 @@ impl VM {
         self.call_frames.last_mut().ok_or(VMError::Internal(
             InternalError::CouldNotAccessLastCallframe,
         ))
-    }
-
-    fn create_post_execution(
-        &mut self,
-        initial_call_frame: &mut CallFrame,
-        report: &mut TransactionReport,
-    ) -> Result<(), VMError> {
-        if let TxResult::Revert(error) = &report.result {
-            return Err(error.clone());
-        }
-
-        let contract_code = report.clone().output;
-
-        if contract_code.len() > MAX_CODE_SIZE {
-            return Err(VMError::ContractOutputTooBig);
-        }
-
-        // If contract code is not empty then the first byte should not be 0xef
-        if let Some(&INVALID_CONTRACT_PREFIX) = contract_code.first() {
-            return Err(VMError::InvalidContractPrefix);
-        }
-
-        let max_gas = self.env.gas_limit.low_u64();
-
-        // If initialization code is successful, code-deposit cost is paid.
-        let code_length: u64 = contract_code
-            .len()
-            .try_into()
-            .map_err(|_| VMError::Internal(InternalError::ConversionError))?;
-        let code_deposit_cost = code_length.checked_mul(200).ok_or(VMError::Internal(
-            InternalError::ArithmeticOperationOverflow,
-        ))?;
-
-        report.add_gas_with_max(code_deposit_cost, max_gas)?;
-        // Charge 22100 gas for each storage variable set (???)
-
-        // Assign bytecode to the new contract
-        let contract_address = initial_call_frame.to;
-
-        self.update_account_bytecode(contract_address, contract_code)?;
-
-        Ok(())
     }
 
     /// Calculates the address of a new conctract using the CREATE opcode as follow
@@ -1145,6 +1152,26 @@ impl VM {
                 account
             }
         }
+    }
+
+    fn handle_create_non_empty_account(
+        &mut self,
+        initial_call_frame: &CallFrame,
+    ) -> Result<TransactionReport, VMError> {
+        let mut report = TransactionReport {
+            result: TxResult::Revert(VMError::AddressAlreadyOccupied),
+            gas_used: self.env.gas_limit.low_u64(),
+            gas_refunded: 0,
+            logs: vec![],
+            new_state: self.cache.clone(),
+            output: Bytes::new(),
+            created_address: None,
+        };
+
+        self.post_execution_changes(initial_call_frame, &mut report)?;
+        report.new_state.clone_from(&self.cache);
+
+        Ok(report)
     }
 }
 
