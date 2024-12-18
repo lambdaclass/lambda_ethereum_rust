@@ -158,20 +158,14 @@ impl VM {
             TxKind::Call(address_to) => {
                 default_touched_accounts.insert(address_to);
 
-                // add address_to to cache
-                let recipient_account_info = db.get_account_info(address_to);
-                cache::insert_account(
-                    &mut cache,
-                    address_to,
-                    Account::from(recipient_account_info.clone()),
-                );
+                let bytecode = db.get_account_info(address_to).bytecode;
 
                 // CALL tx
                 let initial_call_frame = CallFrame::new(
                     env.origin,
                     address_to,
                     address_to,
-                    recipient_account_info.bytecode,
+                    bytecode,
                     value,
                     calldata.clone(),
                     false,
