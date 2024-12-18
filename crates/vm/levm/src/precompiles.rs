@@ -269,18 +269,20 @@ pub fn modexp(
         .checked_add(base_limit)
         .ok_or(InternalError::ArithmeticOperationOverflow)?;
 
-    let modulus_limit = m_size
-        .checked_add(exponent_limit)
-        .ok_or(InternalError::ArithmeticOperationOverflow)?;
-
-    let b = calldata.get(96..base_limit).ok_or(PrecompileError::ParsingInputError)?;
+    let b = calldata.get(96..base_limit).unwrap_or_default();
     let base = BigUint::from_bytes_be(b);
 
-    let e = calldata.get(base_limit..exponent_limit).ok_or(PrecompileError::ParsingInputError)?;
+    let e = calldata.get(base_limit..exponent_limit).unwrap_or_default();
     let exponent = BigUint::from_bytes_be(e);
 
-    let m = calldata.get(exponent_limit..modulus_limit).ok_or(PrecompileError::ParsingInputError)?;
-    let modulus = BigUint::from_bytes_be(m);
+    let m = match calldata.get(exponent_limit..) {
+        Some(m) => {
+            let m_extended = fill_with_zeros(&Bytes::from(m.to_vec()), m_size)?;
+            m_extended.get(..m_size).unwrap_or_default().to_vec()
+        }
+        None => Default::default(),
+    };
+    let modulus = BigUint::from_bytes_be(&m);
 
     let gas_cost = modexp_cost(&exponent, b_size, e_size, m_size)?;
     increase_precompile_consumed_gas(gas_for_call, gas_cost, consumed_gas)?;
