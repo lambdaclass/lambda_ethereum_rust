@@ -171,7 +171,7 @@ pub fn ecrecover(
     // We need to take the 64 bytes from the public key (discarding the first pos of the slice)
     keccak256(&mut public_key[1..65]);
 
-    // The output is made up of 12 bytes set with 0s and 20 with the addres recovered
+    // The output is 32 bytes: the initial 12 bytes with 0s, and the remaining 20 with the recovered address
     let mut output = vec![0u8; 12];
     output.extend_from_slice(public_key.get(13..33).ok_or(InternalError::SlicingError)?);
 
