@@ -7,10 +7,10 @@ use sha3::Digest;
 
 use crate::{
     call_frame::CallFrame,
-    errors::{InternalError, PrecompileError, VMError},
+    errors::{InternalError, OutOfGasError, PrecompileError, VMError},
     gas_cost::{
         identity as identity_cost, modexp as modexp_cost, ripemd_160 as ripemd_160_cost,
-        sha2_256 as sha2_256_cost, ECRECOVER_COST,
+        sha2_256 as sha2_256_cost, ECRECOVER_COST, MODEXP_STATIC_COST,
     },
 };
 
@@ -287,18 +287,24 @@ pub fn modexp(
     let gas_cost = modexp_cost(&exponent, b_size, e_size, m_size)?;
     increase_precompile_consumed_gas(gas_for_call, gas_cost, consumed_gas)?;
 
-    let result = if modulus == BigUint::ZERO {
-        BigUint::ZERO
-    } else if exponent == BigUint::ZERO {
-        BigUint::from(1_u8) % modulus
-    } else {
-        base.modpow(&exponent, &modulus)
-    };
+    let result = mod_exp(base, exponent, modulus);
 
     let res_bytes = result.to_bytes_be();
     let res_bytes = increase_left_pad(&Bytes::from(res_bytes), m_size)?;
 
     Ok(res_bytes.slice(..m_size))
+}
+
+#[allow(clippy::arithmetic_side_effects)]
+fn mod_exp(base: BigUint, exponent: BigUint, modulus: BigUint) -> BigUint {
+    if modulus == BigUint::ZERO {
+        BigUint::ZERO
+    } else if exponent == BigUint::ZERO {
+        // modulus could never be zero because that case is covered in the if above
+        BigUint::from(1_u8) % modulus
+    } else {
+        base.modpow(&exponent, &modulus)
+    }
 }
 
 pub fn increase_left_pad(result: &Bytes, m_size: usize) -> Result<Bytes, VMError> {
