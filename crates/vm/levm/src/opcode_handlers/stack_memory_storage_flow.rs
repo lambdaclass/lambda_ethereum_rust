@@ -179,7 +179,10 @@ impl VM {
 
         // Gas Refunds
         // TODO: Think about what to do in case of underflow of gas refunds (when we try to substract from it if the value is low)
-        let mut gas_refunds = U256::zero();
+        // dbg!(self.env.refunded_gas);
+        let mut gas_refunds = self.env.refunded_gas;
+        // dbg!(gas_refunds);
+        dbg!(&storage_slot);
         if new_storage_slot_value != storage_slot.current_value {
             if storage_slot.current_value == storage_slot.original_value {
                 if !storage_slot.original_value.is_zero() && new_storage_slot_value.is_zero() {
@@ -210,14 +213,11 @@ impl VM {
             }
         };
 
-        self.env.refunded_gas = self
-            .env
-            .refunded_gas
-            .checked_add(gas_refunds)
-            .ok_or(VMError::GasLimitPriceProductOverflow)?;
+        self.env.refunded_gas = gas_refunds;
 
+        // dbg!(self.get_account(current_call_frame.to));
         self.update_account_storage(current_call_frame.to, key, new_storage_slot_value)?;
-
+        // dbg!(self.get_account(current_call_frame.to));
         Ok(OpcodeSuccess::Continue)
     }
 
