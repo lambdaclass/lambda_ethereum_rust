@@ -8,7 +8,11 @@ use ethrex_levm::{
     constants::*,
     db::{cache, CacheDB, Db},
     errors::{OutOfGasError, TxResult, VMError},
-    gas_cost, memory,
+    gas_cost::{
+        self, ECRECOVER_COST, RIPEMD_160_DYNAMIC_BASE, RIPEMD_160_STATIC_COST,
+        SHA2_256_DYNAMIC_BASE, SHA2_256_STATIC_COST,
+    },
+    memory,
     operations::Operation,
     precompiles::{ecrecover, ripemd_160, sha2_256},
     utils::{new_vm_with_ops, new_vm_with_ops_addr_bal_db, new_vm_with_ops_db, ops_to_bytecode},
@@ -4504,7 +4508,8 @@ fn recover_test() {
         hex::decode("0000000000000000000000007156526fbd7a3c72969b54f64e42c10fbb768c8a").unwrap(),
     );
 
-    assert_eq!(result, expected_result)
+    assert_eq!(result, expected_result);
+    assert_eq!(consumed_gas, ECRECOVER_COST.into());
 }
 
 #[test]
@@ -4519,9 +4524,12 @@ fn sha2_256_test() {
         hex::decode("a8100ae6aa1940d0b663bb31cd466142ebbdbd5187131b92d93818987832eb89").unwrap(),
     );
 
-    assert_eq!(result, expected_result)
+    assert_eq!(result, expected_result);
+    assert_eq!(
+        consumed_gas,
+        (SHA2_256_STATIC_COST + SHA2_256_DYNAMIC_BASE).into()
+    );
 }
-
 
 #[test]
 fn ripemd_160_test() {
@@ -4535,5 +4543,9 @@ fn ripemd_160_test() {
         hex::decode("0000000000000000000000002c0c45d3ecab80fe060e5f1d7057cd2f8de5e557").unwrap(),
     );
 
-    assert_eq!(result, expected_result)
+    assert_eq!(result, expected_result);
+    assert_eq!(
+        consumed_gas,
+        (RIPEMD_160_STATIC_COST + RIPEMD_160_DYNAMIC_BASE).into()
+    );
 }
