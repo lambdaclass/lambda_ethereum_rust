@@ -539,11 +539,11 @@ impl VM {
         // 1. Creating contract.
 
         // If the address has balance but there is no account associated with it, we need to add the value to it
-        let balance = value_in_wei_to_send
+        let new_balance = value_in_wei_to_send
             .checked_add(new_account.info.balance)
             .ok_or(VMError::BalanceOverflow)?;
 
-        let new_account = Account::new(balance, Bytes::new(), 1, Default::default());
+        let new_account = Account::new(new_balance, Bytes::new(), 1, Default::default());
         cache::insert_account(&mut self.cache, new_address, new_account);
 
         // 2. Increment sender's nonce.
