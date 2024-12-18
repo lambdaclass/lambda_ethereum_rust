@@ -43,7 +43,8 @@ pub fn effective_gas_price(
     test: &EFTest,
     tx: &&EFTestTransaction,
 ) -> Result<U256, EFTestRunnerError> {
-    match tx.gas_price {
+    dbg!(tx.gas_price);
+    let price = match tx.gas_price {
         None => {
             let current_base_fee = test
                 .env
@@ -68,5 +69,6 @@ pub fn effective_gas_price(
             ))
         }
         Some(price) => Ok(price),
-    }
+    };
+    dbg!(price)
 }

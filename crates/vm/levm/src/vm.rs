@@ -258,6 +258,11 @@ impl VM {
             self.env.refunded_gas,
         );
 
+        dbg!("Pre execute");
+        let sender_address = self.env.origin;
+        let sender_account = self.get_account(sender_address);
+        dbg!(&sender_account);
+
         if is_precompile(&current_call_frame.code_address) {
             let precompile_result = execute_precompile(current_call_frame);
 
@@ -299,6 +304,11 @@ impl VM {
 
         loop {
             let opcode = current_call_frame.next_opcode();
+            dbg!(opcode);
+
+            let sender_address = self.env.origin;
+            let sender_account = self.get_account(sender_address);
+            dbg!(&sender_account);
 
             let op_result: Result<OpcodeSuccess, VMError> = match opcode {
                 Opcode::STOP => Ok(OpcodeSuccess::Result(ResultReason::Stop)),
@@ -536,18 +546,26 @@ impl VM {
         let blob_gas_used = U256::from(self.env.tx_blob_hashes.len())
             .checked_mul(BLOB_GAS_PER_BLOB)
             .unwrap_or_default();
+        // get_base_fee_per_blob_gas
+        let base_fee_per_blob_gas = self.get_base_fee_per_blob_gas()?;
 
-        let blob_gas_cost = self
-            .env
-            .tx_max_fee_per_blob_gas
-            .unwrap_or_default()
-            .checked_mul(blob_gas_used)
+        let blob_fee = blob_gas_used
+            .checked_mul(base_fee_per_blob_gas)
             .ok_or(InternalError::UndefinedState(1))?;
 
-        Ok(blob_gas_cost)
+        // let blob_gas_cost = self
+        //     .env
+        //     .tx_max_fee_per_blob_gas
+        //     .unwrap_or_default()
+        //     .checked_mul(blob_gas_used)
+        //     .ok_or(InternalError::UndefinedState(1))?;
+
+        // Ok(blob_gas_cost)
+        Ok(blob_fee)
     }
 
     pub fn get_base_fee_per_blob_gas(&self) -> Result<U256, VMError> {
+        dbg!(self.env.block_excess_blob_gas.unwrap_or_default().low_u64());
         fake_exponential(
             MIN_BASE_FEE_PER_BLOB_GAS,
             self.env.block_excess_blob_gas.unwrap_or_default().low_u64(), //Maybe replace unwrap_or_default for sth else later.
@@ -590,6 +608,7 @@ impl VM {
         // blob gas cost = max fee per blob gas * blob gas used
         // https://eips.ethereum.org/EIPS/eip-4844
         let blob_gas_cost = self.get_max_blob_gas_cost()?;
+        // let blob_gas_cost = U256::zero();
 
         // For the transaction to be valid the sender account has to have a balance >= gas_price * gas_limit + value if tx is type 0 and 1
         // balance >= max_fee_per_gas * gas_limit + value + blob_gas_cost if tx is type 2 or 3
@@ -740,7 +759,6 @@ impl VM {
             initial_call_frame.assign_bytecode(initial_call_frame.calldata.clone());
             initial_call_frame.calldata = Bytes::new();
         }
-
         Ok(())
     }
 
@@ -755,7 +773,10 @@ impl VM {
         report: &mut TransactionReport,
     ) -> Result<(), VMError> {
         // POST-EXECUTION Changes
+        dbg!("Post execute");
         let sender_address = initial_call_frame.msg_sender;
+        let sender_account = self.get_account(sender_address);
+        dbg!(&sender_account);
         let receiver_address = initial_call_frame.to;
 
         // 1. Undo value transfer if the transaction was reverted
@@ -817,6 +838,8 @@ impl VM {
             remove_account(&mut self.cache, address);
         }
 
+        dbg!("Fin");
+        dbg!(&sender_account);
         Ok(())
     }
 
@@ -826,8 +849,16 @@ impl VM {
             .pop()
             .ok_or(VMError::Internal(InternalError::CouldNotPopCallframe))?;
 
+        dbg!("AAA");
+        let sender_address = self.env.origin;
+        let sender_account = self.get_account(sender_address);
+        dbg!(&sender_account);
         self.prepare_execution(&mut initial_call_frame)?;
 
+        dbg!("In transact");
+        let sender_address = self.env.origin;
+        let sender_account = self.get_account(sender_address);
+        dbg!(&sender_account);
         let mut report = self.execute(&mut initial_call_frame)?;
 
         if self.is_create() {
@@ -850,7 +881,15 @@ impl VM {
         self.post_execution_changes(&initial_call_frame, &mut report)?;
         // There shouldn't be any errors here but I don't know what the desired behavior is if something goes wrong.
 
+        dbg!("Pre reporte");
+        let sender_address = self.env.origin;
+        let sender_account = self.get_account(sender_address);
+        dbg!(&sender_account);
         report.new_state.clone_from(&self.cache);
+        dbg!("Post reporte");
+        let sender_address = self.env.origin;
+        let sender_account = self.get_account(sender_address);
+        dbg!(&sender_account);
 
         Ok(report)
     }
