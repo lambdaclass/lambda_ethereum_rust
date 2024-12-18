@@ -554,18 +554,19 @@ impl VM {
                 .ok_or(OutOfGasError::ConsumedGasOverflow)?;
 
             let number_of_words = initial_call_frame.calldata.len().div_ceil(WORD_SIZE);
+            let double_nuber_of_words: u64 = number_of_words
+                .checked_mul(2)
+                .ok_or(OutOfGasError::ConsumedGasOverflow)?
+                .try_into()
+                .map_err(|_| VMError::VeryLargeNumber)?;
 
             intrinsic_gas = intrinsic_gas
-                .checked_add(
-                    U256::from(number_of_words)
-                        .checked_mul(U256::from(2))
-                        .ok_or(OutOfGasError::ConsumedGasOverflow)?,
-                )
+                .checked_add(double_nuber_of_words)
                 .ok_or(OutOfGasError::ConsumedGasOverflow)?;
         }
 
         // Access List Cost
-        let mut access_lists_cost = U256::zero();
+        let mut access_lists_cost: u64 = 0;
         for (_, keys) in self.access_list.clone() {
             access_lists_cost = access_lists_cost
                 .checked_add(ACCESS_LIST_ADDRESS_COST)
@@ -603,7 +604,7 @@ impl VM {
         Ok(blob_gas_cost)
     }
 
-    pub fn get_base_fee_per_blob_gas(&self) -> Result<U256, VMError> {
+    pub fn get_base_fee_per_blob_gas(&self) -> Result<u64, VMError> {
         fake_exponential(
             MIN_BASE_FEE_PER_BLOB_GAS,
             self.env.block_excess_blob_gas.unwrap_or_default().low_u64(), //Maybe replace unwrap_or_default for sth else later.
@@ -632,13 +633,13 @@ impl VM {
         let sender_account = self.get_account(sender_address);
 
         // (1) GASLIMIT_PRICE_PRODUCT_OVERFLOW
-        let gaslimit_price_product =
-            self.env
-                .gas_price
-                .checked_mul(self.env.gas_limit)
-                .ok_or(VMError::TxValidation(
-                    TxValidationError::GasLimitPriceProductOverflow,
-                ))?;
+        let gaslimit_price_product = self
+            .env
+            .gas_price
+            .checked_mul(self.env.gas_limit.into())
+            .ok_or(VMError::TxValidation(
+                TxValidationError::GasLimitPriceProductOverflow,
+            ))?;
 
         // Up front cost is the maximum amount of wei that a user is willing to pay for. Gaslimit * gasprice + value + blob_gas_cost
         let value = initial_call_frame.msg_value;
@@ -653,7 +654,7 @@ impl VM {
             .env
             .tx_max_fee_per_gas
             .unwrap_or(self.env.gas_price)
-            .checked_mul(self.env.gas_limit)
+            .checked_mul(self.env.gas_limit.into())
             .ok_or(VMError::TxValidation(
                 TxValidationError::GasLimitPriceProductOverflow,
             ))?;
@@ -746,7 +747,7 @@ impl VM {
 
         // (10) INSUFFICIENT_MAX_FEE_PER_BLOB_GAS
         if let Some(tx_max_fee_per_blob_gas) = self.env.tx_max_fee_per_blob_gas {
-            if tx_max_fee_per_blob_gas < self.get_base_fee_per_blob_gas()? {
+            if tx_max_fee_per_blob_gas < self.get_base_fee_per_blob_gas()?.into() {
                 return Err(VMError::TxValidation(
                     TxValidationError::InsufficientMaxFeePerBlobGas,
                 ));
@@ -824,7 +825,7 @@ impl VM {
         }
 
         // 2. Return unused gas + gas refunds to the sender.
-        let max_gas = self.env.gas_limit.low_u64();
+        let max_gas = self.env.gas_limit;
         let consumed_gas = report.gas_used;
         let refunded_gas = report.gas_refunded.min(
             consumed_gas
