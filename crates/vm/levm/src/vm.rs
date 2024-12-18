@@ -211,8 +211,13 @@ impl VM {
 
                 // Since we are in a CREATE transaction, we need to check if the address is already occupied.
                 // If it is, we should not continue with the transaction. We will handle the revert in the next step.
-                if db.get_account_info(new_contract_address).is_empty() {
-                    let created_contract = Account::new(value, Bytes::new(), 1, HashMap::new());
+                let new_account = db.get_account_info(new_contract_address);
+                let balance = value
+                    .checked_add(new_account.balance)
+                    .ok_or(VMError::BalanceOverflow)?;
+
+                if !new_account.has_code() && !new_account.has_nonce() {
+                    let created_contract = Account::new(balance, Bytes::new(), 1, HashMap::new());
                     cache::insert_account(&mut cache, new_contract_address, created_contract);
                 }
 

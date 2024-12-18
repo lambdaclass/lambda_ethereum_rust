@@ -528,7 +528,8 @@ impl VM {
         };
 
         // 3. Account has nonce or code.
-        if self.get_account(new_address).has_code_or_nonce() {
+        let new_account = self.get_account(new_address);
+        if new_account.has_code_or_nonce() {
             self.increment_account_nonce(deployer_address)?;
             current_call_frame.stack.push(CREATE_DEPLOYMENT_FAIL)?;
             return Ok(OpcodeSuccess::Continue);
@@ -538,17 +539,11 @@ impl VM {
         // 1. Creating contract.
 
         // If the account already exists, we need to add the value to the current balance.
-        let current_balance = self.get_account(new_address).info.balance;
-        let balance = if !current_balance.is_zero() {
-            value_in_wei_to_send
-                .checked_add(current_balance)
-                .ok_or(VMError::BalanceOverflow)?
-        } else {
-            value_in_wei_to_send
-        };
+        let balance = value_in_wei_to_send
+            .checked_add(new_account.info.balance)
+            .ok_or(VMError::BalanceOverflow)?;
 
         let new_account = Account::new(balance, Bytes::new(), 1, Default::default());
-
         cache::insert_account(&mut self.cache, new_address, new_account);
 
         // 2. Increment sender's nonce.
