@@ -141,11 +141,9 @@ impl RLPDecode for Receipt {
     /// A) Legacy receipts: rlp(receipt)
     /// B) Non legacy receipts: rlp(Bytes(tx_type | rlp(receipt))).
     fn decode_unfinished(rlp: &[u8]) -> Result<(Self, &[u8]), RLPDecodeError> {
-        if is_encoded_as_bytes(rlp)? {
+        let (tx_type, rlp) = if is_encoded_as_bytes(rlp)? {
             let payload = get_rlp_bytes_item_payload(rlp)?;
-            let tx_type = payload.first().ok_or(RLPDecodeError::InvalidLength)?;
-            let receipt_encoding = &payload[1..];
-            let tx_type = match tx_type {
+            let tx_type = match payload.first().ok_or(RLPDecodeError::InvalidLength)? {
                 0x0 => TxType::Legacy,
                 0x1 => TxType::EIP2930,
                 0x2 => TxType::EIP1559,
@@ -157,38 +155,27 @@ impl RLPDecode for Receipt {
                     )))
                 }
             };
-            let decoder = Decoder::new(receipt_encoding)?;
-            let (succeeded, decoder) = decoder.decode_field("succeded")?;
-            let (cumulative_gas_used, decoder) = decoder.decode_field("cumulative gas used")?;
-            let (bloom, decoder) = decoder.decode_field("bloom")?;
-            let (logs, decoder) = decoder.decode_field("logs")?;
-            Ok((
-                Receipt {
-                    tx_type,
-                    succeeded,
-                    bloom,
-                    logs,
-                    cumulative_gas_used,
-                },
-                decoder.finish()?,
-            ))
+            (tx_type, &payload[1..])
         } else {
-            let decoder = Decoder::new(rlp)?;
-            let (succeeded, decoder) = decoder.decode_field("succeded")?;
-            let (cumulative_gas_used, decoder) = decoder.decode_field("cumulative gas used")?;
-            let (bloom, decoder) = decoder.decode_field("bloom")?;
-            let (logs, decoder) = decoder.decode_field("logs")?;
-            Ok((
-                Receipt {
-                    tx_type: TxType::Legacy,
-                    succeeded,
-                    bloom,
-                    logs,
-                    cumulative_gas_used,
-                },
-                decoder.finish()?,
-            ))
-        }
+            (TxType::Legacy, rlp)
+        };
+
+        let decoder = Decoder::new(rlp)?;
+        let (succeeded, decoder) = decoder.decode_field("succeeded")?;
+        let (cumulative_gas_used, decoder) = decoder.decode_field("cumulative_gas_used")?;
+        let (bloom, decoder) = decoder.decode_field("bloom")?;
+        let (logs, decoder) = decoder.decode_field("logs")?;
+
+        Ok((
+            Receipt {
+                tx_type,
+                succeeded,
+                cumulative_gas_used,
+                bloom,
+                logs,
+            },
+            decoder.finish()?,
+        ))
     }
 }
 
