@@ -528,8 +528,8 @@ impl VM {
         };
 
         // 3. Account has nonce or code.
-        let new_account = self.get_account(new_address);
-        if new_account.has_code_or_nonce() {
+        let new_account_info = self.access_account(new_address).0;
+        if new_account_info.has_code_or_nonce() {
             self.increment_account_nonce(deployer_address)?;
             current_call_frame.stack.push(CREATE_DEPLOYMENT_FAIL)?;
             return Ok(OpcodeSuccess::Continue);
@@ -540,7 +540,7 @@ impl VM {
 
         // If the address has balance but there is no account associated with it, we need to add the value to it
         let new_balance = value_in_wei_to_send
-            .checked_add(new_account.info.balance)
+            .checked_add(new_account_info.balance)
             .ok_or(VMError::BalanceOverflow)?;
 
         let new_account = Account::new(new_balance, Bytes::new(), 1, Default::default());
@@ -568,7 +568,6 @@ impl VM {
         );
 
         self.accrued_substate.created_accounts.insert(new_address); // Mostly for SELFDESTRUCT during initcode.
-        self.accrued_substate.touched_accounts.insert(new_address);
 
         let tx_report = self.execute(&mut new_call_frame)?;
 
