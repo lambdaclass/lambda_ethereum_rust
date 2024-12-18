@@ -827,7 +827,7 @@ impl VM {
         // transaction should be reverted.
         if self.is_create() {
             let new_address_acc = self.db.get_account_info(initial_call_frame.to);
-            if !new_address_acc.is_empty() {
+            if new_address_acc.has_code() || new_address_acc.has_nonce() {
                 return self.handle_create_non_empty_account(&initial_call_frame);
             }
         }
