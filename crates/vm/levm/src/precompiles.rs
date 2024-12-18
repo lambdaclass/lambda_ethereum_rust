@@ -98,6 +98,8 @@ pub fn execute_precompile(current_call_frame: &mut CallFrame) -> Result<Bytes, V
     Ok(result)
 }
 
+/// When slice length is less than 128, the rest is filled with zeros. If slice length is
+/// more than 128 the excess bytes are discarded.
 fn fill_with_zeros(slice: &[u8]) -> Result<[u8; 128], VMError> {
     let mut result = [0; 128];
 
