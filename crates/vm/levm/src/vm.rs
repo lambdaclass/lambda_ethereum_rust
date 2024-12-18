@@ -150,7 +150,7 @@ impl VM {
 
         // Add precompiled contracts addresses to cache.
         // TODO: Use the addresses from precompiles.rs in a future
-        for i in 1..10 {
+        for i in 1..=10 {
             default_touched_accounts.insert(Address::from_low_u64_be(i));
         }
 
@@ -231,7 +231,7 @@ impl VM {
                     selfdestrutct_set: HashSet::new(),
                     touched_accounts: default_touched_accounts,
                     touched_storage_slots: default_touched_storage_slots,
-                    created_accounts: HashSet::new(),
+                    created_accounts: HashSet::from([new_contract_address]),
                 };
 
                 Ok(Self {
