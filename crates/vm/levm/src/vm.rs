@@ -966,18 +966,6 @@ impl VM {
         Ok(())
     }
 
-    pub fn cache_from_db(&mut self, address: Address) {
-        let acc_info = self.db.get_account_info(address);
-        cache::insert_account(
-            &mut self.cache,
-            address,
-            Account {
-                info: acc_info.clone(),
-                storage: HashMap::new(),
-            },
-        );
-    }
-
     /// Accesses to an account's information.
     ///
     /// Accessed accounts are stored in the `touched_accounts` set.
