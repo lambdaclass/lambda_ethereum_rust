@@ -38,4 +38,8 @@ pub enum StoreError {
     Trie(#[from] TrieError),
     #[error("missing store: is an execution DB being used instead?")]
     MissingStore,
+    #[error("Could not open DB for reading")]
+    ReadError,
+    #[error("Could not instantiate cursor for table {0}")]
+    CursorError(String),
 }

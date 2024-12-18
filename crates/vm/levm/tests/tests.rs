@@ -10,6 +10,7 @@ use ethrex_levm::{
     errors::{OutOfGasError, TxResult, VMError},
     gas_cost, memory,
     operations::Operation,
+    precompiles::ecrecover,
     utils::{new_vm_with_ops, new_vm_with_ops_addr_bal_db, new_vm_with_ops_db, ops_to_bytecode},
     vm::{word_to_address, Storage, VM},
     Environment,
@@ -2435,8 +2436,8 @@ fn calldataload_being_set_by_parent() {
 
     let callee_bytecode = ops_to_bytecode(&ops).unwrap();
 
-    let callee_address = Address::from_low_u64_be(U256::from(2).low_u64());
-    let callee_address_u256 = U256::from(2);
+    let callee_address = Address::from_low_u64_be(U256::from(22).low_u64());
+    let callee_address_u256 = U256::from(22);
     let callee_account = Account::default()
         .with_balance(50000.into())
         .with_bytecode(callee_bytecode);
@@ -4488,4 +4489,20 @@ fn revert_sstore() {
     vm.execute(&mut current_call_frame).unwrap();
 
     assert_eq!(vm.cache, cache_backup);
+}
+
+// Precompiles
+#[test]
+fn recover_test() {
+    let calldata = hex::decode("456e9aea5e197a1f1af7a3e85a3212fa4049a3ba34c2289b4c860fc0b0c64ef3000000000000000000000000000000000000000000000000000000000000001c9242685bf161793cc25603c231bc2f568eb630ea16aa137d2664ac80388256084f8ae3bd7535248d0bd448298cc2e2071e56992d0774dc340c368ae950852ada").unwrap();
+    let calldata = Bytes::from(calldata);
+
+    let mut consumed_gas = U256::zero();
+    let result = ecrecover(&calldata, 10000.into(), &mut consumed_gas).unwrap();
+
+    let expected_result = Bytes::from(
+        hex::decode("0000000000000000000000007156526fbd7a3c72969b54f64e42c10fbb768c8a").unwrap(),
+    );
+
+    assert_eq!(result, expected_result)
 }
