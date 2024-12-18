@@ -180,7 +180,7 @@ pub const MODEXP_STATIC_COST: u64 = 0;
 pub const MODEXP_DYNAMIC_BASE: u64 = 200;
 pub const MODEXP_DYNAMIC_QUOTIENT: u64 = 3;
 
-pub fn exp(exponent: U256) -> Result<U256, OutOfGasError> {
+pub fn exp(exponent: U256) -> Result<u64, OutOfGasError> {
     let exponent_byte_size = (exponent
         .bits()
         .checked_add(7)
@@ -200,7 +200,7 @@ pub fn calldatacopy(
     new_memory_size: usize,
     current_memory_size: usize,
     size: usize,
-) -> Result<U256, VMError> {
+) -> Result<u64, VMError> {
     copy_behavior(
         new_memory_size,
         current_memory_size,
@@ -214,7 +214,7 @@ pub fn codecopy(
     new_memory_size: usize,
     current_memory_size: usize,
     size: usize,
-) -> Result<U256, VMError> {
+) -> Result<u64, VMError> {
     copy_behavior(
         new_memory_size,
         current_memory_size,
@@ -228,7 +228,7 @@ pub fn returndatacopy(
     new_memory_size: usize,
     current_memory_size: usize,
     size: usize,
-) -> Result<U256, VMError> {
+) -> Result<u64, VMError> {
     copy_behavior(
         new_memory_size,
         current_memory_size,
@@ -242,9 +242,9 @@ fn copy_behavior(
     new_memory_size: usize,
     current_memory_size: usize,
     size: usize,
-    dynamic_base: U256,
-    static_cost: U256,
-) -> Result<U256, VMError> {
+    dynamic_base: u64,
+    static_cost: u64,
+) -> Result<u64, VMError> {
     let minimum_word_size = (size
         .checked_add(WORD_SIZE)
         .ok_or(OutOfGasError::GasCostOverflow)?
@@ -267,7 +267,7 @@ pub fn keccak256(
     new_memory_size: usize,
     current_memory_size: usize,
     size: usize,
-) -> Result<U256, VMError> {
+) -> Result<u64, VMError> {
     copy_behavior(
         new_memory_size,
         current_memory_size,
@@ -282,7 +282,7 @@ pub fn log(
     current_memory_size: usize,
     size: usize,
     number_of_topics: u8,
-) -> Result<U256, VMError> {
+) -> Result<u64, VMError> {
     let memory_expansion_cost = memory::expansion_cost(new_memory_size, current_memory_size)?;
 
     let topics_cost = LOGN_DYNAMIC_BASE
@@ -300,15 +300,15 @@ pub fn log(
         .ok_or(OutOfGasError::GasCostOverflow)?)
 }
 
-pub fn mload(new_memory_size: usize, current_memory_size: usize) -> Result<U256, VMError> {
+pub fn mload(new_memory_size: usize, current_memory_size: usize) -> Result<u64, VMError> {
     mem_expansion_behavior(new_memory_size, current_memory_size, MLOAD_STATIC)
 }
 
-pub fn mstore(new_memory_size: usize, current_memory_size: usize) -> Result<U256, VMError> {
+pub fn mstore(new_memory_size: usize, current_memory_size: usize) -> Result<u64, VMError> {
     mem_expansion_behavior(new_memory_size, current_memory_size, MSTORE_STATIC)
 }
 
-pub fn mstore8(new_memory_size: usize, current_memory_size: usize) -> Result<U256, VMError> {
+pub fn mstore8(new_memory_size: usize, current_memory_size: usize) -> Result<u64, VMError> {
     mem_expansion_behavior(new_memory_size, current_memory_size, MSTORE8_STATIC)
 }
 
@@ -316,14 +316,14 @@ fn mem_expansion_behavior(
     new_memory_size: usize,
     current_memory_size: usize,
     static_cost: U256,
-) -> Result<U256, VMError> {
+) -> Result<u64, VMError> {
     let memory_expansion_cost = memory::expansion_cost(new_memory_size, current_memory_size)?;
     Ok(static_cost
         .checked_add(memory_expansion_cost.into())
         .ok_or(OutOfGasError::GasCostOverflow)?)
 }
 
-pub fn sload(storage_slot_was_cold: bool) -> Result<U256, VMError> {
+pub fn sload(storage_slot_was_cold: bool) -> Result<u64, VMError> {
     let static_gas = SLOAD_STATIC;
 
     let dynamic_cost = if storage_slot_was_cold {
@@ -342,7 +342,7 @@ pub fn sstore(
     new_value: U256,
     storage_slot_was_cold: bool,
     current_call_frame: &CallFrame,
-) -> Result<U256, VMError> {
+) -> Result<u64, VMError> {
     // EIP-2200
     let gas_left = current_call_frame
         .gas_limit
@@ -381,7 +381,7 @@ pub fn mcopy(
     new_memory_size: usize,
     current_memory_size: usize,
     size: usize,
-) -> Result<U256, VMError> {
+) -> Result<u64, VMError> {
     let words_copied = (size
         .checked_add(WORD_SIZE)
         .ok_or(OutOfGasError::GasCostOverflow)?
@@ -405,7 +405,7 @@ pub fn create(
     new_memory_size: usize,
     current_memory_size: usize,
     code_size_in_memory: usize,
-) -> Result<U256, VMError> {
+) -> Result<u64, VMError> {
     compute_gas_create(
         new_memory_size,
         current_memory_size,
@@ -418,7 +418,7 @@ pub fn create_2(
     new_memory_size: usize,
     current_memory_size: usize,
     code_size_in_memory: usize,
-) -> Result<U256, VMError> {
+) -> Result<u64, VMError> {
     compute_gas_create(
         new_memory_size,
         current_memory_size,
@@ -432,7 +432,7 @@ fn compute_gas_create(
     current_memory_size: usize,
     code_size_in_memory: usize,
     is_create_2: bool,
-) -> Result<U256, VMError> {
+) -> Result<u64, VMError> {
     let minimum_word_size = (code_size_in_memory
         .checked_add(31)
         .ok_or(OutOfGasError::GasCostOverflow)?)
@@ -466,7 +466,7 @@ pub fn selfdestruct(
     address_was_cold: bool,
     account_is_empty: bool,
     balance_to_transfer: U256,
-) -> Result<U256, OutOfGasError> {
+) -> Result<u64, OutOfGasError> {
     let mut gas_cost = SELFDESTRUCT_STATIC;
 
     if address_was_cold {
@@ -485,7 +485,7 @@ pub fn selfdestruct(
     Ok(gas_cost)
 }
 
-pub fn tx_calldata(calldata: &Bytes) -> Result<U256, OutOfGasError> {
+pub fn tx_calldata(calldata: &Bytes) -> Result<u64, OutOfGasError> {
     // This cost applies both for call and create
     // 4 gas for each zero byte in the transaction data 16 gas for each non-zero byte in the transaction.
     let mut calldata_cost: U256 = U256::zero();
@@ -525,7 +525,7 @@ fn address_access_cost(
     static_cost: U256,
     cold_dynamic_cost: U256,
     warm_dynamic_cost: U256,
-) -> Result<U256, VMError> {
+) -> Result<u64, VMError> {
     let static_gas = static_cost;
     let dynamic_cost: U256 = if address_was_cold {
         cold_dynamic_cost
@@ -538,7 +538,7 @@ fn address_access_cost(
         .ok_or(OutOfGasError::GasCostOverflow)?)
 }
 
-pub fn balance(address_was_cold: bool) -> Result<U256, VMError> {
+pub fn balance(address_was_cold: bool) -> Result<u64, VMError> {
     address_access_cost(
         address_was_cold,
         BALANCE_STATIC,
@@ -547,7 +547,7 @@ pub fn balance(address_was_cold: bool) -> Result<U256, VMError> {
     )
 }
 
-pub fn extcodesize(address_was_cold: bool) -> Result<U256, VMError> {
+pub fn extcodesize(address_was_cold: bool) -> Result<u64, VMError> {
     address_access_cost(
         address_was_cold,
         EXTCODESIZE_STATIC,
@@ -561,7 +561,7 @@ pub fn extcodecopy(
     new_memory_size: usize,
     current_memory_size: usize,
     address_was_cold: bool,
-) -> Result<U256, VMError> {
+) -> Result<u64, VMError> {
     let base_access_cost = copy_behavior(
         new_memory_size,
         current_memory_size,
@@ -581,7 +581,7 @@ pub fn extcodecopy(
         .ok_or(OutOfGasError::GasCostOverflow)?)
 }
 
-pub fn extcodehash(address_was_cold: bool) -> Result<U256, VMError> {
+pub fn extcodehash(address_was_cold: bool) -> Result<u64, VMError> {
     address_access_cost(
         address_was_cold,
         EXTCODEHASH_STATIC,
@@ -596,7 +596,7 @@ pub fn call(
     address_was_cold: bool,
     address_is_empty: bool,
     value_to_transfer: U256,
-) -> Result<U256, VMError> {
+) -> Result<u64, VMError> {
     let static_gas = CALL_STATIC;
 
     let memory_expansion_cost = memory::expansion_cost(new_memory_size, current_memory_size)?;
@@ -638,7 +638,7 @@ pub fn callcode(
     current_memory_size: usize,
     address_was_cold: bool,
     value_to_transfer: U256,
-) -> Result<U256, VMError> {
+) -> Result<u64, VMError> {
     let static_gas = CALLCODE_STATIC;
 
     let memory_expansion_cost = memory::expansion_cost(new_memory_size, current_memory_size)?;
@@ -672,7 +672,7 @@ pub fn delegatecall(
     new_memory_size: usize,
     current_memory_size: usize,
     address_was_cold: bool,
-) -> Result<U256, VMError> {
+) -> Result<u64, VMError> {
     let static_gas = DELEGATECALL_STATIC;
 
     let memory_expansion_cost = memory::expansion_cost(new_memory_size, current_memory_size)?;
@@ -697,7 +697,7 @@ pub fn staticcall(
     new_memory_size: usize,
     current_memory_size: usize,
     address_was_cold: bool,
-) -> Result<U256, VMError> {
+) -> Result<u64, VMError> {
     let static_gas = STATICCALL_STATIC;
 
     let memory_expansion_cost = memory::expansion_cost(new_memory_size, current_memory_size)?;
@@ -718,7 +718,7 @@ pub fn staticcall(
         .ok_or(OutOfGasError::GasCostOverflow)?)
 }
 
-pub fn fake_exponential(factor: u64, numerator: u64, denominator: u64) -> Result<U256, VMError> {
+pub fn fake_exponential(factor: u64, numerator: u64, denominator: u64) -> Result<u64, VMError> {
     let mut i = 1;
     let mut output: u64 = 0;
 
@@ -758,15 +758,15 @@ pub fn fake_exponential(factor: u64, numerator: u64, denominator: u64) -> Result
     ))
 }
 
-pub fn sha2_256(data_size: usize) -> Result<U256, VMError> {
+pub fn sha2_256(data_size: usize) -> Result<u64, VMError> {
     precompile(data_size, SHA2_256_STATIC_COST, SHA2_256_DYNAMIC_BASE)
 }
 
-pub fn ripemd_160(data_size: usize) -> Result<U256, VMError> {
+pub fn ripemd_160(data_size: usize) -> Result<u64, VMError> {
     precompile(data_size, RIPEMD_160_STATIC_COST, RIPEMD_160_DYNAMIC_BASE)
 }
 
-pub fn identity(data_size: usize) -> Result<U256, VMError> {
+pub fn identity(data_size: usize) -> Result<u64, VMError> {
     precompile(data_size, IDENTITY_STATIC_COST, IDENTITY_DYNAMIC_BASE)
 }
 
@@ -834,7 +834,7 @@ pub fn modexp(
         .ok_or(OutOfGasError::GasCostOverflow)?)
 }
 
-fn precompile(data_size: usize, static_cost: u64, dynamic_base: u64) -> Result<U256, VMError> {
+fn precompile(data_size: usize, static_cost: u64, dynamic_base: u64) -> Result<u64, VMError> {
     let data_size: u64 = data_size
         .try_into()
         .map_err(|_| PrecompileError::ParsingInputError)?;
