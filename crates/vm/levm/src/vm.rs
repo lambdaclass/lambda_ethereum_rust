@@ -203,18 +203,6 @@ impl VM {
 
                 default_touched_accounts.insert(new_contract_address);
 
-                // Since we are in a CREATE transaction, we need to check if the address is already occupied.
-                // If it is, we should not continue with the transaction. We will handle the revert in the next step.
-                let new_account = db.get_account_info(new_contract_address);
-                let balance = value
-                    .checked_add(new_account.balance)
-                    .ok_or(VMError::BalanceOverflow)?;
-
-                if !new_account.has_code() && !new_account.has_nonce() {
-                    let created_contract = Account::new(balance, Bytes::new(), 1, HashMap::new());
-                    cache::insert_account(&mut cache, new_contract_address, created_contract);
-                }
-
                 let initial_call_frame = CallFrame::new(
                     env.origin,
                     new_contract_address,
@@ -874,15 +862,25 @@ impl VM {
 
         self.prepare_execution(&mut initial_call_frame)?;
 
-        // The transaction should be reverted if:
-        // - The transaction is a CREATE transaction and
-        // - The address is already in the database and
-        // - The address is not empty
+        // In CREATE type transactions:
+        //  Add created contract to cache, reverting transaction if the address is already occupied
         if self.is_create() {
-            let new_address_acc = self.db.get_account_info(initial_call_frame.to);
-            if new_address_acc.has_code() || new_address_acc.has_nonce() {
+            let new_contract_address = initial_call_frame.to;
+            let new_account = self.get_account(new_contract_address);
+
+            let value = initial_call_frame.msg_value;
+            let balance = new_account
+                .info
+                .balance
+                .checked_add(value)
+                .ok_or(InternalError::ArithmeticOperationOverflow)?;
+
+            if new_account.has_code_or_nonce() {
                 return self.handle_create_non_empty_account(&initial_call_frame);
             }
+
+            let created_contract = Account::new(balance, Bytes::new(), 1, HashMap::new());
+            cache::insert_account(&mut self.cache, new_contract_address, created_contract);
         }
 
         let mut report = self.execute(&mut initial_call_frame)?;
