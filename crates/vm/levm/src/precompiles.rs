@@ -191,7 +191,7 @@ pub fn ecrecover(
     Ok(Bytes::from(output.to_vec()))
 }
 
-fn identity(
+pub fn identity(
     calldata: &Bytes,
     gas_for_call: U256,
     consumed_gas: &mut U256,
