@@ -173,7 +173,7 @@ pub fn ecrecover(
 
     // The output is made up of 12 bytes set with 0s and 20 with the addres recovered
     let mut output = vec![0u8; 12];
-    output.extend_from_slice(&public_key.get(13..33).ok_or(InternalError::SlicingError)?);
+    output.extend_from_slice(public_key.get(13..33).ok_or(InternalError::SlicingError)?);
 
     Ok(Bytes::from(output.to_vec()))
 }
