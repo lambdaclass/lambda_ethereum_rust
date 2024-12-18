@@ -880,8 +880,10 @@ impl VM {
 
         self.prepare_execution(&mut initial_call_frame)?;
 
-        // If the transaction is a CREATE transaction and the address is already in the database and is not empty
-        // transaction should be reverted.
+        // The transaction should be reverted if:
+        // - The transaction is a CREATE transaction and
+        // - The address is already in the database and
+        // - The address is not empty
         if self.is_create() {
             let new_address_acc = self.db.get_account_info(initial_call_frame.to);
             if new_address_acc.has_code() || new_address_acc.has_nonce() {
