@@ -30,8 +30,6 @@ use tracing_subscriber::{filter::Directive, EnvFilter, FmtSubscriber};
 mod cli;
 mod decode;
 
-use ethrex_metrics;
-
 const DEFAULT_DATADIR: &str = "ethrex";
 #[tokio::main]
 async fn main() {
