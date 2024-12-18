@@ -2,6 +2,7 @@ use bytes::Bytes;
 use ethrex_core::{Address, H160, U256};
 use keccak_hash::keccak256;
 use libsecp256k1::{self, Message, RecoveryId, Signature};
+use num_bigint::BigUint;
 use sha3::Digest;
 
 use crate::{
