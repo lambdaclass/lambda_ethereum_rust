@@ -169,7 +169,7 @@ cfg_if::cfg_if! {
 
             let env = Environment {
                 origin: tx.sender(),
-                refunded_gas: U256::zero(),
+                refunded_gas: 0,
                 gas_limit: tx.gas_limit().into(),
                 block_number: block_header.number.into(),
                 coinbase: block_header.coinbase,

@@ -589,19 +589,24 @@ impl VM {
     }
 
     /// Gets the max blob gas cost for a transaction that a user is willing to pay.
-    fn get_max_blob_gas_cost(&self) -> Result<U256, VMError> {
-        let blob_gas_used = U256::from(self.env.tx_blob_hashes.len())
+    fn get_max_blob_gas_cost(&self) -> Result<u64, VMError> {
+        let blob_gasses = self.env.tx_blob_hashes.len();
+
+        let blob_gas_used: u64 = blob_gasses
+            .try_into()
+            .map_err(|_| VMError::VeryLargeNumber)?;
+
+        let blob_gas_used: u64 = blob_gas_used
             .checked_mul(BLOB_GAS_PER_BLOB)
             .unwrap_or_default();
 
-        let blob_gas_cost = self
-            .env
-            .tx_max_fee_per_blob_gas
-            .unwrap_or_default()
-            .checked_mul(blob_gas_used)
+        let base_fee_per_blob_gas = self.get_base_fee_per_blob_gas()?;
+
+        let blob_fee = blob_gas_used
+            .checked_mul(base_fee_per_blob_gas)
             .ok_or(InternalError::UndefinedState(1))?;
 
-        Ok(blob_gas_cost)
+        Ok(blob_fee)
     }
 
     pub fn get_base_fee_per_blob_gas(&self) -> Result<u64, VMError> {
@@ -664,7 +669,7 @@ impl VM {
             .ok_or(VMError::TxValidation(
                 TxValidationError::InsufficientAccountFunds,
             ))?
-            .checked_add(blob_gas_cost)
+            .checked_add(blob_gas_cost.into())
             .ok_or(VMError::TxValidation(
                 TxValidationError::InsufficientAccountFunds,
             ))?;
@@ -680,7 +685,7 @@ impl VM {
             .ok_or(VMError::TxValidation(
                 TxValidationError::InsufficientAccountFunds,
             ))?
-            .checked_add(blob_gas_cost)
+            .checked_add(blob_gas_cost.into())
             .ok_or(VMError::TxValidation(
                 TxValidationError::InsufficientAccountFunds,
             ))?;
