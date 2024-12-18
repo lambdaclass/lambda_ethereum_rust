@@ -44,6 +44,10 @@ impl Receipt {
     // RLP encodings are the ones returned by `encode_inner`.
     // On some documentations, this is also called the `consensus-encoding`
     // for a receipt.
+
+    /// Encodes Receipts in the following formats:
+    /// A) Legacy receipts: rlp(receipt)
+    /// B) Non legacy receipts: tx_type | rlp(receipt).
     pub fn encode_inner(&self) -> Vec<u8> {
         let mut encode_buff = match self.tx_type {
             TxType::Legacy => {
@@ -61,6 +65,45 @@ impl Receipt {
             .finish();
         encode_buff
     }
+
+    /// Decodes Receipts in the following formats:
+    /// A) Legacy receipts: rlp(receipt)
+    /// B) Non legacy receipts: tx_type | rlp(receipt).
+    pub fn decode_inner(rlp: &[u8]) -> Result<Receipt, RLPDecodeError> {
+        // Obtain TxType
+        let (tx_type, rlp) = match rlp.first() {
+            Some(tx_type) if *tx_type < 0x7f => {
+                let tx_type = match tx_type {
+                    0x0 => TxType::Legacy,
+                    0x1 => TxType::EIP2930,
+                    0x2 => TxType::EIP1559,
+                    0x3 => TxType::EIP4844,
+                    0x7e => TxType::Privileged,
+                    ty => {
+                        return Err(RLPDecodeError::Custom(format!(
+                            "Invalid transaction type: {ty}"
+                        )))
+                    }
+                };
+                (tx_type, &rlp[1..])
+            }
+            _ => (TxType::Legacy, rlp),
+        };
+        let decoder = Decoder::new(rlp)?;
+        let (succeeded, decoder) = decoder.decode_field("succeeded")?;
+        let (cumulative_gas_used, decoder) = decoder.decode_field("cumulative_gas_used")?;
+        let (bloom, decoder) = decoder.decode_field("bloom")?;
+        let (logs, decoder) = decoder.decode_field("logs")?;
+        decoder.finish()?;
+
+        Ok(Receipt {
+            tx_type,
+            succeeded,
+            cumulative_gas_used,
+            bloom,
+            logs,
+        })
+    }
 }
 
 fn bloom_from_logs(logs: &[Log]) -> Bloom {
@@ -76,7 +119,7 @@ fn bloom_from_logs(logs: &[Log]) -> Bloom {
 
 impl RLPEncode for Receipt {
     /// Receipts can be encoded in the following formats:
-    /// A) Legacy receipts: rlp(LegacyTransaction)
+    /// A) Legacy receipts: rlp(receipt)
     /// B) Non legacy receipts: rlp(Bytes(tx_type | rlp(receipt))).
     fn encode(&self, buf: &mut dyn bytes::BufMut) {
         match self.tx_type {
@@ -95,7 +138,7 @@ impl RLPEncode for Receipt {
 
 impl RLPDecode for Receipt {
     /// Receipts can be encoded in the following formats:
-    /// A) Legacy receipts: rlp(LegacyTransaction)
+    /// A) Legacy receipts: rlp(receipt)
     /// B) Non legacy receipts: rlp(Bytes(tx_type | rlp(receipt))).
     fn decode_unfinished(rlp: &[u8]) -> Result<(Self, &[u8]), RLPDecodeError> {
         if is_encoded_as_bytes(rlp)? {
@@ -179,5 +222,78 @@ impl RLPDecode for Log {
             data,
         };
         Ok((log, decoder.finish()?))
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use super::*;
+
+    #[test]
+    fn test_encode_decode_receipt_legacy() {
+        let receipt = Receipt {
+            tx_type: TxType::Legacy,
+            succeeded: true,
+            cumulative_gas_used: 1200,
+            bloom: Bloom::random(),
+            logs: vec![Log {
+                address: Address::random(),
+                topics: vec![],
+                data: Bytes::from_static(b"foo"),
+            }],
+        };
+        let encoded_receipt = receipt.encode_to_vec();
+        assert_eq!(receipt, Receipt::decode(&encoded_receipt).unwrap())
+    }
+
+    #[test]
+    fn test_encode_decode_receipt_non_legacy() {
+        let receipt = Receipt {
+            tx_type: TxType::EIP4844,
+            succeeded: true,
+            cumulative_gas_used: 1500,
+            bloom: Bloom::random(),
+            logs: vec![Log {
+                address: Address::random(),
+                topics: vec![],
+                data: Bytes::from_static(b"bar"),
+            }],
+        };
+        let encoded_receipt = receipt.encode_to_vec();
+        assert_eq!(receipt, Receipt::decode(&encoded_receipt).unwrap())
+    }
+
+    #[test]
+    fn test_encode_decode_inner_receipt_legacy() {
+        let receipt = Receipt {
+            tx_type: TxType::Legacy,
+            succeeded: true,
+            cumulative_gas_used: 1200,
+            bloom: Bloom::random(),
+            logs: vec![Log {
+                address: Address::random(),
+                topics: vec![],
+                data: Bytes::from_static(b"foo"),
+            }],
+        };
+        let encoded_receipt = receipt.encode_inner();
+        assert_eq!(receipt, Receipt::decode_inner(&encoded_receipt).unwrap())
+    }
+
+    #[test]
+    fn test_encode_decode_receipt_inner_non_legacy() {
+        let receipt = Receipt {
+            tx_type: TxType::EIP4844,
+            succeeded: true,
+            cumulative_gas_used: 1500,
+            bloom: Bloom::random(),
+            logs: vec![Log {
+                address: Address::random(),
+                topics: vec![],
+                data: Bytes::from_static(b"bar"),
+            }],
+        };
+        let encoded_receipt = receipt.encode_inner();
+        assert_eq!(receipt, Receipt::decode_inner(&encoded_receipt).unwrap())
     }
 }
