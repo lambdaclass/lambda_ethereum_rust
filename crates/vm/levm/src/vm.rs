@@ -176,7 +176,7 @@ impl VM {
                     calldata.clone(),
                     false,
                     env.gas_limit,
-                    U256::zero(),
+                    0,
                     0,
                     false,
                 );
@@ -222,7 +222,7 @@ impl VM {
                     calldata, // Calldata is removed after passing validations.
                     false,
                     env.gas_limit,
-                    U256::zero(),
+                    0,
                     0,
                     false,
                 );
@@ -268,7 +268,7 @@ impl VM {
                     return Ok(TransactionReport {
                         result: TxResult::Success,
                         new_state: self.cache.clone(),
-                        gas_used: current_call_frame.gas_used.low_u64(),
+                        gas_used: current_call_frame.gas_used,
                         gas_refunded: 0,
                         output,
                         logs: current_call_frame.logs.clone(),
@@ -287,7 +287,7 @@ impl VM {
                     return Ok(TransactionReport {
                         result: TxResult::Revert(error),
                         new_state: self.cache.clone(),
-                        gas_used: current_call_frame.gas_limit.low_u64(),
+                        gas_used: current_call_frame.gas_limit,
                         gas_refunded: 0,
                         output: Bytes::new(),
                         logs: current_call_frame.logs.clone(),
@@ -420,11 +420,15 @@ impl VM {
                     {
                         let contract_code = current_call_frame.output.clone();
                         let code_length = contract_code.len();
-                        let code_deposit_cost = U256::from(code_length)
-                            .checked_mul(CODE_DEPOSIT_COST)
-                            .ok_or(VMError::Internal(
-                                InternalError::ArithmeticOperationOverflow,
-                            ))?;
+
+                        let code_length_u64: u64 = code_length
+                            .try_into()
+                            .map_err(|_| VMError::VeryLargeNumber)?;
+
+                        let code_deposit_cost: u64 =
+                            code_length_u64.checked_mul(CODE_DEPOSIT_COST).ok_or(
+                                VMError::Internal(InternalError::ArithmeticOperationOverflow),
+                            )?;
 
                         // Revert
                         // If the first byte of code is 0xef
@@ -456,8 +460,8 @@ impl VM {
                                 return Ok(TransactionReport {
                                     result: TxResult::Revert(error),
                                     new_state: self.cache.clone(),
-                                    gas_used: current_call_frame.gas_used.low_u64(),
-                                    gas_refunded: self.env.refunded_gas.low_u64(),
+                                    gas_used: current_call_frame.gas_used,
+                                    gas_refunded: self.env.refunded_gas,
                                     output: current_call_frame.output.clone(),
                                     logs: current_call_frame.logs.clone(),
                                     created_address: None,
@@ -469,8 +473,8 @@ impl VM {
                     return Ok(TransactionReport {
                         result: TxResult::Success,
                         new_state: self.cache.clone(),
-                        gas_used: current_call_frame.gas_used.low_u64(),
-                        gas_refunded: self.env.refunded_gas.low_u64(),
+                        gas_used: current_call_frame.gas_used,
+                        gas_refunded: self.env.refunded_gas,
                         output: current_call_frame.output.clone(),
                         logs: current_call_frame.logs.clone(),
                         created_address: None,
@@ -497,8 +501,8 @@ impl VM {
                     return Ok(TransactionReport {
                         result: TxResult::Revert(error),
                         new_state: self.cache.clone(),
-                        gas_used: current_call_frame.gas_used.low_u64(),
-                        gas_refunded: self.env.refunded_gas.low_u64(),
+                        gas_used: current_call_frame.gas_used,
+                        gas_refunded: self.env.refunded_gas,
                         output: current_call_frame.output.clone(), // Bytes::new() if error is not RevertOpcode
                         logs: current_call_frame.logs.clone(),
                         created_address: None,
@@ -512,7 +516,7 @@ impl VM {
         &mut self,
         backup_cache: CacheDB,
         backup_substate: Substate,
-        backup_refunded_gas: U256,
+        backup_refunded_gas: u64,
     ) {
         self.cache = backup_cache;
         self.accrued_substate = backup_substate;
@@ -527,7 +531,7 @@ impl VM {
         // Intrinsic gas is the gas consumed by the transaction before the execution of the opcodes. Section 6.2 in the Yellow Paper.
 
         // Intrinsic Gas = Calldata cost + Create cost + Base cost + Access list cost
-        let mut intrinsic_gas = U256::zero();
+        let mut intrinsic_gas: u64 = 0;
 
         // Calldata Cost
         // 4 gas for each zero byte in the transaction data 16 gas for each non-zero byte in the transaction.
@@ -953,7 +957,7 @@ impl VM {
     pub fn increase_consumed_gas(
         &mut self,
         current_call_frame: &mut CallFrame,
-        gas: U256,
+        gas: u64,
     ) -> Result<(), VMError> {
         let potential_consumed_gas = current_call_frame
             .gas_used

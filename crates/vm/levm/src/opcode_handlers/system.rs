@@ -23,7 +23,11 @@ impl VM {
         current_call_frame: &mut CallFrame,
     ) -> Result<OpcodeSuccess, VMError> {
         // STACK
-        let gas = current_call_frame.stack.pop()?;
+        let gas: u64 = current_call_frame
+            .stack
+            .pop()?
+            .try_into()
+            .map_err(|_| VMError::VeryLargeNumber)?;
         let callee: Address = word_to_address(current_call_frame.stack.pop()?);
         let value_to_transfer: U256 = current_call_frame.stack.pop()?;
         let args_start_offset = current_call_frame.stack.pop()?;
@@ -99,7 +103,11 @@ impl VM {
         current_call_frame: &mut CallFrame,
     ) -> Result<OpcodeSuccess, VMError> {
         // STACK
-        let gas = current_call_frame.stack.pop()?;
+        let gas: u64 = current_call_frame
+            .stack
+            .pop()?
+            .try_into()
+            .map_err(|_| VMError::VeryLargeNumber)?;
         let code_address = word_to_address(current_call_frame.stack.pop()?);
         let value_to_transfer = current_call_frame.stack.pop()?;
         let args_start_offset = current_call_frame.stack.pop()?;
@@ -180,10 +188,13 @@ impl VM {
         }
 
         let new_memory_size = calculate_memory_size(offset, size)?;
-        self.increase_consumed_gas(
-            current_call_frame,
-            memory::expansion_cost(new_memory_size, current_call_frame.memory.len())?.into(),
-        )?;
+
+        let memory_expansion_cost: u64 =
+            memory::expansion_cost(new_memory_size, current_call_frame.memory.len())?
+                .try_into()
+                .map_err(|_err| VMError::VeryLargeNumber)?;
+
+        self.increase_consumed_gas(current_call_frame, memory_expansion_cost)?;
 
         current_call_frame.output =
             memory::load_range(&mut current_call_frame.memory, offset, size)?
@@ -200,7 +211,11 @@ impl VM {
         current_call_frame: &mut CallFrame,
     ) -> Result<OpcodeSuccess, VMError> {
         // STACK
-        let gas = current_call_frame.stack.pop()?;
+        let gas = current_call_frame
+            .stack
+            .pop()?
+            .try_into()
+            .map_err(|_| VMError::VeryLargeNumber)?;
         let code_address = word_to_address(current_call_frame.stack.pop()?);
         let args_start_offset = current_call_frame.stack.pop()?;
         let args_size = current_call_frame
@@ -258,7 +273,11 @@ impl VM {
         current_call_frame: &mut CallFrame,
     ) -> Result<OpcodeSuccess, VMError> {
         // STACK
-        let gas = current_call_frame.stack.pop()?;
+        let gas = current_call_frame
+            .stack
+            .pop()?
+            .try_into()
+            .map_err(|_| VMError::VeryLargeNumber)?;
         let code_address = word_to_address(current_call_frame.stack.pop()?);
         let args_start_offset = current_call_frame.stack.pop()?;
         let args_size = current_call_frame
@@ -396,10 +415,13 @@ impl VM {
             .map_err(|_err| VMError::VeryLargeNumber)?;
 
         let new_memory_size = calculate_memory_size(offset, size)?;
-        self.increase_consumed_gas(
-            current_call_frame,
-            memory::expansion_cost(new_memory_size, current_call_frame.memory.len())?.into(),
-        )?;
+
+        let memory_expansion_cost: u64 =
+            memory::expansion_cost(new_memory_size, current_call_frame.memory.len())?
+                .try_into()
+                .map_err(|_err| VMError::VeryLargeNumber)?;
+
+        self.increase_consumed_gas(current_call_frame, memory_expansion_cost)?;
 
         current_call_frame.output =
             memory::load_range(&mut current_call_frame.memory, offset, size)?
@@ -553,8 +575,8 @@ impl VM {
             value_in_wei_to_send,
             Bytes::new(),
             false,
-            U256::from(max_message_call_gas),
-            U256::zero(),
+            max_message_call_gas,
+            0,
             new_depth,
             true,
         );
@@ -596,7 +618,7 @@ impl VM {
     pub fn generic_call(
         &mut self,
         current_call_frame: &mut CallFrame,
-        gas_limit: U256,
+        gas_limit: u64,
         value: U256,
         msg_sender: Address,
         to: Address,
@@ -642,7 +664,7 @@ impl VM {
             calldata.into(),
             is_static,
             gas_limit,
-            U256::zero(),
+            0,
             new_depth,
             false,
         );

@@ -560,12 +560,12 @@ pub fn tx_creation(code_length: u64, number_of_words: u64) -> Result<u64, OutOfG
 
 fn address_access_cost(
     address_was_cold: bool,
-    static_cost: U256,
-    cold_dynamic_cost: U256,
-    warm_dynamic_cost: U256,
+    static_cost: u64,
+    cold_dynamic_cost: u64,
+    warm_dynamic_cost: u64,
 ) -> Result<u64, VMError> {
     let static_gas = static_cost;
-    let dynamic_cost: U256 = if address_was_cold {
+    let dynamic_cost: u64 = if address_was_cold {
         cold_dynamic_cost
     } else {
         warm_dynamic_cost
@@ -638,6 +638,10 @@ pub fn call(
     let static_gas = CALL_STATIC;
 
     let memory_expansion_cost = memory::expansion_cost(new_memory_size, current_memory_size)?;
+    let memory_expansion_cost: u64 = memory_expansion_cost
+        .try_into()
+        .map_err(|_| VMError::VeryLargeNumber)?;
+
     let address_access_cost = address_access_cost(
         address_was_cold,
         CALL_STATIC,
@@ -649,16 +653,16 @@ pub fn call(
             .checked_sub(CALL_POSITIVE_VALUE_STIPEND)
             .ok_or(InternalError::ArithmeticOperationUnderflow)?
     } else {
-        U256::zero()
+        0
     };
     let value_to_empty_account = if address_is_empty && !value_to_transfer.is_zero() {
         CALL_TO_EMPTY_ACCOUNT
     } else {
-        U256::zero()
+        0
     };
 
     // Note: code_execution_cost will be charged from the sub context post-state.
-    let dynamic_gas = U256::from(memory_expansion_cost)
+    let dynamic_gas = memory_expansion_cost
         .checked_add(address_access_cost)
         .ok_or(OutOfGasError::GasCostOverflow)?
         .checked_add(positive_value_cost)
@@ -680,6 +684,10 @@ pub fn callcode(
     let static_gas = CALLCODE_STATIC;
 
     let memory_expansion_cost = memory::expansion_cost(new_memory_size, current_memory_size)?;
+    let memory_expansion_cost: u64 = memory_expansion_cost
+        .try_into()
+        .map_err(|_| VMError::VeryLargeNumber)?;
+
     let address_access_cost = address_access_cost(
         address_was_cold,
         CALLCODE_STATIC,
@@ -691,11 +699,11 @@ pub fn callcode(
             .checked_sub(CALLCODE_POSITIVE_VALUE_STIPEND)
             .ok_or(InternalError::ArithmeticOperationUnderflow)?
     } else {
-        U256::zero()
+        0
     };
 
     // Note: code_execution_cost will be charged from the sub context post-state.
-    let dynamic_gas = U256::from(memory_expansion_cost)
+    let dynamic_gas = memory_expansion_cost
         .checked_add(address_access_cost)
         .ok_or(OutOfGasError::GasCostOverflow)?
         .checked_add(positive_value_cost)
@@ -714,6 +722,10 @@ pub fn delegatecall(
     let static_gas = DELEGATECALL_STATIC;
 
     let memory_expansion_cost = memory::expansion_cost(new_memory_size, current_memory_size)?;
+    let memory_expansion_cost: u64 = memory_expansion_cost
+        .try_into()
+        .map_err(|_| VMError::VeryLargeNumber)?;
+
     let address_access_cost = address_access_cost(
         address_was_cold,
         DELEGATECALL_STATIC,
@@ -722,7 +734,7 @@ pub fn delegatecall(
     )?;
 
     // Note: code_execution_cost will be charged from the sub context post-state.
-    let dynamic_gas = U256::from(memory_expansion_cost)
+    let dynamic_gas = memory_expansion_cost
         .checked_add(address_access_cost)
         .ok_or(OutOfGasError::GasCostOverflow)?;
 
@@ -739,6 +751,10 @@ pub fn staticcall(
     let static_gas = STATICCALL_STATIC;
 
     let memory_expansion_cost = memory::expansion_cost(new_memory_size, current_memory_size)?;
+    let memory_expansion_cost: u64 = memory_expansion_cost
+        .try_into()
+        .map_err(|_| VMError::VeryLargeNumber)?;
+
     let address_access_cost = address_access_cost(
         address_was_cold,
         STATICCALL_STATIC,
@@ -747,7 +763,7 @@ pub fn staticcall(
     )?;
 
     // Note: code_execution_cost will be charged from the sub context post-state.
-    let dynamic_gas = U256::from(memory_expansion_cost)
+    let dynamic_gas = memory_expansion_cost
         .checked_add(address_access_cost)
         .ok_or(OutOfGasError::GasCostOverflow)?;
 
@@ -789,11 +805,9 @@ pub fn fake_exponential(factor: u64, numerator: u64, denominator: u64) -> Result
             .ok_or(InternalError::ArithmeticOperationOverflow)?;
     }
 
-    Ok(U256::from(
-        output
-            .checked_div(denominator)
-            .ok_or(InternalError::ArithmeticOperationOverflow)?,
-    ))
+    Ok(output
+        .checked_div(denominator)
+        .ok_or(InternalError::ArithmeticOperationOverflow)?)
 }
 
 pub fn sha2_256(data_size: usize) -> Result<u64, VMError> {
@@ -898,8 +912,7 @@ fn precompile(data_size: usize, static_cost: u64, dynamic_base: u64) -> Result<u
 pub fn max_message_call_gas(current_call_frame: &CallFrame) -> Result<u64, VMError> {
     let mut remaining_gas = current_call_frame
         .gas_limit
-        .low_u64()
-        .checked_sub(current_call_frame.gas_used.low_u64())
+        .checked_sub(current_call_frame.gas_used)
         .ok_or(InternalError::GasOverflow)?;
 
     remaining_gas = remaining_gas
