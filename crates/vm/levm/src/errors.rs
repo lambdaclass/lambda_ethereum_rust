@@ -184,8 +184,6 @@ pub enum PrecompileError {
     ParsingInputError,
     #[error("Error while increasing consumed gas")]
     GasConsumedOverflow,
-    #[error("Error while recovering the key")]
-    KeyRecoverError,
     #[error("There is not enough gas to execute precompiled contract")]
     NotEnoughGas,
     #[error("This is a default error")]
