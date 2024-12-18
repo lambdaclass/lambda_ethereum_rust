@@ -195,11 +195,11 @@ impl VM {
             TxKind::Create => {
                 // CREATE tx
 
-                let new_contract_address =
-                    VM::calculate_create_address(env.origin, db.get_account_info(env.origin).nonce)
-                        .map_err(|_| {
-                            VMError::Internal(InternalError::CouldNotComputeCreateAddress)
-                        })?;
+                let sender_nonce = get_account(&mut cache, &db, env.origin).info.nonce;
+                let new_contract_address = VM::calculate_create_address(env.origin, sender_nonce)
+                    .map_err(|_| {
+                    VMError::Internal(InternalError::CouldNotComputeCreateAddress)
+                })?;
 
                 default_touched_accounts.insert(new_contract_address);
 
