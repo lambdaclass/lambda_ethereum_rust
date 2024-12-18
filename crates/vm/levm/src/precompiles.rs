@@ -232,6 +232,7 @@ pub fn modexp(
     gas_for_call: U256,
     consumed_gas: &mut U256,
 ) -> Result<Bytes, VMError> {
+    // If calldata does not reach the required length, we should fill the rest with zeros
     let calldata = fill_with_zeros(calldata, 96)?;
 
     let b_size: U256 = calldata
@@ -269,6 +270,8 @@ pub fn modexp(
         .checked_add(base_limit)
         .ok_or(InternalError::ArithmeticOperationOverflow)?;
 
+    // The reason I use unwrap_or_default is to cover the case where calldata does not reach the required
+    // length, so then we should fill the rest with zeros. The same is done in modulus parsing
     let b = calldata.get(96..base_limit).unwrap_or_default();
     let base = BigUint::from_bytes_be(b);
 
@@ -295,12 +298,13 @@ pub fn modexp(
     Ok(res_bytes.slice(..m_size))
 }
 
+/// I allow this clippy alert because in the code modulus could never be
+///  zero because that case is covered in the if above that line
 #[allow(clippy::arithmetic_side_effects)]
 fn mod_exp(base: BigUint, exponent: BigUint, modulus: BigUint) -> BigUint {
     if modulus == BigUint::ZERO {
         BigUint::ZERO
     } else if exponent == BigUint::ZERO {
-        // modulus could never be zero because that case is covered in the if above
         BigUint::from(1_u8) % modulus
     } else {
         base.modpow(&exponent, &modulus)
