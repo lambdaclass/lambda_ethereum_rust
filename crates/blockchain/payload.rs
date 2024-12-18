@@ -41,7 +41,7 @@ pub struct BuildPayloadArgs {
     pub timestamp: u64,
     pub fee_recipient: Address,
     pub random: H256,
-    pub withdrawals: Vec<Withdrawal>,
+    pub withdrawals: Option<Vec<Withdrawal>>,
     pub beacon_root: Option<H256>,
     pub version: u8,
 }
@@ -54,7 +54,9 @@ impl BuildPayloadArgs {
         hasher.update(self.timestamp.to_be_bytes());
         hasher.update(self.random);
         hasher.update(self.fee_recipient);
-        hasher.update(self.withdrawals.encode_to_vec());
+        if let Some(withdrawals) = &self.withdrawals {
+            hasher.update(withdrawals.encode_to_vec());
+        }
         if let Some(beacon_root) = self.beacon_root {
             hasher.update(beacon_root);
         }
@@ -100,7 +102,9 @@ pub fn create_payload(args: &BuildPayloadArgs, storage: &Store) -> Result<Block,
         ),
         withdrawals_root: chain_config
             .is_shanghai_activated(args.timestamp)
-            .then_some(compute_withdrawals_root(&args.withdrawals)),
+            .then_some(compute_withdrawals_root(
+                args.withdrawals.as_ref().unwrap_or(&Vec::new()),
+            )),
         blob_gas_used: chain_config
             .is_cancun_activated(args.timestamp)
             .then_some(0),
@@ -116,7 +120,7 @@ pub fn create_payload(args: &BuildPayloadArgs, storage: &Store) -> Result<Block,
     let body = BlockBody {
         transactions: Vec::new(),
         ommers: Vec::new(),
-        withdrawals: Some(args.withdrawals.clone()),
+        withdrawals: args.withdrawals.clone(),
     };
 
     // Delay applying withdrawals until the payload is requested and built

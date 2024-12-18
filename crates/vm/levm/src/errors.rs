@@ -20,6 +20,8 @@ pub enum VMError {
     OpcodeNotFound,
     #[error("Invalid Bytecode")]
     InvalidBytecode,
+    #[error("Invalid Contract Prefix")]
+    InvalidContractPrefix,
     #[error("Very Large Number")]
     VeryLargeNumber,
     #[error("Fatal Error")]
@@ -44,8 +46,6 @@ pub enum VMError {
     AddressAlreadyOccupied,
     #[error("Contract Output Too Big")]
     ContractOutputTooBig,
-    #[error("Invalid Initial Byte")]
-    InvalidInitialByte,
     #[error("Gas limit price product overflow")]
     GasLimitPriceProductOverflow,
     #[error("Balance Overflow")]
@@ -180,6 +180,12 @@ pub enum InternalError {
 
 #[derive(Debug, Clone, PartialEq, Eq, thiserror::Error, Serialize, Deserialize)]
 pub enum PrecompileError {
+    #[error("Error while parsing the calldata")]
+    ParsingInputError,
+    #[error("Error while increasing consumed gas")]
+    GasConsumedOverflow,
+    #[error("There is not enough gas to execute precompiled contract")]
+    NotEnoughGas,
     #[error("This is a default error")]
     DefaultError,
 }

@@ -379,7 +379,7 @@ impl VM {
             gas_cost::returndatacopy(new_memory_size, current_call_frame.memory.len(), size)?,
         )?;
 
-        if size == 0 {
+        if size == 0 && returndata_offset == 0 {
             return Ok(OpcodeSuccess::Continue);
         }
 
@@ -424,10 +424,14 @@ impl VM {
 
         self.increase_consumed_gas(current_call_frame, gas_cost::extcodehash(address_was_cold)?)?;
 
-        current_call_frame.stack.push(U256::from_big_endian(
-            keccak(account_info.bytecode).as_fixed_bytes(),
-        ))?;
+        // An account is considered empty when it has no code and zero nonce and zero balance. [EIP-161]
+        if account_info.is_empty() {
+            current_call_frame.stack.push(U256::zero())?;
+            return Ok(OpcodeSuccess::Continue);
+        }
 
+        let hash = U256::from_big_endian(keccak(account_info.bytecode).as_fixed_bytes());
+        current_call_frame.stack.push(hash)?;
         Ok(OpcodeSuccess::Continue)
     }
 }

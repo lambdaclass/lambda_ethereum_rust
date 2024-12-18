@@ -10,6 +10,7 @@ use ethrex_levm::{
     errors::{OutOfGasError, TxResult, VMError},
     gas_cost, memory,
     operations::Operation,
+    precompiles::ecrecover,
     utils::{new_vm_with_ops, new_vm_with_ops_addr_bal_db, new_vm_with_ops_db, ops_to_bytecode},
     vm::{word_to_address, Storage, VM},
     Environment,
@@ -2435,8 +2436,8 @@ fn calldataload_being_set_by_parent() {
 
     let callee_bytecode = ops_to_bytecode(&ops).unwrap();
 
-    let callee_address = Address::from_low_u64_be(U256::from(2).low_u64());
-    let callee_address_u256 = U256::from(2);
+    let callee_address = Address::from_low_u64_be(U256::from(22).low_u64());
+    let callee_address_u256 = U256::from(22);
     let callee_account = Account::default()
         .with_balance(50000.into())
         .with_bytecode(callee_bytecode);
@@ -3873,7 +3874,7 @@ fn create_happy_path() {
 #[test]
 fn caller_op() {
     let caller = Address::from_low_u64_be(0x100);
-    let address_that_has_the_code = Address::from_low_u64_be(0x42);
+    let address_that_has_the_code = Address::from_low_u64_be(213);
 
     let operations = [Operation::Caller, Operation::Stop];
 
@@ -3915,7 +3916,7 @@ fn caller_op() {
 
 #[test]
 fn origin_op() {
-    let address_that_has_the_code = Address::from_low_u64_be(0x42);
+    let address_that_has_the_code = Address::from_low_u64_be(213);
     let msg_sender = Address::from_low_u64_be(0x999);
 
     let operations = [Operation::Origin, Operation::Stop];
@@ -3986,7 +3987,7 @@ fn balance_op() {
 
 #[test]
 fn address_op() {
-    let address_that_has_the_code = Address::from_low_u64_be(0x42);
+    let address_that_has_the_code = Address::from_low_u64_be(123);
 
     let operations = [Operation::Address, Operation::Stop];
 
@@ -4028,7 +4029,7 @@ fn address_op() {
 
 #[test]
 fn selfbalance_op() {
-    let address_that_has_the_code = Address::from_low_u64_be(0x42);
+    let address_that_has_the_code = Address::from_low_u64_be(123);
     let balance = U256::from(999);
 
     let operations = [Operation::SelfBalance, Operation::Stop];
@@ -4075,7 +4076,7 @@ fn selfbalance_op() {
 
 #[test]
 fn callvalue_op() {
-    let address_that_has_the_code = Address::from_low_u64_be(0x42);
+    let address_that_has_the_code = Address::from_low_u64_be(123);
     let value = U256::from(0x1234);
 
     let operations = [Operation::Callvalue, Operation::Stop];
@@ -4119,7 +4120,7 @@ fn callvalue_op() {
 
 #[test]
 fn codesize_op() {
-    let address_that_has_the_code = Address::from_low_u64_be(0x42);
+    let address_that_has_the_code = Address::from_low_u64_be(123);
 
     let operations = [Operation::Codesize, Operation::Stop];
 
@@ -4161,7 +4162,7 @@ fn codesize_op() {
 
 #[test]
 fn gasprice_op() {
-    let address_that_has_the_code = Address::from_low_u64_be(0x42);
+    let address_that_has_the_code = Address::from_low_u64_be(123);
     let operations = [Operation::Gasprice, Operation::Stop];
 
     let mut db = Db::default();
@@ -4204,7 +4205,7 @@ fn gasprice_op() {
 #[test]
 fn codecopy_op() {
     // Copies two bytes of the code, with offset 2, and loads them beginning at offset 3 in memory.
-    let address_that_has_the_code = Address::from_low_u64_be(0x42);
+    let address_that_has_the_code = Address::from_low_u64_be(123);
     // https://www.evm.codes/playground?fork=cancun&unit=Wei&codeType=Mnemonic&code=%27~2z~2z~3zCODECOPY%27~PUSH1%200x0z%5Cn%01z~_
     let operations = [
         Operation::Push((1, 0x02.into())), // size
@@ -4269,7 +4270,7 @@ fn codecopy_op() {
 
 #[test]
 fn extcodesize_existing_account() {
-    let address_with_code = Address::from_low_u64_be(0x42);
+    let address_with_code = Address::from_low_u64_be(123);
     let operations = [
         Operation::Push((20, address_with_code.as_bytes().into())),
         Operation::ExtcodeSize,
@@ -4297,7 +4298,7 @@ fn extcodesize_existing_account() {
 fn extcodesize_non_existing_account() {
     // EVM Playground: https://www.evm.codes/playground?fork=cancun&unit=Wei&codeType=Mnemonic&code='PUSH20%200x42%5CnEXTCODESIZE%5CnSTOP'_
     let operations = [
-        Operation::Push((20, "0x42".into())),
+        Operation::Push((20, U256::from(0xABCD))),
         Operation::ExtcodeSize,
         Operation::Stop,
     ];
@@ -4315,7 +4316,7 @@ fn extcodesize_non_existing_account() {
 
 #[test]
 fn extcodecopy_existing_account() {
-    let address_with_code = Address::from_low_u64_be(0x42);
+    let address_with_code = Address::from_low_u64_be(213);
     let size: usize = 1;
 
     let operations = [
@@ -4358,7 +4359,7 @@ fn extcodecopy_non_existing_account() {
         Operation::Push((1, size.into())),
         Operation::Push0, // offset
         Operation::Push0, // destOffset
-        Operation::Push((20, "0x42".into())),
+        Operation::Push((20, U256::from(213))),
         Operation::ExtcodeCopy,
         Operation::Stop,
     ];
@@ -4380,16 +4381,17 @@ fn extcodecopy_non_existing_account() {
 }
 
 #[test]
-fn extcodehash_account_with_empty_code() {
-    let address_with_code = Address::from_low_u64_be(0x42);
+fn extcodehash_account_with_zero_bytecode_but_not_empty() {
+    let address = Address::from_low_u64_be(213);
     let operations = [
-        Operation::Push((20, address_with_code.as_bytes().into())),
+        Operation::Push((20, address.as_bytes().into())),
         Operation::ExtcodeHash,
         Operation::Stop,
     ];
 
     let mut db = Db::default();
-    db.add_accounts(vec![(address_with_code, Account::default())]);
+    let account = Account::default().with_balance(U256::one()); // Add balance to avoid empty account
+    db.add_accounts(vec![(address, account)]);
 
     let mut vm = new_vm_with_ops_db(&operations, db).unwrap();
 
@@ -4405,8 +4407,9 @@ fn extcodehash_account_with_empty_code() {
 #[test]
 fn extcodehash_non_existing_account() {
     // EVM Playground: https://www.evm.codes/playground?fork=cancun&unit=Wei&codeType=Mnemonic&code='PUSH20%200x42%5CnEXTCODEHASH%5CnSTOP'_
+    let random_address = Address::from_low_u64_be(12345);
     let operations = [
-        Operation::Push((20, "0x42".into())),
+        Operation::Push((20, random_address.as_bytes().into())),
         Operation::ExtcodeHash,
         Operation::Stop,
     ];
@@ -4417,7 +4420,7 @@ fn extcodehash_non_existing_account() {
     vm.execute(&mut current_call_frame).unwrap();
     assert_eq!(
         vm.current_call_frame_mut().unwrap().stack.pop().unwrap(),
-        "c5d2460186f7233c927e7db2dcc703c0e500b653ca82273b7bfad8045d85a470".into()
+        U256::zero()
     );
     assert_eq!(current_call_frame.gas_used, 2603.into());
 }
@@ -4486,4 +4489,20 @@ fn revert_sstore() {
     vm.execute(&mut current_call_frame).unwrap();
 
     assert_eq!(vm.cache, cache_backup);
+}
+
+// Precompiles
+#[test]
+fn recover_test() {
+    let calldata = hex::decode("456e9aea5e197a1f1af7a3e85a3212fa4049a3ba34c2289b4c860fc0b0c64ef3000000000000000000000000000000000000000000000000000000000000001c9242685bf161793cc25603c231bc2f568eb630ea16aa137d2664ac80388256084f8ae3bd7535248d0bd448298cc2e2071e56992d0774dc340c368ae950852ada").unwrap();
+    let calldata = Bytes::from(calldata);
+
+    let mut consumed_gas = U256::zero();
+    let result = ecrecover(&calldata, 10000.into(), &mut consumed_gas).unwrap();
+
+    let expected_result = Bytes::from(
+        hex::decode("0000000000000000000000007156526fbd7a3c72969b54f64e42c10fbb768c8a").unwrap(),
+    );
+
+    assert_eq!(result, expected_result)
 }
