@@ -794,10 +794,8 @@ impl VM {
 
         // 1. Undo value transfer if the transaction was reverted
         if let TxResult::Revert(_) = report.result {
-            // msg_value was not increased in the receiver account when is a create transaction.
-            if !self.is_create() {
-                self.decrease_account_balance(receiver_address, initial_call_frame.msg_value)?;
-            }
+            // We remove the receiver account from the cache, like nothing changed in it's state.
+            remove_account(&mut self.cache, &receiver_address);
             self.increase_account_balance(sender_address, initial_call_frame.msg_value)?;
         }
 
@@ -884,9 +882,6 @@ impl VM {
         }
 
         let mut report = self.execute(&mut initial_call_frame)?;
-        if self.is_create() && !report.is_success() {
-            remove_account(&mut self.cache, &initial_call_frame.to);
-        }
 
         self.post_execution_changes(&initial_call_frame, &mut report)?;
         // There shouldn't be any errors here but I don't know what the desired behavior is if something goes wrong.
