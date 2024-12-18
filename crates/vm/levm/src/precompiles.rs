@@ -119,19 +119,15 @@ fn increase_precompile_consumed_gas(
     Ok(())
 }
 
-fn fill_with_zeros(slice: &[u8]) -> Result<[u8; 128], VMError> {
-    let mut result = [0; 128];
-
-    let n = slice.len().min(128);
-
-    let trimmed_slice: &[u8] = slice.get(..n).unwrap_or_default();
-
-    for i in 0..n {
-        let byte: &mut u8 = result.get_mut(i).ok_or(InternalError::SlicingError)?;
-        *byte = *trimmed_slice.get(i).ok_or(InternalError::SlicingError)?;
+fn fill_with_zeros(calldata: &Bytes, target_len: usize) -> Result<Bytes, VMError> {
+    let mut padded_calldata = calldata.to_vec();
+    if padded_calldata.len() < target_len {
+        let size_diff = target_len
+            .checked_sub(padded_calldata.len())
+            .ok_or(InternalError::ArithmeticOperationUnderflow)?;
+        padded_calldata.extend(vec![0u8; size_diff]);
     }
-
-    Ok(result)
+    Ok(padded_calldata.into())
 }
 
 pub fn ecrecover(
@@ -144,7 +140,7 @@ pub fn ecrecover(
     increase_precompile_consumed_gas(gas_for_call, gas_cost, consumed_gas)?;
 
     // If calldata does not reach the required length, we should fill the rest with zeros
-    let calldata = fill_with_zeros(calldata)?;
+    let calldata = fill_with_zeros(calldata, 128)?;
 
     let hash = calldata.get(0..32).ok_or(InternalError::SlicingError)?;
     let message = Message::parse_slice(hash).map_err(|_| PrecompileError::ParsingInputError)?;
@@ -236,8 +232,7 @@ pub fn modexp(
     gas_for_call: U256,
     consumed_gas: &mut U256,
 ) -> Result<Bytes, VMError> {
-    // Note that fill_with_zeros defines a fixed size slice, not optimal
-    let calldata = fill_with_zeros(calldata)?;
+    let calldata = fill_with_zeros(calldata, 96)?;
 
     let b_size: U256 = calldata
         .get(0..32)
