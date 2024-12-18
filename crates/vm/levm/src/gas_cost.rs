@@ -180,20 +180,24 @@ pub const MODEXP_STATIC_COST: u64 = 0;
 pub const MODEXP_DYNAMIC_BASE: u64 = 200;
 pub const MODEXP_DYNAMIC_QUOTIENT: u64 = 3;
 
-pub fn exp(exponent: U256) -> Result<u64, OutOfGasError> {
+pub fn exp(exponent: U256) -> Result<u64, VMError> {
     let exponent_byte_size = (exponent
         .bits()
         .checked_add(7)
-        .ok_or(OutOfGasError::GasCostOverflow)?)
+        .ok_or(VMError::OutOfGas(OutOfGasError::GasCostOverflow))?)
         / 8;
 
+    let exponent_byte_size: u64 = exponent_byte_size
+        .try_into()
+        .map_err(|_| VMError::VeryLargeNumber)?;
+
     let exponent_byte_size_cost = EXP_DYNAMIC_BASE
-        .checked_mul(exponent_byte_size.into())
-        .ok_or(OutOfGasError::GasCostOverflow)?;
+        .checked_mul(exponent_byte_size)
+        .ok_or(VMError::OutOfGas(OutOfGasError::GasCostOverflow))?;
 
     EXP_STATIC
         .checked_add(exponent_byte_size_cost)
-        .ok_or(OutOfGasError::GasCostOverflow)
+        .ok_or(VMError::OutOfGas(OutOfGasError::GasCostOverflow))
 }
 
 pub fn calldatacopy(
@@ -251,15 +255,22 @@ fn copy_behavior(
         .saturating_sub(1))
         / WORD_SIZE;
 
+    let minimum_word_size: u64 = minimum_word_size
+        .try_into()
+        .map_err(|_| VMError::VeryLargeNumber)?;
+
     let memory_expansion_cost = memory::expansion_cost(new_memory_size, current_memory_size)?;
+    let memory_expansion_cost: u64 = memory_expansion_cost
+        .try_into()
+        .map_err(|_| VMError::VeryLargeNumber)?;
 
     let minimum_word_size_cost = dynamic_base
-        .checked_mul(minimum_word_size.into())
+        .checked_mul(minimum_word_size)
         .ok_or(OutOfGasError::GasCostOverflow)?;
     Ok(static_cost
         .checked_add(minimum_word_size_cost)
         .ok_or(OutOfGasError::GasCostOverflow)?
-        .checked_add(memory_expansion_cost.into())
+        .checked_add(memory_expansion_cost)
         .ok_or(OutOfGasError::GasCostOverflow)?)
 }
 
@@ -288,15 +299,22 @@ pub fn log(
     let topics_cost = LOGN_DYNAMIC_BASE
         .checked_mul(number_of_topics.into())
         .ok_or(OutOfGasError::GasCostOverflow)?;
+
+    let size: u64 = size.try_into().map_err(|_| VMError::VeryLargeNumber)?;
     let bytes_cost = LOGN_DYNAMIC_BYTE_BASE
-        .checked_mul(size.into())
+        .checked_mul(size)
         .ok_or(OutOfGasError::GasCostOverflow)?;
+
+    let memory_expansion_cost: u64 = memory_expansion_cost
+        .try_into()
+        .map_err(|_| VMError::VeryLargeNumber)?;
+
     Ok(topics_cost
         .checked_add(LOGN_STATIC)
         .ok_or(OutOfGasError::GasCostOverflow)?
         .checked_add(bytes_cost)
         .ok_or(OutOfGasError::GasCostOverflow)?
-        .checked_add(memory_expansion_cost.into())
+        .checked_add(memory_expansion_cost)
         .ok_or(OutOfGasError::GasCostOverflow)?)
 }
 
@@ -315,9 +333,13 @@ pub fn mstore8(new_memory_size: usize, current_memory_size: usize) -> Result<u64
 fn mem_expansion_behavior(
     new_memory_size: usize,
     current_memory_size: usize,
-    static_cost: U256,
+    static_cost: u64,
 ) -> Result<u64, VMError> {
     let memory_expansion_cost = memory::expansion_cost(new_memory_size, current_memory_size)?;
+    let memory_expansion_cost: u64 = memory_expansion_cost
+        .try_into()
+        .map_err(|_| VMError::VeryLargeNumber)?;
+
     Ok(static_cost
         .checked_add(memory_expansion_cost.into())
         .ok_or(OutOfGasError::GasCostOverflow)?)
@@ -389,15 +411,22 @@ pub fn mcopy(
         / WORD_SIZE;
 
     let memory_expansion_cost = memory::expansion_cost(new_memory_size, current_memory_size)?;
+    let memory_expansion_cost: u64 = memory_expansion_cost
+        .try_into()
+        .map_err(|_| VMError::VeryLargeNumber)?;
+
+    let words_copied: u64 = words_copied
+        .try_into()
+        .map_err(|_| VMError::VeryLargeNumber)?;
 
     let copied_words_cost = MCOPY_DYNAMIC_BASE
-        .checked_mul(words_copied.into())
+        .checked_mul(words_copied)
         .ok_or(OutOfGasError::GasCostOverflow)?;
 
     Ok(MCOPY_STATIC
         .checked_add(copied_words_cost)
         .ok_or(OutOfGasError::GasCostOverflow)?
-        .checked_add(memory_expansion_cost.into())
+        .checked_add(memory_expansion_cost)
         .ok_or(OutOfGasError::GasCostOverflow)?)
 }
 
@@ -439,27 +468,36 @@ fn compute_gas_create(
     .checked_div(32)
     .ok_or(OutOfGasError::ArithmeticOperationDividedByZero)?; // '32' will never be zero
 
+    let minimum_word_size: u64 = minimum_word_size
+        .try_into()
+        .map_err(|_| VMError::VeryLargeNumber)?;
+
     let init_code_cost = minimum_word_size
-        .checked_mul(INIT_CODE_WORD_COST.as_usize()) // will not panic since it's 2
+        .checked_mul(INIT_CODE_WORD_COST)
         .ok_or(OutOfGasError::GasCostOverflow)?;
 
     let memory_expansion_cost = memory::expansion_cost(new_memory_size, current_memory_size)?;
+    let memory_expansion_cost: u64 = memory_expansion_cost
+        .try_into()
+        .map_err(|_| VMError::VeryLargeNumber)?;
 
     let hash_cost = if is_create_2 {
         minimum_word_size
-            .checked_mul(KECCAK25_DYNAMIC_BASE.as_usize()) // will not panic since it's 6
+            .checked_mul(KECCAK25_DYNAMIC_BASE)
             .ok_or(OutOfGasError::GasCostOverflow)?
     } else {
         0
     };
 
-    Ok(U256::from(memory_expansion_cost)
+    let gas_create_cost = memory_expansion_cost
         .checked_add(init_code_cost.into())
         .ok_or(OutOfGasError::CreationCostIsTooHigh)?
         .checked_add(CREATE_BASE_COST)
         .ok_or(OutOfGasError::CreationCostIsTooHigh)?
         .checked_add(hash_cost.into())
-        .ok_or(OutOfGasError::CreationCostIsTooHigh)?)
+        .ok_or(OutOfGasError::CreationCostIsTooHigh)?;
+
+    Ok(gas_create_cost)
 }
 
 pub fn selfdestruct(
@@ -488,7 +526,7 @@ pub fn selfdestruct(
 pub fn tx_calldata(calldata: &Bytes) -> Result<u64, OutOfGasError> {
     // This cost applies both for call and create
     // 4 gas for each zero byte in the transaction data 16 gas for each non-zero byte in the transaction.
-    let mut calldata_cost: U256 = U256::zero();
+    let mut calldata_cost: u64 = 0;
     for byte in calldata {
         if *byte != 0 {
             calldata_cost = calldata_cost
