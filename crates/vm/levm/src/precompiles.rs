@@ -238,18 +238,27 @@ pub fn modexp(
         .get(0..32)
         .ok_or(PrecompileError::ParsingInputError)?
         .into();
-    let b_size = usize::try_from(b_size).map_err(|_| PrecompileError::ParsingInputError)?;
 
     let e_size: U256 = calldata
         .get(32..64)
         .ok_or(PrecompileError::ParsingInputError)?
         .into();
-    let e_size = usize::try_from(e_size).map_err(|_| PrecompileError::ParsingInputError)?;
 
     let m_size: U256 = calldata
         .get(64..96)
         .ok_or(PrecompileError::ParsingInputError)?
         .into();
+
+    if b_size == U256::zero() && m_size == U256::zero() {
+        *consumed_gas = consumed_gas
+            .checked_add(U256::from(MODEXP_STATIC_COST))
+            .ok_or(OutOfGasError::ConsumedGasOverflow)?;
+        return Ok(Bytes::new());
+    }
+
+    // Because on some cases conversions exploded before the if above
+    let b_size = usize::try_from(b_size).map_err(|_| PrecompileError::ParsingInputError)?;
+    let e_size = usize::try_from(e_size).map_err(|_| PrecompileError::ParsingInputError)?;
     let m_size = usize::try_from(m_size).map_err(|_| PrecompileError::ParsingInputError)?;
 
     let base_limit = b_size
