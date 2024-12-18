@@ -260,42 +260,38 @@ pub fn modexp(
         .checked_add(96)
         .ok_or(InternalError::ArithmeticOperationOverflow)?;
 
-    let base: U256 = calldata
-        .get(96..base_limit)
-        .ok_or(PrecompileError::ParsingInputError)?
-        .into();
-
     let exponent_limit = e_size
         .checked_add(base_limit)
         .ok_or(InternalError::ArithmeticOperationOverflow)?;
-
-    let exponent: U256 = calldata
-        .get(base_limit..exponent_limit)
-        .ok_or(PrecompileError::ParsingInputError)?
-        .into();
 
     let modulus_limit = m_size
         .checked_add(exponent_limit)
         .ok_or(InternalError::ArithmeticOperationOverflow)?;
 
-    let modulus: U256 = calldata
-        .get(exponent_limit..modulus_limit)
-        .ok_or(PrecompileError::ParsingInputError)?
-        .into();
+    let b = calldata.get(96..base_limit).ok_or(PrecompileError::ParsingInputError)?;
+    let base = BigUint::from_bytes_be(b);
 
-    let gas_cost = modexp_cost(exponent, b_size, e_size, m_size)?;
+    let e = calldata.get(base_limit..exponent_limit).ok_or(PrecompileError::ParsingInputError)?;
+    let exponent = BigUint::from_bytes_be(e);
 
+    let m = calldata.get(exponent_limit..modulus_limit).ok_or(PrecompileError::ParsingInputError)?;
+    let modulus = BigUint::from_bytes_be(m);
+
+    let gas_cost = modexp_cost(&exponent, b_size, e_size, m_size)?;
     increase_precompile_consumed_gas(gas_for_call, gas_cost, consumed_gas)?;
 
-    let result = mod_exp(base, exponent, modulus)?;
+    let result = if modulus == BigUint::ZERO {
+        BigUint::ZERO
+    } else if exponent == BigUint::ZERO {
+        BigUint::from(1_u8) % modulus
+    } else {
+        base.modpow(&exponent, &modulus)
+    };
 
-    let res_bytes = result.as_usize().to_be_bytes().to_vec();
+    let res_bytes = result.to_bytes_be();
     let res_bytes = increase_left_pad(&Bytes::from(res_bytes), m_size)?;
 
-    let size_diff = (res_bytes.len())
-        .checked_sub(m_size)
-        .ok_or(InternalError::ArithmeticOperationUnderflow)?;
-    Ok(res_bytes.slice(size_diff..))
+    Ok(res_bytes.slice(..m_size))
 }
 
 pub fn increase_left_pad(result: &Bytes, m_size: usize) -> Result<Bytes, VMError> {
@@ -313,36 +309,6 @@ pub fn increase_left_pad(result: &Bytes, m_size: usize) -> Result<Bytes, VMError
     } else {
         Ok(result.clone())
     }
-}
-
-fn mod_exp(b: U256, e: U256, m: U256) -> Result<U256, PrecompileError> {
-    let mut result = U256::one();
-    let mut base = b.checked_rem(m).ok_or(PrecompileError::DefaultError)?;
-    let mut exponent = e;
-
-    while exponent > U256::zero() {
-        if exponent
-            .checked_rem(2.into())
-            .ok_or(PrecompileError::DefaultError)?
-            == U256::one()
-        {
-            result = (result
-                .checked_mul(base)
-                .ok_or(PrecompileError::DefaultError)?)
-            .checked_rem(m)
-            .ok_or(PrecompileError::DefaultError)?;
-        }
-        base = (base
-            .checked_mul(base)
-            .ok_or(PrecompileError::DefaultError)?)
-        .checked_rem(m)
-        .ok_or(PrecompileError::DefaultError)?;
-        exponent = exponent
-            .checked_div(U256::from(2))
-            .ok_or(PrecompileError::DefaultError)?;
-    }
-
-    Ok(result)
 }
 
 fn ecadd(
