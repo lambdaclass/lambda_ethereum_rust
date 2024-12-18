@@ -10,7 +10,7 @@ use ethrex_levm::{
     errors::{OutOfGasError, TxResult, VMError},
     gas_cost, memory,
     operations::Operation,
-    precompiles::ecrecover,
+    precompiles::{ecrecover, ripemd_160, sha2_256},
     utils::{new_vm_with_ops, new_vm_with_ops_addr_bal_db, new_vm_with_ops_db, ops_to_bytecode},
     vm::{word_to_address, Storage, VM},
     Environment,
@@ -4502,6 +4502,37 @@ fn recover_test() {
 
     let expected_result = Bytes::from(
         hex::decode("0000000000000000000000007156526fbd7a3c72969b54f64e42c10fbb768c8a").unwrap(),
+    );
+
+    assert_eq!(result, expected_result)
+}
+
+#[test]
+fn sha2_256_test() {
+    let calldata = hex::decode("ff").unwrap();
+    let calldata = Bytes::from(calldata);
+
+    let mut consumed_gas = U256::zero();
+    let result = sha2_256(&calldata, 10000.into(), &mut consumed_gas).unwrap();
+
+    let expected_result = Bytes::from(
+        hex::decode("a8100ae6aa1940d0b663bb31cd466142ebbdbd5187131b92d93818987832eb89").unwrap(),
+    );
+
+    assert_eq!(result, expected_result)
+}
+
+
+#[test]
+fn ripemd_160_test() {
+    let calldata = hex::decode("ff").unwrap();
+    let calldata = Bytes::from(calldata);
+
+    let mut consumed_gas = U256::zero();
+    let result = ripemd_160(&calldata, 10000.into(), &mut consumed_gas).unwrap();
+
+    let expected_result = Bytes::from(
+        hex::decode("0000000000000000000000002c0c45d3ecab80fe060e5f1d7057cd2f8de5e557").unwrap(),
     );
 
     assert_eq!(result, expected_result)

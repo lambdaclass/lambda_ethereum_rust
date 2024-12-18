@@ -190,7 +190,7 @@ fn identity(
     Ok(Bytes::new())
 }
 
-fn sha2_256(
+pub fn sha2_256(
     calldata: &Bytes,
     gas_for_call: U256,
     consumed_gas: &mut U256,
@@ -204,7 +204,7 @@ fn sha2_256(
     Ok(Bytes::from(result))
 }
 
-fn ripemd_160(
+pub fn ripemd_160(
     calldata: &Bytes,
     gas_for_call: U256,
     consumed_gas: &mut U256,
