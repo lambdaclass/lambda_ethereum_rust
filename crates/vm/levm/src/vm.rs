@@ -1140,18 +1140,7 @@ impl VM {
 
     /// Gets account, first checking the cache and then the database (caching in the second case)
     pub fn get_account(&mut self, address: Address) -> Account {
-        match cache::get_account(&self.cache, &address) {
-            Some(acc) => acc.clone(),
-            None => {
-                let account_info = self.db.get_account_info(address);
-                let account = Account {
-                    info: account_info,
-                    storage: HashMap::new(),
-                };
-                cache::insert_account(&mut self.cache, address, account.clone());
-                account
-            }
-        }
+        get_account(&mut self.cache, &self.db, address)
     }
 
     fn handle_create_non_empty_account(
@@ -1191,4 +1180,20 @@ fn get_number_of_topics(op: Opcode) -> Result<u8, VMError> {
         .ok_or(VMError::InvalidOpcode)?;
 
     Ok(number_of_topics)
+}
+
+/// Gets account, first checking the cache and then the database (caching in the second case)
+pub fn get_account(cache: &mut CacheDB, db: &Arc<dyn Database>, address: Address) -> Account {
+    match cache::get_account(cache, &address) {
+        Some(acc) => acc.clone(),
+        None => {
+            let account_info = db.get_account_info(address);
+            let account = Account {
+                info: account_info,
+                storage: HashMap::new(),
+            };
+            cache::insert_account(cache, address, account.clone());
+            account
+        }
+    }
 }
