@@ -30,6 +30,8 @@ use tracing_subscriber::{filter::Directive, EnvFilter, FmtSubscriber};
 mod cli;
 mod decode;
 
+use ethrex_metrics;
+
 const DEFAULT_DATADIR: &str = "ethrex";
 #[tokio::main]
 async fn main() {
@@ -208,18 +210,15 @@ async fn main() {
 
     tracker.spawn(rpc_api);
 
-    // Start the prometheus /metrics api
-    cfg_if::cfg_if! {
-        if #[cfg(feature = "metrics")] {
-            use ethrex_metrics;
+    // Check if the metrics.port is present, else set it to 0
+    let metrics_port = matches
+        .get_one::<String>("metrics.port")
+        .map_or("0".to_string(), |v| v.clone());
 
-            let metrics_port = matches
-                .get_one::<String>("metrics.port")
-                .map_or("3000".to_string(), |v| v.clone());
-
-            let metrics_api = ethrex_metrics::metrics_api::start_prometheus_metrics_api(metrics_port);
-            tracker.spawn(metrics_api);
-        }
+    // Start the metrics_api with the given metrics.port if it's != 0
+    if metrics_port != *"0" {
+        let metrics_api = ethrex_metrics::metrics_api::start_prometheus_metrics_api(metrics_port);
+        tracker.spawn(metrics_api);
     }
 
     // We do not want to start the networking module if the l2 feature is enabled.
