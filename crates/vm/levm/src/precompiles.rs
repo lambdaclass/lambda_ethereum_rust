@@ -154,6 +154,7 @@ pub fn ecrecover(
     let signature =
         Signature::parse_standard_slice(sig).map_err(|_| PrecompileError::ParsingInputError)?;
 
+    // Recover the address using secp256k1
     let mut public_key = match libsecp256k1::recover(&message, &signature, &recovery_id) {
         Ok(id) => id,
         Err(_) => {
@@ -162,10 +163,12 @@ pub fn ecrecover(
     }
     .serialize();
 
+    // We need to take the 64 bytes from the public key (discarding the first pos of the slice)
     keccak256(&mut public_key[1..65]);
 
+    // The output is made up of 12 bytes set with 0s and 20 with the addres recovered
     let mut output = vec![0u8; 12];
-    output.extend_from_slice(&public_key[13..33]);
+    output.extend_from_slice(&public_key.get(13..33).ok_or(InternalError::SlicingError)?);
 
     Ok(Bytes::from(output.to_vec()))
 }
