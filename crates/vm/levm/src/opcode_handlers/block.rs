@@ -167,16 +167,20 @@ impl VM {
             current_call_frame.stack.push(U256::zero())?;
             return Ok(OpcodeSuccess::Continue);
         }
-        let index: usize = index.try_into().map_err(|_| VMError::VeryLargeNumber)?;
 
-        blob_hashes
-            .get(index)
-            .map(|el| {
-                current_call_frame
-                    .stack
-                    .push(U256::from_big_endian(el.as_bytes()))
-            })
-            .unwrap_or_else(|| current_call_frame.stack.push(U256::zero()))?;
+        let index: usize = index
+            .try_into()
+            .map_err(|_| VMError::Internal(InternalError::ConversionError))?;
+
+        if let Some(blob_hash) = blob_hashes.get(index) {
+            current_call_frame
+                .stack
+                .push(U256::from_big_endian(blob_hash.as_bytes()))?;
+        } else {
+            // This should never happen because whe check if the index
+            // fits inside the blobhash array above
+            return Err(VMError::Internal(InternalError::UndefinedState(1)));
+        }
 
         Ok(OpcodeSuccess::Continue)
     }
