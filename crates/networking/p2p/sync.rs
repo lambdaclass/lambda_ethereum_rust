@@ -162,7 +162,11 @@ impl SyncManager {
                 let all_block_bodies = fetch_bodies_handle.await??;
                 // For all blocks before the pivot: Store the bodies and fetch the receipts
                 // For all blocks after the pivot: Process them fully
-                // let store_receipts_handle = tokio::spawn(store_receipts(all_block_hashes[pivot_index..]));
+                let store_receipts_handle = tokio::spawn(store_receipts(
+                    all_block_hashes[pivot_idx..].to_vec(),
+                    self.peers.clone(),
+                    store.clone(),
+                ));
                 for (hash, (header, body)) in all_block_hashes.into_iter().zip(
                     all_block_headers
                         .into_iter()
@@ -177,7 +181,7 @@ impl SyncManager {
                         ethrex_blockchain::add_block(&Block::new(header, body), &store)?;
                     }
                 }
-                // store_receipts.await??;
+                store_receipts_handle.await??;
                 self.last_snap_pivot = pivot_number;
             }
             SyncMode::Full => {
@@ -254,6 +258,30 @@ async fn fetch_block_bodies(
         }
     }
     Ok(all_block_bodies)
+}
+
+/// Fetches all receipts for the given block hashes via p2p and stores them
+async fn store_receipts(
+    mut block_hashes: Vec<BlockHash>,
+    peers: Arc<Mutex<KademliaTable>>,
+    store: Store,
+) -> Result<(), SyncError> {
+    loop {
+        let peer = peers.lock().await.get_peer_channels().await;
+        debug!("Requesting Block Headers ");
+        if let Some(receipts) = peer.request_receipts(block_hashes.clone()).await {
+            debug!(" Received {} Receipts", receipts.len());
+            // Track which blocks we have already fetched receipts for
+            for (block_hash, receipts) in block_hashes.drain(0..receipts.len()).zip(receipts) {
+                store.add_receipts(block_hash, receipts)?;
+            }
+            // Check if we need to ask for another batch
+            if block_hashes.is_empty() {
+                break;
+            }
+        }
+    }
+    Ok(())
 }
 
 /// Rebuilds a Block's state trie by requesting snap state from peers, also performs state healing

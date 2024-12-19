@@ -942,6 +942,13 @@ impl Store {
             .update_payload(payload_id, block, block_value, blobs_bundle, completed)
     }
 
+    pub fn get_receipts_for_block(
+        &self,
+        block_hash: &BlockHash,
+    ) -> Result<Vec<Receipt>, StoreError> {
+        self.engine.get_receipts_for_block(block_hash)
+    }
+
     /// Creates a new state trie with an empty state root, for testing purposes only
     pub fn new_state_trie_for_test(&self) -> Trie {
         self.engine.open_state_trie(*EMPTY_TRIE_HASH)
