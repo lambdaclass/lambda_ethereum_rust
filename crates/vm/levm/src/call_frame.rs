@@ -121,6 +121,7 @@ impl CallFrame {
         gas_used: U256,
         depth: usize,
         create_op_called: bool,
+        transient_storage: TransientStorage,
     ) -> Self {
         let valid_jump_destinations = get_valid_jump_destinations(&bytecode).unwrap_or_default();
         Self {
@@ -136,6 +137,7 @@ impl CallFrame {
             gas_used,
             valid_jump_destinations,
             create_op_called,
+            transient_storage,
             ..Default::default()
         }
     }
