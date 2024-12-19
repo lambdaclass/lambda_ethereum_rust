@@ -536,7 +536,7 @@ impl VM {
             return Ok(OpcodeSuccess::Continue);
         }
 
-        // THIRD: Validations that push 0 to the stack dont return reserved gas but increment nonce
+        // THIRD: Validations that push 0 to the stack without returning reserved gas but incrementing deployer's nonce
         let new_account = self.get_account(new_address);
         if new_account.has_code_or_nonce() {
             self.increment_account_nonce(deployer_address)?;
