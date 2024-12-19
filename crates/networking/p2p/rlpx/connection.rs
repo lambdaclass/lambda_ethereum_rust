@@ -183,13 +183,13 @@ impl<S: AsyncWrite + AsyncRead + std::marker::Unpin> RLPxConnection<S> {
             reason: self.match_disconnect_reason(&error),
         }))
         .await
-        .unwrap_or_else(|e| debug!("Could not send Disconnect message: ({e})"));
+        .unwrap_or_else(|e| error!("Could not send Disconnect message: ({e})."));
         if let Ok(node_id) = self.get_remote_node_id() {
             // Discard peer from kademlia table
-            debug!("{error_text}: ({error}), discarding peer {node_id}");
+            error!("{error_text}: ({error}), discarding peer {node_id}");
             table.lock().await.replace_peer(node_id);
         } else {
-            debug!("{error_text}: ({error}), unknown peer")
+            error!("{error_text}: ({error}), unknown peer")
         }
     }
 
@@ -360,6 +360,7 @@ impl<S: AsyncWrite + AsyncRead + std::marker::Unpin> RLPxConnection<S> {
             }
             // TODO(#1129) Add the transaction to the mempool once received.
             Message::Transactions(txs) if peer_supports_eth => {
+                debug!("Received Transactions");
                 for tx in &txs.transactions {
                     mempool::add_transaction(tx.clone(), &self.storage)?;
                 }
@@ -382,9 +383,14 @@ impl<S: AsyncWrite + AsyncRead + std::marker::Unpin> RLPxConnection<S> {
             Message::NewPooledTransactionHashes(new_pooled_transaction_hashes)
                 if peer_supports_eth =>
             {
+                debug!("Received new pooled transaction hashes");
                 //TODO(#1415): evaluate keeping track of requests to avoid sending the same twice.
                 let hashes =
                     new_pooled_transaction_hashes.get_transactions_to_request(&self.storage)?;
+                debug!(
+                    "About to request {} transactions with GetPooledTransactions",
+                    hashes.len()
+                );
 
                 //TODO(#1416): Evaluate keeping track of the request-id.
                 let request = GetPooledTransactions::new(random(), hashes);
@@ -392,10 +398,12 @@ impl<S: AsyncWrite + AsyncRead + std::marker::Unpin> RLPxConnection<S> {
             }
             // TODO: Also add handler for get pooled transactions.
             Message::GetPooledTransactions(msg) => {
+                debug!("Received a request for pooled transactions.");
                 let response = msg.handle(&self.storage)?;
                 self.send(Message::PooledTransactions(response)).await?;
             }
             Message::PooledTransactions(msg) if peer_supports_eth => {
+                debug!("Received pooled transaction.");
                 msg.handle(&self.storage)?;
             }
             Message::GetStorageRanges(req) => {
@@ -596,10 +604,12 @@ impl<S: AsyncWrite + AsyncRead + std::marker::Unpin> RLPxConnection<S> {
         let mut buf = vec![0; MAX_DISC_PACKET_SIZE];
 
         // Read the message's size
-        self.stream
-            .read_exact(&mut buf[..2])
-            .await
-            .map_err(|_| RLPxError::ConnectionError("Connection dropped".to_string()))?;
+        self.stream.read_exact(&mut buf[..2]).await.map_err(|e| {
+            RLPxError::ConnectionError(format!(
+                "Connection dropped. Failed to read handshake message size: {}",
+                e
+            ))
+        })?;
         let ack_data = [buf[0], buf[1]];
         let msg_size = u16::from_be_bytes(ack_data) as usize;
 
@@ -607,7 +617,12 @@ impl<S: AsyncWrite + AsyncRead + std::marker::Unpin> RLPxConnection<S> {
         self.stream
             .read_exact(&mut buf[2..msg_size + 2])
             .await
-            .map_err(|_| RLPxError::ConnectionError("Connection dropped".to_string()))?;
+            .map_err(|e| {
+                RLPxError::ConnectionError(format!(
+                    "Connection dropped. Failed to read the rest of the handshake message: {}.",
+                    e
+                ))
+            })?;
         let ack_bytes = &buf[..msg_size + 2];
         Ok(ack_bytes.to_vec())
     }
