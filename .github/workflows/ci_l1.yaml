@@ -196,9 +196,6 @@ jobs:
         with:
           name: hive
           path: /tmp
-      
-      - name: Debug
-        run: ls
 
       - name: Load image
         run: |
@@ -210,7 +207,7 @@ jobs:
           toolchain: ${{ env.RUST_VERSION }}
 
       - name: Run Hive Simulation
-        run: cd hive && ./hive --client ethrex --sim ${{ matrix.simulation }} --sim.limit "${{ matrix.test_pattern }}" --sim.parallelism 4
+        run: cd /tmp/hive && ./hive --client ethrex --sim ${{ matrix.simulation }} --sim.limit "${{ matrix.test_pattern }}" --sim.parallelism 4
 
   # The purpose of this job is to add it as a required check in GitHub so that we don't have to add every individual job as a required check
   all-tests:
