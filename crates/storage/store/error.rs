@@ -42,4 +42,8 @@ pub enum StoreError {
     ReadError,
     #[error("Could not instantiate cursor for table {0}")]
     CursorError(String),
+    #[error("Missing latest block number")]
+    MissingLatestBlockNumber,
+    #[error("Missing earliest block number")]
+    MissingEarliestBlockNumber,
 }
