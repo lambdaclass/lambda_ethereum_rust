@@ -182,6 +182,9 @@ jobs:
             simulation: ethereum/engine
             test_pattern: "engine-api/RPC|Re-Org Back to Canonical Chain From Syncing Chain|Re-org to Previously Validated Sidechain Payload|Re-Org Back into Canonical Chain, Depth=5|Safe Re-Org|Transaction Re-Org|Inconsistent|Suggested Fee|PrevRandao|Fork ID|Unknown|Invalid PayloadAttributes|Bad Hash|Unique Payload ID|Re-Execute Payload|In-Order|Multiple New Payloads|Valid NewPayload|NewPayload with|Invalid NewPayload|Payload Build|Invalid NewPayload, Transaction|ParentHash equals|Build Payload|Invalid Missing Ancestor ReOrg"
     steps:
+      - name: Checkout sources
+        uses: actions/checkout@v4
+
       - name: Download ethrex image artifact
         uses: actions/download-artifact@v4
         with:
@@ -192,14 +195,11 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           name: hive_executable
-          path: /tmp
+          path: /hive
 
       - name: Load image
         run: |
           docker load --input /tmp/ethrex_image.tar
-
-      - name: Checkout sources
-        uses: actions/checkout@v4
 
       - name: Rustup toolchain install
         uses: dtolnay/rust-toolchain@stable
@@ -208,10 +208,7 @@ jobs:
 
       - name: Run Hive Simulation
         run: 
-          chmod +x /tmp/hive
-          ls
-          ls tmp
-          cd /tmp && ./hive --client ethrex --sim ${{ matrix.simulation }} --sim.limit "${{ matrix.test_pattern }}" --sim.parallelism 4
+          cd hive && ./hive --client ethrex --sim ${{ matrix.simulation }} --sim.limit "${{ matrix.test_pattern }}" --sim.parallelism 4
 
   # The purpose of this job is to add it as a required check in GitHub so that we don't have to add every individual job as a required check
   all-tests:
