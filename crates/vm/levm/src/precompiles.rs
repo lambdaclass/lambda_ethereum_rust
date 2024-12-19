@@ -8,6 +8,7 @@ use lambdaworks_math::{
         traits::IsEllipticCurve,
     },
     traits::ByteConversion,
+    unsigned_integer::element,
 };
 use libsecp256k1::{self, Message, RecoveryId, Signature};
 use num_bigint::BigUint;
@@ -461,13 +462,20 @@ pub fn ecmul(
 
     let first_point = BN254Curve::create_point_from_affine(first_point_x, first_point_y)
         .map_err(|_| PrecompileError::ParsingInputError)?;
+
     let zero_u256 = element::U256::from(0_u16);
     if scalar.eq(&zero_u256) {
         Ok(Bytes::from([0u8; 64].to_vec()))
     } else {
         let mul = first_point.operate_with_self(scalar).to_affine();
-        let res = [mul.x().to_bytes_be(), mul.y().to_bytes_be()].concat();
-        Ok(Bytes::from(res))
+        if U256::from_big_endian(&mul.x().to_bytes_be()) == U256::zero()
+            || U256::from_big_endian(&mul.y().to_bytes_be()) == U256::zero()
+        {
+            Ok(Bytes::from([0u8; 64].to_vec()))
+        } else {
+            let res = [mul.x().to_bytes_be(), mul.y().to_bytes_be()].concat();
+            Ok(Bytes::from(res))
+        }
     }
 }
 
