@@ -101,17 +101,17 @@ jobs:
           name: ethrex_image
           path: /tmp/ethrex_image.tar
 
-    setup-hive:
-      name: "Setup Hive"
-      runs-on: ubuntu-latest
-      steps:
-        - name: Setup Hive
-          run: make setup-hive
-        - name: Upload artifacts
-          uses: actions/upload-artifact@v4
-          with:
-            name: hive_executable
-            path: hive/hive
+  setup-hive:
+    name: "Setup Hive"
+    runs-on: ubuntu-latest
+    steps:
+      - name: Setup Hive
+        run: make setup-hive
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: hive_executable
+          path: hive/hive
 
 
   run-assertoor:
