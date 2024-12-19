@@ -283,7 +283,6 @@ async fn rebuild_state_trie(
     let mut current_state_root = *EMPTY_TRIE_HASH;
     // Fetch Account Ranges
     // If we reached the maximum amount of retries then it means the state we are requesting is probably old and no longer available
-    // In that case we will delegate the work to state healing
     for _ in 0..MAX_RETRIES {
         let peer = peers.clone().lock().await.get_peer_channels().await;
         debug!("Requesting Account Range for state root {state_root}, starting hash: {start_account_hash}");
@@ -344,7 +343,8 @@ async fn rebuild_state_trie(
         debug!("Completed state sync for state root {state_root}");
         true
     } else {
-        // If failed to fetch the full state leave the rest to state healing
+        // Perform state healing to fix any potential inconsistency in the rebuilt tries
+        // As we are not fetching different chunks of the same trie this step is not necessary
         heal_state_trie(bytecode_sender.clone(), state_root, store, peers).await?
     };
     // Send empty batch to signal that no more batches are incoming
