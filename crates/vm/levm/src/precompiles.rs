@@ -1,6 +1,14 @@
 use bytes::Bytes;
 use ethrex_core::{Address, H160, U256};
 use keccak_hash::keccak256;
+use lambdaworks_math::{
+    cyclic_group::IsGroup,
+    elliptic_curve::{
+        short_weierstrass::curves::bn_254::curve::{BN254Curve, BN254FieldElement},
+        traits::IsEllipticCurve,
+    },
+    traits::ByteConversion,
+};
 use libsecp256k1::{self, Message, RecoveryId, Signature};
 use num_bigint::BigUint;
 use sha3::Digest;
@@ -10,7 +18,7 @@ use crate::{
     errors::{InternalError, OutOfGasError, PrecompileError, VMError},
     gas_cost::{
         identity as identity_cost, modexp as modexp_cost, ripemd_160 as ripemd_160_cost,
-        sha2_256 as sha2_256_cost, ECRECOVER_COST, MODEXP_STATIC_COST,
+        sha2_256 as sha2_256_cost, ECADD_COST, ECRECOVER_COST, MODEXP_STATIC_COST,
     },
 };
 
@@ -343,12 +351,82 @@ pub fn increase_left_pad(result: &Bytes, m_size: usize) -> Result<Bytes, VMError
     }
 }
 
-fn ecadd(
-    _calldata: &Bytes,
-    _gas_for_call: U256,
-    _consumed_gas: &mut U256,
+pub fn ecadd(
+    calldata: &Bytes,
+    gas_for_call: U256,
+    consumed_gas: &mut U256,
 ) -> Result<Bytes, VMError> {
-    Ok(Bytes::new())
+    // If calldata does not reach the required length, we should fill the rest with zeros
+    let calldata = fill_with_zeros(calldata, 128)?;
+
+    increase_precompile_consumed_gas(gas_for_call, ECADD_COST.into(), consumed_gas)?;
+
+    let first_point_x = calldata
+        .get(0..32)
+        .ok_or(PrecompileError::ParsingInputError)?;
+    let first_point_x = BN254FieldElement::from_bytes_be(first_point_x)
+        .map_err(|_| PrecompileError::ParsingInputError)?;
+
+    let first_point_y = calldata
+        .get(32..64)
+        .ok_or(PrecompileError::ParsingInputError)?;
+    let first_point_y = BN254FieldElement::from_bytes_be(first_point_y)
+        .map_err(|_| PrecompileError::ParsingInputError)?;
+
+    let second_point_x = calldata
+        .get(64..96)
+        .ok_or(PrecompileError::ParsingInputError)?;
+    let second_point_x = BN254FieldElement::from_bytes_be(second_point_x)
+        .map_err(|_| PrecompileError::ParsingInputError)?;
+
+    let second_point_y = calldata
+        .get(96..128)
+        .ok_or(PrecompileError::ParsingInputError)?;
+    let second_point_y = BN254FieldElement::from_bytes_be(second_point_y)
+        .map_err(|_| PrecompileError::ParsingInputError)?;
+
+    // If points are zero the precompile should not fail, but the conversion in
+    // BN254Curve::create_point_from_affine will, so we verify it before the conversion
+    let point_zero = BN254FieldElement::from(0);
+    let first_point_is_zero = first_point_x.eq(&point_zero) && first_point_y.eq(&point_zero);
+    let second_point_is_zero = second_point_x.eq(&point_zero) && second_point_y.eq(&point_zero);
+
+    if first_point_is_zero && second_point_is_zero {
+        // If both points are zero, return zero
+        Ok(Bytes::from([0u8; 64].to_vec()))
+    } else if first_point_is_zero {
+        // If first point is zero, response is second point
+        let second_point = BN254Curve::create_point_from_affine(second_point_x, second_point_y)
+            .map_err(|_| PrecompileError::ParsingInputError)?;
+        let res = [
+            second_point.x().to_bytes_be(),
+            second_point.y().to_bytes_be(),
+        ]
+        .concat();
+        Ok(Bytes::from(res))
+    } else if second_point_is_zero {
+        // If second point is zero, response is first point
+        let first_point = BN254Curve::create_point_from_affine(first_point_x, first_point_y)
+            .map_err(|_| PrecompileError::ParsingInputError)?;
+        let res = [first_point.x().to_bytes_be(), first_point.y().to_bytes_be()].concat();
+        Ok(Bytes::from(res))
+    } else {
+        // If none of the points is zero, response is the sum of both in the EC
+        let first_point = BN254Curve::create_point_from_affine(first_point_x, first_point_y)
+            .map_err(|_| PrecompileError::ParsingInputError)?;
+        let second_point = BN254Curve::create_point_from_affine(second_point_x, second_point_y)
+            .map_err(|_| PrecompileError::ParsingInputError)?;
+        let sum = first_point.operate_with(&second_point).to_affine();
+
+        if U256::from_big_endian(&sum.x().to_bytes_be()) == U256::zero()
+            || U256::from_big_endian(&sum.y().to_bytes_be()) == U256::zero()
+        {
+            Ok(Bytes::from([0u8; 64].to_vec()))
+        } else {
+            let res = [sum.x().to_bytes_be(), sum.y().to_bytes_be()].concat();
+            Ok(Bytes::from(res))
+        }
+    }
 }
 
 fn ecmul(
