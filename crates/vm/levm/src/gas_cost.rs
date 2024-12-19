@@ -341,7 +341,7 @@ fn mem_expansion_behavior(
         .map_err(|_| VMError::VeryLargeNumber)?;
 
     Ok(static_cost
-        .checked_add(memory_expansion_cost.into())
+        .checked_add(memory_expansion_cost)
         .ok_or(OutOfGasError::GasCostOverflow)?)
 }
 
@@ -490,11 +490,11 @@ fn compute_gas_create(
     };
 
     let gas_create_cost = memory_expansion_cost
-        .checked_add(init_code_cost.into())
+        .checked_add(init_code_cost)
         .ok_or(OutOfGasError::CreationCostIsTooHigh)?
         .checked_add(CREATE_BASE_COST)
         .ok_or(OutOfGasError::CreationCostIsTooHigh)?
-        .checked_add(hash_cost.into())
+        .checked_add(hash_cost)
         .ok_or(OutOfGasError::CreationCostIsTooHigh)?;
 
     Ok(gas_create_cost)
@@ -903,8 +903,7 @@ fn precompile(data_size: usize, static_cost: u64, dynamic_base: u64) -> Result<u
 
     Ok(static_gas
         .checked_add(dynamic_gas)
-        .ok_or(OutOfGasError::GasCostOverflow)?
-        .into())
+        .ok_or(OutOfGasError::GasCostOverflow)?)
 }
 
 /// Max message call gas is all but one 64th of the remaining gas in the current context.

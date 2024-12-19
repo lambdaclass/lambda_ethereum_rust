@@ -138,7 +138,7 @@ pub fn ecrecover(
     gas_for_call: u64,
     consumed_gas: &mut u64,
 ) -> Result<Bytes, VMError> {
-    let gas_cost = ECRECOVER_COST.into();
+    let gas_cost = ECRECOVER_COST;
 
     increase_precompile_consumed_gas(gas_for_call, gas_cost, consumed_gas)?;
 
