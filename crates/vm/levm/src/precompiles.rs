@@ -17,8 +17,7 @@ use crate::{
     call_frame::CallFrame,
     errors::{InternalError, OutOfGasError, PrecompileError, VMError},
     gas_cost::{
-        identity as identity_cost, modexp as modexp_cost, ripemd_160 as ripemd_160_cost,
-        sha2_256 as sha2_256_cost, ECADD_COST, ECRECOVER_COST, MODEXP_STATIC_COST,
+        identity as identity_cost, modexp as modexp_cost, ripemd_160 as ripemd_160_cost, sha2_256 as sha2_256_cost, ECADD_COST, ECMUL_COST, ECRECOVER_COST, MODEXP_STATIC_COST
     },
 };
 
@@ -422,11 +421,34 @@ pub fn ecadd(
     }
 }
 
-fn ecmul(
-    _calldata: &Bytes,
-    _gas_for_call: U256,
-    _consumed_gas: &mut U256,
+pub fn ecmul(
+    calldata: &Bytes,
+    gas_for_call: U256,
+    consumed_gas: &mut U256,
 ) -> Result<Bytes, VMError> {
+    // If calldata does not reach the required length, we should fill the rest with zeros
+    let calldata = fill_with_zeros(calldata, 96)?;
+
+    increase_precompile_consumed_gas(gas_for_call, ECMUL_COST.into(), consumed_gas)?;
+
+    let first_point_x = calldata
+        .get(0..32)
+        .ok_or(PrecompileError::ParsingInputError)?;
+    let first_point_x = BN254FieldElement::from_bytes_be(first_point_x)
+        .map_err(|_| PrecompileError::ParsingInputError)?;
+
+    let first_point_y = calldata
+        .get(32..64)
+        .ok_or(PrecompileError::ParsingInputError)?;
+    let first_point_y = BN254FieldElement::from_bytes_be(first_point_y)
+        .map_err(|_| PrecompileError::ParsingInputError)?;
+
+    let scalar = calldata
+        .get(64..96)
+        .ok_or(PrecompileError::ParsingInputError)?;
+    let scalar = element::U256::from_bytes_be(scalar)
+    .map_err(|_| PrecompileError::ParsingInputError)?;
+
     Ok(Bytes::new())
 }
 
