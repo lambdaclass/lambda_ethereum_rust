@@ -1,24 +1,23 @@
-use axum::{routing::get, Router};
 use ethrex_core::types::TxType;
 use prometheus::{Encoder, IntCounter, IntCounterVec, Opts, Registry, TextEncoder};
 use std::sync::{Arc, LazyLock, Mutex};
 
-use crate::MetricsApiError;
+pub static METRICS_TX: LazyLock<MetricsTx> = LazyLock::new(MetricsTx::default);
 
-pub struct Metrics {
+pub struct MetricsTx {
     pub transactions_tracker: Arc<Mutex<IntCounterVec>>,
     pub transactions_total: Arc<Mutex<IntCounter>>,
 }
 
-impl Default for Metrics {
+impl Default for MetricsTx {
     fn default() -> Self {
         Self::new()
     }
 }
 
-impl Metrics {
+impl MetricsTx {
     pub fn new() -> Self {
-        Metrics {
+        MetricsTx {
             transactions_tracker: Arc::new(Mutex::new(
                 IntCounterVec::new(
                     Opts::new(
@@ -144,22 +143,4 @@ impl MetricsTxType {
             ethrex_core::types::TxType::Privileged => "Privileged",
         }
     }
-}
-
-pub static METRICS: LazyLock<Metrics> = LazyLock::new(Metrics::default);
-
-pub async fn start_prometheus_metrics_api(port: String) -> Result<(), MetricsApiError> {
-    let app = Router::new()
-        .route("/metrics", get(get_metrics))
-        .route("/health", get("Service Up"));
-
-    // Start the axum app
-    let listener = tokio::net::TcpListener::bind(&format!("0.0.0.0:{port}")).await?;
-    axum::serve(listener, app).await?;
-
-    Ok(())
-}
-
-async fn get_metrics() -> String {
-    METRICS.gather_metrics()
 }

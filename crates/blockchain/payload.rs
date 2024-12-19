@@ -23,7 +23,7 @@ use sha3::{Digest, Keccak256};
 use ethrex_metrics::metrics;
 
 #[cfg(feature = "metrics")]
-use ethrex_metrics::metrics_api::{MetricsTxStatus, MetricsTxType, METRICS};
+use ethrex_metrics::metrics_transactions::{MetricsTxStatus, MetricsTxType, METRICS_TX};
 
 use crate::{
     constants::{
@@ -332,9 +332,7 @@ pub fn fill_transactions(context: &mut PayloadBuildContext) -> Result<(), ChainE
         // Increment the total transaction counter
         // CHECK: do we want it here to count every processed transaction
         // or we want it before the return?
-        metrics!(
-            METRICS.inc_tx();
-        );
+        metrics!(METRICS_TX.inc_tx());
 
         // Execute tx
         let receipt = match apply_transaction(&head_tx, context) {
@@ -348,23 +346,19 @@ pub fn fill_transactions(context: &mut PayloadBuildContext) -> Result<(), ChainE
                         .ok_or(ChainError::StoreError(StoreError::MissingStore))?,
                 )?;
 
-                metrics!(
-                    METRICS.inc_tx_with_status_and_type(
-                        MetricsTxStatus::Succeeded,
-                        MetricsTxType(head_tx.tx_type())
-                    );
-                );
+                metrics!(METRICS_TX.inc_tx_with_status_and_type(
+                    MetricsTxStatus::Succeeded,
+                    MetricsTxType(head_tx.tx_type())
+                ));
                 receipt
             }
             // Ignore following txs from sender
             Err(e) => {
                 debug!("Failed to execute transaction: {}, {e}", tx_hash);
-                metrics!(
-                    METRICS.inc_tx_with_status_and_type(
-                        MetricsTxStatus::Failed,
-                        MetricsTxType(head_tx.tx_type())
-                    );
-                );
+                metrics!(METRICS_TX.inc_tx_with_status_and_type(
+                    MetricsTxStatus::Failed,
+                    MetricsTxType(head_tx.tx_type())
+                ));
                 txs.pop();
                 continue;
             }

@@ -1,5 +1,7 @@
 #[cfg(feature = "api")]
-pub mod metrics_api;
+pub mod api;
+#[cfg(feature = "api")]
+pub mod metrics_transactions;
 
 /// A macro to conditionally enable metrics-related code.
 ///
@@ -29,12 +31,9 @@ pub mod metrics_api;
 /// ```sh
 /// use ethrex_metrics::metrics;
 // #[cfg(feature = "metrics")]
-// use ethrex_metrics::metrics_api::TRANSACTION_COUNTER;
+// use ethrex_metrics::metrics_transactions::{METRICS_TX};
 ///
-/// metrics!(
-///     let tx_counter = TRANSACTION_COUNTER.lock().unwrap();
-///     tx_counter.inc();
-/// );
+/// metrics!(METRICS_TX.inc());
 /// ```
 ///
 /// If you build without the `metrics` feature, the code inside `metrics!` will not be compiled, nor will the Prometheus crate.
