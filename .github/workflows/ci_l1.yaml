@@ -101,6 +101,19 @@ jobs:
           name: ethrex_image
           path: /tmp/ethrex_image.tar
 
+    setup-hive:
+      name: "Setup Hive"
+      runs-on: ubuntu-latest
+      steps:
+        - name: Setup Hive
+          run: make setup-hive
+        - name: Upload artifacts
+          uses: actions/upload-artifact@v4
+          with:
+            name: hive_executable
+            path: hive/hive
+
+
   run-assertoor:
     name: Assertoor - ${{ matrix.name }}
     runs-on: ubuntu-latest
@@ -119,7 +132,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Download artifacts
+      - name: Download etherex image artifact
         uses: actions/download-artifact@v4
         with:
           name: ethrex_image
@@ -141,7 +154,7 @@ jobs:
   run-hive:
     name: Hive - ${{ matrix.name }}
     runs-on: ubuntu-latest
-    needs: [docker_build]
+    needs: [docker_build, setup-hive]
     if: ${{ github.event_name != 'merge_group' }}
     strategy:
       matrix:
@@ -168,11 +181,17 @@ jobs:
             simulation: ethereum/engine
             test_pattern: "engine-api/RPC|Re-Org Back to Canonical Chain From Syncing Chain|Re-org to Previously Validated Sidechain Payload|Re-Org Back into Canonical Chain, Depth=5|Safe Re-Org|Transaction Re-Org|Inconsistent|Suggested Fee|PrevRandao|Fork ID|Unknown|Invalid PayloadAttributes|Bad Hash|Unique Payload ID|Re-Execute Payload|In-Order|Multiple New Payloads|Valid NewPayload|NewPayload with|Invalid NewPayload|Payload Build|Invalid NewPayload, Transaction|ParentHash equals|Build Payload|Invalid Missing Ancestor ReOrg"
     steps:
-      - name: Download artifacts
+      - name: Download ethrex image artifact
         uses: actions/download-artifact@v4
         with:
           name: ethrex_image
           path: /tmp
+
+      - name: Download hive artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: hive
+          path: /
 
       - name: Load image
         run: |
@@ -193,7 +212,7 @@ jobs:
         run: make setup-hive
 
       - name: Run Hive Simulation
-        run: cd hive && ./hive --client ethrex --sim ${{ matrix.simulation }} --sim.limit "${{ matrix.test_pattern }}" --sim.parallelism 4
+        run: ./hive --client ethrex --sim ${{ matrix.simulation }} --sim.limit "${{ matrix.test_pattern }}" --sim.parallelism 4
 
   # The purpose of this job is to add it as a required check in GitHub so that we don't have to add every individual job as a required check
   all-tests:
