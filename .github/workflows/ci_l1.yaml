@@ -192,7 +192,7 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           name: hive_executable
-          path: /
+          path: /tmp
 
       - name: Load image
         run: |
@@ -213,7 +213,7 @@ jobs:
         run: make setup-hive
 
       - name: Run Hive Simulation
-        run: ./hive --client ethrex --sim ${{ matrix.simulation }} --sim.limit "${{ matrix.test_pattern }}" --sim.parallelism 4
+        run: cd tmp && ./hive --client ethrex --sim ${{ matrix.simulation }} --sim.limit "${{ matrix.test_pattern }}" --sim.parallelism 4
 
   # The purpose of this job is to add it as a required check in GitHub so that we don't have to add every individual job as a required check
   all-tests:
