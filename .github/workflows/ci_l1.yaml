@@ -155,7 +155,8 @@ jobs:
   run-hive:
     name: Hive - ${{ matrix.name }}
     runs-on: ubuntu-latest
-    needs: [docker_build, setup-hive]
+    # needs: [docker_build, setup-hive]
+    needs: [setup-hive]
     if: ${{ github.event_name != 'merge_group' }}
     strategy:
       matrix:
@@ -196,6 +197,9 @@ jobs:
         with:
           name: hive
           path: /tmp
+
+      - name: Debug
+        run: ls
 
       - name: Load image
         run: |
