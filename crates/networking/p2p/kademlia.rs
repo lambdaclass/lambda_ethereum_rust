@@ -5,6 +5,7 @@ use crate::{
     types::Node,
 };
 use ethrex_core::{H256, H512, U256};
+use rand::random;
 use sha3::{Digest, Keccak256};
 use tokio::sync::mpsc::UnboundedSender;
 use tracing::info;
@@ -216,6 +217,31 @@ impl KademliaTable {
         peers
     }
 
+    /// Returns an iterator for all peers in the table
+    fn iter_peers(&self) -> impl Iterator<Item = &PeerData> {
+        self.buckets
+            .iter()
+            .map(|bucket| bucket.peers.iter())
+            .flatten()
+    }
+
+    /// Returns an iterator for all peers in the table that match the filter
+    fn filter_peers<'a>(
+        &'a self,
+        filter: &'a dyn Fn(&'a PeerData) -> bool,
+    ) -> impl Iterator<Item = &PeerData> + 'a {
+        self.iter_peers().filter(|peer| filter(peer))
+    }
+
+    /// Obtain a random peer from the kademlia table that matches the filter
+    fn get_random_peer_with_filter<'a>(
+        &'a self,
+        filter: &'a dyn Fn(&'a PeerData) -> bool,
+    ) -> Option<&'a PeerData> {
+        let peer_idx = random::<usize>() % self.filter_peers(filter).count();
+        self.filter_peers(filter).nth(peer_idx)
+    }
+
     /// Replaces the peer with the given id with the latest replacement stored.
     /// If there are no replacements, it simply remove it
     ///
@@ -262,7 +288,7 @@ impl KademliaTable {
     /// Set the sender end of the channel between the kademlia table and the peer's active connection
     /// Set the peer's supported capabilities
     /// This function should be called each time a connection is established so the backend can send requests to the peers
-    pub fn init_backend_communication(
+    pub(crate) fn init_backend_communication(
         &mut self,
         node_id: H512,
         channels: PeerChannels,
@@ -280,18 +306,19 @@ impl KademliaTable {
         }
     }
 
-    /// TODO: Randomly select peer
-    pub fn get_peer(&self) -> Option<PeerData> {
-        self.get_least_recently_pinged_peers(1).pop()
-    }
-
-    /// Returns the channel ends to an active peer connection
-    /// The peer is selected randomly (TODO), and doesn't guarantee that the selected peer is not currenlty busy
+    /// Returns the channel ends to an active peer connection that supports the given capability
+    /// The peer is selected randomly, and doesn't guarantee that the selected peer is not currenlty busy
     /// If no peer is found, this method will try again after 10 seconds
-    /// TODO: Filter peers by capabilities, set max amount of retries
-    pub async fn get_peer_channels(&self) -> PeerChannels {
+    pub async fn get_peer_channels(&self, capability: Capability) -> PeerChannels {
+        let filter = |peer: &PeerData| -> bool {
+            // Search for peers with an active connection that support the required capabilities
+            peer.channels.is_some() && peer.supported_capabilities.contains(&capability)
+        };
         loop {
-            if let Some(channels) = self.get_peer().and_then(|peer| peer.channels) {
+            if let Some(channels) = self
+                .get_random_peer_with_filter(&filter)
+                .and_then(|peer| peer.channels)
+            {
                 return channels;
             }
             info!("[Sync] No peers available, retrying in 10 sec");

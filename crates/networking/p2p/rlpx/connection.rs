@@ -165,7 +165,7 @@ impl<S: AsyncWrite + AsyncRead + std::marker::Unpin> RLPxConnection<S> {
                     )
                     .await;
             };
-            let capabilities = self.capabilities.map(|(cap, _)| cap).collect();
+            let capabilities = self.capabilities.iter().map(|(cap, _)| *cap).collect();
             table
                 .lock()
                 .await
