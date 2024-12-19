@@ -7,3 +7,5 @@ services:
   grafana:
     ports:
       - "3802:3000"
+    volumes:
+      - ./provisioning/grafana_provisioning/dashboards/l2_dashboards:/etc/grafana/provisioning/dashboards/l2_dashboards

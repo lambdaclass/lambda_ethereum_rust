@@ -1,6 +1,8 @@
 #[cfg(feature = "api")]
 pub mod api;
-#[cfg(feature = "api")]
+#[cfg(any(feature = "api", feature = "l2"))]
+pub mod metrics_l2;
+#[cfg(any(feature = "api", feature = "transactions"))]
 pub mod metrics_transactions;
 
 /// A macro to conditionally enable metrics-related code.
@@ -22,7 +24,7 @@ pub mod metrics_transactions;
 /// ```toml
 /// ethrex-metrics = { path = "./metrics", default-features = false }
 /// [features]
-/// metrics = ["ethrex-metrics/api"]
+/// metrics = ["ethrex-metrics/transactions"]
 /// ```
 ///
 /// In this way, when the `metrics` feature is enabled for that crate, the macro is triggered and the metrics_api is also used.

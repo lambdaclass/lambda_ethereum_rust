@@ -1,5 +1,8 @@
 use axum::{routing::get, Router};
 
+#[cfg(feature = "l2")]
+use crate::metrics_l2::METRICS_L2;
+
 use crate::{metrics_transactions::METRICS_TX, MetricsApiError};
 
 pub async fn start_prometheus_metrics_api(port: String) -> Result<(), MetricsApiError> {
@@ -14,6 +17,14 @@ pub async fn start_prometheus_metrics_api(port: String) -> Result<(), MetricsApi
     Ok(())
 }
 
+#[allow(unused_mut)]
 async fn get_metrics() -> String {
-    METRICS_TX.gather_metrics()
+    let mut ret_string = METRICS_TX.gather_metrics();
+    #[cfg(feature = "l2")]
+    {
+        ret_string.push('\n');
+        ret_string.push_str(&METRICS_L2.gather_metrics())
+    }
+
+    ret_string
 }
