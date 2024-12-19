@@ -201,9 +201,9 @@ jobs:
       - name: Debug
         run: ls
 
-      - name: Load image
-        run: |
-          docker load --input /tmp/ethrex_image.tar
+      # - name: Load image
+      #   run: |
+      #     docker load --input /tmp/ethrex_image.tar
 
       - name: Rustup toolchain install
         uses: dtolnay/rust-toolchain@stable
