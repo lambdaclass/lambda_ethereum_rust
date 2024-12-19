@@ -417,8 +417,15 @@ pub fn ecadd(
         let second_point = BN254Curve::create_point_from_affine(second_point_x, second_point_y)
             .map_err(|_| PrecompileError::ParsingInputError)?;
         let sum = first_point.operate_with(&second_point).to_affine();
-        let res = [sum.x().to_bytes_be(), sum.y().to_bytes_be()].concat();
-        Ok(Bytes::from(res))
+
+        if U256::from_big_endian(&sum.x().to_bytes_be()) == U256::zero()
+            || U256::from_big_endian(&sum.y().to_bytes_be()) == U256::zero()
+        {
+            Ok(Bytes::from([0u8; 64].to_vec()))
+        } else {
+            let res = [sum.x().to_bytes_be(), sum.y().to_bytes_be()].concat();
+            Ok(Bytes::from(res))
+        }
     }
 }
 
