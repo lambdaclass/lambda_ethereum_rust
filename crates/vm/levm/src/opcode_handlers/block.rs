@@ -172,15 +172,13 @@ impl VM {
             .try_into()
             .map_err(|_| VMError::Internal(InternalError::ConversionError))?;
 
-        if let Some(blob_hash) = blob_hashes.get(index) {
-            current_call_frame
-                .stack
-                .push(U256::from_big_endian(blob_hash.as_bytes()))?;
-        } else {
-            // This should never happen because whe check if the index
-            // fits inside the blobhash array above
-            return Err(VMError::Internal(InternalError::UndefinedState(1)));
-        }
+        let blob_hash = blob_hashes
+    .get(index)
+    .ok_or_else(|| VMError::Internal(InternalError::UndefinedState(1)))?;
+
+current_call_frame
+    .stack
+    .push(U256::from_big_endian(blob_hash.as_bytes()))?;
 
         Ok(OpcodeSuccess::Continue)
     }
