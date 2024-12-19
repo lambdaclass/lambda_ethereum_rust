@@ -377,14 +377,45 @@ pub fn ecadd(
     let second_point_y = BN254FieldElement::from_bytes_be(second_point_y)
         .map_err(|_| PrecompileError::ParsingInputError)?;
 
-    let first_point = BN254Curve::create_point_from_affine(first_point_x, first_point_y)
-        .map_err(|_| PrecompileError::ParsingInputError)?;
-    let second_point = BN254Curve::create_point_from_affine(second_point_x, second_point_y)
-        .map_err(|_| PrecompileError::ParsingInputError)?;
-    increase_precompile_consumed_gas(gas_for_call, ECADD_COST.into(), consumed_gas)?;
-    let sum = first_point.operate_with(&second_point).to_affine();
-    let res = [sum.x().to_bytes_be(), sum.y().to_bytes_be()].concat();
-    Ok(Bytes::from(res))
+    // If points are zero the precompile should not fail, but the conversion in
+    // BN254Curve::create_point_from_affine will, so we verify it before the conversion
+    let point_zero = BN254FieldElement::from(0);
+    let first_point_is_zero = first_point_x.eq(&point_zero) && first_point_y.eq(&point_zero);
+    let second_point_is_zero = second_point_x.eq(&point_zero) && second_point_y.eq(&point_zero);
+
+    if first_point_is_zero && second_point_is_zero {
+        // If both points are zero, return zero
+        increase_precompile_consumed_gas(gas_for_call, ECADD_COST.into(), consumed_gas)?;
+        Ok(Bytes::from([0u8; 64].to_vec()))
+    } else if first_point_is_zero {
+        // If first point is zero, response is second point
+        let second_point = BN254Curve::create_point_from_affine(second_point_x, second_point_y)
+            .map_err(|_| PrecompileError::ParsingInputError)?;
+        increase_precompile_consumed_gas(gas_for_call, ECADD_COST.into(), consumed_gas)?;
+        let res = [
+            second_point.x().to_bytes_be(),
+            second_point.y().to_bytes_be(),
+        ]
+        .concat();
+        Ok(Bytes::from(res))
+    } else if second_point_is_zero {
+        // If second point is zero, response is first point
+        let first_point = BN254Curve::create_point_from_affine(first_point_x, first_point_y)
+            .map_err(|_| PrecompileError::ParsingInputError)?;
+        increase_precompile_consumed_gas(gas_for_call, ECADD_COST.into(), consumed_gas)?;
+        let res = [first_point.x().to_bytes_be(), first_point.y().to_bytes_be()].concat();
+        Ok(Bytes::from(res))
+    } else {
+        // If none of the points is zero, response is the sum of both in the EC
+        let first_point = BN254Curve::create_point_from_affine(first_point_x, first_point_y)
+            .map_err(|_| PrecompileError::ParsingInputError)?;
+        let second_point = BN254Curve::create_point_from_affine(second_point_x, second_point_y)
+            .map_err(|_| PrecompileError::ParsingInputError)?;
+        increase_precompile_consumed_gas(gas_for_call, ECADD_COST.into(), consumed_gas)?;
+        let sum = first_point.operate_with(&second_point).to_affine();
+        let res = [sum.x().to_bytes_be(), sum.y().to_bytes_be()].concat();
+        Ok(Bytes::from(res))
+    }
 }
 
 fn ecmul(
