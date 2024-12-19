@@ -173,12 +173,12 @@ impl VM {
             .map_err(|_| VMError::Internal(InternalError::ConversionError))?;
 
         let blob_hash = blob_hashes
-    .get(index)
-    .ok_or_else(|| VMError::Internal(InternalError::UndefinedState(1)))?;
+            .get(index)
+            .ok_or(VMError::Internal(InternalError::ConversionError))?;
 
-current_call_frame
-    .stack
-    .push(U256::from_big_endian(blob_hash.as_bytes()))?;
+        current_call_frame
+            .stack
+            .push(U256::from_big_endian(blob_hash.as_bytes()))?;
 
         Ok(OpcodeSuccess::Continue)
     }
