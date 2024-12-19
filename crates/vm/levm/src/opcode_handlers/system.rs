@@ -602,7 +602,6 @@ impl VM {
                 // Deployment failed so account shouldn't exist
                 cache::remove_account(&mut self.cache, &new_address);
                 self.accrued_substate.created_accounts.remove(&new_address);
-                self.accrued_substate.touched_accounts.remove(&new_address);
 
                 // If revert we have to copy the return_data
                 if err == VMError::RevertOpcode {
