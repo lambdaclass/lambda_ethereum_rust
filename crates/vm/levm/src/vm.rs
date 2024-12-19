@@ -608,6 +608,23 @@ impl VM {
             .checked_mul(BLOB_GAS_PER_BLOB)
             .unwrap_or_default();
 
+
+        let max_blob_gas_cost = self
+            .env
+            .tx_max_fee_per_blob_gas
+            .unwrap_or_default()
+            .checked_mul(blob_gas_used)
+            .ok_or(InternalError::UndefinedState(1))?;
+
+        Ok(max_blob_gas_cost)
+    }
+
+    /// Gets the actual blob gas cost.
+    fn get_blob_gas_cost(&self) -> Result<U256, VMError> {
+        let blob_gas_used = U256::from(self.env.tx_blob_hashes.len())
+            .checked_mul(BLOB_GAS_PER_BLOB)
+            .unwrap_or_default();
+
         let base_fee_per_blob_gas = self.get_base_fee_per_blob_gas()?;
 
         let blob_fee = blob_gas_used
@@ -651,7 +668,7 @@ impl VM {
 
         // blob gas cost = max fee per blob gas * blob gas used
         // https://eips.ethereum.org/EIPS/eip-4844
-        let blob_gas_cost = self.get_max_blob_gas_cost()?;
+        let max_blob_gas_cost = self.get_max_blob_gas_cost()?;
 
         // For the transaction to be valid the sender account has to have a balance >= gas_price * gas_limit + value if tx is type 0 and 1
         // balance >= max_fee_per_gas * gas_limit + value + blob_gas_cost if tx is type 2 or 3
@@ -669,7 +686,7 @@ impl VM {
             .ok_or(VMError::TxValidation(
                 TxValidationError::InsufficientAccountFunds,
             ))?
-            .checked_add(blob_gas_cost.into())
+            .checked_add(max_blob_gas_cost)
             .ok_or(VMError::TxValidation(
                 TxValidationError::InsufficientAccountFunds,
             ))?;
@@ -678,6 +695,8 @@ impl VM {
                 TxValidationError::InsufficientAccountFunds,
             ));
         }
+
+        let blob_gas_cost = self.get_blob_gas_cost()?;
 
         // The real cost to deduct is calculated as effective_gas_price * gas_limit + value + blob_gas_cost
         let up_front_cost = gaslimit_price_product
@@ -802,7 +821,6 @@ impl VM {
             initial_call_frame.assign_bytecode(initial_call_frame.calldata.clone());
             initial_call_frame.calldata = Bytes::new();
         }
-
         Ok(())
     }
 
