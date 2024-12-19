@@ -1170,7 +1170,7 @@ impl VM {
     ) -> Result<TransactionReport, VMError> {
         let mut report = TransactionReport {
             result: TxResult::Revert(VMError::AddressAlreadyOccupied),
-            gas_used: self.env.gas_limit.low_u64(),
+            gas_used: self.env.gas_limit,
             gas_refunded: 0,
             logs: vec![],
             new_state: self.cache.clone(),
