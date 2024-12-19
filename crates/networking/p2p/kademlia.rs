@@ -219,9 +219,7 @@ impl KademliaTable {
 
     /// Returns an iterator for all peers in the table
     fn iter_peers(&self) -> impl Iterator<Item = &PeerData> {
-        self.buckets
-            .iter()
-            .flat_map(|bucket| bucket.peers.iter())
+        self.buckets.iter().flat_map(|bucket| bucket.peers.iter())
     }
 
     /// Returns an iterator for all peers in the table that match the filter

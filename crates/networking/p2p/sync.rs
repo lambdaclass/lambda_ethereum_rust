@@ -87,7 +87,12 @@ impl SyncManager {
         let mut all_block_headers = vec![];
         let mut all_block_hashes = vec![];
         loop {
-            let peer = self.peers.lock().await.get_peer_channels(Capability::Eth).await;
+            let peer = self
+                .peers
+                .lock()
+                .await
+                .get_peer_channels(Capability::Eth)
+                .await;
             debug!("Requesting Block Headers from {current_head}");
             // Request Block Headers from Peer
             if let Some(block_headers) = peer.request_block_headers(current_head).await {
@@ -287,7 +292,12 @@ async fn rebuild_state_trie(
     let mut current_state_root = *EMPTY_TRIE_HASH;
     // Fetch Account Ranges
     loop {
-        let peer = peers.clone().lock().await.get_peer_channels(Capability::Snap).await;
+        let peer = peers
+            .clone()
+            .lock()
+            .await
+            .get_peer_channels(Capability::Snap)
+            .await;
         debug!("Requesting Account Range for state root {state_root}, starting hash: {start_account_hash}");
         if let Some((account_hashes, accounts, should_continue)) = peer
             .request_account_range(state_root, start_account_hash)
