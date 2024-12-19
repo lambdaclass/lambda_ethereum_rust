@@ -5,7 +5,7 @@ use crate::{
     memory, StorageSlot,
 };
 use bytes::Bytes;
-/// Contains the gas costs of the EVM instructions (in wei)
+/// Contains the gas costs of the EVM instructions
 use ethrex_core::U256;
 
 // Opcodes cost
@@ -141,14 +141,14 @@ pub const STATICCALL_STATIC: u64 = DEFAULT_STATIC;
 pub const STATICCALL_COLD_DYNAMIC: u64 = DEFAULT_COLD_DYNAMIC;
 pub const STATICCALL_WARM_DYNAMIC: u64 = DEFAULT_WARM_DYNAMIC;
 
-// Costs in gas for call opcodes (in wei)
+// Costs in gas for call opcodes
 pub const WARM_ADDRESS_ACCESS_COST: u64 = 100;
 pub const COLD_ADDRESS_ACCESS_COST: u64 = 2600;
 pub const NON_ZERO_VALUE_COST: u64 = 9000;
 pub const BASIC_FALLBACK_FUNCTION_STIPEND: u64 = 2300;
 pub const VALUE_TO_EMPTY_ACCOUNT_COST: u64 = 25000;
 
-// Costs in gas for create opcodes (in wei)
+// Costs in gas for create opcodes
 pub const INIT_CODE_WORD_COST: u64 = 2;
 pub const CODE_DEPOSIT_COST: u64 = 200;
 pub const CREATE_BASE_COST: u64 = 32000;
