@@ -89,7 +89,6 @@ impl VM {
             args_size,
             return_data_start_offset,
             return_data_size,
-            current_call_frame.transient_storage.clone(),
         )
     }
 
@@ -161,7 +160,6 @@ impl VM {
             args_size,
             return_data_start_offset,
             return_data_size,
-            current_call_frame.transient_storage.clone(),
         )
     }
 
@@ -250,7 +248,6 @@ impl VM {
             args_size,
             return_data_start_offset,
             return_data_size,
-            current_call_frame.transient_storage.clone(),
         )
     }
 
@@ -308,7 +305,6 @@ impl VM {
             args_size,
             return_data_start_offset,
             return_data_size,
-            current_call_frame.transient_storage.clone(),
         )
     }
 
@@ -631,7 +627,6 @@ impl VM {
         args_size: usize,
         ret_offset: U256,
         ret_size: usize,
-        transient_storage: TransientStorage,
     ) -> Result<OpcodeSuccess, VMError> {
         // 1. Validate sender has enough value
         let sender_account_info = self.access_account(msg_sender).0;
@@ -670,7 +665,7 @@ impl VM {
             U256::zero(),
             new_depth,
             false,
-            transient_storage,
+            current_call_frame.transient_storage.clone(),
         );
 
         // Transfer value from caller to callee.
