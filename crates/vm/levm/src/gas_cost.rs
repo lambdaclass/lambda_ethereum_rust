@@ -181,6 +181,8 @@ pub const MODEXP_STATIC_COST: u64 = 200;
 pub const MODEXP_DYNAMIC_BASE: u64 = 200;
 pub const MODEXP_DYNAMIC_QUOTIENT: u64 = 3;
 
+pub const ECADD_COST: u64 = 150;
+
 pub fn exp(exponent: U256) -> Result<U256, OutOfGasError> {
     let exponent_byte_size = (exponent
         .bits()

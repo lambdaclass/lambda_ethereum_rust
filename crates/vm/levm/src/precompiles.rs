@@ -18,7 +18,7 @@ use crate::{
     errors::{InternalError, OutOfGasError, PrecompileError, VMError},
     gas_cost::{
         identity as identity_cost, modexp as modexp_cost, ripemd_160 as ripemd_160_cost,
-        sha2_256 as sha2_256_cost, ECRECOVER_COST, MODEXP_STATIC_COST,
+        sha2_256 as sha2_256_cost, ECADD_COST, ECRECOVER_COST, MODEXP_STATIC_COST,
     },
 };
 
@@ -345,7 +345,11 @@ pub fn increase_left_pad(result: &Bytes, m_size: usize) -> Result<Bytes, VMError
     }
 }
 
-fn ecadd(calldata: &Bytes, gas_for_call: U256, consumed_gas: &mut U256) -> Result<Bytes, VMError> {
+pub fn ecadd(
+    calldata: &Bytes,
+    gas_for_call: U256,
+    consumed_gas: &mut U256,
+) -> Result<Bytes, VMError> {
     // If calldata does not reach the required length, we should fill the rest with zeros
     let calldata = fill_with_zeros(calldata, 128)?;
 
@@ -373,15 +377,14 @@ fn ecadd(calldata: &Bytes, gas_for_call: U256, consumed_gas: &mut U256) -> Resul
     let second_point_y = BN254FieldElement::from_bytes_be(second_point_y)
         .map_err(|_| PrecompileError::ParsingInputError)?;
 
-    let gas_cost = U256::from(150);
-    increase_precompile_consumed_gas(gas_for_call, gas_cost, consumed_gas)?;
-
-    println!(
-        "1: (x {}, y {}) and 2: (x {}, y {})",
-        first_point_x, first_point_y, second_point_x, second_point_y
-    );
-
-    Ok(Bytes::new())
+    let first_point = BN254Curve::create_point_from_affine(first_point_x, first_point_y)
+        .map_err(|_| PrecompileError::ParsingInputError)?;
+    let second_point = BN254Curve::create_point_from_affine(second_point_x, second_point_y)
+        .map_err(|_| PrecompileError::ParsingInputError)?;
+    increase_precompile_consumed_gas(gas_for_call, ECADD_COST.into(), consumed_gas)?;
+    let sum = first_point.operate_with(&second_point).to_affine();
+    let res = [sum.x().to_bytes_be(), sum.y().to_bytes_be()].concat();
+    Ok(Bytes::from(res))
 }
 
 fn ecmul(
