@@ -27,7 +27,7 @@ impl VM {
             .stack
             .pop()?
             .try_into()
-            .map_err(|_| VMError::Internal(InternalError::ConversionError))?;
+            .map_err(|_| VMError::VeryLargeNumber)?;
         let callee: Address = word_to_address(current_call_frame.stack.pop()?);
         let value_to_transfer: U256 = current_call_frame.stack.pop()?;
         let args_start_offset = current_call_frame.stack.pop()?;
@@ -107,7 +107,7 @@ impl VM {
             .stack
             .pop()?
             .try_into()
-            .map_err(|_| VMError::Internal(InternalError::ConversionError))?;
+            .map_err(|_| VMError::VeryLargeNumber)?;
         let code_address = word_to_address(current_call_frame.stack.pop()?);
         let value_to_transfer = current_call_frame.stack.pop()?;
         let args_start_offset = current_call_frame.stack.pop()?;
@@ -215,7 +215,7 @@ impl VM {
             .stack
             .pop()?
             .try_into()
-            .map_err(|_| VMError::Internal(InternalError::ConversionError))?;
+            .map_err(|_| VMError::VeryLargeNumber)?;
         let code_address = word_to_address(current_call_frame.stack.pop()?);
         let args_start_offset = current_call_frame.stack.pop()?;
         let args_size = current_call_frame
@@ -277,7 +277,7 @@ impl VM {
             .stack
             .pop()?
             .try_into()
-            .map_err(|_| VMError::Internal(InternalError::ConversionError))?;
+            .map_err(|_| VMError::VeryLargeNumber)?;
         let code_address = word_to_address(current_call_frame.stack.pop()?);
         let args_start_offset = current_call_frame.stack.pop()?;
         let args_size = current_call_frame

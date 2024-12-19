@@ -597,7 +597,7 @@ impl VM {
     }
 
     /// Gets the max blob gas cost for a transaction that a user is willing to pay.
-    fn get_max_blob_gas_cost(&self) -> Result<u64, VMError> {
+    fn get_max_blob_gas_price(&self) -> Result<U256, VMError> {
         let blob_gasses = self.env.tx_blob_hashes.len();
 
         let blob_gas_used: u64 = blob_gasses
@@ -608,30 +608,36 @@ impl VM {
             .checked_mul(BLOB_GAS_PER_BLOB)
             .unwrap_or_default();
 
-
         let max_blob_gas_cost = self
             .env
             .tx_max_fee_per_blob_gas
             .unwrap_or_default()
-            .checked_mul(blob_gas_used)
+            .checked_mul(blob_gas_used.into())
             .ok_or(InternalError::UndefinedState(1))?;
 
         Ok(max_blob_gas_cost)
     }
 
     /// Gets the actual blob gas cost.
-    fn get_blob_gas_cost(&self) -> Result<U256, VMError> {
-        let blob_gas_used = U256::from(self.env.tx_blob_hashes.len())
+    fn get_blob_gas_price(&self) -> Result<U256, VMError> {
+        let blob_gas_used: u64 = self
+            .env
+            .tx_blob_hashes
+            .len()
+            .try_into()
+            .map_err(|_| VMError::Internal(InternalError::ConversionError))?;
+
+        let blob_gas_price: u64 = blob_gas_used
             .checked_mul(BLOB_GAS_PER_BLOB)
             .unwrap_or_default();
 
         let base_fee_per_blob_gas = self.get_base_fee_per_blob_gas()?;
 
-        let blob_fee = blob_gas_used
+        let blob_fee = blob_gas_price
             .checked_mul(base_fee_per_blob_gas)
-            .ok_or(InternalError::UndefinedState(1))?;
+            .ok_or(VMError::Internal(InternalError::ConversionError))?;
 
-        Ok(blob_fee)
+        Ok(blob_fee.into())
     }
 
     pub fn get_base_fee_per_blob_gas(&self) -> Result<u64, VMError> {
@@ -668,7 +674,7 @@ impl VM {
 
         // blob gas cost = max fee per blob gas * blob gas used
         // https://eips.ethereum.org/EIPS/eip-4844
-        let max_blob_gas_cost = self.get_max_blob_gas_cost()?;
+        let max_blob_gas_cost = self.get_max_blob_gas_price()?;
 
         // For the transaction to be valid the sender account has to have a balance >= gas_price * gas_limit + value if tx is type 0 and 1
         // balance >= max_fee_per_gas * gas_limit + value + blob_gas_cost if tx is type 2 or 3
@@ -696,7 +702,7 @@ impl VM {
             ));
         }
 
-        let blob_gas_cost = self.get_blob_gas_cost()?;
+        let blob_gas_cost = self.get_blob_gas_price()?;
 
         // The real cost to deduct is calculated as effective_gas_price * gas_limit + value + blob_gas_cost
         let up_front_cost = gaslimit_price_product
