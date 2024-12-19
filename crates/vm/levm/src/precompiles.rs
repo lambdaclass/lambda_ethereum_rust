@@ -8,10 +8,7 @@ use sha3::Digest;
 use crate::{
     call_frame::CallFrame,
     errors::{InternalError, OutOfGasError, PrecompileError, VMError},
-    gas_cost::{
-        identity as identity_cost, modexp as modexp_cost, ripemd_160 as ripemd_160_cost,
-        sha2_256 as sha2_256_cost, ECRECOVER_COST, MODEXP_STATIC_COST,
-    },
+    gas_cost::{self, ECRECOVER_COST, MODEXP_STATIC_COST},
 };
 
 pub const ECRECOVER_ADDRESS: H160 = H160([
@@ -199,7 +196,7 @@ pub fn identity(
     gas_for_call: U256,
     consumed_gas: &mut U256,
 ) -> Result<Bytes, VMError> {
-    let gas_cost = identity_cost(calldata.len())?;
+    let gas_cost = gas_cost::identity(calldata.len())?;
 
     increase_precompile_consumed_gas(gas_for_call, gas_cost, consumed_gas)?;
 
@@ -212,7 +209,7 @@ pub fn sha2_256(
     gas_for_call: U256,
     consumed_gas: &mut U256,
 ) -> Result<Bytes, VMError> {
-    let gas_cost = sha2_256_cost(calldata.len())?;
+    let gas_cost = gas_cost::sha2_256(calldata.len())?;
 
     increase_precompile_consumed_gas(gas_for_call, gas_cost, consumed_gas)?;
 
@@ -227,7 +224,7 @@ pub fn ripemd_160(
     gas_for_call: U256,
     consumed_gas: &mut U256,
 ) -> Result<Bytes, VMError> {
-    let gas_cost = ripemd_160_cost(calldata.len())?;
+    let gas_cost = gas_cost::ripemd_160(calldata.len())?;
 
     increase_precompile_consumed_gas(gas_for_call, gas_cost, consumed_gas)?;
 
@@ -302,7 +299,7 @@ pub fn modexp(
     };
     let modulus = BigUint::from_bytes_be(&m);
 
-    let gas_cost = modexp_cost(&exponent, b_size, e_size, m_size)?;
+    let gas_cost = gas_cost::modexp(&exponent, b_size, e_size, m_size)?;
     increase_precompile_consumed_gas(gas_for_call, gas_cost, consumed_gas)?;
 
     let result = mod_exp(base, exponent, modulus);
