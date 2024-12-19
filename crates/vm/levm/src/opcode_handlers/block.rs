@@ -172,9 +172,10 @@ impl VM {
             .try_into()
             .map_err(|_| VMError::Internal(InternalError::ConversionError))?;
 
+        //This should never fail because we check if the index fits above
         let blob_hash = blob_hashes
             .get(index)
-            .ok_or(VMError::Internal(InternalError::ConversionError))?;
+            .ok_or(VMError::Internal(InternalError::BlobHashOutOfRange))?;
 
         current_call_frame
             .stack
