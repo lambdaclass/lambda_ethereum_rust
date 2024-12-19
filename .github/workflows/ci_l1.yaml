@@ -192,11 +192,11 @@ jobs:
           name: ethrex_image
           path: /tmp
 
-      - name: Download hive artifacts
-        uses: actions/download-artifact@v4
-        with:
-          name: hive
-          path: /tmp
+      # - name: Download hive artifacts
+      #   uses: actions/download-artifact@v4
+      #   with:
+      #     name: hive
+      #     path: /tmp
 
       - name: Debug
         run: ls
