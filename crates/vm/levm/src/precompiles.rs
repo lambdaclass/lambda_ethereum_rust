@@ -269,7 +269,7 @@ pub fn modexp(
         return Ok(Bytes::new());
     }
 
-    // Because on some cases conversions exploded before the if above
+    // Because on some cases conversions to usize exploded before the check of the zero value could be done
     let b_size = usize::try_from(b_size).map_err(|_| PrecompileError::ParsingInputError)?;
     let e_size = usize::try_from(e_size).map_err(|_| PrecompileError::ParsingInputError)?;
     let m_size = usize::try_from(m_size).map_err(|_| PrecompileError::ParsingInputError)?;
