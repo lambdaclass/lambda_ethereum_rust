@@ -133,6 +133,8 @@ fn fill_with_zeros(calldata: &Bytes, target_len: usize) -> Result<Bytes, VMError
     Ok(padded_calldata.into())
 }
 
+/// ECDSA (Elliptic curve digital signature algorithm) public key recovery function.
+/// Given a hash, a Signature and a recovery Id, returns the public key recovered by secp256k1
 pub fn ecrecover(
     calldata: &Bytes,
     gas_for_call: U256,
@@ -191,6 +193,7 @@ pub fn ecrecover(
     Ok(Bytes::from(output.to_vec()))
 }
 
+/// Returns the receivred input
 pub fn identity(
     calldata: &Bytes,
     gas_for_call: U256,
@@ -203,6 +206,7 @@ pub fn identity(
     Ok(calldata.clone())
 }
 
+/// Returns the calldata hashed by sha2-256 algorithm
 pub fn sha2_256(
     calldata: &Bytes,
     gas_for_call: U256,
@@ -217,6 +221,7 @@ pub fn sha2_256(
     Ok(Bytes::from(result))
 }
 
+/// Returns the calldata hashed by ripemd-160 algorithm, padded by zeros at left
 pub fn ripemd_160(
     calldata: &Bytes,
     gas_for_call: U256,
@@ -236,6 +241,7 @@ pub fn ripemd_160(
     Ok(Bytes::from(output))
 }
 
+/// Returns the result of the modexp operation given the input parameters
 pub fn modexp(
     calldata: &Bytes,
     gas_for_call: U256,
