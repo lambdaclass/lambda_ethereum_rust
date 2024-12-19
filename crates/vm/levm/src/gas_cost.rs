@@ -160,7 +160,6 @@ pub const CALLDATA_COST_NON_ZERO_BYTE: u64 = 16;
 // Blob gas costs
 pub const BLOB_GAS_PER_BLOB: u64 = 131072;
 
-
 // Access lists costs
 pub const ACCESS_LIST_STORAGE_KEY_COST: u64 = 1900;
 pub const ACCESS_LIST_ADDRESS_COST: u64 = 2400;

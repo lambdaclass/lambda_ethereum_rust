@@ -710,7 +710,7 @@ impl VM {
             .ok_or(VMError::TxValidation(
                 TxValidationError::InsufficientAccountFunds,
             ))?
-            .checked_add(blob_gas_cost.into())
+            .checked_add(blob_gas_cost)
             .ok_or(VMError::TxValidation(
                 TxValidationError::InsufficientAccountFunds,
             ))?;

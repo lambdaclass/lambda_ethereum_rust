@@ -510,7 +510,7 @@ impl VM {
 
         // Reserve gas for subcall
         let max_message_call_gas = max_message_call_gas(current_call_frame)?;
-        self.increase_consumed_gas(current_call_frame, max_message_call_gas.into())?;
+        self.increase_consumed_gas(current_call_frame, max_message_call_gas)?;
 
         // Clear callframe subreturn data
         current_call_frame.sub_return_data = Bytes::new();
@@ -551,7 +551,7 @@ impl VM {
             // Return reserved gas
             current_call_frame.gas_used = current_call_frame
                 .gas_used
-                .checked_sub(max_message_call_gas.into())
+                .checked_sub(max_message_call_gas)
                 .ok_or(VMError::Internal(InternalError::GasOverflow))?;
             // Push 0
             current_call_frame.stack.push(CREATE_DEPLOYMENT_FAIL)?;
@@ -607,7 +607,7 @@ impl VM {
         // Return reserved gas
         current_call_frame.gas_used = current_call_frame
             .gas_used
-            .checked_sub(unused_gas.into())
+            .checked_sub(unused_gas)
             .ok_or(InternalError::GasOverflow)?;
 
         current_call_frame.logs.extend(tx_report.logs);
