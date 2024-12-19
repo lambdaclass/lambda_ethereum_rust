@@ -10,12 +10,11 @@ use crate::{
 };
 use ethereum_types::Address;
 use ethrex_metrics::metrics_l2::{MetricsL2BlockType, METRICS_L2};
-use ethrex_storage::Store;
 use std::time::Duration;
 use tokio::time::sleep;
 use tracing::{debug, error};
 
-pub async fn start_metrics_gatherer(store: Store) -> Result<(), ConfigError> {
+pub async fn start_metrics_gatherer() -> Result<(), ConfigError> {
     let eth_config = EthConfig::from_env()?;
     // Just for the CommonBridge address
     let watcher_config = L1WatcherConfig::from_env()?;
@@ -23,13 +22,12 @@ pub async fn start_metrics_gatherer(store: Store) -> Result<(), ConfigError> {
     let committer_config = CommitterConfig::from_env()?;
     let mut metrics_gatherer =
         MetricsGatherer::new_from_config(watcher_config, committer_config, eth_config).await?;
-    metrics_gatherer.run(&store).await;
+    metrics_gatherer.run().await;
     Ok(())
 }
 
 pub struct MetricsGatherer {
     eth_client: EthClient,
-    l2_client: EthClient,
     common_bridge_address: Address,
     on_chain_proposer_address: Address,
     check_interval: Duration,
@@ -42,19 +40,18 @@ impl MetricsGatherer {
         eth_config: EthConfig,
     ) -> Result<Self, EthClientError> {
         let eth_client = EthClient::new_from_config(eth_config);
-        let l2_client = EthClient::new("http://localhost:1729");
+        //let l2_client = EthClient::new("http://localhost:1729");
         Ok(Self {
             eth_client,
-            l2_client,
             common_bridge_address: watcher_config.bridge_address,
             on_chain_proposer_address: committer_config.on_chain_proposer_address,
             check_interval: Duration::from_millis(1000),
         })
     }
 
-    pub async fn run(&mut self, store: &Store) {
+    pub async fn run(&mut self) {
         loop {
-            if let Err(err) = self.main_logic(store).await {
+            if let Err(err) = self.main_logic().await {
                 error!("Metrics Gatherer Error: {}", err);
             }
 
@@ -62,26 +59,23 @@ impl MetricsGatherer {
         }
     }
 
-    async fn main_logic(&mut self, store: &Store) -> Result<(), L1WatcherError> {
+    async fn main_logic(&mut self) -> Result<(), L1WatcherError> {
         loop {
             let last_fetched_l1_block =
                 EthClient::get_last_fetched_l1_block(&self.eth_client, self.common_bridge_address)
-                    .await?
-                    .into();
+                    .await?;
 
             let last_committed_block = EthClient::get_last_committed_block(
                 &self.eth_client,
                 self.on_chain_proposer_address,
             )
-            .await?
-            .into();
+            .await?;
 
             let last_verified_block = EthClient::get_last_verified_block(
                 &self.eth_client,
                 self.on_chain_proposer_address,
             )
-            .await?
-            .into();
+            .await?;
 
             METRICS_L2.set_block_type_and_block_number(
                 MetricsL2BlockType::LastCommittedBlock,

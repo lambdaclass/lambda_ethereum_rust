@@ -11,10 +11,10 @@ use tracing::{error, info};
 
 pub mod l1_committer;
 pub mod l1_watcher;
-pub mod prover_server;
-pub mod state_diff;
 #[cfg(feature = "metrics")]
 pub mod metrics;
+pub mod prover_server;
+pub mod state_diff;
 
 pub mod errors;
 
@@ -39,7 +39,7 @@ pub async fn start_proposer(store: Store) {
     task_set.spawn(prover_server::start_prover_server(store.clone()));
     task_set.spawn(start_proposer_server(store.clone()));
     #[cfg(feature = "metrics")]
-    task_set.spawn(metrics::start_metrics_gatherer(store.clone()));
+    task_set.spawn(metrics::start_metrics_gatherer());
 
     while let Some(res) = task_set.join_next().await {
         match res {
