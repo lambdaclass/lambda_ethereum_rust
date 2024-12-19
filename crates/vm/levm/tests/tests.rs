@@ -9,7 +9,7 @@ use ethrex_levm::{
     db::{cache, CacheDB, Db},
     errors::{OutOfGasError, TxResult, VMError},
     gas_cost::{
-        self, ECRECOVER_COST, IDENTITY_DYNAMIC_BASE, IDENTITY_STATIC_COST, MODEXP_DYNAMIC_BASE,
+        self, ECRECOVER_COST, IDENTITY_DYNAMIC_BASE, IDENTITY_STATIC_COST, MODEXP_STATIC_COST,
         RIPEMD_160_DYNAMIC_BASE, RIPEMD_160_STATIC_COST, SHA2_256_DYNAMIC_BASE,
         SHA2_256_STATIC_COST,
     },
@@ -4579,5 +4579,5 @@ fn modexp_test() {
     let expected_result = Bytes::from(hex::decode("08").unwrap());
 
     assert_eq!(result, expected_result);
-    assert_eq!(consumed_gas, MODEXP_DYNAMIC_BASE.into());
+    assert_eq!(consumed_gas, MODEXP_STATIC_COST.into());
 }

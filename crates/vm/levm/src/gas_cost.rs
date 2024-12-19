@@ -178,7 +178,6 @@ pub const IDENTITY_STATIC_COST: u64 = 15;
 pub const IDENTITY_DYNAMIC_BASE: u64 = 3;
 
 pub const MODEXP_STATIC_COST: u64 = 200;
-pub const MODEXP_DYNAMIC_BASE: u64 = 200;
 pub const MODEXP_DYNAMIC_QUOTIENT: u64 = 3;
 
 pub fn exp(exponent: U256) -> Result<U256, OutOfGasError> {
@@ -817,7 +816,7 @@ pub fn modexp(
     };
     let calculate_iteration_count = iteration_count.max(1);
 
-    let cost = MODEXP_DYNAMIC_BASE.max(
+    let cost = MODEXP_STATIC_COST.max(
         multiplication_complexity
             .checked_mul(calculate_iteration_count)
             .ok_or(OutOfGasError::GasCostOverflow)?
