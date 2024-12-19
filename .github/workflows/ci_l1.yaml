@@ -191,7 +191,7 @@ jobs:
       - name: Download hive artifact
         uses: actions/download-artifact@v4
         with:
-          name: hive
+          name: hive_executable
           path: /
 
       - name: Load image
