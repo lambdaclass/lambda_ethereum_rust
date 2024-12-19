@@ -23,11 +23,9 @@ impl VM {
         current_call_frame: &mut CallFrame,
     ) -> Result<OpcodeSuccess, VMError> {
         // STACK
-        let gas: u64 = current_call_frame
-            .stack
-            .pop()?
-            .try_into()
-            .map_err(|_| VMError::VeryLargeNumber)?;
+        let gas: U256 = current_call_frame.stack.pop()?;
+        // dbg!(gas);
+        // let gas: u64 = gas.try_into().map_err(|_| VMError::BalanceOverflow)?;
         let callee: Address = word_to_address(current_call_frame.stack.pop()?);
         let value_to_transfer: U256 = current_call_frame.stack.pop()?;
         let args_start_offset = current_call_frame.stack.pop()?;
@@ -75,7 +73,7 @@ impl VM {
 
         // We add the stipend gas for the subcall. This ensures that the callee has enough gas to perform basic operations
         let gas_for_subcall = if !value_to_transfer.is_zero() {
-            gas.saturating_add(CALL_POSITIVE_VALUE_STIPEND)
+            gas.saturating_add(CALL_POSITIVE_VALUE_STIPEND.into())
         } else {
             gas
         };
@@ -157,7 +155,7 @@ impl VM {
 
         self.generic_call(
             current_call_frame,
-            gas_for_subcall,
+            gas_for_subcall.into(),
             value_to_transfer,
             msg_sender,
             to,
@@ -635,10 +633,13 @@ impl VM {
     }
 
     #[allow(clippy::too_many_arguments)]
+    /// This is the only call where gas is used as a U256. This is
+    /// because we have to deal with the stack and the values that are
+    /// pushed as arguments.
     pub fn generic_call(
         &mut self,
         current_call_frame: &mut CallFrame,
-        gas_limit: u64,
+        gas_limit: U256,
         value: U256,
         msg_sender: Address,
         to: Address,
@@ -673,7 +674,13 @@ impl VM {
             memory::load_range(&mut current_call_frame.memory, args_offset, args_size)?.to_vec();
         // Gas Limit for the child context is capped.
         let gas_cap = max_message_call_gas(current_call_frame)?;
-        let gas_limit = std::cmp::min(gas_limit, gas_cap);
+        let gas_limit = std::cmp::min(gas_limit, gas_cap.into());
+
+        // This should always cast correcly because the gas_cap is in
+        // u64
+        let gas_limit: u64 = gas_limit
+            .try_into()
+            .map_err(|_| VMError::Internal(InternalError::ConversionError))?;
 
         let mut new_call_frame = CallFrame::new(
             msg_sender,
