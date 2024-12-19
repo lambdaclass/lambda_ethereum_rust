@@ -101,11 +101,7 @@ impl VM {
         current_call_frame: &mut CallFrame,
     ) -> Result<OpcodeSuccess, VMError> {
         // STACK
-        let gas: u64 = current_call_frame
-            .stack
-            .pop()?
-            .try_into()
-            .map_err(|_| VMError::VeryLargeNumber)?;
+        let gas = current_call_frame.stack.pop()?;
         let code_address = word_to_address(current_call_frame.stack.pop()?);
         let value_to_transfer = current_call_frame.stack.pop()?;
         let args_start_offset = current_call_frame.stack.pop()?;
@@ -148,14 +144,14 @@ impl VM {
 
         // We add the stipend gas for the subcall. This ensures that the callee has enough gas to perform basic operations
         let gas_for_subcall = if !value_to_transfer.is_zero() {
-            gas.saturating_add(CALLCODE_POSITIVE_VALUE_STIPEND)
+            gas.saturating_add(CALLCODE_POSITIVE_VALUE_STIPEND.into())
         } else {
             gas
         };
 
         self.generic_call(
             current_call_frame,
-            gas_for_subcall.into(),
+            gas_for_subcall,
             value_to_transfer,
             msg_sender,
             to,
@@ -209,11 +205,7 @@ impl VM {
         current_call_frame: &mut CallFrame,
     ) -> Result<OpcodeSuccess, VMError> {
         // STACK
-        let gas = current_call_frame
-            .stack
-            .pop()?
-            .try_into()
-            .map_err(|_| VMError::VeryLargeNumber)?;
+        let gas = current_call_frame.stack.pop()?;
         let code_address = word_to_address(current_call_frame.stack.pop()?);
         let args_start_offset = current_call_frame.stack.pop()?;
         let args_size = current_call_frame
@@ -271,11 +263,7 @@ impl VM {
         current_call_frame: &mut CallFrame,
     ) -> Result<OpcodeSuccess, VMError> {
         // STACK
-        let gas = current_call_frame
-            .stack
-            .pop()?
-            .try_into()
-            .map_err(|_| VMError::VeryLargeNumber)?;
+        let gas = current_call_frame.stack.pop()?;
         let code_address = word_to_address(current_call_frame.stack.pop()?);
         let args_start_offset = current_call_frame.stack.pop()?;
         let args_size = current_call_frame
