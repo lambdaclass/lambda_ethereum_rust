@@ -606,7 +606,7 @@ impl<S: AsyncWrite + AsyncRead + std::marker::Unpin> RLPxConnection<S> {
         // Read the message's size
         self.stream.read_exact(&mut buf[..2]).await.map_err(|e| {
             RLPxError::ConnectionError(format!(
-                "Connection dropped. Failed to read message size: {}",
+                "Connection dropped. Failed to read handshake message size: {}",
                 e
             ))
         })?;
@@ -619,7 +619,7 @@ impl<S: AsyncWrite + AsyncRead + std::marker::Unpin> RLPxConnection<S> {
             .await
             .map_err(|e| {
                 RLPxError::ConnectionError(format!(
-                    "Connection dropped. Failed to read the rest of the message: {}.",
+                    "Connection dropped. Failed to read the rest of the handshake message: {}.",
                     e
                 ))
             })?;
