@@ -28,10 +28,6 @@ impl AccountInfo {
     pub fn has_nonce(&self) -> bool {
         self.nonce != 0
     }
-
-    pub fn has_code_or_nonce(&self) -> bool {
-        self.has_code() || self.has_nonce()
-    }
 }
 
 #[derive(Clone, Default, Debug, PartialEq, Eq, Serialize, Deserialize)]

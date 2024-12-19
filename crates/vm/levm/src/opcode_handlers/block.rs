@@ -134,7 +134,7 @@ impl VM {
     ) -> Result<OpcodeSuccess, VMError> {
         self.increase_consumed_gas(current_call_frame, gas_cost::SELFBALANCE)?;
 
-        let balance = self.access_account(current_call_frame.to).0.balance;
+        let balance = self.get_account(current_call_frame.to).info.balance;
 
         current_call_frame.stack.push(balance)?;
         Ok(OpcodeSuccess::Continue)
