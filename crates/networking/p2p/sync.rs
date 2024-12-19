@@ -272,11 +272,7 @@ async fn store_receipts(
         if let Some(receipts) = peer.request_receipts(block_hashes.clone()).await {
             debug!(" Received {} Receipts", receipts.len());
             // Track which blocks we have already fetched receipts for
-            for (block_hash, receipts) in block_hashes
-                .drain(0..receipts.len())
-                .into_iter()
-                .zip(receipts)
-            {
+            for (block_hash, receipts) in block_hashes.drain(0..receipts.len()).zip(receipts) {
                 store.add_receipts(block_hash, receipts)?;
             }
             // Check if we need to ask for another batch
