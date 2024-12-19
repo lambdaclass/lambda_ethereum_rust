@@ -54,3 +54,15 @@ pub enum MetricsApiError {
     #[error("{0}")]
     TcpError(#[from] std::io::Error),
 }
+
+#[derive(Debug, thiserror::Error)]
+pub enum MetricsError {
+    #[error("MetricsL2Error: {0}")]
+    MutexLockError(String),
+    #[error("MetricsL2Error: {0}")]
+    PrometheusErr(String),
+    #[error("MetricsL2Error {0}")]
+    TryInto(#[from] std::num::TryFromIntError),
+    #[error("MetricsL2Error {0}")]
+    FromUtf8Error(#[from] std::string::FromUtf8Error),
+}

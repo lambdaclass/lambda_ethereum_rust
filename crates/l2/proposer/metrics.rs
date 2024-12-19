@@ -1,5 +1,5 @@
 use crate::{
-    proposer::errors::L1WatcherError,
+    proposer::errors::MetricsGathererError,
     utils::{
         config::{
             committer::CommitterConfig, errors::ConfigError, eth::EthConfig,
@@ -59,7 +59,7 @@ impl MetricsGatherer {
         }
     }
 
-    async fn main_logic(&mut self) -> Result<(), L1WatcherError> {
+    async fn main_logic(&mut self) -> Result<(), MetricsGathererError> {
         loop {
             let last_fetched_l1_block =
                 EthClient::get_last_fetched_l1_block(&self.eth_client, self.common_bridge_address)
@@ -80,15 +80,15 @@ impl MetricsGatherer {
             METRICS_L2.set_block_type_and_block_number(
                 MetricsL2BlockType::LastCommittedBlock,
                 last_committed_block,
-            );
+            )?;
             METRICS_L2.set_block_type_and_block_number(
                 MetricsL2BlockType::LastVerifiedBlock,
                 last_verified_block,
-            );
+            )?;
             METRICS_L2.set_block_type_and_block_number(
                 MetricsL2BlockType::LastFetchedL1Block,
                 last_fetched_l1_block,
-            );
+            )?;
 
             debug!("L2 Metrics Gathered");
             sleep(self.check_interval).await;

@@ -1,6 +1,8 @@
 use prometheus::{Encoder, IntGaugeVec, Opts, Registry, TextEncoder};
 use std::sync::{Arc, LazyLock, Mutex};
 
+use crate::MetricsError;
+
 pub static METRICS_L2: LazyLock<MetricsL2> = LazyLock::new(MetricsL2::default);
 
 pub struct MetricsL2 {
@@ -33,67 +35,46 @@ impl MetricsL2 {
         &self,
         block_type: MetricsL2BlockType,
         block_number: u64,
-    ) {
+    ) -> Result<(), MetricsError> {
         let clone = self.status_tracker.clone();
 
-        let lock = match clone.lock() {
-            Ok(lock) => lock,
-            Err(e) => {
-                tracing::error!("Failed to lock mutex: {e}");
-                return;
-            }
-        };
+        let lock = clone
+            .lock()
+            .map_err(|e| MetricsError::MutexLockError(e.to_string()))?;
 
-        let builder = match lock.get_metric_with_label_values(&[block_type.to_str()]) {
-            Ok(builder) => builder,
-            Err(e) => {
-                tracing::error!("Failed to build Metric: {e}");
-                return;
-            }
-        };
-
-        let block_number_as_i64: i64 = match block_number.try_into() {
-            Ok(b) => b,
-            Err(e) => {
-                tracing::error!("Failed to convert block_number to i64: {e}");
-                return;
-            }
-        };
+        let builder = lock
+            .get_metric_with_label_values(&[block_type.to_str()])
+            .map_err(|e| MetricsError::PrometheusErr(e.to_string()))?;
+        let block_number_as_i64: i64 = block_number.try_into()?;
 
         builder.set(block_number_as_i64);
+
+        Ok(())
     }
 
-    pub fn gather_metrics(&self) -> String {
+    pub fn gather_metrics(&self) -> Result<String, MetricsError> {
         let r = Registry::new();
 
         let clone = self.status_tracker.clone();
 
-        let lock = match clone.lock() {
-            Ok(lock) => lock,
-            Err(e) => {
-                tracing::error!("Failed to lock mutex: {e}");
-                return String::new();
-            }
-        };
+        let lock = clone
+            .lock()
+            .map_err(|e| MetricsError::MutexLockError(e.to_string()))?;
 
-        if r.register(Box::new(lock.clone())).is_err() {
-            tracing::error!("Failed to register metric");
-            return String::new();
-        }
+        r.register(Box::new(lock.clone()))
+            .map_err(|e| MetricsError::PrometheusErr(e.to_string()))?;
 
         let encoder = TextEncoder::new();
         let metric_families = r.gather();
 
         let mut buffer = Vec::new();
-        if encoder.encode(&metric_families, &mut buffer).is_err() {
-            tracing::error!("Failed to encode metrics");
-            return String::new();
-        }
+        encoder
+            .encode(&metric_families, &mut buffer)
+            .map_err(|e| MetricsError::PrometheusErr(e.to_string()))?;
 
-        String::from_utf8(buffer).unwrap_or_else(|e| {
-            tracing::error!("Failed to convert buffer to String: {e}");
-            String::new()
-        })
+        let res = String::from_utf8(buffer)?;
+
+        Ok(res)
     }
 }
 
