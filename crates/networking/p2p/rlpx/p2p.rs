@@ -16,7 +16,7 @@ use super::{
 };
 
 #[derive(Debug, Clone, PartialEq, Copy)]
-pub(crate) enum Capability {
+pub enum Capability {
     P2p,
     Eth,
     Snap,

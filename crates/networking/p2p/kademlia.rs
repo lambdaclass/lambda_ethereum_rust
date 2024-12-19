@@ -317,7 +317,7 @@ impl KademliaTable {
         loop {
             if let Some(channels) = self
                 .get_random_peer_with_filter(&filter)
-                .and_then(|peer| peer.channels)
+                .and_then(|peer| peer.channels.clone())
             {
                 return channels;
             }
