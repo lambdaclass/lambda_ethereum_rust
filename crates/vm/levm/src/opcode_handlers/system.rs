@@ -1,5 +1,5 @@
 use crate::{
-    call_frame::{CallFrame, TransientStorage},
+    call_frame::CallFrame,
     constants::{CREATE_DEPLOYMENT_FAIL, INIT_CODE_MAX_SIZE, REVERT_FOR_CALL, SUCCESS_FOR_CALL},
     db::cache,
     errors::{InternalError, OpcodeSuccess, OutOfGasError, ResultReason, TxResult, VMError},
