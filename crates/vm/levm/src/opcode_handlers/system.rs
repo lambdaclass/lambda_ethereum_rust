@@ -578,16 +578,15 @@ impl VM {
         self.accrued_substate.created_accounts.insert(new_address); // Mostly for SELFDESTRUCT during initcode.
 
         let tx_report = self.execute(&mut new_call_frame)?;
+        let unused_gas = max_message_call_gas
+            .checked_sub(tx_report.gas_used)
+            .ok_or(InternalError::GasOverflow)?;
+
         // Return reserved gas
         current_call_frame.gas_used = current_call_frame
             .gas_used
-            .checked_sub(max_message_call_gas.into())
-            .ok_or(VMError::Internal(InternalError::GasOverflow))?;
-        // Consume actual gas
-        current_call_frame.gas_used = current_call_frame
-            .gas_used
-            .checked_add(tx_report.gas_used.into())
-            .ok_or(VMError::Internal(InternalError::GasOverflow))?;
+            .checked_sub(unused_gas.into())
+            .ok_or(InternalError::GasOverflow)?;
         current_call_frame.logs.extend(tx_report.logs);
 
         match tx_report.result {
