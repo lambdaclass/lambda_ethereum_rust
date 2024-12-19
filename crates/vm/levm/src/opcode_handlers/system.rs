@@ -27,7 +27,7 @@ impl VM {
             .stack
             .pop()?
             .try_into()
-            .map_err(|_| VMError::VeryLargeNumber)?;
+            .map_err(|_| VMError::Internal(InternalError::ConversionError))?;
         let callee: Address = word_to_address(current_call_frame.stack.pop()?);
         let value_to_transfer: U256 = current_call_frame.stack.pop()?;
         let args_start_offset = current_call_frame.stack.pop()?;
@@ -107,7 +107,7 @@ impl VM {
             .stack
             .pop()?
             .try_into()
-            .map_err(|_| VMError::VeryLargeNumber)?;
+            .map_err(|_| VMError::Internal(InternalError::ConversionError))?;
         let code_address = word_to_address(current_call_frame.stack.pop()?);
         let value_to_transfer = current_call_frame.stack.pop()?;
         let args_start_offset = current_call_frame.stack.pop()?;
@@ -192,7 +192,7 @@ impl VM {
         let memory_expansion_cost: u64 =
             memory::expansion_cost(new_memory_size, current_call_frame.memory.len())?
                 .try_into()
-                .map_err(|_err| VMError::VeryLargeNumber)?;
+                .map_err(|_err| VMError::Internal(InternalError::ConversionError))?;
 
         self.increase_consumed_gas(current_call_frame, memory_expansion_cost)?;
 
@@ -215,7 +215,7 @@ impl VM {
             .stack
             .pop()?
             .try_into()
-            .map_err(|_| VMError::VeryLargeNumber)?;
+            .map_err(|_| VMError::Internal(InternalError::ConversionError))?;
         let code_address = word_to_address(current_call_frame.stack.pop()?);
         let args_start_offset = current_call_frame.stack.pop()?;
         let args_size = current_call_frame
@@ -277,7 +277,7 @@ impl VM {
             .stack
             .pop()?
             .try_into()
-            .map_err(|_| VMError::VeryLargeNumber)?;
+            .map_err(|_| VMError::Internal(InternalError::ConversionError))?;
         let code_address = word_to_address(current_call_frame.stack.pop()?);
         let args_start_offset = current_call_frame.stack.pop()?;
         let args_size = current_call_frame
@@ -419,7 +419,7 @@ impl VM {
         let memory_expansion_cost: u64 =
             memory::expansion_cost(new_memory_size, current_call_frame.memory.len())?
                 .try_into()
-                .map_err(|_err| VMError::VeryLargeNumber)?;
+                .map_err(|_err| VMError::Internal(InternalError::ConversionError))?;
 
         self.increase_consumed_gas(current_call_frame, memory_expansion_cost)?;
 

@@ -431,7 +431,7 @@ impl VM {
 
                         let code_length_u64: u64 = code_length
                             .try_into()
-                            .map_err(|_| VMError::VeryLargeNumber)?;
+                            .map_err(|_| VMError::Internal(InternalError::ConversionError))?;
 
                         let code_deposit_cost: u64 =
                             code_length_u64.checked_mul(CODE_DEPOSIT_COST).ok_or(
@@ -566,7 +566,7 @@ impl VM {
                 .checked_mul(2)
                 .ok_or(OutOfGasError::ConsumedGasOverflow)?
                 .try_into()
-                .map_err(|_| VMError::VeryLargeNumber)?;
+                .map_err(|_| VMError::Internal(InternalError::ConversionError))?;
 
             intrinsic_gas = intrinsic_gas
                 .checked_add(double_nuber_of_words)
@@ -602,7 +602,7 @@ impl VM {
 
         let blob_gas_used: u64 = blob_gasses
             .try_into()
-            .map_err(|_| VMError::VeryLargeNumber)?;
+            .map_err(|_| VMError::Internal(InternalError::ConversionError))?;
 
         let blob_gas_used: u64 = blob_gas_used
             .checked_mul(BLOB_GAS_PER_BLOB)
