@@ -474,7 +474,7 @@ fn compute_gas_create(
 
     let init_code_cost = minimum_word_size
         .checked_mul(INIT_CODE_WORD_COST)
-        .ok_or(OutOfGasError::GasCostOverflow)?;
+        .ok_or(OutOfGasError::GasCostOverflow)?; // will not panic since it's 2
 
     let memory_expansion_cost = memory::expansion_cost(new_memory_size, current_memory_size)?;
     let memory_expansion_cost: u64 = memory_expansion_cost
@@ -484,7 +484,7 @@ fn compute_gas_create(
     let hash_cost = if is_create_2 {
         minimum_word_size
             .checked_mul(KECCAK25_DYNAMIC_BASE)
-            .ok_or(OutOfGasError::GasCostOverflow)?
+            .ok_or(OutOfGasError::GasCostOverflow)? // will not panic since it's 6
     } else {
         0
     };
