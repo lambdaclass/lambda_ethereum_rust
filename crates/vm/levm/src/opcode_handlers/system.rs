@@ -573,7 +573,6 @@ impl VM {
             U256::zero(),
             new_depth,
             true,
-            current_call_frame.transient_storage.clone(),
         );
 
         self.accrued_substate.created_accounts.insert(new_address); // Mostly for SELFDESTRUCT during initcode.
@@ -665,7 +664,6 @@ impl VM {
             U256::zero(),
             new_depth,
             false,
-            current_call_frame.transient_storage.clone(),
         );
 
         // Transfer value from caller to callee.

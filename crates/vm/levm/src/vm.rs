@@ -1,6 +1,6 @@
 use crate::{
     account::{Account, StorageSlot},
-    call_frame::{CallFrame, TransientStorage},
+    call_frame::CallFrame,
     constants::*,
     db::{
         cache::{self, remove_account},
@@ -179,7 +179,6 @@ impl VM {
                     U256::zero(),
                     0,
                     false,
-                    TransientStorage::default(),
                 );
 
                 let substate = Substate {
@@ -234,7 +233,6 @@ impl VM {
                     U256::zero(),
                     0,
                     false,
-                    TransientStorage::default(),
                 );
 
                 let substate = Substate {
