@@ -102,9 +102,9 @@ pub fn execute_precompile(current_call_frame: &mut CallFrame) -> Result<Bytes, V
 
 /// Verifies if the gas cost is higher than the gas limit and consumes the gas cost if it is not
 fn increase_precompile_consumed_gas(
-    gas_for_call: U256,
-    gas_cost: U256,
-    consumed_gas: &mut U256,
+    gas_for_call: u64,
+    gas_cost: u64,
+    consumed_gas: &mut u64,
 ) -> Result<(), VMError> {
     if gas_for_call < gas_cost {
         return Err(VMError::PrecompileError(PrecompileError::NotEnoughGas));
@@ -134,10 +134,10 @@ fn fill_with_zeros(calldata: &Bytes, target_len: usize) -> Result<Bytes, VMError
 /// Given a hash, a Signature and a recovery Id, returns the public key recovered by secp256k1
 pub fn ecrecover(
     calldata: &Bytes,
-    gas_for_call: U256,
-    consumed_gas: &mut U256,
+    gas_for_call: u64,
+    consumed_gas: &mut u64,
 ) -> Result<Bytes, VMError> {
-    let gas_cost = ECRECOVER_COST.into();
+    let gas_cost = ECRECOVER_COST;
 
     increase_precompile_consumed_gas(gas_for_call, gas_cost, consumed_gas)?;
 
@@ -190,11 +190,10 @@ pub fn ecrecover(
     Ok(Bytes::from(output.to_vec()))
 }
 
-/// Returns the receivred input
 pub fn identity(
     calldata: &Bytes,
-    gas_for_call: U256,
-    consumed_gas: &mut U256,
+    gas_for_call: u64,
+    consumed_gas: &mut u64,
 ) -> Result<Bytes, VMError> {
     let gas_cost = gas_cost::identity(calldata.len())?;
 
@@ -206,8 +205,8 @@ pub fn identity(
 /// Returns the calldata hashed by sha2-256 algorithm
 pub fn sha2_256(
     calldata: &Bytes,
-    gas_for_call: U256,
-    consumed_gas: &mut U256,
+    gas_for_call: u64,
+    consumed_gas: &mut u64,
 ) -> Result<Bytes, VMError> {
     let gas_cost = gas_cost::sha2_256(calldata.len())?;
 
@@ -221,8 +220,8 @@ pub fn sha2_256(
 /// Returns the calldata hashed by ripemd-160 algorithm, padded by zeros at left
 pub fn ripemd_160(
     calldata: &Bytes,
-    gas_for_call: U256,
-    consumed_gas: &mut U256,
+    gas_for_call: u64,
+    consumed_gas: &mut u64,
 ) -> Result<Bytes, VMError> {
     let gas_cost = gas_cost::ripemd_160(calldata.len())?;
 
@@ -238,11 +237,10 @@ pub fn ripemd_160(
     Ok(Bytes::from(output))
 }
 
-/// Returns the result of the modexp operation given the input parameters
 pub fn modexp(
     calldata: &Bytes,
-    gas_for_call: U256,
-    consumed_gas: &mut U256,
+    gas_for_call: u64,
+    consumed_gas: &mut u64,
 ) -> Result<Bytes, VMError> {
     // If calldata does not reach the required length, we should fill the rest with zeros
     let calldata = fill_with_zeros(calldata, 96)?;
@@ -264,7 +262,7 @@ pub fn modexp(
 
     if b_size == U256::zero() && m_size == U256::zero() {
         *consumed_gas = consumed_gas
-            .checked_add(U256::from(MODEXP_STATIC_COST))
+            .checked_add(MODEXP_STATIC_COST)
             .ok_or(OutOfGasError::ConsumedGasOverflow)?;
         return Ok(Bytes::new());
     }
@@ -358,42 +356,34 @@ pub fn increase_left_pad(result: &Bytes, m_size: usize) -> Result<Bytes, VMError
     }
 }
 
-fn ecadd(
-    _calldata: &Bytes,
-    _gas_for_call: U256,
-    _consumed_gas: &mut U256,
-) -> Result<Bytes, VMError> {
+fn ecadd(_calldata: &Bytes, _gas_for_call: u64, _consumed_gas: &mut u64) -> Result<Bytes, VMError> {
     Ok(Bytes::new())
 }
 
-fn ecmul(
-    _calldata: &Bytes,
-    _gas_for_call: U256,
-    _consumed_gas: &mut U256,
-) -> Result<Bytes, VMError> {
+fn ecmul(_calldata: &Bytes, _gas_for_call: u64, _consumed_gas: &mut u64) -> Result<Bytes, VMError> {
     Ok(Bytes::new())
 }
 
 fn ecpairing(
     _calldata: &Bytes,
-    _gas_for_call: U256,
-    _consumed_gas: &mut U256,
+    _gas_for_call: u64,
+    _consumed_gas: &mut u64,
 ) -> Result<Bytes, VMError> {
     Ok(Bytes::new())
 }
 
 fn blake2f(
     _calldata: &Bytes,
-    _gas_for_call: U256,
-    _consumed_gas: &mut U256,
+    _gas_for_call: u64,
+    _consumed_gas: &mut u64,
 ) -> Result<Bytes, VMError> {
     Ok(Bytes::new())
 }
 
 fn point_evaluation(
     _calldata: &Bytes,
-    _gas_for_call: U256,
-    _consumed_gas: &mut U256,
+    _gas_for_call: u64,
+    _consumed_gas: &mut u64,
 ) -> Result<Bytes, VMError> {
     Ok(Bytes::new())
 }
