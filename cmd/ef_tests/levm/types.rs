@@ -4,7 +4,7 @@ use crate::{
         deserialize_h256_vec_optional_safe, deserialize_hex_bytes, deserialize_hex_bytes_vec,
         deserialize_transaction_expected_exception, deserialize_u256_optional_safe,
         deserialize_u256_safe, deserialize_u256_valued_hashmap_safe, deserialize_u256_vec_safe,
-        deserialize_u64_safe,
+        deserialize_u64_safe, deserialize_u64_vec_safe,
     },
     report::TestVector,
 };
@@ -269,8 +269,8 @@ pub struct EFTestAccessListItem {
 pub struct EFTestRawTransaction {
     #[serde(deserialize_with = "deserialize_hex_bytes_vec")]
     pub data: Vec<Bytes>,
-    #[serde(deserialize_with = "deserialize_u256_vec_safe")]
-    pub gas_limit: Vec<U256>,
+    #[serde(deserialize_with = "deserialize_u64_vec_safe")]
+    pub gas_limit: Vec<u64>,
     #[serde(default, deserialize_with = "deserialize_u256_optional_safe")]
     pub gas_price: Option<U256>,
     #[serde(deserialize_with = "deserialize_u256_safe")]

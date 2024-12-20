@@ -223,6 +223,21 @@ where
         })
         .collect()
 }
+pub fn deserialize_u64_vec_safe<'de, D>(deserializer: D) -> Result<Vec<u64>, D::Error>
+where
+    D: serde::Deserializer<'de>,
+{
+    Vec::<String>::deserialize(deserializer)?
+        .iter()
+        .map(|s| {
+            u64::from_str_radix(s.trim_start_matches("0x"), 16).map_err(|err| {
+                serde::de::Error::custom(format!(
+                    "error parsing U256 when deserializing U256 safely: {err}"
+                ))
+            })
+        })
+        .collect()
+}
 
 pub fn deserialize_u256_valued_hashmap_safe<'de, D>(
     deserializer: D,
@@ -280,11 +295,10 @@ impl<'de> Deserialize<'de> for EFTests {
             // 111, 112, 121, 122, 211, 212, 221, 222
             for (data_id, data) in raw_tx.data.iter().enumerate() {
                 for (gas_limit_id, gas_limit) in raw_tx.gas_limit.iter().enumerate() {
-                    let gas_limit_u64: u64 = (*gas_limit).as_u64();
                     for (value_id, value) in raw_tx.value.iter().enumerate() {
                         let tx = EFTestTransaction {
                             data: data.clone(),
-                            gas_limit: gas_limit_u64,
+                            gas_limit: *gas_limit,
                             gas_price: raw_tx.gas_price,
                             nonce: raw_tx.nonce,
                             secret_key: raw_tx.secret_key,
