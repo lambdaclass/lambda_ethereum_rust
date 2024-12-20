@@ -8,7 +8,7 @@ use crate::{
     utils::{effective_gas_price, load_initial_state},
 };
 use bytes::Bytes;
-use ethrex_core::{types::TxKind, Address, H256, U256};
+use ethrex_core::{types::TxKind, Address, H256};
 use ethrex_levm::{
     errors::{TransactionReport, TxResult},
     Account, StorageSlot,
