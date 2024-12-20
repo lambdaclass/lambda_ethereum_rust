@@ -103,7 +103,19 @@ cfg_if::cfg_if! {
                     .get_account_info_by_hash(block_hash, *new_state_account_address)
                     .expect("Error getting account info by address")
                     .unwrap_or_default();
+                let new_state_acc_info = AccountInfo {
+                    code_hash: code_hash(&new_state_account.info.bytecode),
+                    balance: new_state_account.info.balance,
+                    nonce: new_state_account.info.nonce,
+                };
+                //TODO: REFACTOR IN PROGRESS
                 let mut updates = 0;
+                // Compare account info
+                if initial_account_state != new_state_acc_info {
+                    updates += 1;
+                }
+
+
                 if initial_account_state.balance != new_state_account.info.balance {
                     updates += 1;
                 }
