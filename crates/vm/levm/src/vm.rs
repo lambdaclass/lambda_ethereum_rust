@@ -636,7 +636,7 @@ impl VM {
 
         let blob_fee = blob_gas_price
             .checked_mul(base_fee_per_blob_gas)
-            .ok_or(VMError::Internal(InternalError::ConversionError))?;
+            .ok_or(VMError::Internal(InternalError::UndefinedState(1)))?;
 
         Ok(blob_fee.into())
     }
