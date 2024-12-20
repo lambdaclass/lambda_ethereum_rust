@@ -201,9 +201,22 @@ cfg_if::cfg_if! {
             // let mut account_updates = vec![];
             let mut account_updates = get_state_transitions(state);
 
-            for tx in block.body.transactions.iter() {
-                let report = execute_tx_levm(tx, block_header, store_wrapper.clone()).unwrap();
+            let mut temporary_cache: CacheDB = HashMap::new();
 
+            for tx in block.body.transactions.iter() {
+                let report = execute_tx_levm(tx, block_header, store_wrapper.clone(), temporary_cache.clone()).unwrap();
+
+                let mut new_state = report.new_state.clone();
+
+                // Now original_value is going to be the same as the current_value, for the next transaction.
+                // It should have only one value but it is convenient to keep on using our CacheDB structure
+                for (_, account) in &mut new_state {
+                    for (_, storage_slot) in &mut account.storage {
+                        storage_slot.original_value = storage_slot.current_value;
+                    }
+                }
+
+                temporary_cache.extend(new_state);
                 // dbg!(&report);
 
                 cumulative_gas_used += report.gas_used - report.gas_refunded;
@@ -220,6 +233,8 @@ cfg_if::cfg_if! {
                 for update in updates {
                     account_updates.push(update);
                 }
+
+                dbg!(&temporary_cache);
             }
 
             // for transaction in block.body.transactions.iter() {
@@ -273,6 +288,7 @@ cfg_if::cfg_if! {
             tx: &Transaction,
             block_header: &BlockHeader,
             db: Arc<dyn LevmDatabase>,
+            temporary_cache: CacheDB
         ) -> Result<TransactionReport, VMError> {
             let gas_price : U256 = tx.effective_gas_price(block_header.base_fee_per_gas).ok_or(VMError::InvalidTransaction)?.into();
 
@@ -302,7 +318,7 @@ cfg_if::cfg_if! {
                 tx.value(),
                 tx.data().clone(),
                 db,
-                CacheDB::default(),
+                temporary_cache,
                 tx.access_list(),
             )?;
 
