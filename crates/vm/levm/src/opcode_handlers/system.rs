@@ -23,7 +23,7 @@ impl VM {
         current_call_frame: &mut CallFrame,
     ) -> Result<OpcodeSuccess, VMError> {
         // STACK
-        let gas: U256 = current_call_frame.stack.pop()?;
+        let gas = current_call_frame.stack.pop()?;
         let callee: Address = word_to_address(current_call_frame.stack.pop()?);
         let value_to_transfer: U256 = current_call_frame.stack.pop()?;
         let args_start_offset = current_call_frame.stack.pop()?;
@@ -666,7 +666,7 @@ impl VM {
         let gas_limit = std::cmp::min(gas_limit, gas_cap.into());
 
         // This should always cast correcly because the gas_cap is in
-        // u64
+        // u64; therefore, at most, it will be u64::MAX
         let gas_limit: u64 = gas_limit
             .try_into()
             .map_err(|_| VMError::Internal(InternalError::ConversionError))?;

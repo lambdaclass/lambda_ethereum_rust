@@ -110,8 +110,9 @@ impl VM {
     ) -> Result<OpcodeSuccess, VMError> {
         self.increase_consumed_gas(current_call_frame, gas_cost::GASLIMIT)?;
 
-        let gas_limit: U256 = self.env.block_gas_limit.into();
-        current_call_frame.stack.push(gas_limit)?;
+        current_call_frame
+            .stack
+            .push(self.env.block_gas_limit.into())?;
 
         Ok(OpcodeSuccess::Continue)
     }
