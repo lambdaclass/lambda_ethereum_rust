@@ -131,6 +131,22 @@ where
     )
 }
 
+/// This serializes a hexadecimal string to u64
+pub fn deserialize_u64_safe<'de, D>(deserializer: D) -> Result<u64, D::Error>
+where
+    D: serde::Deserializer<'de>,
+{
+    u64::from_str_radix(
+        String::deserialize(deserializer)?.trim_start_matches("0x"),
+        16,
+    )
+    .map_err(|err| {
+        serde::de::Error::custom(format!(
+            "error parsing U64 when deserializing U64 safely: {err}"
+        ))
+    })
+}
+
 pub fn deserialize_h256_vec_optional_safe<'de, D>(
     deserializer: D,
 ) -> Result<Option<Vec<H256>>, D::Error>

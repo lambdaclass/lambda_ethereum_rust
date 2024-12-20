@@ -102,7 +102,7 @@ pub fn prepare_revm_for_tx<'state>(
         .chain_config()
         .map_err(|err| EFTestRunnerError::VMInitializationFailed(err.to_string()))?;
 
-    let gas_limit: U256 = test.env.current_gas_limit;
+    let gas_limit: U256 = test.env.current_gas_limit.into();
     let block_env = RevmBlockEnv {
         number: RevmU256::from_limbs(test.env.current_number.0),
         coinbase: RevmAddress(test.env.current_coinbase.0.into()),
