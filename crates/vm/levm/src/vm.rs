@@ -562,14 +562,14 @@ impl VM {
                 .ok_or(OutOfGasError::ConsumedGasOverflow)?;
 
             let number_of_words = initial_call_frame.calldata.len().div_ceil(WORD_SIZE);
-            let double_nuber_of_words: u64 = number_of_words
+            let double_number_of_words: u64 = number_of_words
                 .checked_mul(2)
                 .ok_or(OutOfGasError::ConsumedGasOverflow)?
                 .try_into()
                 .map_err(|_| VMError::Internal(InternalError::ConversionError))?;
 
             intrinsic_gas = intrinsic_gas
-                .checked_add(double_nuber_of_words)
+                .checked_add(double_number_of_words)
                 .ok_or(OutOfGasError::ConsumedGasOverflow)?;
         }
 
