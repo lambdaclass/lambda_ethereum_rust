@@ -217,7 +217,7 @@ where
         .map(|s| {
             U256::from_str(s.trim_start_matches("0x:bigint ")).map_err(|err| {
                 serde::de::Error::custom(format!(
-                    "error parsing U256 when deserializing U256 safely: {err}"
+                    "error parsing U256 when deserializing U256 vector safely: {err}"
                 ))
             })
         })
@@ -232,7 +232,7 @@ where
         .map(|s| {
             u64::from_str_radix(s.trim_start_matches("0x"), 16).map_err(|err| {
                 serde::de::Error::custom(format!(
-                    "error parsing U256 when deserializing U256 safely: {err}"
+                    "error parsing u64 when deserializing u64 vector safely: {err}"
                 ))
             })
         })
