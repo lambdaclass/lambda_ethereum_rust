@@ -652,19 +652,25 @@ impl VM {
 
         let base_fee_per_blob_gas = self.get_base_fee_per_blob_gas()?;
 
-        let blob_fee = blob_gas_price
+        let blob_gas_price: U256 = blob_gas_price.into();
+        let blob_fee: U256 = blob_gas_price
             .checked_mul(base_fee_per_blob_gas)
             .ok_or(VMError::Internal(InternalError::UndefinedState(1)))?;
 
-        Ok(blob_fee.into())
+        Ok(blob_fee)
     }
 
-    pub fn get_base_fee_per_blob_gas(&self) -> Result<u64, VMError> {
+    pub fn get_base_fee_per_blob_gas(&self) -> Result<U256, VMError> {
         fake_exponential(
             MIN_BASE_FEE_PER_BLOB_GAS,
-            self.env.block_excess_blob_gas.unwrap_or_default().low_u64(), //Maybe replace unwrap_or_default for sth else later.
+            self.env
+                .block_excess_blob_gas
+                .unwrap_or_default()
+                .try_into()
+                .map_err(|_| VMError::VeryLargeNumber)?, //Maybe replace unwrap_or_default for sth else later.
             BLOB_BASE_FEE_UPDATE_FRACTION,
         )
+        .map(|ok_value| ok_value.into())
     }
 
     /// ## Description
