@@ -639,14 +639,14 @@ impl VM {
 
     /// Gets the actual blob gas cost.
     fn get_blob_gas_price(&self) -> Result<U256, VMError> {
-        let blob_gas_amount: u64 = self
+        let blob_gas_used: u64 = self
             .env
             .tx_blob_hashes
             .len()
             .try_into()
             .map_err(|_| VMError::Internal(InternalError::ConversionError))?;
 
-        let blob_gas_price: u64 = blob_gas_amount
+        let blob_gas_price: u64 = blob_gas_used
             .checked_mul(BLOB_GAS_PER_BLOB)
             .unwrap_or_default();
 
