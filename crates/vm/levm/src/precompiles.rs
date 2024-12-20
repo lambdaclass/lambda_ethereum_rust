@@ -1,9 +1,13 @@
 use bytes::Bytes;
 use ethrex_core::{Address, H160, U256};
+use keccak_hash::keccak256;
+use libsecp256k1::{self, Message, RecoveryId, Signature};
+use sha3::Digest;
 
 use crate::{
     call_frame::CallFrame,
-    errors::{InternalError, VMError},
+    errors::{InternalError, PrecompileError, VMError},
+    gas_cost::{ripemd_160 as ripemd_160_cost, sha2_256 as sha2_256_cost, ECRECOVER_COST},
 };
 
 pub const ECRECOVER_ADDRESS: H160 = H160([
@@ -95,12 +99,96 @@ pub fn execute_precompile(current_call_frame: &mut CallFrame) -> Result<Bytes, V
     Ok(result)
 }
 
-fn ecrecover(
-    _calldata: &Bytes,
-    _gas_for_call: U256,
-    _consumed_gas: &mut U256,
+/// Verifies if the gas cost is higher than the gas limit and consumes the gas cost if it is not
+fn increase_precompile_consumed_gas(
+    gas_for_call: U256,
+    gas_cost: U256,
+    consumed_gas: &mut U256,
+) -> Result<(), VMError> {
+    if gas_for_call < gas_cost {
+        return Err(VMError::PrecompileError(PrecompileError::NotEnoughGas));
+    }
+
+    *consumed_gas = consumed_gas
+        .checked_add(gas_cost)
+        .ok_or(PrecompileError::GasConsumedOverflow)?;
+
+    Ok(())
+}
+
+/// When slice length is less than 128, the rest is filled with zeros. If slice length is
+/// more than 128 the excess bytes are discarded.
+fn fill_with_zeros(slice: &[u8]) -> Result<[u8; 128], VMError> {
+    let mut result = [0; 128];
+
+    let n = slice.len().min(128);
+
+    let trimmed_slice: &[u8] = slice.get(..n).unwrap_or_default();
+
+    for i in 0..n {
+        let byte: &mut u8 = result.get_mut(i).ok_or(InternalError::SlicingError)?;
+        *byte = *trimmed_slice.get(i).ok_or(InternalError::SlicingError)?;
+    }
+
+    Ok(result)
+}
+
+pub fn ecrecover(
+    calldata: &Bytes,
+    gas_for_call: U256,
+    consumed_gas: &mut U256,
 ) -> Result<Bytes, VMError> {
-    Ok(Bytes::new())
+    let gas_cost = ECRECOVER_COST.into();
+
+    increase_precompile_consumed_gas(gas_for_call, gas_cost, consumed_gas)?;
+
+    // If calldata does not reach the required length, we should fill the rest with zeros
+    let calldata = fill_with_zeros(calldata)?;
+
+    // Parse the input elements, first as a slice of bytes and then as an specific type of the crate
+    let hash = calldata.get(0..32).ok_or(InternalError::SlicingError)?;
+    let message = Message::parse_slice(hash).map_err(|_| PrecompileError::ParsingInputError)?;
+
+    let v: U256 = calldata
+        .get(32..64)
+        .ok_or(InternalError::SlicingError)?
+        .into();
+
+    // The Recovery identifier is expected to be 27 or 28, any other value is invalid
+    if !(v == U256::from(27) || v == U256::from(28)) {
+        return Ok(Bytes::new());
+    }
+
+    let v = u8::try_from(v).map_err(|_| InternalError::ConversionError)?;
+    let recovery_id = match RecoveryId::parse_rpc(v) {
+        Ok(id) => id,
+        Err(_) => {
+            return Ok(Bytes::new());
+        }
+    };
+
+    // signature is made up of the parameters r and s
+    let sig = calldata.get(64..128).ok_or(InternalError::SlicingError)?;
+    let signature =
+        Signature::parse_standard_slice(sig).map_err(|_| PrecompileError::ParsingInputError)?;
+
+    // Recover the address using secp256k1
+    let mut public_key = match libsecp256k1::recover(&message, &signature, &recovery_id) {
+        Ok(id) => id,
+        Err(_) => {
+            return Ok(Bytes::new());
+        }
+    }
+    .serialize();
+
+    // We need to take the 64 bytes from the public key (discarding the first pos of the slice)
+    keccak256(&mut public_key[1..65]);
+
+    // The output is 32 bytes: the initial 12 bytes with 0s, and the remaining 20 with the recovered address
+    let mut output = vec![0u8; 12];
+    output.extend_from_slice(public_key.get(13..33).ok_or(InternalError::SlicingError)?);
+
+    Ok(Bytes::from(output.to_vec()))
 }
 
 fn identity(
@@ -111,20 +199,37 @@ fn identity(
     Ok(Bytes::new())
 }
 
-fn sha2_256(
-    _calldata: &Bytes,
-    _gas_for_call: U256,
-    _consumed_gas: &mut U256,
+pub fn sha2_256(
+    calldata: &Bytes,
+    gas_for_call: U256,
+    consumed_gas: &mut U256,
 ) -> Result<Bytes, VMError> {
-    Ok(Bytes::new())
+    let gas_cost = sha2_256_cost(calldata.len())?;
+
+    increase_precompile_consumed_gas(gas_for_call, gas_cost, consumed_gas)?;
+
+    let result = sha2::Sha256::digest(calldata).to_vec();
+
+    Ok(Bytes::from(result))
 }
 
-fn ripemd_160(
-    _calldata: &Bytes,
-    _gas_for_call: U256,
-    _consumed_gas: &mut U256,
+pub fn ripemd_160(
+    calldata: &Bytes,
+    gas_for_call: U256,
+    consumed_gas: &mut U256,
 ) -> Result<Bytes, VMError> {
-    Ok(Bytes::new())
+    let gas_cost = ripemd_160_cost(calldata.len())?;
+
+    increase_precompile_consumed_gas(gas_for_call, gas_cost, consumed_gas)?;
+
+    let mut hasher = ripemd::Ripemd160::new();
+    hasher.update(calldata);
+    let result = hasher.finalize();
+
+    let mut output = vec![0; 12];
+    output.extend_from_slice(&result);
+
+    Ok(Bytes::from(output))
 }
 
 fn modexp(

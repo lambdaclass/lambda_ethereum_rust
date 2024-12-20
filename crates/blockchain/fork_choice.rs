@@ -65,9 +65,7 @@ pub fn apply_fork_choice(
 
     total_difficulty_check(&head_hash, &head, store)?;
 
-    let Some(latest) = store.get_latest_block_number()? else {
-        return Err(StoreError::Custom("Latest block number not found".to_string()).into());
-    };
+    let latest = store.get_latest_block_number()?;
 
     // If the head block is an already present head ancestor, skip the update.
     if is_canonical(store, head.number, head_hash)? && head.number < latest {
@@ -189,11 +187,7 @@ fn find_link_with_canonical_chain(
         return Ok(Some(branch));
     }
 
-    let Some(genesis_number) = store.get_earliest_block_number()? else {
-        return Err(StoreError::Custom(
-            "Earliest block number not found. Node setup must have been faulty.".to_string(),
-        ));
-    };
+    let genesis_number = store.get_earliest_block_number()?;
 
     while block_number > genesis_number {
         block_number -= 1;
