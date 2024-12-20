@@ -259,7 +259,7 @@ impl VM {
         &mut self,
         current_call_frame: &mut CallFrame,
     ) -> Result<TransactionReport, VMError> {
-        // Backup of Database, Substate and Gas Refunds if sub-context is reverted
+        // Backup of Database, Substate, Gas Refunds and Transient Storage if sub-context is reverted
         let (backup_db, backup_substate, backup_refunded_gas, backup_transient_storage) = (
             self.cache.clone(),
             self.accrued_substate.clone(),
