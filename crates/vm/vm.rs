@@ -209,6 +209,7 @@ cfg_if::cfg_if! {
                 temporary_cache.extend(new_state);
                 // dbg!(&report);
 
+                // Currently, in LEVM, we don't substract refunded gas to used gas, but that can change in the future.
                 let gas_used = report.gas_used - report.gas_refunded;
                 cumulative_gas_used += gas_used;
                 let receipt = Receipt::new(
