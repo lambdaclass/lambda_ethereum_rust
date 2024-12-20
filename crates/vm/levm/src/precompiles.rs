@@ -284,11 +284,11 @@ pub fn modexp(
 
     // The reason I use unwrap_or_default is to cover the case where calldata does not reach the required
     // length, so then we should fill the rest with zeros. The same is done in modulus parsing
-    let b = calldata.get(96..base_limit).unwrap_or_default();
-    let base = BigUint::from_bytes_be(b);
+    let b = get_slice_or_default(&calldata, 96, base_limit, b_size)?;
+    let base = BigUint::from_bytes_be(&b);
 
-    let e = calldata.get(base_limit..exponent_limit).unwrap_or_default();
-    let exponent = BigUint::from_bytes_be(e);
+    let e = get_slice_or_default(&calldata, base_limit, exponent_limit, e_size)?;
+    let exponent = BigUint::from_bytes_be(&e);
 
     let m = match calldata.get(exponent_limit..) {
         Some(m) => {
@@ -308,6 +308,24 @@ pub fn modexp(
     let res_bytes = increase_left_pad(&Bytes::from(res_bytes), m_size)?;
 
     Ok(res_bytes.slice(..m_size))
+}
+
+fn get_slice_or_default(
+    calldata: &Bytes,
+    lower_limit: usize,
+    upper_limit: usize,
+    size_to_expand: usize,
+) -> Result<Vec<u8>, VMError> {
+    match calldata.get(lower_limit..upper_limit) {
+        Some(e) => {
+            let e_extended = fill_with_zeros(&Bytes::from(e.to_vec()), size_to_expand)?;
+            Ok(e_extended
+                .get(..size_to_expand)
+                .unwrap_or_default()
+                .to_vec())
+        }
+        None => Ok(Default::default()),
+    }
 }
 
 /// I allow this clippy alert because in the code modulus could never be
