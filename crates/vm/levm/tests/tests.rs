@@ -4581,3 +4581,20 @@ fn modexp_test() {
     assert_eq!(result, expected_result);
     assert_eq!(consumed_gas, MODEXP_STATIC_COST.into());
 }
+
+#[test]
+fn modexp_test_2() {
+    // This tests that in case of the sizes read first are bigger than the calldata len then the calldata is filled with zeros
+    let calldata = hex::decode("00000000000000000000000000000000000000000000000000000000000000010000000000000000000000000000000000000000000000000000000000000002000000000000000000000000000000000000000000000000000000000000002003ffff80").unwrap();
+    let calldata = Bytes::from(calldata);
+
+    let mut consumed_gas = U256::zero();
+    let result = modexp(&calldata, 10000.into(), &mut consumed_gas).unwrap();
+
+    let expected_result = Bytes::from(
+        hex::decode("3b01b01ac41f2d6e917c6d6a221ce793802469026d9ab7578fa2e79e4da6aaab").unwrap(),
+    );
+
+    assert_eq!(result, expected_result);
+    assert_eq!(consumed_gas, MODEXP_STATIC_COST.into());
+}
