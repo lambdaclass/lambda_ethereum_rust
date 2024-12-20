@@ -7,10 +7,7 @@ use crate::{
 };
 use bytes::Bytes;
 use ethrex_core::{types::Log, Address, U256};
-use std::collections::{HashMap, HashSet};
-
-/// [EIP-1153]: https://eips.ethereum.org/EIPS/eip-1153#reference-implementation
-pub type TransientStorage = HashMap<(Address, U256), U256>;
+use std::collections::HashSet;
 
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct Stack {
@@ -81,7 +78,6 @@ pub struct CallFrame {
     pub sub_return_data: Bytes,
     /// Indicates if current context is static (if it is, it can't change state)
     pub is_static: bool,
-    pub transient_storage: TransientStorage,
     pub logs: Vec<Log>,
     /// Call stack current depth
     pub depth: usize,
@@ -121,7 +117,6 @@ impl CallFrame {
         gas_used: U256,
         depth: usize,
         create_op_called: bool,
-        transient_storage: TransientStorage,
     ) -> Self {
         let valid_jump_destinations = get_valid_jump_destinations(&bytecode).unwrap_or_default();
         Self {
@@ -137,7 +132,6 @@ impl CallFrame {
             gas_used,
             valid_jump_destinations,
             create_op_called,
-            transient_storage,
             ..Default::default()
         }
     }
