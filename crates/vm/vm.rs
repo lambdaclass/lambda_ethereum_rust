@@ -188,17 +188,7 @@ cfg_if::cfg_if! {
                 block_hash: block.header.parent_hash,
             });
 
-            // initial_state: &EvmState, -> state
-            // block_hash: H256, -> block.header.parent_hash
-            // execution_report: &TransactionReport, ->
-
-            // let account_updates = get_state_transitions(&initial_state, block_hash, execution_report);
-
-            // let mut account_updates: Vec<AccountUpdate> = vec![];
-
-            //TODO: Make this work properly for multiple transactions, we used to contemplate that we had only 1 transaction, now it has changed i guess.
-            // I'm actually not very sure about what to do here
-            // let mut account_updates = vec![];
+            // Account updates are initialized like this because of the beacon_root_contract_call
             let mut account_updates = get_state_transitions(state);
 
             let mut temporary_cache: CacheDB = HashMap::new();
@@ -234,46 +224,6 @@ cfg_if::cfg_if! {
             }
 
             account_updates.extend(get_state_transitions_levm(state, block.header.parent_hash, &temporary_cache));
-
-            // for transaction in block.body.transactions.iter() {
-            //     let result = execute_tx_levm(transaction, block_header, store_wrapper.clone()).unwrap();
-            //     cumulative_gas_used += result.gas_used;
-            //     let receipt = Receipt::new(
-            //         transaction.tx_type(),
-            //         matches!(result.result, TxResult::Success),
-            //         cumulative_gas_used,
-            //         result.logs,
-            //     );
-            //     receipts.push(receipt);
-
-            //     for (address, account) in result.new_state {
-            //         let mut added_storage = HashMap::new();
-
-            //         for (key, value) in account.storage {
-            //             added_storage.insert(key, value.current_value);
-            //         }
-
-            //         let code = if account.info.bytecode.is_empty() {
-            //             None
-            //         } else {
-            //             Some(account.info.bytecode.clone())
-            //         };
-
-            //         let account_update = AccountUpdate {
-            //             address,
-            //             removed: false,
-            //             info: Some(AccountInfo {
-            //                 code_hash: code_hash(&account.info.bytecode),
-            //                 balance: account.info.balance,
-            //                 nonce: account.info.nonce,
-            //             }),
-            //             code,
-            //             added_storage,
-            //         };
-
-            //         account_updates.push(account_update);
-            //     }
-            // }
 
             if let Some(withdrawals) = &block.body.withdrawals {
                 process_withdrawals(state, withdrawals)?;
