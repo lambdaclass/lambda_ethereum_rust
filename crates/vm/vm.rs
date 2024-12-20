@@ -219,7 +219,8 @@ cfg_if::cfg_if! {
                 temporary_cache.extend(new_state);
                 // dbg!(&report);
 
-                cumulative_gas_used += report.gas_used - report.gas_refunded;
+                let gas_used = report.gas_used - report.gas_refunded;
+                cumulative_gas_used += gas_used;
                 let receipt = Receipt::new(
                     tx.tx_type(),
                     matches!(report.result.clone(), TxResult::Success),
