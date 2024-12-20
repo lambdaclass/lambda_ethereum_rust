@@ -616,14 +616,14 @@ impl VM {
 
     /// Gets the max blob gas cost for a transaction that a user is willing to pay.
     fn get_max_blob_gas_price(&self) -> Result<U256, VMError> {
-        let blob_gas_used: u64 = self
+        let blob_gas_amount: u64 = self
             .env
             .tx_blob_hashes
             .len()
             .try_into()
             .map_err(|_| VMError::Internal(InternalError::ConversionError))?;
 
-        let blob_gas_used: u64 = blob_gas_used
+        let blob_gas_used: u64 = blob_gas_amount
             .checked_mul(BLOB_GAS_PER_BLOB)
             .unwrap_or_default();
 
