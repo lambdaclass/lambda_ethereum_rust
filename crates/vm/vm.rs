@@ -91,14 +91,14 @@ cfg_if::cfg_if! {
         pub fn get_state_transitions_levm(
             initial_state: &EvmState,
             block_hash: H256,
-            execution_report: &TransactionReport,
+            new_state: &CacheDB,
         ) -> Vec<AccountUpdate> {
             let current_db = match initial_state {
                 EvmState::Store(state) => state.database.store.clone(),
                 EvmState::Execution(_cache_db) => unreachable!("Execution state should not be passed here"),
             };
             let mut account_updates: Vec<AccountUpdate> = vec![];
-            for (new_state_account_address, new_state_account) in &execution_report.new_state {
+            for (new_state_account_address, new_state_account) in new_state {
                 let initial_account_state = current_db
                     .get_account_info_by_hash(block_hash, *new_state_account_address)
                     .expect("Error getting account info by address")
@@ -229,13 +229,10 @@ cfg_if::cfg_if! {
 
                 receipts.push(receipt);
 
-                let updates = get_state_transitions_levm(state, block.header.parent_hash, &report);
-                for update in updates {
-                    account_updates.push(update);
-                }
-
                 dbg!(&temporary_cache);
             }
+
+            account_updates.extend(get_state_transitions_levm(state, block.header.parent_hash, &temporary_cache));
 
             // for transaction in block.body.transactions.iter() {
             //     let result = execute_tx_levm(transaction, block_header, store_wrapper.clone()).unwrap();
