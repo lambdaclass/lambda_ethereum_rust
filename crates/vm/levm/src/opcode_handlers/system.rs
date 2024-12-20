@@ -620,9 +620,9 @@ impl VM {
     }
 
     #[allow(clippy::too_many_arguments)]
-    /// This is the only call where gas is used as a U256. This is
-    /// because we have to deal with the stack and the values that are
-    /// pushed as arguments.
+    /// This (should) be the only function where gas is used as a
+    /// U256. This is because we have to use the values that are
+    /// pushed to the stack.
     pub fn generic_call(
         &mut self,
         current_call_frame: &mut CallFrame,
