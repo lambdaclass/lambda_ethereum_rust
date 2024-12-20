@@ -200,8 +200,8 @@ cfg_if::cfg_if! {
 
                 // Now original_value is going to be the same as the current_value, for the next transaction.
                 // It should have only one value but it is convenient to keep on using our CacheDB structure
-                for (_, account) in &mut new_state {
-                    for (_, storage_slot) in &mut account.storage {
+                for account in new_state.values_mut() {
+                    for storage_slot in account.storage.values_mut() {
                         storage_slot.original_value = storage_slot.current_value;
                     }
                 }
