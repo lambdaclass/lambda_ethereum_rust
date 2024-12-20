@@ -356,7 +356,9 @@ fn import_blocks(store: &Store, blocks: &Vec<Block>) {
     }
     if let Some(last_block) = blocks.last() {
         let hash = last_block.hash();
-        apply_fork_choice(store, hash, hash, hash).unwrap();
+        if apply_fork_choice(store, hash, hash, hash).is_err() {
+            println!("Error when applying fork choice, but not because of that im going to break everything");
+        };
     }
     info!("Added {} blocks to blockchain", size);
 }

@@ -88,6 +88,95 @@ cfg_if::cfg_if! {
         use std::{collections::HashMap, sync::Arc};
         use ethrex_core::types::code_hash;
 
+        pub fn get_state_transitions_levm(
+            initial_state: &EvmState,
+            block_hash: H256,
+            new_state: &CacheDB,
+        ) -> Vec<AccountUpdate> {
+            let current_db = match initial_state {
+                EvmState::Store(state) => state.database.store.clone(),
+                EvmState::Execution(_cache_db) => unreachable!("Execution state should not be passed here"),
+            };
+            let mut account_updates: Vec<AccountUpdate> = vec![];
+            for (new_state_account_address, new_state_account) in new_state {
+                let initial_account_state = current_db
+                    .get_account_info_by_hash(block_hash, *new_state_account_address)
+                    .expect("Error getting account info by address")
+                    .unwrap_or_default();
+                let new_state_acc_info = AccountInfo {
+                    code_hash: code_hash(&new_state_account.info.bytecode),
+                    balance: new_state_account.info.balance,
+                    nonce: new_state_account.info.nonce,
+                };
+                //TODO: REFACTOR IN PROGRESS
+                let mut updates = 0;
+                // Compare account info
+                if initial_account_state != new_state_acc_info {
+                    updates += 1;
+                }
+
+
+                if initial_account_state.balance != new_state_account.info.balance {
+                    updates += 1;
+                }
+                if initial_account_state.nonce != new_state_account.info.nonce {
+                    updates += 1;
+                }
+                let code = if new_state_account.info.bytecode.is_empty() {
+                    // The new state account has no code
+                    None
+                } else {
+                    // Get the code hash of the new state account bytecode
+                    let potential_new_bytecode_hash = code_hash(&new_state_account.info.bytecode);
+                    // Look into the current database to see if the bytecode hash is already present
+                    let current_bytecode = current_db
+                        .get_account_code(potential_new_bytecode_hash)
+                        .expect("Error getting account code by hash");
+                    let code = new_state_account.info.bytecode.clone();
+                    // The code is present in the current database
+                    if let Some(current_bytecode) = current_bytecode {
+                        if current_bytecode != code {
+                            // The code has changed
+                            Some(code)
+                        } else {
+                            // The code has not changed
+                            None
+                        }
+                    } else {
+                        // The new state account code is not present in the current
+                        // database, then it must be new
+                        Some(code)
+                    }
+                };
+                if code.is_some() {
+                    updates += 1;
+                }
+                let mut added_storage = HashMap::new();
+                for (key, value) in &new_state_account.storage {
+                    added_storage.insert(*key, value.current_value);
+                    updates += 1;
+                }
+                if updates == 0 {
+                    continue;
+                }
+
+                let account_update = AccountUpdate {
+                    address: *new_state_account_address,
+                    removed: false,
+                    info: Some(AccountInfo {
+                        code_hash: code_hash(&new_state_account.info.bytecode),
+                        balance: new_state_account.info.balance,
+                        nonce: new_state_account.info.nonce,
+                    }),
+                    code,
+                    added_storage,
+                };
+
+                account_updates.push(account_update);
+            }
+            account_updates
+        }
+
         /// Executes all transactions in a block and returns their receipts.
         pub fn execute_block(
             block: &Block,
@@ -111,47 +200,43 @@ cfg_if::cfg_if! {
                 block_hash: block.header.parent_hash,
             });
 
-            let mut account_updates: Vec<AccountUpdate> = vec![];
+            // Account updates are initialized like this because of the beacon_root_contract_call
+            let mut account_updates = get_state_transitions(state);
 
-            for transaction in block.body.transactions.iter() {
-                let result = execute_tx_levm(transaction, block_header, store_wrapper.clone()).unwrap();
-                cumulative_gas_used += result.gas_used;
+            let mut temporary_cache: CacheDB = HashMap::new();
+
+            for tx in block.body.transactions.iter() {
+                let report = execute_tx_levm(tx, block_header, store_wrapper.clone(), temporary_cache.clone()).unwrap();
+
+                let mut new_state = report.new_state.clone();
+
+                // Now original_value is going to be the same as the current_value, for the next transaction.
+                // It should have only one value but it is convenient to keep on using our CacheDB structure
+                for account in new_state.values_mut() {
+                    for storage_slot in account.storage.values_mut() {
+                        storage_slot.original_value = storage_slot.current_value;
+                    }
+                }
+
+                temporary_cache.extend(new_state);
+                // dbg!(&report);
+
+                // Currently, in LEVM, we don't substract refunded gas to used gas, but that can change in the future.
+                let gas_used = report.gas_used - report.gas_refunded;
+                cumulative_gas_used += gas_used;
                 let receipt = Receipt::new(
-                    transaction.tx_type(),
-                    matches!(result.result, TxResult::Success),
+                    tx.tx_type(),
+                    matches!(report.result.clone(), TxResult::Success),
                     cumulative_gas_used,
-                    result.logs,
+                    report.logs.clone(),
                 );
+
                 receipts.push(receipt);
 
-                for (address, account) in result.new_state {
-                    let mut added_storage = HashMap::new();
-
-                    for (key, value) in account.storage {
-                        added_storage.insert(key, value.current_value);
-                    }
-
-                    let code = if account.info.bytecode.is_empty() {
-                        None
-                    } else {
-                        Some(account.info.bytecode.clone())
-                    };
-
-                    let account_update = AccountUpdate {
-                        address,
-                        removed: false,
-                        info: Some(AccountInfo {
-                            code_hash: code_hash(&account.info.bytecode),
-                            balance: account.info.balance,
-                            nonce: account.info.nonce,
-                        }),
-                        code,
-                        added_storage,
-                    };
-
-                    account_updates.push(account_update);
-                }
+                dbg!(&temporary_cache);
             }
+
+            account_updates.extend(get_state_transitions_levm(state, block.header.parent_hash, &temporary_cache));
 
             if let Some(withdrawals) = &block.body.withdrawals {
                 process_withdrawals(state, withdrawals)?;
@@ -164,6 +249,7 @@ cfg_if::cfg_if! {
             tx: &Transaction,
             block_header: &BlockHeader,
             db: Arc<dyn LevmDatabase>,
+            temporary_cache: CacheDB
         ) -> Result<TransactionReport, VMError> {
             let gas_price : U256 = tx.effective_gas_price(block_header.base_fee_per_gas).ok_or(VMError::InvalidTransaction)?.into();
 
@@ -194,7 +280,7 @@ cfg_if::cfg_if! {
                 tx.value(),
                 tx.data().clone(),
                 db,
-                CacheDB::default(),
+                temporary_cache,
                 tx.access_list(),
             )?;
 
