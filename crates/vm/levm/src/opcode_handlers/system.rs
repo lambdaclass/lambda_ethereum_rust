@@ -24,8 +24,6 @@ impl VM {
     ) -> Result<OpcodeSuccess, VMError> {
         // STACK
         let gas: U256 = current_call_frame.stack.pop()?;
-        // dbg!(gas);
-        // let gas: u64 = gas.try_into().map_err(|_| VMError::BalanceOverflow)?;
         let callee: Address = word_to_address(current_call_frame.stack.pop()?);
         let value_to_transfer: U256 = current_call_frame.stack.pop()?;
         let args_start_offset = current_call_frame.stack.pop()?;
